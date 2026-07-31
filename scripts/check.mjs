@@ -73,4 +73,15 @@ assert.doesNotMatch(html, /mythos\.cards\/product\//i, 'Mythos ürün satış sa
 assert.doesNotMatch(html, /(?:\d[\d.]*)\s*TL\b/i, 'Sponsor ödüllerinde fiyat gösterilmemeli.');
 assert.doesNotMatch(html, /Satın alma işlemi/i, 'Satın alma çağrısı bulunmamalı.');
 
+assert.doesNotMatch(html, /<section class="content-network"/i, 'Kaldırılan yapay editoryal blok geri gelmemeli.');
+assert.doesNotMatch(html, /<div class="inline-campaign"/i, 'Kaldırılan yapay koleksiyon şeridi geri gelmemeli.');
+assert.match(html, /viewport-fit=cover/i, 'iPhone güvenli alanları için viewport-fit etkin olmalı.');
+assert.match(html, /safe-area-inset-bottom/i, 'iOS alt güvenli alanı desteklenmeli.');
+assert.match(html, /\.mobile-bottom-nav\{top:auto;/i, 'Mobil alt menü ekranı kaplamamalı.');
+
+const crestBlock = html.match(/const TEAM_CRESTS = \{([\s\S]*?)\n\};/);
+assert.ok(crestBlock, 'Kulüp arması haritası bulunmalı.');
+const crestUrls = crestBlock[1].match(/https:\/\/upload\.wikimedia\.org[^'\"]+/g) || [];
+assert.equal(new Set(crestUrls).size, 18, 'Sitedeki 18 kulüp için 18 farklı gerçek arma bulunmalı.');
+
 console.log('XYZSkor kontrolü başarılı.');

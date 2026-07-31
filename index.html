@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>XYZSkor — Bilinmeyen Skoru Verilerle Çöz</title>
 <link rel="icon" type="image/png" href="assets/world-cup-2026-ball.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -486,8 +486,6 @@ table{font-size:14px}thead th{background:rgba(255,255,255,.018);padding:11px 9px
 .sidebar-campaign{display:block;position:relative;min-height:430px;border-radius:20px;overflow:hidden;background:#091624 url('assets/campaigns/fan-vote-challenge.png') 68% center/cover no-repeat;border:1px solid rgba(230,188,104,.22);color:var(--ink);text-decoration:none}
 .sidebar-campaign::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,14,24,.12),rgba(5,14,24,.98) 72%)}
 .sidebar-campaign-copy{position:absolute;z-index:1;left:20px;right:20px;bottom:22px}.sidebar-campaign-copy b{display:block;font:700 23px/1.05 var(--font-display);letter-spacing:-.04em;margin:8px 0}.sidebar-campaign-copy span{font-size:12px;color:#c6d0db}
-.inline-campaign{display:grid;grid-template-columns:minmax(0,1fr) 150px;min-height:116px;margin:14px 0;border:1px solid rgba(230,188,104,.2);border-radius:17px;overflow:hidden;background:linear-gradient(115deg,#111f31,#081522);color:var(--ink);text-decoration:none}
-.inline-campaign-copy{padding:20px}.inline-campaign-copy strong{display:block;font:700 20px/1.08 var(--font-display);letter-spacing:-.035em;margin:5px 0}.inline-campaign-copy span{font-size:12px;color:var(--ink-dim)}.inline-campaign-art{background:url('assets/campaigns/mythos-cards-weekly.png') 72% center/cover no-repeat}
 footer{border-color:var(--line);background:#050d16;color:var(--ink-faint);padding:28px 16px}
 @media(max-width:767px){
   nav{min-height:62px;padding:9px 13px}.brand-ball{width:36px;height:36px}.brand-kicker{display:none}.logo{font-size:18px}.navright .badge-pill{display:none}
@@ -498,7 +496,6 @@ footer{border-color:var(--line);background:#050d16;color:var(--ink-faint);paddin
   .market-dashboard{grid-template-columns:1fr}.market-card{padding:16px}.market-head h2{font-size:20px}.market-source{display:none}.transfer-row{grid-template-columns:18px 42px minmax(0,1fr) auto;gap:8px}.player-photo{width:40px;height:40px}.transfer-fee{font-size:14px}
   .transfer-clock b{font-size:13px}.product-showcase-head{align-items:flex-start;flex-direction:column}.product-grid{grid-template-columns:1fr}.official-product-image{height:240px}.mythos-showcase{padding:16px}
   .math-grid{grid-template-columns:1fr 1fr}
-  .inline-campaign{grid-template-columns:1fr 110px}.inline-campaign-copy{padding:16px}.inline-campaign-copy strong{font-size:17px}
   .hero-match{padding:30px 22px;min-height:340px}.panel{padding:16px}.story-layout{gap:14px}
 }
 @media(min-width:768px) and (max-width:980px){.market-dashboard{grid-template-columns:1fr}.market-stack{grid-template-columns:1fr 1fr}}
@@ -514,12 +511,68 @@ nav{padding:13px max(20px,calc((100vw - 1280px)/2));background:rgba(5,17,30,.95)
 .campaign-hero{max-width:1280px;min-height:270px;border-radius:12px;border-color:rgba(157,181,204,.16);box-shadow:none;background-image:radial-gradient(circle at 74% 38%,rgba(69,139,204,.18),transparent 30%),linear-gradient(115deg,#0b2035,#102b47)!important}.campaign-card{border-radius:12px;box-shadow:none}.campaign-card.jersey,.campaign-card.vote{background-image:linear-gradient(135deg,#0e2439,#0b1c2d)!important}.campaign-label,.market-eyebrow{color:#79c8ff}.campaign-label::before{background:#50d4a0;box-shadow:none}
 .mythos-showcase{padding:30px;margin-bottom:24px;border-radius:12px;background:#f2f4f6;border:0;box-shadow:none;color:#172c3d}.product-showcase-head{margin-bottom:20px}.product-showcase-head h2{font-size:30px;color:#142a3c}.product-showcase-head p{font-size:13px;color:#647583;max-width:620px;line-height:1.55}.mythos-showcase .market-eyebrow{color:#1267a4}.mythos-showcase .btn.ghost{background:#fff;color:#17344b;border-color:#d4dce3}.product-team-tabs{gap:6px;margin-bottom:20px}.product-team-tab{background:#e3e8ec;border:0;color:#516675;padding:10px 15px;border-radius:7px}.product-team-tab:hover{background:#d6dee5}.product-team-tab.active{background:#112f49;color:#fff;border-color:#112f49}.product-grid{gap:16px}.official-product{border:1px solid #dfe4e8;border-radius:10px;box-shadow:0 3px 12px rgba(22,49,70,.06);transition:transform .2s ease,box-shadow .2s ease}.official-product:hover{transform:translateY(-3px);border-color:#b9c8d4;box-shadow:0 10px 26px rgba(22,49,70,.12)}.official-product-image{height:236px;background:#f7f8f9;padding:20px}.official-product-body{padding:18px}.official-product-kicker{color:#337ba8}.official-product h3{font-size:17px;line-height:1.2;color:#10283b;margin:9px 0 7px}.official-product-desc{font-size:11px;line-height:1.55;color:#647583;margin:0 0 14px;min-height:52px}.official-product-reward{font-size:14px;color:#126b50;margin:2px 0 12px}.product-features{color:#52636f;font-size:10.5px;line-height:1.45}.product-features li::before{color:#238b69}.product-link{color:#1267a4;border-top-color:#e2e7ea}.product-disclaimer{color:#71818e}
 .market-dashboard{gap:18px}.market-card{padding:24px}.market-card.featured{border-color:rgba(94,185,255,.22)}.market-head{margin-bottom:18px}.market-head h2{font-size:25px}.market-head p{font-size:12px;line-height:1.5}.transfer-clock{background:rgba(94,185,255,.08);border-color:rgba(94,185,255,.2);border-radius:8px}.transfer-clock b,.transfer-fee{color:#8ed0ff}.transfer-row{padding:14px 0}.club-chip{background:rgba(255,255,255,.055)}.rumor-row,.performance-row{background:rgba(255,255,255,.035);border:1px solid rgba(157,181,204,.08)}.rating-pill{background:#1479c9}.status-chip.hot{background:rgba(69,211,154,.1);color:#73dfb4}
-.hero-match{border-radius:12px;background:linear-gradient(140deg,#17344e,#0d2033 72%);box-shadow:none}.sidebar-campaign{border-radius:12px}.inline-campaign{border-radius:10px}.week-selector-bar{border-radius:10px!important}.match-row{border-radius:9px}.mobile-bottom-nav{background:rgba(6,18,31,.96)!important}
+.hero-match{border-radius:12px;background:linear-gradient(140deg,#17344e,#0d2033 72%);box-shadow:none}.sidebar-campaign{border-radius:12px}.week-selector-bar{border-radius:10px!important}.match-row{border-radius:9px}.mobile-bottom-nav{background:rgba(6,18,31,.96)!important}
 .product-dna{display:grid;grid-template-columns:minmax(230px,.7fr) minmax(0,1.3fr);gap:22px;align-items:center;margin:0 0 22px;padding:22px 24px;border-radius:12px;background:#0d2033;border:1px solid rgba(157,181,204,.14)}.dna-intro strong{display:block;font:700 22px/1.08 var(--font-display);letter-spacing:-.035em;margin-top:7px}.dna-items{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}.dna-items span{padding:9px 11px;border-radius:7px;background:rgba(255,255,255,.045);border:1px solid rgba(157,181,204,.12);color:#bdc9d4;font-size:10px;font-weight:600}.prediction-zone{margin:0 14px 12px;padding:13px;border-radius:9px;background:rgba(94,185,255,.055);border:1px solid rgba(94,185,255,.14)}.prediction-zone .predict-cta{padding:0}.prediction-zone .predict-form{border-top:0;padding:12px 0 0}.prediction-label{font:700 9px/1 var(--font-mono);color:#79c8ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:9px}
-.content-network{margin:0 0 22px;padding:26px;border-radius:12px;background:linear-gradient(135deg,#112b43,#0d2033);border:1px solid rgba(157,181,204,.14)}.content-network-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:17px}.content-network-head h2{font:700 27px/1.05 var(--font-display);letter-spacing:-.04em;margin:0}.content-network-head p{font-size:12px;color:var(--ink-dim);margin:7px 0 0}.content-format-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.content-format-card{display:flex;flex-direction:column;align-items:flex-start;min-height:190px;padding:18px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(157,181,204,.11)}.content-format-card>span{font:700 9px/1 var(--font-mono);text-transform:uppercase;letter-spacing:1px;color:#75c5ff}.content-format-card h3{font:700 18px/1.1 var(--font-display);margin:10px 0 7px}.content-format-card p{font-size:11px;line-height:1.6;color:var(--ink-dim);margin:0 0 16px}.content-format-card .btn{margin-top:auto;min-height:36px;padding:8px 11px;font-size:11px}
 @media(max-width:767px){.wrap{padding-top:18px}.mythos-showcase{padding:20px 14px}.product-showcase-head h2{font-size:25px}.official-product-image{height:250px}.official-product-desc{min-height:0}.market-card{padding:18px}.market-head h2{font-size:21px}.campaign-hero{border-radius:10px}.panel{padding:18px}}
 @media(max-width:767px){.product-dna{grid-template-columns:1fr;padding:18px}.dna-items{justify-content:flex-start}.dna-intro strong{font-size:19px}.prediction-zone{margin:0 10px 10px}}
-@media(max-width:767px){.content-network{padding:18px}.content-network-head{align-items:flex-start}.content-network-head h2{font-size:23px}.content-network-head .market-source{display:none}.content-format-grid{grid-template-columns:1fr}.content-format-card{min-height:160px}}
+/* ===================== GERÇEK KULÜP ARMALARI + iOS POLISH ===================== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
+body{overflow-x:clip;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+button,.btn,[role="button"],.maintab,.leaguesubtab{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.shield img{width:88%;height:88%;object-fit:contain}
+.shield.xs{width:28px;height:28px;font-size:8px;box-shadow:none}
+.shield.lg{width:74px;height:74px;font-size:15px}
+.shield.xl{width:92px;height:92px;font-size:18px}
+.hero-clubs{display:flex;align-items:center;gap:18px;max-width:940px}
+.hero-club{display:flex;align-items:center;gap:13px;min-width:0}
+.hero-club>span{display:block;min-width:0;overflow-wrap:anywhere}
+.hero-clubs>.vs{flex:0 0 auto;margin:0 2px}
+.standing-team,.aside-standing-team{display:flex;align-items:center;gap:9px;min-width:0}
+.standing-team>span,.aside-standing-team>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aside-standing-team{flex:1;margin:0 8px}
+.team-banner{display:flex;align-items:center;gap:20px;min-height:142px;padding:22px 26px}
+.team-banner>.shield,.team-banner-copy{position:relative;z-index:1}
+.team-banner-copy{min-width:0;max-width:760px}
+.team-banner .msg{font-size:18px;line-height:1.35}
+
+@media(max-width:767px){
+  nav{padding:calc(9px + env(safe-area-inset-top)) max(13px,env(safe-area-inset-right)) 9px max(13px,env(safe-area-inset-left))}
+  .maintabs{top:calc(62px + env(safe-area-inset-top));scrollbar-width:none}.maintabs::-webkit-scrollbar,.leaguesubtabs::-webkit-scrollbar{display:none}
+  .wrap{width:100%;padding-left:max(13px,env(safe-area-inset-left));padding-right:max(13px,env(safe-area-inset-right));padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+  input,select,textarea{font-size:16px}
+  .mobile-bottom-nav{top:auto;padding:7px max(4px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));box-shadow:0 -12px 38px rgba(0,0,0,.28)}
+  .mbn-item{min-height:50px;font-size:10px}
+  .hero-match{min-height:300px;padding:28px 18px}
+  .hero-match::after{display:none}
+  .hero-clubs{width:100%;gap:8px;justify-content:space-between}
+  .hero-club{flex:1;flex-direction:column;gap:7px;text-align:center;font-size:18px;line-height:1.05}
+  .hero-clubs>.vs{font-size:12px;margin:0 2px}
+  .shield.lg{width:58px;height:58px}.shield.xl{width:70px;height:70px}.shield.sm{width:40px;height:40px}
+  .hero-meta{line-height:1.55}
+  .hero-cta{display:grid;grid-template-columns:1fr 1fr;width:100%}.hero-cta .btn{width:100%;padding:10px 8px}
+  .match-row-top{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;gap:10px;align-items:center}
+  .match-row-top>.shield:first-child{grid-column:1}.match-row-top>.teams{grid-column:2}.match-row-top>.teams+.shield{grid-column:3}
+  .match-row-top>.time-chip{grid-column:2;justify-self:start;padding:5px 8px;font-size:12px}
+  .match-row .teams .names{font-size:14px;line-height:1.35}.match-row .venue{font-size:11px;line-height:1.4}
+  .story-link-row{padding:0 10px 10px}.story-link-row .btn{width:100%}
+  .team-banner{align-items:flex-start;gap:14px;min-height:0;padding:18px}
+  .team-banner .msg{font-size:15px}.team-banner .stats-line{font-size:12px}
+  .official-product-image{height:210px}.official-product-body{padding:16px}.official-product h3{font-size:16px}
+  .market-head{flex-wrap:wrap}.transfer-clock{margin-left:0;text-align:left}
+  .campaign-hero{margin-left:max(10px,env(safe-area-inset-left));margin-right:max(10px,env(safe-area-inset-right))}
+  .overlay{padding:calc(14px + env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+  .modal{max-height:calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto}
+  .mc-panel{padding-bottom:env(safe-area-inset-bottom)}
+}
+@media(max-width:390px){
+  .navright .btn{padding:7px 9px;font-size:12px}.brand-ball{width:34px;height:34px}.logo{font-size:17px}
+  .campaign-hero{min-height:390px}.campaign-copy{padding:20px 18px}.campaign-copy h2{font-size:25px}.campaign-copy p{font-size:12px;line-height:1.55}
+  .campaign-actions{display:grid;grid-template-columns:1fr}.campaign-actions .btn{width:100%}
+  .panel,.market-card{padding:15px}.mythos-showcase{padding:18px 12px}.product-showcase-head h2{font-size:23px}
+  .transfer-row{grid-template-columns:16px 38px minmax(0,1fr);gap:7px}.transfer-fee{grid-column:3;text-align:left;margin-top:3px}
+  .math-grid{grid-template-columns:1fr}
+  .team-banner{display:grid;grid-template-columns:58px minmax(0,1fr)}.team-banner .shield.xl{width:58px;height:58px}
+}
 </style>
 </head>
 <body>
@@ -606,15 +659,6 @@ nav{padding:13px max(20px,calc((100vw - 1280px)/2));background:rgba(5,17,30,.95)
         <div class="performance-list" id="weeklyPlayers"></div>
         <p class="market-footnote">2026/27 haftalık liste, ilk maçların ardından canlı performans verisiyle güncellenecek.</p>
       </article>
-    </div>
-  </section>
-
-  <section class="content-network" aria-label="XYZSkor hikâye ve sosyal içerik ağı">
-    <div class="content-network-head"><div><div class="market-eyebrow">Hikâye + Dağıtım</div><h2>Sahanın verisi, tribünün sesi.</h2><p>Uzun okuma, kısa video ve taraftar anlatısı aynı editoryal masada buluşuyor.</p></div><span class="market-source">XYZSkor Studio</span></div>
-    <div class="content-format-grid">
-      <article class="content-format-card"><span>Editoryal</span><h3>Haftanın Hikâyesi</h3><p>Skorun arkasındaki taktik kırılmayı, oyuncu performansını ve tribün duygusunu sakin bir anlatıyla okur.</p><button class="btn ghost" onclick="document.getElementById('weeklyStoryArea').scrollIntoView({behavior:'smooth'})">Hikâyeye Git</button></article>
-      <article class="content-format-card"><span>Kısa Video</span><h3>60 Saniyede Veri</h3><p>Maçın tek belirleyici sayısını mobil ve sosyal medya için hızlı, anlaşılır bir formata dönüştürür.</p><button class="btn ghost" onclick="document.getElementById('videoSection').scrollIntoView({behavior:'smooth'})">Videoları Gör</button></article>
-      <article class="content-format-card"><span>Topluluk</span><h3>Taraftar Mikrofonu</h3><p>Haftanın sorusunu taraftara ve içerik üreticilerine açar; en güçlü görüşleri ana akışta öne çıkarır.</p><button class="btn ghost" onclick="switchMainTab('league');switchLeagueSection('leader')">Taraftar Ligine Git</button></article>
     </div>
   </section>
 
@@ -869,12 +913,25 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const TEAMS = ['Beşiktaş','Diğer','Fenerbahçe','Galatasaray','Trabzonspor'];
 const TEAM_COLORS = {Galatasaray:'var(--gs)',Fenerbahçe:'var(--fb)',Beşiktaş:'var(--bjk)',Trabzonspor:'var(--ts)',Diğer:'var(--other)'};
 const TEAM_CRESTS = {
-  Galatasaray:'https://img.sofascore.com/api/v1/team/3061/image',
-  Fenerbahçe:'https://img.sofascore.com/api/v1/team/3052/image',
-  Beşiktaş:'https://img.sofascore.com/api/v1/team/3050/image',
-  Trabzonspor:'https://img.sofascore.com/api/v1/team/3051/image',
-  Başakşehir:'https://img.sofascore.com/api/v1/team/3086/image',
-  Samsunspor:'https://img.sofascore.com/api/v1/team/3053/image'
+  Alanyaspor:'https://upload.wikimedia.org/wikipedia/en/4/40/Alanyaspor_logo.svg',
+  'Amed Sportif Faaliyetler':'https://upload.wikimedia.org/wikipedia/en/1/18/AmedSFKLogo.png',
+  Galatasaray:'https://upload.wikimedia.org/wikipedia/commons/0/07/Galatasaray_S.K._Logo_2026_5-stars.svg',
+  Fenerbahçe:'https://upload.wikimedia.org/wikipedia/en/3/39/Fenerbah%C3%A7e.svg',
+  Beşiktaş:'https://upload.wikimedia.org/wikipedia/commons/d/da/BesiktasJK-Logo.svg',
+  Trabzonspor:'https://upload.wikimedia.org/wikipedia/en/d/de/Trabzonspor_Amblem.svg',
+  Başakşehir:'https://upload.wikimedia.org/wikipedia/en/e/e1/%C4%B0stanbul_Ba%C5%9Fak%C5%9Fehir_logo.svg',
+  'Başakşehir FK':'https://upload.wikimedia.org/wikipedia/en/e/e1/%C4%B0stanbul_Ba%C5%9Fak%C5%9Fehir_logo.svg',
+  'Çaykur Rizespor':'https://upload.wikimedia.org/wikipedia/en/5/5f/Caykur_Rizespor_logo.svg',
+  'Çorum FK':'https://upload.wikimedia.org/wikipedia/en/a/ab/%C3%87orum_F.K._crest.svg',
+  'Erzurumspor FK':'https://upload.wikimedia.org/wikipedia/en/6/68/Erzurumspor_F.K._crest_%282025%29.png',
+  Eyüpspor:'https://upload.wikimedia.org/wikipedia/commons/6/62/Ey%C3%BCpspor_Logosu.png',
+  'Gaziantep FK':'https://upload.wikimedia.org/wikipedia/en/c/c6/Gazi%C5%9Fehir_Gaziantep_logo.svg',
+  Gençlerbirliği:'https://upload.wikimedia.org/wikipedia/en/1/13/Gen%C3%A7lerbirli%C4%9Fi_S.K._crest.svg',
+  Göztepe:'https://upload.wikimedia.org/wikipedia/en/0/0f/G%C3%B6ztepe_S.K._logo.png',
+  Kasımpaşa:'https://upload.wikimedia.org/wikipedia/en/1/18/Kasimpasa_logo.svg',
+  Kocaelispor:'https://upload.wikimedia.org/wikipedia/en/c/cc/Kocaelispor_current_logo.png',
+  Konyaspor:'https://upload.wikimedia.org/wikipedia/en/d/d1/Konyaspor_logo.svg',
+  Samsunspor:'https://upload.wikimedia.org/wikipedia/en/8/83/Samsunspor_crest.svg'
 };
 const ANALYSIS_FIELDS = [
   ['sonFormEv','Ev sahibi son 5 maç formu'], ['sonFormKonuk','Deplasman son 5 maç formu'],
@@ -1201,7 +1258,7 @@ function crestColor(team){ return TEAM_COLORS[team] || 'var(--other)'; }
 function crestHTML(team, size='sm'){
   const src = TEAM_CRESTS[team];
   const initials = crestInitials(team);
-  return `<div class="shield ${size}" style="background:${crestColor(team)};"><span>${initials}</span>${src ? `<img src="${src}" alt="${team} arması" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
+  return `<div class="shield ${size}" style="background:${crestColor(team)};"><span>${initials}</span>${src ? `<img src="${src}" alt="${team} arması" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
 }
 function groupByDate(matches){
   const groups = {};
@@ -1732,7 +1789,11 @@ function heroCardHTML(m){
       <span>HAFTANIN MAÇI</span>
       ${m.verified ? '<span class="verify-badge">Doğrulandı</span>' : '<span class="unverified-badge">Doğrulanmadı</span>'}
     </div>
-    <div class="hero-teams">${m.ev}<span class="vs">vs</span>${m.konuk}</div>
+    <div class="hero-teams hero-clubs">
+      <div class="hero-club">${crestHTML(m.ev,'lg')}<span>${m.ev}</span></div>
+      <span class="vs">vs</span>
+      <div class="hero-club">${crestHTML(m.konuk,'lg')}<span>${m.konuk}</span></div>
+    </div>
     <div class="hero-meta"><b>${fmtKickoff(m.kickoff)}</b> · ${m.stadyum} · <span class="mc-status-badge" style="margin-top:0;">${matchStatusLabel(m)}</span></div>
     <div class="hero-analysis-mini mono">${completeness}/${total} analiz başlığı hazır <div class="dots">${ANALYSIS_FIELDS.map((_,i)=>`<div class="dot ${i<completeness?'filled':''}"></div>`).join('')}</div></div>
     <div class="hero-cta">
@@ -1765,10 +1826,9 @@ function renderStory(){
   document.getElementById('storyFeaturedArea').innerHTML = `<div class="hero-match">${heroCardHTML(featured)}</div>`;
   const groups = groupByDate(ms);
   const entries = Object.entries(groups);
-  document.getElementById('storyMatchList').innerHTML = entries.map(([date, group], gi) => `
+  document.getElementById('storyMatchList').innerHTML = entries.map(([date, group]) => `
     <div class="date-heading">${date}</div>
     ${group.map(m => matchRowHTML(m)).join('')}
-    ${gi===0 ? `<div class="inline-campaign"><div class="inline-campaign-copy"><div class="campaign-label">Mythos Sponsor Ödülü</div><strong>Gerçek oyuncular, koleksiyonluk ödüller.</strong><span>Haftanın kazananına ücretsiz hediye · Satış yok</span></div><div class="inline-campaign-art" aria-hidden="true"></div></div>` : ''}
   `).join('');
   renderVideo();
   renderFeaturedStats();
@@ -2008,9 +2068,10 @@ function renderTeamBanner(){
   const rank = rows.findIndex(r=>r.uid===u.id) + 1;
   area.innerHTML = `
     <div class="team-banner" style="background:${crestColor(u.team)};">
-      <div class="eyebrow mono">${u.team.toUpperCase()} TARAFTAR LİGİ</div>
+      ${crestHTML(u.team,'xl')}
+      <div class="team-banner-copy"><div class="eyebrow mono">${u.team.toUpperCase()} TARAFTAR LİGİ</div>
       <div class="msg">Bu hafta ${u.team} taraftarlarıyla yarış, ilk 3'e gir, takımına özel ödülleri kazan.</div>
-      <div class="stats-line">Şu anki sıran: <b>${rank || '—'}</b> / ${rows.length} kişi</div>
+      <div class="stats-line">Şu anki sıran: <b>${rank || '—'}</b> / ${rows.length} kişi</div></div>
     </div>`;
 }
 function renderProgress(){
@@ -2116,7 +2177,7 @@ function renderStandings(){
   body.innerHTML = rows.map((r,i)=>`
     <tr class="${(!preseason && i===0)?'rank1':''} ${u && r.team===u.team ? 'me':''}">
       <td class="mono">${!preseason ? medalSVG(i+1) : ''}${i+1}</td>
-      <td>${r.team}</td>
+      <td><div class="standing-team">${crestHTML(r.team,'xs')}<span>${r.team}</span></div></td>
       <td class="num mono">${r.played}</td>
       <td class="num mono">${r.won}</td>
       <td class="num mono">${r.drawn}</td>
@@ -2147,7 +2208,7 @@ function renderAsideStandings(){
     rows.map((r,i)=>`
     <div style="display:flex;justify-content:space-between;font-size:14px;padding:5px 0;border-bottom:1px solid var(--line-soft);">
       <span class="mono" style="color:var(--ink-faint);width:18px;">${i+1}</span>
-      <span style="flex:1;">${r.team}</span>
+      <span class="aside-standing-team">${crestHTML(r.team,'xs')}<span>${r.team}</span></span>
       <span class="mono" style="color:var(--gold);font-weight:600;">${r.points}</span>
     </div>`).join('') + `<button class="btn ghost" style="width:100%;margin-top:10px;" onclick="switchMainTab('league');switchLeagueSection('standings');">Tam tabloyu gör</button>`;
 }
