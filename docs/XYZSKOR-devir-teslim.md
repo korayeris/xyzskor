@@ -4,6 +4,8 @@
 **Ürün:** Süper Lig tahmin/lider tablosu platformu (bahis/iddaa değil — ücretsiz tahmin oyunu)
 **Mimari:** Tek dosya HTML + vanilla JS + Supabase (Postgres + Auth + RLS). Framework yok (React/Vue kasıtlı olarak eklenmedi).
 
+**Veri sağlayıcı kararı (31 Temmuz 2026):** İlk canlı bağlantı API-Football ücretsiz kotasıyla, değiştirilebilir `football-live` Edge Function üzerinden yapılır. Üretim hedefi Sportmonks; Goalserve 2–3 haftalık gölge karşılaştırmadır. Sağlayıcı değiştirilirken ön yüz kodu değişmez. Ayrıntılar için [`data-provider-architecture.md`](./data-provider-architecture.md) esas alınmalıdır.
+
 ---
 
 ## 1. Dosya ve Erişim Bilgileri
@@ -68,7 +70,7 @@ authOverlay (üye ol/giriş modalı)
 | `weekly_stories` | week(PK), title, intro, cards(jsonb dizi), watch_for(jsonb dizi), is_published | admin |
 | `model_predictions` | match_id(PK), pick, score_home, score_away, predicted_at | admin — **RLS kickoff'tan önce yazmaya izin veriyor, sonra donuyor** |
 | `match_lineups` | match_id, team, is_official, player_name, position, number, is_captain, is_keeper | admin |
-| `match_absences` | match_id, team, player_name, status, reason, expected_return, source, checked_at | admin |
+| `match_absences` | match_id, team, player_name, status/availability_status, verification_status, reason, expected_return, source, source_url, checked_at | admin |
 | `match_events` | match_id, minute, event_type, team, player, description, verified, source | admin (şu an **hiç kullanılmıyor**, canlı veri sağlayıcısı bağlanınca devreye girecek) |
 
 **RLS:** Her tabloda aktif. Okuma genelde `true` (herkese açık), yazma `is_admin()` fonksiyonuna bağlı (security definer, `search_path` sabitlenmiş).
@@ -108,7 +110,7 @@ Bunlar **kasıtlı olarak** eklenmedi — yarım/bozuk özellik bırakmamak içi
 
 - **Admin veri giriş arayüzü yok** (yeni 6 tablo için): `league_standings`, `model_predictions`, `weekly_stories`, `match_lineups`, `match_absences` şu an **sadece SQL ile** (Supabase SQL Editor / benim aracılığımla) dolduruluyor. Uygulama içi CRUD formu yok.
 - **Takvime ekle, Paylaşım, Site içi arama, Takım mini sayfaları, Gol krallığı** — hiç başlanmadı (Öncelik 2/3 olarak bırakıldı, yarım buton yok).
-- **Canlı maç akışı** (`match_events`) — şema hazır, RLS hazır, ama front-end her zaman "Canlı maç akışı veri sağlayıcısı bağlandığında burada gösterilecek" diyor. Gerçek entegrasyon yok.
+- **Canlı maç akışı** (`match_events`) — şema hazır, RLS hazır, ama front-end her zaman "Canlı maç akışı veri sağlayıcısı bağlandığında burada gösterilecek" diyor. Sportmonks ana akışının sunucu tarafı entegrasyonu ve Goalserve gölge testi henüz API anahtarları alınmadığı için bağlı değil.
 - **Otomatik tahmin modeli** — `model_predictions` tablosu var ama otomatik hiçbir şey çalıştırmıyor; admin manuel SQL ile tek tek girmesi gerekiyor.
 - **Ödüller haftaya bağlı değil** — `rewards` tablosunda `week` kolonu yok, sadece takım bazlı. Haftalık ödül sistemi istenirse şema değişikliği gerekir.
 
@@ -143,7 +145,7 @@ Bunlar **kasıtlı olarak** eklenmedi — yarım/bozuk özellik bırakmamak içi
 2. Kendine bir hesap aç, sonra yukarıdaki SQL ile kendini admin yap → "Yönetim" sekmesi Tahmin Ligi'nde görünecek.
 3. Supabase SQL Editor'den `league_standings`'e gerçek maç sonuçları girildikçe elle güncelleme yap (veya bir admin panel inşa et — madde 5'te bahsedilen boşluk burada).
 4. 360/390/430px gerçek cihaz/emulator testini yap — bu hiç yapılmadı.
-5. Canlı veri sağlayıcısı entegrasyonuna başlanacaksa `match_events` tablosu ve `renderMcFlow` fonksiyonu doğru yer.
+5. Canlı veri sağlayıcısı entegrasyonunda önce `data-provider-architecture.md` içindeki güvenli sunucu akışı uygulanmalı; `match_events` tablosu ve `renderMcFlow` fonksiyonu ön yüzdeki doğru bağlantı noktalarıdır.
 
 ---
 

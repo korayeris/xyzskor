@@ -1,0 +1,5 @@
+project_id = "swhwmqbamzczztpfxctg"
+
+[functions.football-live]
+verify_jwt = false
+

@@ -1,6 +1,6 @@
 # XYZSkor
 
-Süper Lig için ücretsiz tahmin oyunu ve liderlik platformu. Uygulama vanilla JavaScript ve Supabase ile çalışır; derleme adımı yoktur.
+Süper Lig için matematiksel performans ve veri analiz platformu. Uygulama vanilla JavaScript ve Supabase ile çalışır; derleme adımı yoktur.
 
 ## Yerel çalıştırma
 
@@ -28,7 +28,11 @@ npm run check
 
 - `index.html`: Uygulamanın tamamı
 - `docs/XYZSKOR-devir-teslim.md`: Mimari ve operasyon notları
+- `docs/data-provider-architecture.md`: Değiştirilebilir API-Football/Sportmonks katmanı ve veri sınıflandırma sözleşmesi
+- `docs/provider-comparison-scorecard.csv`: 2–3 haftalık sağlayıcı karşılaştırma kayıt şablonu
+- `supabase/functions/football-live/index.ts`: Canlı skor sağlayıcı adaptörü
+- `supabase/migrations/20260731_live_feed_cache.sql`: Canlı API kotasını koruyan sunucu önbelleği
 - `scripts/dev.ps1`: Yerel geliştirme sunucusu
 - `scripts/check.ps1`: JavaScript sözdizimi kontrolü
 
-Supabase service-role anahtarı istemciye veya repoya eklenmemelidir.
+Supabase service-role ve spor veri sağlayıcısı anahtarları istemciye veya repoya eklenmemelidir. API-Football/Sportmonks çağrıları yalnızca sunucu tarafındaki Supabase Edge Function üzerinden yapılır. Sağlayıcı, `FOOTBALL_DATA_PROVIDER` secret'ıyla değiştirilir; ön yüz kodu değişmez.

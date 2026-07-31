@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XYZSkor — Bilinmeyen Skoru Verilerle Çöz</title>
+<link rel="icon" type="image/png" href="assets/world-cup-2026-ball.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -207,6 +208,33 @@ tr.rank1{background:linear-gradient(90deg, rgba(217,169,78,.08), transparent);}
 .live-placeholder .icon{font-size:38px;margin-bottom:14px;}
 .live-placeholder .t{font-family:var(--font-display);font-weight:700;font-size:17px;margin-bottom:8px;}
 .live-placeholder .d{font-size:14px;color:var(--ink-dim);max-width:440px;margin:0 auto;}
+.live-shell{display:grid;gap:14px;}
+.live-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:20px;border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(135deg,rgba(33,163,107,.10),rgba(13,25,40,.96) 48%,rgba(230,188,104,.06));}
+.live-head h2{font-family:var(--font-display);font-size:clamp(22px,4vw,34px);margin:3px 0 7px;letter-spacing:-.03em;}
+.live-head p{margin:0;color:var(--ink-dim);font-size:14px;max-width:620px;}
+.live-eyebrow{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#72d8ae;}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#45d39a;box-shadow:0 0 0 5px rgba(69,211,154,.10);}
+.live-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+.live-freshness{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);white-space:nowrap;}
+.live-list{display:grid;gap:10px;}
+.live-card{display:grid;grid-template-columns:minmax(130px,.75fr) minmax(0,1.5fr) auto;align-items:center;gap:16px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);box-shadow:0 14px 32px rgba(0,0,0,.10);}
+.live-card.is-live{border-color:rgba(69,211,154,.28);background:linear-gradient(100deg,rgba(69,211,154,.06),var(--bg-elev) 34%);}
+.live-competition{display:flex;align-items:center;gap:9px;min-width:0;color:var(--ink-dim);font-size:12px;}
+.live-competition img{width:26px;height:26px;object-fit:contain;}
+.live-competition span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.live-teams{display:grid;gap:8px;}
+.live-team{display:grid;grid-template-columns:28px minmax(0,1fr) 34px;align-items:center;gap:9px;font-family:var(--font-display);font-weight:650;}
+.live-team img{width:28px;height:28px;object-fit:contain;}
+.live-team .fallback-crest{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--bg-elev-3);font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);}
+.live-score{font-family:var(--font-mono);font-size:20px;font-weight:800;text-align:right;color:var(--ink);}
+.live-state{text-align:right;min-width:72px;}
+.live-minute{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:rgba(69,211,154,.12);color:#72d8ae;font-family:var(--font-mono);font-size:11px;font-weight:700;}
+.live-state-label{display:block;margin-top:6px;font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);}
+.live-notice{padding:32px 20px;border:1px dashed var(--line);border-radius:var(--radius-lg);text-align:center;background:var(--bg-elev);}
+.live-notice strong{display:block;font-family:var(--font-display);font-size:18px;margin-bottom:6px;}
+.live-notice p{max-width:560px;margin:0 auto;color:var(--ink-dim);font-size:14px;}
+.live-data-note{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--ink-faint);font-family:var(--font-mono);font-size:10.5px;padding:0 4px;}
+@media(max-width:680px){.live-head{align-items:flex-start;flex-direction:column}.live-actions{justify-content:flex-start}.live-card{grid-template-columns:1fr auto;gap:12px}.live-competition{grid-column:1/-1}.live-state{grid-column:2;grid-row:2}.live-teams{grid-column:1;grid-row:2}}
 
 /* ===================== MODAL ===================== */
 .overlay{position:fixed;inset:0;background:rgba(4,8,6,.65);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
@@ -374,24 +402,158 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
 .mc-lineup-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:14px;}
 .mc-absence-row{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:13.5px;flex-wrap:wrap;}
 .mc-absence-status{font-family:var(--font-mono);font-size:11px;padding:3px 9px;border-radius:100px;background:var(--warnbg);color:var(--warn);white-space:nowrap;}
+.mc-absence-status.official{background:rgba(231,92,92,.13);color:#f39a9a;}
+.mc-absence-status.probable{background:rgba(230,188,104,.13);color:var(--gold);}
+.mc-absence-status.suspended{background:rgba(139,124,232,.14);color:#bcb2ff;}
+.mc-absence-status.neutral{background:var(--bg-elev-3);color:var(--ink-dim);}
+.mc-absence-meta{width:100%;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);}
+
+/* ===================== 2026 ELITE REDESIGN ===================== */
+:root{
+  --bg:#07111d;--bg-elev:#0d1928;--bg-elev-2:#122235;--bg-elev-3:#182b40;
+  --line:rgba(178,199,221,.14);--line-soft:rgba(178,199,221,.08);
+  --ink:#f6f2e9;--ink-dim:#a6b4c4;--ink-faint:#6f8297;
+  --gold:#e6bc68;--gold-dim:#a77b37;--gold-ink:#181208;
+  --pitch:#21a36b;--pitch-dim:#123d31;--radius:14px;--radius-lg:24px;
+}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{min-height:100vh;background:
+  radial-gradient(900px 600px at 90% -10%,rgba(37,161,112,.13),transparent 62%),
+  radial-gradient(800px 520px at 7% 8%,rgba(230,188,104,.09),transparent 62%),
+  linear-gradient(180deg,#07111d 0%,#091624 48%,#07111d 100%);}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 75%)}
+nav{padding:12px max(20px,calc((100vw - 1240px)/2));min-height:72px;background:rgba(6,16,27,.9);border-color:var(--line);box-shadow:0 12px 40px rgba(0,0,0,.22)}
+.brand-lockup{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-ball{width:43px;height:43px;object-fit:contain;border-radius:13px;background:#fff;padding:4px;box-shadow:0 8px 24px rgba(230,188,104,.18)}
+.brand-copy{display:flex;flex-direction:column;line-height:1}
+.logo{font-size:22px;letter-spacing:-.045em}.logo span{color:var(--gold)}
+.brand-kicker{margin-top:5px;color:var(--ink-faint);font:600 9px/1 var(--font-mono);letter-spacing:1.9px;text-transform:uppercase}
+.navright .btn{min-height:38px;padding:8px 13px}
+.btn{border-radius:12px;transition:transform .2s ease,filter .2s ease,background .2s ease;box-shadow:0 8px 22px rgba(0,0,0,.14)}
+.btn:hover{transform:translateY(-1px)}
+.btn.ghost{background:rgba(255,255,255,.025);border-color:var(--line)}
+.live-ticker{padding:8px 16px;background:linear-gradient(90deg,rgba(230,188,104,.08),rgba(13,25,40,.9) 35%,rgba(33,163,107,.07));border-color:var(--line)}
+.ticker-inner{max-width:1240px}.ticker-dot{background:#59e49d;box-shadow:0 0 0 5px rgba(89,228,157,.08)}
+.ticker-label{color:#78e7ad}
+.maintabs{position:sticky;top:72px;z-index:18;padding:10px 16px;background:rgba(7,17,29,.84);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.maintab{background:transparent;border:0;border-radius:10px;padding:10px 17px;min-height:40px;position:relative}
+.maintab::after{content:"";position:absolute;left:18px;right:18px;bottom:1px;height:2px;border-radius:2px;background:transparent}
+.maintab.active{color:var(--ink);background:rgba(255,255,255,.045)}
+.maintab.active::after{background:var(--gold)}
+.tab-ball{width:22px;height:22px;object-fit:contain;margin-right:8px;border-radius:6px;background:#fff;padding:2px}
+.wrap{max-width:1240px;padding-top:22px}.panel,.aside-card,.intro-card,.story-card{box-shadow:0 18px 55px rgba(0,0,0,.16);backdrop-filter:blur(12px)}
+.panel{background:linear-gradient(145deg,rgba(17,34,53,.94),rgba(10,24,39,.94));border-color:var(--line);padding:22px}
+.section-title{font-size:17px;letter-spacing:-.015em}.section-desc{color:var(--ink-dim)}
+.week-selector-bar{background:rgba(13,25,40,.78);border:1px solid var(--line);border-radius:18px;padding:9px 12px;margin-bottom:10px}
+.week-picker{background:#101f31;border-color:var(--line)}
+.hero-match{min-height:305px;padding:46px 38px;display:flex;flex-direction:column;justify-content:flex-end;background:
+  linear-gradient(90deg,rgba(6,17,29,.98) 0%,rgba(6,17,29,.78) 47%,rgba(6,17,29,.24)),
+  radial-gradient(circle at 90% 15%,rgba(230,188,104,.25),transparent 44%),linear-gradient(145deg,#153149,#0a1726);box-shadow:0 28px 80px rgba(0,0,0,.28)}
+.hero-match::after{content:"SÜPER LİG";position:absolute;right:-6px;top:24px;font:800 clamp(48px,8vw,102px)/.8 var(--font-display);letter-spacing:-.08em;color:rgba(255,255,255,.025);writing-mode:vertical-rl}
+.hero-eyebrow{color:#8eecba}.hero-teams{font-size:clamp(30px,5vw,52px);letter-spacing:-.05em;max-width:800px}.hero-meta{font-size:13px}
+.match-row{background:rgba(17,34,53,.72);border-color:var(--line);transition:transform .2s ease,border-color .2s ease,background .2s ease}
+.match-row:hover{transform:translateY(-2px);border-color:rgba(230,188,104,.34);background:rgba(20,40,61,.9)}
+.match-row-top{padding:15px 16px}.match-row .teams .names{font-size:15px}.match-row .time-chip{background:#091624;border-color:var(--line)}
+.shield{clip-path:none;border-radius:50%;background:rgba(255,255,255,.95)!important;border:1px solid rgba(255,255,255,.2);box-shadow:0 6px 20px rgba(0,0,0,.2);overflow:hidden;color:#fff}
+.shield{position:relative}.shield img{position:absolute;width:76%;height:76%;object-fit:contain;z-index:1}.shield span{position:relative;z-index:0}.shield.sm{width:38px;height:38px}.shield.md{width:52px;height:52px}
+.leaguesubtabs{background:rgba(13,25,40,.7);padding:6px;border:1px solid var(--line);border-radius:16px;gap:2px}
+.leaguesubtab{border:0;border-radius:11px;padding:10px 14px}.leaguesubtab.active{background:var(--gold);color:var(--gold-ink);box-shadow:0 7px 20px rgba(230,188,104,.18)}
+.tab{background:rgba(255,255,255,.025)}.tab.active{background:var(--ink);color:var(--bg)}
+table{font-size:14px}thead th{background:rgba(255,255,255,.018);padding:11px 9px}tbody tr{transition:background .18s ease}tbody tr:hover{background:rgba(255,255,255,.025)}
+.pstat{background:linear-gradient(145deg,rgba(24,43,64,.8),rgba(12,27,43,.8));border-radius:13px;padding:14px}.pstat .n{font-size:22px}
+.reward-card{background:linear-gradient(160deg,rgba(24,43,64,.9),rgba(10,24,39,.95));border-radius:16px;min-height:150px;display:flex;flex-direction:column;justify-content:center}
+.mc-panel,.modal{background:#0a1726}.mc-header{background:rgba(8,20,33,.96)}
+.mobile-bottom-nav{background:rgba(7,17,29,.96)!important;border-color:var(--line)!important;backdrop-filter:blur(18px)}
+
+.campaign-hero{max-width:1240px;margin:16px auto 2px;min-height:250px;border-radius:24px;overflow:hidden;position:relative;background:#0a1624 url('assets/campaigns/mythos-cards-weekly.png') center/cover no-repeat;border:1px solid rgba(230,188,104,.24);box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.campaign-hero::after,.campaign-card::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,13,23,.96),rgba(4,13,23,.72) 43%,rgba(4,13,23,.06) 76%);pointer-events:none}
+.campaign-copy{position:relative;z-index:1;width:min(54%,610px);padding:34px 38px;color:var(--ink)}
+.campaign-label{display:inline-flex;align-items:center;gap:7px;color:#8eecba;font:600 11px/1 var(--font-mono);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:12px}
+.campaign-label::before{content:"";width:7px;height:7px;border-radius:50%;background:#59e49d;box-shadow:0 0 0 5px rgba(89,228,157,.09)}
+.campaign-copy h2,.campaign-card h3{font-family:var(--font-display);letter-spacing:-.045em;margin:0}.campaign-copy h2{font-size:clamp(26px,4vw,42px);line-height:1.03}.campaign-copy p{color:#c5cfda;max-width:520px;margin:12px 0 18px;font-size:14px}.campaign-actions{display:flex;gap:9px;flex-wrap:wrap}.campaign-note{font-size:10px;color:#8292a4;margin-top:12px}
+.campaign-strip{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 20px}.campaign-card{min-height:260px;border-radius:20px;overflow:hidden;position:relative;border:1px solid var(--line);background-position:center;background-size:cover;box-shadow:0 20px 55px rgba(0,0,0,.2)}
+.campaign-card.jersey{background-image:url('assets/campaigns/signed-jersey-grand-prize.png')}.campaign-card.vote{background-image:url('assets/campaigns/fan-vote-challenge.png')}
+.campaign-card .campaign-copy{width:66%;padding:28px}.campaign-card h3{font-size:26px;line-height:1.05}.campaign-card p{font-size:13px;margin:10px 0 14px}
+.campaign-hero{background-image:radial-gradient(circle at 75% 35%,rgba(98,255,142,.13),transparent 28%),linear-gradient(125deg,#081522,#10233a)!important}.campaign-card.jersey,.campaign-card.vote{background-image:radial-gradient(circle at 78% 24%,rgba(230,188,104,.13),transparent 30%),linear-gradient(135deg,#0b1b2c,#07131f)!important}.campaign-product-stage{position:absolute;z-index:1;right:5%;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:39%;height:86%;perspective:900px}.campaign-card .campaign-product-stage{right:2%;width:36%;height:88%}.collectible-card{--card-accent:#75fb4c;position:relative;width:152px;aspect-ratio:.7;border-radius:15px;overflow:hidden;background:linear-gradient(160deg,#17263a,#050b12);border:2px solid rgba(255,255,255,.72);box-shadow:0 18px 45px rgba(0,0,0,.55),inset 0 0 0 5px rgba(255,255,255,.05);transform:rotate(4deg);isolation:isolate}.collectible-card.secondary{width:132px;margin-right:-22px;transform:rotate(-8deg) translateY(8px);opacity:.9}.collectible-card.gold-card{--card-accent:#e6bc68}.collectible-card.blue-card{--card-accent:#70bfff}.collectible-card::before{content:"";position:absolute;inset:7px;border:1px solid var(--card-accent);border-radius:10px;z-index:3;pointer-events:none}.collectible-card::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 25%,rgba(255,255,255,.22) 42%,transparent 58%);transform:translateX(-120%);animation:cardShine 5s ease-in-out infinite;z-index:4;pointer-events:none}@keyframes cardShine{0%,70%{transform:translateX(-120%)}90%,100%{transform:translateX(120%)}}.collectible-card img{position:absolute;inset:18% 3% 17%;width:94%;height:65%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 8px rgba(0,0,0,.45));z-index:1}.card-brand{position:absolute;z-index:3;left:14px;right:14px;top:13px;display:flex;justify-content:space-between;align-items:center;color:var(--card-accent);font:800 9px/1 var(--font-mono);letter-spacing:1px}.card-series{font-size:7px;color:#fff;border:1px solid rgba(255,255,255,.35);padding:3px 4px;border-radius:4px}.card-player{position:absolute;z-index:3;left:14px;right:14px;bottom:13px}.card-player b{display:block;color:#fff;font:800 15px/.95 var(--font-display);text-transform:uppercase;letter-spacing:-.02em}.card-player span{display:block;color:var(--card-accent);font:700 7px/1 var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-top:5px}.product-auth{position:absolute;right:10px;bottom:10px;z-index:5;width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:var(--card-accent);color:#07111b;font:900 7px/1 var(--font-mono);box-shadow:0 4px 15px rgba(0,0,0,.4)}
+.market-dashboard{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.85fr);gap:16px;margin:0 0 20px}.market-stack{display:grid;gap:16px}.market-card{background:linear-gradient(155deg,rgba(16,32,49,.98),rgba(7,19,31,.98));border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 18px 52px rgba(0,0,0,.2);overflow:hidden}.market-card.featured{border-color:rgba(230,188,104,.2)}
+.market-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:15px}.market-eyebrow{font:600 10px/1 var(--font-mono);color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:7px}.market-head h2{font:700 23px/1.05 var(--font-display);letter-spacing:-.035em;margin:0}.market-head p{font-size:11px;color:var(--ink-faint);margin:7px 0 0}.market-source{flex:0 0 auto;padding:6px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);font:600 9px/1 var(--font-mono);text-transform:uppercase;letter-spacing:.7px}
+.transfer-clock{flex:0 0 auto;text-align:right;padding:10px 12px;border-radius:12px;background:rgba(230,188,104,.08);border:1px solid rgba(230,188,104,.2)}.transfer-clock b{display:block;color:var(--gold);font:700 16px/1 var(--font-mono)}.transfer-clock span{display:block;color:var(--ink-faint);font:600 8px/1 var(--font-mono);text-transform:uppercase;letter-spacing:.8px;margin-top:6px}
+.transfer-list{display:grid}.transfer-row{display:grid;grid-template-columns:24px 48px minmax(0,1fr) auto;align-items:center;gap:11px;padding:12px 0;border-top:1px solid rgba(151,170,190,.12)}.transfer-row:first-child{border-top:0}.transfer-rank{font:700 13px/1 var(--font-mono);color:var(--ink-faint)}.player-photo{position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,#29445f,#12273b);border:1px solid rgba(255,255,255,.16);color:#fff;font:700 12px/1 var(--font-mono)}.player-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.transfer-name{font-weight:700;font-size:14px}.transfer-route{display:flex;align-items:center;gap:6px;margin-top:5px;color:var(--ink-dim);font-size:11px}.club-chip{display:inline-flex;align-items:center;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.06);font:600 9px/1 var(--font-mono)}.route-arrow{color:var(--gold)}.transfer-fee{text-align:right;font:700 16px/1 var(--font-display);color:#f4d897}.transfer-fee small{display:block;color:var(--ink-faint);font:500 9px/1.2 var(--font-mono);margin-top:5px}
+.rumor-list,.performance-list{display:grid;gap:9px}.rumor-row,.performance-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px;border-radius:13px;background:rgba(255,255,255,.035)}.rumor-row .player-photo,.performance-row .player-photo{width:40px;height:40px}.rumor-title,.performance-name{font-weight:700;font-size:13px}.rumor-route,.performance-meta{font-size:10px;color:var(--ink-dim);margin-top:4px}.status-chip,.rating-pill{padding:6px 8px;border-radius:8px;font:700 9px/1 var(--font-mono);white-space:nowrap}.status-chip.hot{background:rgba(89,228,157,.12);color:#79eab0}.status-chip.watch{background:rgba(230,188,104,.12);color:#f0cf88}.status-chip.shelved{background:rgba(151,170,190,.1);color:#aab7c4}.rating-pill{background:#524cff;color:#fff;font-size:12px}.market-footnote{margin:12px 0 0;color:var(--ink-faint);font-size:10px;line-height:1.45}
+.math-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 14px}.math-cell{background:rgba(255,255,255,.035);border:1px solid var(--line-soft);border-radius:11px;padding:10px}.math-cell .math-n{font:700 17px/1 var(--font-mono);color:var(--gold)}.math-cell .math-l{font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.7px;margin-top:6px}.formula-note{padding:0 14px 12px;color:var(--ink-faint);font:500 9px/1.4 var(--font-mono)}
+.mythos-showcase{margin:0 0 20px;padding:22px;border-radius:20px;background:linear-gradient(145deg,#111d2c,#08131f);border:1px solid rgba(117,251,76,.18);box-shadow:0 18px 52px rgba(0,0,0,.22)}.product-showcase-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:16px}.product-showcase-head h2{font:700 24px/1.05 var(--font-display);letter-spacing:-.035em;margin:0}.product-showcase-head p{font-size:11px;color:var(--ink-dim);margin:7px 0 0}.product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.official-product{display:flex;flex-direction:column;min-width:0;border-radius:16px;overflow:hidden;background:#fff;color:#111;text-decoration:none;border:1px solid rgba(255,255,255,.12);transition:transform .2s ease,border-color .2s ease}.official-product:hover{transform:translateY(-3px);border-color:#75fb4c}.official-product-image{height:220px;display:flex;align-items:center;justify-content:center;background:#f1f2f2;padding:14px}.official-product-image img{width:100%;height:100%;object-fit:contain}.official-product-body{display:flex;flex-direction:column;flex:1;padding:14px}.official-product-kicker{font:700 9px/1 var(--font-mono);color:#138326;text-transform:uppercase;letter-spacing:.8px}.official-product h3{font:700 15px/1.15 var(--font-display);margin:8px 0}.official-product-price{font:800 20px/1 var(--font-mono);margin:3px 0 10px}.product-features{display:grid;gap:5px;margin:0 0 14px;padding:0;list-style:none;font-size:10px;color:#4d555d}.product-features li::before{content:'✓';color:#15962c;font-weight:900;margin-right:6px}.product-link{margin-top:auto;padding-top:10px;border-top:1px solid #e3e7e9;color:#087a20;font:800 10px/1 var(--font-mono);text-transform:uppercase;letter-spacing:.7px}.product-disclaimer{font-size:9px;color:var(--ink-faint);margin:13px 0 0}
+.product-team-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.product-team-tab{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--ink-dim);border-radius:999px;padding:9px 13px;font:700 10px/1 var(--font-mono);cursor:pointer}.product-team-tab.active{background:#75fb4c;border-color:#75fb4c;color:#07111b}
+.sidebar-campaign{display:block;position:relative;min-height:430px;border-radius:20px;overflow:hidden;background:#091624 url('assets/campaigns/fan-vote-challenge.png') 68% center/cover no-repeat;border:1px solid rgba(230,188,104,.22);color:var(--ink);text-decoration:none}
+.sidebar-campaign::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,14,24,.12),rgba(5,14,24,.98) 72%)}
+.sidebar-campaign-copy{position:absolute;z-index:1;left:20px;right:20px;bottom:22px}.sidebar-campaign-copy b{display:block;font:700 23px/1.05 var(--font-display);letter-spacing:-.04em;margin:8px 0}.sidebar-campaign-copy span{font-size:12px;color:#c6d0db}
+.inline-campaign{display:grid;grid-template-columns:minmax(0,1fr) 150px;min-height:116px;margin:14px 0;border:1px solid rgba(230,188,104,.2);border-radius:17px;overflow:hidden;background:linear-gradient(115deg,#111f31,#081522);color:var(--ink);text-decoration:none}
+.inline-campaign-copy{padding:20px}.inline-campaign-copy strong{display:block;font:700 20px/1.08 var(--font-display);letter-spacing:-.035em;margin:5px 0}.inline-campaign-copy span{font-size:12px;color:var(--ink-dim)}.inline-campaign-art{background:url('assets/campaigns/mythos-cards-weekly.png') 72% center/cover no-repeat}
+footer{border-color:var(--line);background:#050d16;color:var(--ink-faint);padding:28px 16px}
+@media(max-width:767px){
+  nav{min-height:62px;padding:9px 13px}.brand-ball{width:36px;height:36px}.brand-kicker{display:none}.logo{font-size:18px}.navright .badge-pill{display:none}
+  .maintabs{top:62px;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding:8px 10px}.maintab{font-size:12.5px;padding:9px 12px}.tab-ball{width:19px;height:19px}
+  .campaign-hero{margin:12px 12px 0;min-height:420px;background-position:67% center}.campaign-hero::after{background:linear-gradient(180deg,rgba(4,13,23,.15),rgba(4,13,23,.98) 62%)}.campaign-copy{position:absolute;left:0;right:0;bottom:0;width:100%;padding:24px}.campaign-copy h2{font-size:28px}
+  .campaign-product-stage{top:18px;right:0;left:0;transform:none;width:100%;height:210px}.collectible-card{width:126px}.collectible-card.secondary{width:108px}.campaign-card .campaign-product-stage{top:12px;right:0;width:100%;height:190px}.campaign-card .collectible-card{width:112px}.campaign-card .campaign-copy{z-index:5}
+  .campaign-strip{grid-template-columns:1fr}.campaign-card{min-height:340px}.campaign-card::after{background:linear-gradient(180deg,rgba(4,13,23,.08),rgba(4,13,23,.98) 65%)}.campaign-card .campaign-copy{width:100%;padding:22px}.campaign-card h3{font-size:24px}
+  .market-dashboard{grid-template-columns:1fr}.market-card{padding:16px}.market-head h2{font-size:20px}.market-source{display:none}.transfer-row{grid-template-columns:18px 42px minmax(0,1fr) auto;gap:8px}.player-photo{width:40px;height:40px}.transfer-fee{font-size:14px}
+  .transfer-clock b{font-size:13px}.product-showcase-head{align-items:flex-start;flex-direction:column}.product-grid{grid-template-columns:1fr}.official-product-image{height:240px}.mythos-showcase{padding:16px}
+  .math-grid{grid-template-columns:1fr 1fr}
+  .inline-campaign{grid-template-columns:1fr 110px}.inline-campaign-copy{padding:16px}.inline-campaign-copy strong{font-size:17px}
+  .hero-match{padding:30px 22px;min-height:340px}.panel{padding:16px}.story-layout{gap:14px}
+}
+@media(min-width:768px) and (max-width:980px){.market-dashboard{grid-template-columns:1fr}.market-stack{grid-template-columns:1fr 1fr}}
+
+/* ===================== UEFA-INSPIRED CALM PREMIUM SYSTEM ===================== */
+:root{--bg:#071423;--bg-elev:#0e2033;--bg-elev-2:#142a40;--bg-elev-3:#19344e;--line:rgba(157,181,204,.18);--line-soft:rgba(157,181,204,.11);--ink:#f6f8fb;--ink-dim:#b3c0cd;--ink-faint:#74879a;--gold:#5eb9ff;--gold-dim:#2d78ad;--gold-ink:#04111e;--pitch:#4bb98a;--radius:8px;--radius-lg:12px}
+body{background:radial-gradient(circle at 50% -120px,rgba(32,105,174,.18),transparent 520px),linear-gradient(180deg,#071423 0,#091827 48%,#071321 100%);background-attachment:fixed;letter-spacing:-.005em}
+nav{padding:13px max(20px,calc((100vw - 1280px)/2));background:rgba(5,17,30,.95);border-bottom-color:rgba(157,181,204,.14);box-shadow:none;backdrop-filter:blur(18px)}
+.live-ticker{background:#0b1b2d;border-bottom-color:rgba(157,181,204,.12);padding:8px 16px}.ticker-dot{background:#45d39a}.ticker-label{color:#72d8ae}
+.maintabs{padding:18px 12px 10px;gap:4px}.maintab{min-height:40px;padding:9px 17px;background:transparent;border-color:transparent;color:#9fb0c0;border-radius:7px}.maintab:hover{background:rgba(255,255,255,.05);color:#fff}.maintab.active{background:#f5f7fa;color:#10263a;border-color:#f5f7fa;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+.wrap{max-width:1280px;padding-top:28px}.panel,.aside-card,.intro-card,.story-card,.market-card{background:#0d2033;border-color:rgba(157,181,204,.14);border-radius:12px;box-shadow:none;backdrop-filter:none}.panel{padding:26px}.section-title{font-size:17px;letter-spacing:-.02em}.section-desc{color:#aab9c7;line-height:1.65}
+.btn{border-radius:7px;background:#f4f7fa;color:#0b1e30;box-shadow:none;transition:background .18s ease,transform .18s ease}.btn:hover{filter:none;background:#dfeaf3;transform:translateY(-1px)}.btn.gold{background:#5eb9ff;color:#04111e}.btn.ghost{background:rgba(255,255,255,.035);border-color:rgba(157,181,204,.2);color:#edf3f8}.btn.ghost:hover{background:rgba(255,255,255,.08)}
+.campaign-hero{max-width:1280px;min-height:270px;border-radius:12px;border-color:rgba(157,181,204,.16);box-shadow:none;background-image:radial-gradient(circle at 74% 38%,rgba(69,139,204,.18),transparent 30%),linear-gradient(115deg,#0b2035,#102b47)!important}.campaign-card{border-radius:12px;box-shadow:none}.campaign-card.jersey,.campaign-card.vote{background-image:linear-gradient(135deg,#0e2439,#0b1c2d)!important}.campaign-label,.market-eyebrow{color:#79c8ff}.campaign-label::before{background:#50d4a0;box-shadow:none}
+.mythos-showcase{padding:30px;margin-bottom:24px;border-radius:12px;background:#f2f4f6;border:0;box-shadow:none;color:#172c3d}.product-showcase-head{margin-bottom:20px}.product-showcase-head h2{font-size:30px;color:#142a3c}.product-showcase-head p{font-size:13px;color:#647583;max-width:620px;line-height:1.55}.mythos-showcase .market-eyebrow{color:#1267a4}.mythos-showcase .btn.ghost{background:#fff;color:#17344b;border-color:#d4dce3}.product-team-tabs{gap:6px;margin-bottom:20px}.product-team-tab{background:#e3e8ec;border:0;color:#516675;padding:10px 15px;border-radius:7px}.product-team-tab:hover{background:#d6dee5}.product-team-tab.active{background:#112f49;color:#fff;border-color:#112f49}.product-grid{gap:16px}.official-product{border:1px solid #dfe4e8;border-radius:10px;box-shadow:0 3px 12px rgba(22,49,70,.06);transition:transform .2s ease,box-shadow .2s ease}.official-product:hover{transform:translateY(-3px);border-color:#b9c8d4;box-shadow:0 10px 26px rgba(22,49,70,.12)}.official-product-image{height:236px;background:#f7f8f9;padding:20px}.official-product-body{padding:18px}.official-product-kicker{color:#337ba8}.official-product h3{font-size:17px;line-height:1.2;color:#10283b;margin:9px 0 7px}.official-product-desc{font-size:11px;line-height:1.55;color:#647583;margin:0 0 14px;min-height:52px}.official-product-price{font-size:18px;color:#10283b;margin:2px 0 12px}.product-features{color:#52636f;font-size:10.5px;line-height:1.45}.product-features li::before{color:#238b69}.product-link{color:#1267a4;border-top-color:#e2e7ea}.product-disclaimer{color:#71818e}
+.market-dashboard{gap:18px}.market-card{padding:24px}.market-card.featured{border-color:rgba(94,185,255,.22)}.market-head{margin-bottom:18px}.market-head h2{font-size:25px}.market-head p{font-size:12px;line-height:1.5}.transfer-clock{background:rgba(94,185,255,.08);border-color:rgba(94,185,255,.2);border-radius:8px}.transfer-clock b,.transfer-fee{color:#8ed0ff}.transfer-row{padding:14px 0}.club-chip{background:rgba(255,255,255,.055)}.rumor-row,.performance-row{background:rgba(255,255,255,.035);border:1px solid rgba(157,181,204,.08)}.rating-pill{background:#1479c9}.status-chip.hot{background:rgba(69,211,154,.1);color:#73dfb4}
+.hero-match{border-radius:12px;background:linear-gradient(140deg,#17344e,#0d2033 72%);box-shadow:none}.sidebar-campaign{border-radius:12px}.inline-campaign{border-radius:10px}.week-selector-bar{border-radius:10px!important}.match-row{border-radius:9px}.mobile-bottom-nav{background:rgba(6,18,31,.96)!important}
+.product-dna{display:grid;grid-template-columns:minmax(230px,.7fr) minmax(0,1.3fr);gap:22px;align-items:center;margin:0 0 22px;padding:22px 24px;border-radius:12px;background:#0d2033;border:1px solid rgba(157,181,204,.14)}.dna-intro strong{display:block;font:700 22px/1.08 var(--font-display);letter-spacing:-.035em;margin-top:7px}.dna-items{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}.dna-items span{padding:9px 11px;border-radius:7px;background:rgba(255,255,255,.045);border:1px solid rgba(157,181,204,.12);color:#bdc9d4;font-size:10px;font-weight:600}.prediction-zone{margin:0 14px 12px;padding:13px;border-radius:9px;background:rgba(94,185,255,.055);border:1px solid rgba(94,185,255,.14)}.prediction-zone .predict-cta{padding:0}.prediction-zone .predict-form{border-top:0;padding:12px 0 0}.prediction-label{font:700 9px/1 var(--font-mono);color:#79c8ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:9px}
+.content-network{margin:0 0 22px;padding:26px;border-radius:12px;background:linear-gradient(135deg,#112b43,#0d2033);border:1px solid rgba(157,181,204,.14)}.content-network-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:17px}.content-network-head h2{font:700 27px/1.05 var(--font-display);letter-spacing:-.04em;margin:0}.content-network-head p{font-size:12px;color:var(--ink-dim);margin:7px 0 0}.content-format-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.content-format-card{display:flex;flex-direction:column;align-items:flex-start;min-height:190px;padding:18px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(157,181,204,.11)}.content-format-card>span{font:700 9px/1 var(--font-mono);text-transform:uppercase;letter-spacing:1px;color:#75c5ff}.content-format-card h3{font:700 18px/1.1 var(--font-display);margin:10px 0 7px}.content-format-card p{font-size:11px;line-height:1.6;color:var(--ink-dim);margin:0 0 16px}.content-format-card .btn{margin-top:auto;min-height:36px;padding:8px 11px;font-size:11px}
+@media(max-width:767px){.wrap{padding-top:18px}.mythos-showcase{padding:20px 14px}.product-showcase-head h2{font-size:25px}.official-product-image{height:250px}.official-product-desc{min-height:0}.market-card{padding:18px}.market-head h2{font-size:21px}.campaign-hero{border-radius:10px}.panel{padding:18px}}
+@media(max-width:767px){.product-dna{grid-template-columns:1fr;padding:18px}.dna-items{justify-content:flex-start}.dna-intro strong{font-size:19px}.prediction-zone{margin:0 10px 10px}}
+@media(max-width:767px){.content-network{padding:18px}.content-network-head{align-items:flex-start}.content-network-head h2{font-size:23px}.content-network-head .market-source{display:none}.content-format-grid{grid-template-columns:1fr}.content-format-card{min-height:160px}}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="logo">XYZ<span>SKOR</span></div>
+  <div class="brand-lockup">
+    <img class="brand-ball" src="assets/world-cup-2026-ball.png" alt="2026 futbol topu amblemi">
+    <div class="brand-copy"><div class="logo">XYZ<span>SKOR</span></div><div class="brand-kicker">Süper Lig Intelligence</div></div>
+  </div>
   <div class="navright" id="navRight"></div>
 </nav>
 
 <div class="live-ticker"><div class="ticker-inner" id="liveTicker"></div></div>
 
 <div class="maintabs">
-  <div class="maintab active" id="tabBtnStory" role="button" tabindex="0" aria-label="Haftanın Hikâyesi sekmesi" onclick="switchMainTab('story')">Haftanın Hikâyesi</div>
+  <div class="maintab active" id="tabBtnStory" role="button" tabindex="0" aria-label="Haftanın Hikâyesi sekmesi" onclick="switchMainTab('story')"><img class="tab-ball" src="assets/world-cup-2026-ball.png" alt="">Maç Merkezi</div>
   <div class="maintab" id="tabBtnLeague" role="button" tabindex="0" aria-label="Tahmin Ligi sekmesi" onclick="switchMainTab('league')">Tahmin Ligi</div>
+  <div class="maintab" id="tabBtnStories" role="button" tabindex="0" aria-label="Hikâyeler sekmesi" onclick="openStories()">Hikâyeler</div>
   <div class="maintab" id="tabBtnLive" role="button" tabindex="0" aria-label="Canlı sekmesi" onclick="switchMainTab('live')">Canlı</div>
 </div>
 
-<div class="ad-slot ad-slot-top" data-ad-position="top"><span class="ad-slot-label">REKLAM</span><span class="ad-slot-size mono">970 × 250 / Mobilde daha kısa</span></div>
+<section class="campaign-hero" aria-label="Haftalık Mythos Cards ödül kampanyası">
+  <div class="campaign-copy">
+    <div class="campaign-label">Haftanın Koleksiyon Ödülü</div>
+    <h2>Bilgini göster. Zirveye çık. Kartını koleksiyonuna ekle.</h2>
+    <p>Haftanın en başarılı taraftarları için Mythos futbolcu kartları ve sürpriz koleksiyon ödülleri. Katılım ücretsiz; yalnızca futbol bilgisi yarışır.</p>
+    <div class="campaign-actions"><button class="btn gold" onclick="switchMainTab('league')">Ücretsiz Katıl</button><a class="btn ghost" href="https://mythos.cards/" target="_blank" rel="noopener sponsored">Mythos’u Keşfet</a></div>
+    <div class="campaign-note">Kampanya görselleri temsilidir. Ödül ve katılım koşulları ayrıca duyurulur.</div>
+  </div>
+  <div class="campaign-product-stage" aria-label="Gerçek futbolcu görselli koleksiyon kartları">
+    <div class="collectible-card secondary blue-card"><div class="card-brand">MYTHOS <span class="card-series">NEW TRANSFER</span></div><img src="https://images.fotmob.com/image_resources/playerimages/498033.png" alt="Marco Asensio" referrerpolicy="no-referrer"><div class="card-player"><b>Marco<br>Asensio</b><span>Transfer Series</span></div><span class="product-auth">/99</span></div>
+    <div class="collectible-card gold-card"><div class="card-brand">MYTHOS <span class="card-series">SIGNATURE</span></div><img src="https://images.fotmob.com/image_resources/playerimages/687681.png" alt="Victor Osimhen" referrerpolicy="no-referrer"><div class="card-player"><b>Victor<br>Osimhen</b><span>Limited Edition</span></div><span class="product-auth">5/5</span></div>
+  </div>
+</section>
 
 <div class="wrap">
 
@@ -401,6 +563,61 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
   <div class="data-status-line" id="dataStatusLine"></div>
   <div id="weeklyStoryArea"></div>
 
+  <section class="product-dna" aria-label="XYZSkor ürün deneyimi">
+    <div class="dna-intro"><span class="market-eyebrow">Tek uygulama · Beş güçlü deneyim</span><strong>Skordan hikâyeye, veriden rekabete.</strong></div>
+    <div class="dna-items"><span>Canlı maç merkezi</span><span>Matematiksel analiz</span><span>Ücretsiz tahmin</span><span>Taraftar ligi</span><span>Gerçek koleksiyon ödülleri</span></div>
+  </section>
+
+  <div class="campaign-strip" aria-label="XYZSkor haftalık kampanyaları">
+    <article class="campaign-card jersey">
+      <div class="campaign-product-stage"><div class="collectible-card gold-card"><div class="card-brand">MYTHOS <span class="card-series">AUTOGRAPH</span></div><img src="https://images.fotmob.com/image_resources/playerimages/935409.png" alt="Orkun Kökçü" referrerpolicy="no-referrer"><div class="card-player"><b>Orkun<br>Kökçü</b><span>İmzalı Seri</span></div><span class="product-auth">/10</span></div></div>
+      <div class="campaign-copy"><div class="campaign-label">Sezon Büyük Ödülü</div><h3>İmzalı forma için sezon boyu yarış.</h3><p>Haftalık derecelerini biriktir, sezon finalindeki özel koleksiyon çekilişine adını yazdır.</p><button class="btn gold" onclick="switchMainTab('league');switchLeagueSection('leader')">Liderliği Gör</button></div>
+    </article>
+    <article class="campaign-card vote">
+      <div class="campaign-product-stage"><div class="collectible-card blue-card"><div class="card-brand">MYTHOS <span class="card-series">TRIBUTE</span></div><img src="https://images.fotmob.com/image_resources/playerimages/800609.png" alt="Mattéo Guendouzi" referrerpolicy="no-referrer"><div class="card-player"><b>Mattéo<br>Guendouzi</b><span>Tribute Series</span></div><span class="product-auth">/25</span></div></div>
+      <div class="campaign-copy"><div class="campaign-label">Veri Laboratuvarı</div><h3>Takımların matematiksel gücünü karşılaştır.</h3><p>Maç başı puan, averaj, hücum ve savunma ortalamalarını tek ekranda incele.</p><button class="btn ghost" onclick="switchMainTab('league')">Veriyi Aç</button></div>
+    </article>
+  </div>
+
+  <section class="mythos-showcase" aria-label="Mythos Cards resmî ürün vitrini">
+    <div class="product-showcase-head"><div><div class="market-eyebrow">XYZSkor Editör Seçkisi</div><h2>Koleksiyonun en özel parçaları</h2><p>Güçlü tasarımı ve koleksiyon içeriğiyle öne çıkan resmî Mythos ürünleri.</p></div><a class="btn ghost" href="https://mythos.cards/" target="_blank" rel="noopener sponsored">Koleksiyonu Keşfet →</a></div>
+    <div class="product-team-tabs" aria-label="Mythos ürün koleksiyonları"><button class="product-team-tab active" data-team="Seçki" onclick="selectMythosTeam('Seçki')">Editörün Seçkisi</button><button class="product-team-tab" data-team="Galatasaray" onclick="selectMythosTeam('Galatasaray')">Galatasaray</button><button class="product-team-tab" data-team="Beşiktaş" onclick="selectMythosTeam('Beşiktaş')">Beşiktaş</button><button class="product-team-tab" data-team="Trabzonspor" onclick="selectMythosTeam('Trabzonspor')">Trabzonspor</button></div>
+    <div class="product-grid" id="mythosProductGrid">
+      <a class="official-product" href="https://mythos.cards/product/live/39472/galatasaray-champion-edition-nova-hobby-box" target="_blank" rel="noopener sponsored"><div class="official-product-image"><img src="https://cdn.mythos.cards/imgs/Image_639201415658509192_.webp" alt="Galatasaray Champion Edition Nova Hobby Box" loading="lazy"></div><div class="official-product-body"><span class="official-product-kicker">2026 · Nova Hobby Box</span><h3>Galatasaray Champion Edition</h3><div class="official-product-price">3.299 TL</div><ul class="product-features"><li>6 paket, her pakette 5 kart</li><li>Toplam 30 koleksiyon kartı</li><li>6 numaralı kart garantisi</li><li>1 imzalı veya Matchworn Patch hit</li></ul><span class="product-link">Ürünü Mythos’ta incele →</span></div></a>
+      <a class="official-product" href="https://mythos.cards/product/live/39309/galatasaray-25-26-champion-edition-metal-kutu" target="_blank" rel="noopener sponsored"><div class="official-product-image"><img src="https://cdn.mythos.cards/imgs/Image_639174871186017847_.webp" alt="Galatasaray Champion Edition Metal Kutu" loading="lazy"></div><div class="official-product-body"><span class="official-product-kicker">2026 · Metal Kutu</span><h3>Galatasaray 25/26 Champion Edition</h3><div class="official-product-price">999 TL</div><ul class="product-features"><li>5 paket, toplam 25 kart</li><li>3 metalize kart garantisi</li><li>1 dijital imzalı kart garantisi</li><li>Numaralı veya ıslak imzalı kart ihtimali</li></ul><span class="product-link">Ürünü Mythos’ta incele →</span></div></a>
+      <a class="official-product" href="https://mythos.cards/product/live/39308/galatasaray-25-26-champion-edition-paket" target="_blank" rel="noopener sponsored"><div class="official-product-image"><img src="https://cdn.mythos.cards/imgs/Image_639174871080078636_.webp" alt="Galatasaray Champion Edition Paket" loading="lazy"></div><div class="official-product-body"><span class="official-product-kicker">2026 · Tek Paket</span><h3>Galatasaray 25/26 Champion Edition</h3><div class="official-product-price">199 TL</div><ul class="product-features"><li>Toplam 10 kart</li><li>1 metalize kart garantisi</li><li>1 dijital imzalı kart garantisi</li><li>Base, Key Moments ve Archive serileri</li></ul><span class="product-link">Ürünü Mythos’ta incele →</span></div></a>
+    </div>
+    <p class="product-disclaimer">Fiyat ve stok bilgileri Mythos Cards tarafından değiştirilebilir. Satın alma işlemi Mythos Cards üzerinde gerçekleşir.</p>
+  </section>
+
+  <section class="market-dashboard" aria-label="Transfer ve oyuncu performans merkezi">
+    <article class="market-card featured">
+      <div class="market-head"><div><div class="market-eyebrow">Açık Transfer Dönemi</div><h2>2026/27 Yazının Öne Çıkan Transferleri</h2><p>Bu transfer döneminde Süper Lig’e gelen, tamamlanmış bonservis işlemleri</p></div><div class="transfer-clock"><b id="transferCountdown">—</b><span>4 Eylül kapanışına</span></div></div>
+      <div class="transfer-list" id="topTransfers"></div>
+    </article>
+    <div class="market-stack">
+      <article class="market-card">
+        <div class="market-head"><div><div class="market-eyebrow">Transfer Gündemi</div><h2>Takipteki 3 İsim</h2><p>Resmî transfer değil; haber akışı ve durum özeti</p></div></div>
+        <div class="rumor-list" id="transferWatchlist"></div>
+        <p class="market-footnote">Söylentiler kesinleşmiş transfer anlamına gelmez. Durum etiketleri kaynaklardaki son açıklamaya göre gösterilir.</p>
+      </article>
+      <article class="market-card">
+        <div class="market-head"><div><div class="market-eyebrow">Performans Liderleri</div><h2>Haftanın Oyuncuları</h2><p>Yeni sezon başlamadan önce son tamamlanan sezonun puanları</p></div></div>
+        <div class="performance-list" id="weeklyPlayers"></div>
+        <p class="market-footnote">2026/27 haftalık liste, ilk maçların ardından canlı performans verisiyle güncellenecek.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="content-network" aria-label="XYZSkor hikâye ve sosyal içerik ağı">
+    <div class="content-network-head"><div><div class="market-eyebrow">Hikâye + Dağıtım</div><h2>Sahanın verisi, tribünün sesi.</h2><p>Uzun okuma, kısa video ve taraftar anlatısı aynı editoryal masada buluşuyor.</p></div><span class="market-source">XYZSkor Studio</span></div>
+    <div class="content-format-grid">
+      <article class="content-format-card"><span>Editoryal</span><h3>Haftanın Hikâyesi</h3><p>Skorun arkasındaki taktik kırılmayı, oyuncu performansını ve tribün duygusunu sakin bir anlatıyla okur.</p><button class="btn ghost" onclick="document.getElementById('weeklyStoryArea').scrollIntoView({behavior:'smooth'})">Hikâyeye Git</button></article>
+      <article class="content-format-card"><span>Kısa Video</span><h3>60 Saniyede Veri</h3><p>Maçın tek belirleyici sayısını mobil ve sosyal medya için hızlı, anlaşılır bir formata dönüştürür.</p><button class="btn ghost" onclick="document.getElementById('videoSection').scrollIntoView({behavior:'smooth'})">Videoları Gör</button></article>
+      <article class="content-format-card"><span>Topluluk</span><h3>Taraftar Mikrofonu</h3><p>Haftanın sorusunu taraftara ve içerik üreticilerine açar; en güçlü görüşleri ana akışta öne çıkarır.</p><button class="btn ghost" onclick="switchMainTab('league');switchLeagueSection('leader')">Taraftar Ligine Git</button></article>
+    </div>
+  </section>
+
   <div class="story-layout">
     <div class="story-main">
 
@@ -408,7 +625,7 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
 
       <div class="panel">
         <div class="section-title">Bu Haftanın Tüm Maçları</div>
-        <div class="section-desc">Önce bilgiyi incele. Tahmin yapmak istediğinde "Tahmin Ligi'ne Geç" ile karşılaştırma ekranına geçebilirsin.</div>
+        <div class="section-desc">Fikstürü incele; güç endeksi, beklenen gol ve form verileri için Matematik Merkezi’ne geç.</div>
         <div id="storyMatchList"></div>
       </div>
 
@@ -433,10 +650,12 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
       <div class="aside-card" id="asideStandings"></div>
       <div class="aside-card">
         <div class="aside-title">Tahmin Ligi</div>
-        <p style="font-size:14px;color:var(--ink-dim);margin:0 0 12px;">Maçları incelediysen tahminini yapmaya geç.</p>
-        <button class="btn gold" style="width:100%;" onclick="switchMainTab('league')">Tahmin Ligi'ne Geç</button>
+        <p style="font-size:14px;color:var(--ink-dim);margin:0 0 12px;">Veriyi incele, ücretsiz tahminini yap ve taraftarlarınla yarış.</p>
+        <button class="btn gold" style="width:100%;" onclick="switchMainTab('league')">Haftaya Katıl</button>
       </div>
-      <div class="ad-slot ad-slot-sidebar" data-ad-position="sidebar"><span class="ad-slot-label">REKLAM</span><span class="ad-slot-size mono">300 × 600</span></div>
+      <a class="sidebar-campaign" href="https://mythos.cards/" target="_blank" rel="noopener sponsored" aria-label="Mythos Cards koleksiyonlarını keşfet">
+        <div class="sidebar-campaign-copy"><div class="campaign-label">Koleksiyon Ürünleri</div><b>Veriyi keşfet.<br>Kartları incele.</b><span>Mythos Cards koleksiyonlarını keşfet →</span></div>
+      </a>
     </aside>
   </div>
 </div>
@@ -454,7 +673,7 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
   </div>
 
   <div class="leaguesubtabs" id="leagueSubtabs">
-    <button class="leaguesubtab active" id="lst-predict" onclick="switchLeagueSection('predict')">Tahminler</button>
+    <button class="leaguesubtab active" id="lst-predict" onclick="switchLeagueSection('predict')">Tahminler + Veri</button>
     <button class="leaguesubtab" id="lst-standings" onclick="switchLeagueSection('standings')">Puan Durumu</button>
     <button class="leaguesubtab" id="lst-leader" onclick="switchLeagueSection('leader')">Lider Tablosu</button>
     <button class="leaguesubtab" id="lst-rewards" onclick="switchLeagueSection('rewards')">Ödüller</button>
@@ -464,8 +683,15 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
 
   <div class="league-section active" id="lsec-predict">
     <div class="panel">
-      <div class="section-title">Bu Haftanın Tahminleri</div>
-      <div class="section-desc">1 / X / 2 seç, istersen kesin skor gir. Maç başlamadan 15 dakika önce tahminler kilitlenir.</div>
+      <div class="section-title">Veriye Dayalı Tahmin Ligi</div>
+      <div class="section-desc">Önce güç endeksi ve beklenen gol verisini incele; sonra ücretsiz tahminini kaydet. Para yatırma ve bahis yok—yalnızca futbol bilgisi, taraftar rekabeti ve haftalık ödüller.</div>
+      <div class="math-grid" aria-label="XYZSkor matematik formülleri">
+        <div class="math-cell"><div class="math-n">PPG = P / O</div><div class="math-l">Maç başı puan</div></div>
+        <div class="math-cell"><div class="math-n">GD90 = AV / O</div><div class="math-l">Maç başı gol farkı</div></div>
+        <div class="math-cell"><div class="math-n">xG = (GF90 + GA90) / 2</div><div class="math-l">Beklenen gol tabanı</div></div>
+        <div class="math-cell"><div class="math-n">p = 1 / (1 + e<sup>−Δ/11</sup>)</div><div class="math-l">Lojistik olasılık</div></div>
+      </div>
+      <div class="formula-note">Güç = 50 + 16 × (PPG − 1,5) + 9 × GD90 + iç saha katsayısı. Minimum örneklem oluşmadan sonuç yayımlanmaz.</div>
       <div id="leagueMatchList"></div>
     </div>
   </div>
@@ -538,12 +764,24 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
   </div>
 </div>
 
-<!-- ===================== TAB 3: CANLI (yer tutucu) ===================== -->
+<!-- ===================== TAB 3: CANLI ===================== -->
 <div class="tabpage" id="page-live">
-  <div class="live-placeholder">
-    <div class="icon">⚡︎</div>
-    <div class="t">Canlı skorlar yakında burada</div>
-    <div class="d">Bu ekran, bir canlı veri sağlayıcısıyla (örn. skor/istatistik API'si) entegrasyon tamamlandığında dakika dakika skor, olay ve istatistik akışı ile dolacak. Şu an sahte veri göstermiyoruz — yalnızca doğrulanmış fikstür bilgisi "Haftanın Hikâyesi" sekmesinde yer alıyor.</div>
+  <div class="live-shell">
+    <div class="live-head">
+      <div>
+        <div class="live-eyebrow"><span class="live-dot"></span>Canlı Veri Merkezi</div>
+        <h2>Süper Lig — canlı maçlar</h2>
+        <p>Skor, maç durumu ve dakika bilgisi doğrudan canlı veri katmanından gelir. Sahte skor veya bahis oranı gösterilmez.</p>
+      </div>
+      <div class="live-actions">
+        <span class="live-freshness" id="liveFreshness">Bağlantı bekleniyor</span>
+        <button class="btn ghost" id="liveRefreshBtn" type="button" onclick="loadLiveFeed(true)">Yenile</button>
+      </div>
+    </div>
+    <div class="live-list" id="liveScoreList" aria-live="polite">
+      <div class="live-notice"><strong>Canlı veri hazırlanıyor</strong><p>Canlı sekmesi açıldığında en güncel Süper Lig karşılaşmaları alınacak.</p></div>
+    </div>
+    <div class="live-data-note"><span>Veri, XYZSKOR sağlayıcı katmanında normalize edilir.</span><span id="liveProviderState">Ana kaynak yapılandırılıyor</span></div>
   </div>
 </div>
 
@@ -565,7 +803,7 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
       <button class="mc-tab" onclick="switchMcTab('lineups')">Kadrolar</button>
       <button class="mc-tab" onclick="switchMcTab('stats')">İstatistikler</button>
       <button class="mc-tab" onclick="switchMcTab('flow')">Maç Akışı</button>
-      <button class="mc-tab" onclick="switchMcTab('predictions')">Tahminler</button>
+      <button class="mc-tab" onclick="switchMcTab('predictions')">Veri Modeli</button>
     </div>
     <div class="mc-body" id="mcBody"></div>
   </div>
@@ -630,6 +868,14 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ===================== SABİTLER ===================== */
 const TEAMS = ['Beşiktaş','Diğer','Fenerbahçe','Galatasaray','Trabzonspor'];
 const TEAM_COLORS = {Galatasaray:'var(--gs)',Fenerbahçe:'var(--fb)',Beşiktaş:'var(--bjk)',Trabzonspor:'var(--ts)',Diğer:'var(--other)'};
+const TEAM_CRESTS = {
+  Galatasaray:'https://img.sofascore.com/api/v1/team/3061/image',
+  Fenerbahçe:'https://img.sofascore.com/api/v1/team/3052/image',
+  Beşiktaş:'https://img.sofascore.com/api/v1/team/3050/image',
+  Trabzonspor:'https://img.sofascore.com/api/v1/team/3051/image',
+  Başakşehir:'https://img.sofascore.com/api/v1/team/3086/image',
+  Samsunspor:'https://img.sofascore.com/api/v1/team/3053/image'
+};
 const ANALYSIS_FIELDS = [
   ['sonFormEv','Ev sahibi son 5 maç formu'], ['sonFormKonuk','Deplasman son 5 maç formu'],
   ['evDisPerf','İç/dış saha performansı'], ['golOrt','Gol atma / yeme ortalaması'],
@@ -638,6 +884,11 @@ const ANALYSIS_FIELDS = [
 ];
 const ALL_BADGES = ['İlk Tahmin','Haftayı Eksiksiz Tamamladı','Kesin Skor Uzmanı','5 Doğru Tahmin','Taraftar Ligi İlk 10','Haftanın Şampiyonu','Veri Ustası'];
 const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', kontrol: '31 Temmuz 2026' };
+const LIVE_FEED_CONFIG = {
+  functionName: 'football-live',
+  scope: 'turkey-super-lig',
+  refreshMs: 60000
+};
 const VIDEO_CONFIG = {
   title: '',
   description: '',
@@ -648,6 +899,80 @@ const VIDEO_CONFIG = {
 };
 
 /* ===================== CACHE (Supabase'ten yüklenen veri) ===================== */
+const MYTHOS_PRODUCTS = {
+  Seçki:[
+    {name:'Champion Edition – Nova Hobby Box',year:'Galatasaray · 2026',price:'3.299 TL',image:'https://cdn.mythos.cards/imgs/Image_639201415658509192_.webp',url:'https://mythos.cards/product/live/39472/galatasaray-champion-edition-nova-hobby-box',desc:'Şampiyonluk sezonunun yıldızlarını, kırılma anlarını ve kulüp mirasını premium bir kutuda buluşturan koleksiyon.',features:['30 kartlık premium kutu','6 numaralı kart garantisi','İmzalı veya Matchworn Patch hit']},
+    {name:'Mythos Legends – Mehmet Özdilek',year:'Beşiktaş · Legends 2026',price:'1.399 TL',image:'https://cdn.mythos.cards/imgs/Image_639072019845495612_.webp',url:'https://mythos.cards/product/live/34207/mythos-legends-mehmet-ozdilek',desc:'Beşiktaş tarihinin simge isimlerinden Şifo Mehmet’in kariyerini numaralı ve imzalı kartlarla anlatan özel seri.',features:['Her pakette 5 numaralı kart','İmzalı kartlar mevcut','6,4 × 8,9 cm özel baskı']},
+    {name:'Trabzonspor Pulse 2025/26',year:'Trabzonspor · Pulse',price:'149 TL',image:'https://cdn.mythos.cards/imgs/Image_639201437618030532_.webp',url:'https://mythos.cards/product/live/25982/trabzonspor-pulse-futbolcu-kartlari-2025-26-paket',desc:'Bordo-mavili kadroyu modern grafik diliyle sunan, kompakt ve erişilebilir futbolcu kartı paketi.',features:['2025/26 futbolcu koleksiyonu','Modern Pulse tasarım serisi','Resmî Mythos paket ürünü']}
+  ],
+  Galatasaray:[
+    {name:'Champion Edition – Nova Hobby Box',year:'2026 · Nova Hobby Box',price:'3.299 TL',image:'https://cdn.mythos.cards/imgs/Image_639201415658509192_.webp',url:'https://mythos.cards/product/live/39472/galatasaray-champion-edition-nova-hobby-box',features:['6 paket · toplam 30 kart','6 numaralı kart garantisi','1 imzalı veya Matchworn Patch hit']},
+    {name:'Pulse Futbolcu Kartları 2025/26',year:'2025/26 · Tek Paket',price:'149 TL',image:'https://cdn.mythos.cards/imgs/Image_639201436045954862_.webp',url:'https://mythos.cards/product/live/25983/galatasaray-pulse-futbolcu-kartlari-2025-26-paket',features:['Futbolcu koleksiyon serisi','2025/26 sezon baskısı','Resmî Mythos paket ürünü']},
+    {name:'2025/26 Sezon Kartları – Kutu',year:'2026 · Sezon Kartları',price:'199 TL',image:'https://cdn.mythos.cards/imgs/Image_639201451141428793_.webp',url:'https://mythos.cards/product/live/34144/galatasaray-2025-26-sezon-kartlari-kutu',features:['Takım sezon koleksiyonu','Özel baskılı futbolcu kartları','Resmî Mythos kutu ürünü']}
+  ],
+  Beşiktaş:[
+    {name:'Beşiktaş 2022/23 Moments Serisi',year:'2022/23 · Moments',price:'49 TL',image:'https://cdn.mythos.cards/imgs/Image_638255592199308689_.jpg',url:'https://mythos.cards/product/live/2109/Besiktas-Moments-Serisi',features:['Her pakette 1 özel an kartı','Numaralı ve imzalı nadir kartlar','Forma parçalı kart ihtimali']},
+    {name:'Mythos Legends – Mehmet Özdilek',year:'2026 · Legends',price:'1.399 TL',image:'https://cdn.mythos.cards/imgs/Image_639072019845495612_.webp',url:'https://mythos.cards/product/live/34207/mythos-legends-mehmet-ozdilek',features:['Her pakette 5 numaralı kart','İmzalı kartlar mevcut','6,4 × 8,9 cm özel baskı']},
+    {name:'Hyeon-Gyu Oh Koleksiyon Kartları',year:'2025 · Oyuncu Serisi',price:'149 TL',image:'https://cdn.mythos.cards/imgs/Image_639201430790402622_.webp',url:'https://mythos.cards/product/live/36152/besiktas-hyeon-gyu-oh-koleksiyon-kartlari-paket',features:['10 kart: 5 Base + 2 Parlak','2 Anime kart','1 dijital imzalı kart']}
+  ],
+  Trabzonspor:[
+    {name:'2025/26 Sezon Kartları – Kutu',year:'2026 · Sezon Kartları',price:'199 TL',image:'https://cdn.mythos.cards/imgs/Image_639201454914689199_.webp',url:'https://mythos.cards/product/live/34146/trabzonspor-2025-26-sezon-kartlari-kutu',features:['Kutuda toplam 12 kart','1 parlak kart garantisi','Numaralı kart ihtimali']},
+    {name:'Trabzonspor 2025/26 Mythos First',year:'2025/26 · Mythos First',price:'199 TL',image:'https://cdn.mythos.cards/imgs/Image_639201397499182163_.webp',url:'https://mythos.cards/product/live/27677/trabzonspor-2025-26-mythos-first',features:['7 Base + 3 parlak kart','Toplam 10 kart','Dijital imzalı kart ihtimali']},
+    {name:'Pulse Futbolcu Kartları 2025/26',year:'2025/26 · Pulse',price:'149 TL',image:'https://cdn.mythos.cards/imgs/Image_639201437618030532_.webp',url:'https://mythos.cards/product/live/25982/trabzonspor-pulse-futbolcu-kartlari-2025-26-paket',features:['Futbolcu koleksiyon serisi','2025/26 sezon baskısı','Resmî Mythos paket ürünü']}
+  ]
+};
+let activeMythosTeam='Seçki';
+function renderMythosProducts(){
+  const grid=document.getElementById('mythosProductGrid'); if(!grid) return;
+  const editorial={Galatasaray:'Şampiyonluk kültürünü, yıldız oyuncuları ve sezonun unutulmaz anlarını koleksiyon tasarımıyla bir araya getiriyor.',Beşiktaş:'Siyah-beyaz mirası, ikonik oyuncuları ve tribün hafızasını özel baskı koleksiyon kartlarına taşıyor.',Trabzonspor:'Bordo-mavili kimliği, genç yetenekleri ve kulübün güçlü futbol hikâyesini modern bir koleksiyonda buluşturuyor.'};
+  grid.innerHTML=(MYTHOS_PRODUCTS[activeMythosTeam]||[]).map(p=>`<a class="official-product" href="${p.url}" target="_blank" rel="noopener sponsored"><div class="official-product-image"><img src="${p.image}" alt="${p.name}" loading="lazy"></div><div class="official-product-body"><span class="official-product-kicker">${p.year}</span><h3>${p.name}</h3><p class="official-product-desc">${p.desc||editorial[activeMythosTeam]||'Futbol kültürünü özenli baskı ve koleksiyon değeriyle bir araya getiren resmî Mythos ürünü.'}</p><div class="official-product-price">${p.price}</div><ul class="product-features">${p.features.map(f=>`<li>${f}</li>`).join('')}</ul><span class="product-link">Ürünü Mythos’ta incele →</span></div></a>`).join('');
+  document.querySelectorAll('.product-team-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.team===activeMythosTeam));
+}
+function selectMythosTeam(team){ activeMythosTeam=team; renderMythosProducts(); }
+
+const MARKET_DATA = {
+  transfers: [
+    {name:'Mason Greenwood', initials:'MG', photo:'https://images.fotmob.com/image_resources/playerimages/950473.png', from:'Marsilya', to:'Fenerbahçe', fee:'€39 M'},
+    {name:'Sidiki Chérif', initials:'SC', photo:'https://images.fotmob.com/image_resources/playerimages/1524069.png', from:'Angers', to:'Fenerbahçe', fee:'€18 M'},
+    {name:'Vedat Muriqi', initials:'VM', photo:'https://images.fotmob.com/image_resources/playerimages/517052.png', from:'Mallorca', to:'Fenerbahçe', fee:'€15,5 M'},
+    {name:'Aral Şimşir', initials:'AŞ', photo:'https://images.fotmob.com/image_resources/playerimages/1126769.png', from:'Midtjylland', to:'Trabzonspor', fee:'€13 M'},
+    {name:'Noah Saviolo', initials:'NS', photo:'https://images.fotmob.com/image_resources/playerimages/1793475.png', from:'Vitória SC', to:'Trabzonspor', fee:'€8,5 M'}
+  ],
+  watchlist: [
+    {name:'Darwin Núñez', initials:'DN', photo:'https://images.fotmob.com/image_resources/playerimages/950561.png', route:'Al-Hilal → Beşiktaş', status:'Yakın takip', tone:'hot'},
+    {name:'Dušan Vlahović', initials:'DV', photo:'https://images.fotmob.com/image_resources/playerimages/737857.png', route:'Serbest → Beşiktaş', status:'Fırsat hedefi', tone:'watch'},
+    {name:'Mohamed Salah', initials:'MS', photo:'https://images.fotmob.com/image_resources/playerimages/292462.png', route:'Liverpool → Beşiktaş', status:'Rafa kaldırıldı', tone:'shelved'}
+  ],
+  performers: [
+    {name:'Marco Asensio', initials:'MA', photo:'https://images.fotmob.com/image_resources/playerimages/498033.png', meta:'Fenerbahçe · Hücum', rating:'7,81'},
+    {name:'Victor Osimhen', initials:'VO', photo:'https://images.fotmob.com/image_resources/playerimages/687681.png', meta:'Galatasaray · Forvet', rating:'7,76'},
+    {name:'Orkun Kökçü', initials:'OK', photo:'https://images.fotmob.com/image_resources/playerimages/935409.png', meta:'Beşiktaş · Orta saha', rating:'7,73'}
+  ]
+};
+function marketPhoto(item){
+  return `<span class="player-photo">${item.initials}${item.photo ? `<img src="${item.photo}" alt="${item.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</span>`;
+}
+function renderMarketPulse(){
+  const transfers = document.getElementById('topTransfers');
+  const watchlist = document.getElementById('transferWatchlist');
+  const performers = document.getElementById('weeklyPlayers');
+  if(transfers) transfers.innerHTML = MARKET_DATA.transfers.map((p,i) => `<div class="transfer-row"><span class="transfer-rank">${i+1}</span>${marketPhoto(p)}<div><div class="transfer-name">${p.name}</div><div class="transfer-route"><span class="club-chip">${p.from}</span><span class="route-arrow">→</span><span class="club-chip">${p.to}</span></div></div><div class="transfer-fee">${p.fee}<small>bonservis</small></div></div>`).join('');
+  if(watchlist) watchlist.innerHTML = MARKET_DATA.watchlist.map(p => `<div class="rumor-row">${marketPhoto(p)}<div><div class="rumor-title">${p.name}</div><div class="rumor-route">${p.route}</div></div><span class="status-chip ${p.tone}">${p.status}</span></div>`).join('');
+  if(performers) performers.innerHTML = MARKET_DATA.performers.map((p,i) => `<div class="performance-row">${marketPhoto(p)}<div><div class="performance-name">${i+1}. ${p.name}</div><div class="performance-meta">${p.meta}</div></div><span class="rating-pill">${p.rating}</span></div>`).join('');
+}
+let transferCountdownHandle = null;
+function updateTransferCountdown(){
+  const el=document.getElementById('transferCountdown'); if(!el) return;
+  const remaining=new Date('2026-09-05T00:00:00+03:00').getTime()-Date.now();
+  if(remaining<=0){ el.textContent='DÖNEM KAPANDI'; return; }
+  const days=Math.floor(remaining/86400000), hours=Math.floor((remaining%86400000)/3600000), minutes=Math.floor((remaining%3600000)/60000), seconds=Math.floor((remaining%60000)/1000);
+  el.textContent=`${days}G ${String(hours).padStart(2,'0')}S ${String(minutes).padStart(2,'0')}D ${String(seconds).padStart(2,'0')}SN`;
+}
+function startTransferCountdown(){
+  updateTransferCountdown();
+  if(!transferCountdownHandle) transferCountdownHandle=setInterval(updateTransferCountdown,1000);
+}
+
 let MATCHES = [];
 let ANALYSIS = {};
 let PROFILES = {};
@@ -658,6 +983,9 @@ let STANDINGS = [];
 let WEEKLY_STORIES = {};
 let currentUser = null;
 let tickerHandle = null;
+let liveFeedHandle = null;
+let liveFeedLoading = false;
+let LIVE_FEED = { matches:[], updatedAt:null, stale:false, error:null, loaded:false };
 let lastLoadError = null;
 let activeWeek = 1;
 
@@ -870,6 +1198,11 @@ function isLocked(iso){ return Date.now() >= (new Date(iso).getTime() - 15*60000
 function analysisCompleteness(a){ if(!a) return 0; return ANALYSIS_FIELDS.filter(([k])=>a[k]).length; }
 function crestInitials(team){ return team ? team.slice(0,2).toUpperCase() : '??'; }
 function crestColor(team){ return TEAM_COLORS[team] || 'var(--other)'; }
+function crestHTML(team, size='sm'){
+  const src = TEAM_CRESTS[team];
+  const initials = crestInitials(team);
+  return `<div class="shield ${size}" style="background:${crestColor(team)};"><span>${initials}</span>${src ? `<img src="${src}" alt="${team} arması" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
+}
 function groupByDate(matches){
   const groups = {};
   matches.forEach(m=>{ const key = fmtDateHeading(m.kickoff); if(!groups[key]) groups[key]=[]; groups[key].push(m); });
@@ -966,6 +1299,97 @@ function renderTicker(){
   if(!tickerHandle){ tickerHandle = setInterval(()=>{ const nm = nextUpcomingMatch(); if(nm) updateTickerCountdown(nm); }, 30000); }
 }
 
+/* ===================== CANLI VERİ SAĞLAYICI KATMANI ===================== */
+function escapeLiveHTML(value){
+  return String(value ?? '').replace(/[&<>'"]/g, char=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
+}
+function safeLiveImage(value){
+  try{
+    const url = new URL(String(value || ''));
+    return url.protocol==='https:' ? url.href : '';
+  }catch(_){ return ''; }
+}
+function liveTeamMark(team){
+  const logo = safeLiveImage(team && team.logo);
+  const name = escapeLiveHTML(team && team.name ? team.name : 'Takım');
+  if(logo) return `<img src="${logo}" alt="${name} arması" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`;
+  return `<span class="fallback-crest">${name.slice(0,2).toLocaleUpperCase('tr-TR')}</span>`;
+}
+function liveStatusView(match){
+  const minute = Number.isFinite(Number(match.minute)) ? Math.max(0, Math.round(Number(match.minute))) : null;
+  if(match.status==='halftime') return { badge:'DEVRE', detail:'Devre arası', live:true };
+  if(match.status==='live') return { badge:minute!==null ? `${minute}'` : 'CANLI', detail:'Maç oynanıyor', live:true };
+  if(match.status==='finished') return { badge:'MS', detail:'Maç sona erdi', live:false };
+  const kickoff = match.startedAt ? new Date(match.startedAt) : null;
+  return { badge:kickoff && !Number.isNaN(kickoff.getTime()) ? kickoff.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) : '—', detail:'Başlamadı', live:false };
+}
+function renderLiveFeed(){
+  const list = document.getElementById('liveScoreList');
+  const freshness = document.getElementById('liveFreshness');
+  const providerState = document.getElementById('liveProviderState');
+  const refreshBtn = document.getElementById('liveRefreshBtn');
+  if(!list) return;
+  if(refreshBtn) refreshBtn.disabled = liveFeedLoading;
+  if(liveFeedLoading && !LIVE_FEED.loaded){
+    list.innerHTML = `<div class="live-notice"><strong>Canlı maçlar kontrol ediliyor</strong><p>En güncel Süper Lig verisi alınıyor…</p></div>`;
+    if(freshness) freshness.textContent='Güncelleniyor…';
+    return;
+  }
+  if(LIVE_FEED.error && !LIVE_FEED.matches.length){
+    list.innerHTML = `<div class="live-notice"><strong>Canlı veri şu anda alınamıyor</strong><p>Bağlantı güvenli sunucu katmanında kuruluyor. Biraz sonra yeniden deneyin; eski veya tahmini skor gösterilmeyecek.</p></div>`;
+    if(freshness) freshness.textContent='Bağlantı kurulamadı';
+    if(providerState) providerState.textContent='Canlı kaynak bekleniyor';
+    return;
+  }
+  if(!LIVE_FEED.matches.length){
+    list.innerHTML = `<div class="live-notice"><strong>Şu anda Süper Lig'de canlı maç yok</strong><p>Canlı karşılaşma başladığında skor, dakika ve maç durumu bu ekrana otomatik olarak düşecek.</p></div>`;
+  }else{
+    list.innerHTML = LIVE_FEED.matches.map(match=>{
+      const view = liveStatusView(match);
+      const home = match.home || {}, away = match.away || {};
+      const homeScore = home.score===null || home.score===undefined ? '—' : escapeLiveHTML(home.score);
+      const awayScore = away.score===null || away.score===undefined ? '—' : escapeLiveHTML(away.score);
+      return `<article class="live-card ${view.live?'is-live':''}">
+        <div class="live-competition">${safeLiveImage(match.competitionLogo)?`<img src="${safeLiveImage(match.competitionLogo)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}<span>${escapeLiveHTML(match.competition || 'Süper Lig')}</span></div>
+        <div class="live-teams">
+          <div class="live-team">${liveTeamMark(home)}<span>${escapeLiveHTML(home.name || 'Ev sahibi')}</span><span class="live-score">${homeScore}</span></div>
+          <div class="live-team">${liveTeamMark(away)}<span>${escapeLiveHTML(away.name || 'Deplasman')}</span><span class="live-score">${awayScore}</span></div>
+        </div>
+        <div class="live-state"><span class="live-minute">${view.live?'<span class="live-dot"></span>':''}${view.badge}</span><span class="live-state-label">${view.detail}</span></div>
+      </article>`;
+    }).join('');
+  }
+  if(freshness){
+    const updated = LIVE_FEED.updatedAt ? new Date(LIVE_FEED.updatedAt) : null;
+    freshness.textContent = updated && !Number.isNaN(updated.getTime()) ? `Son kontrol ${updated.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}` : 'Canlı bağlantı etkin';
+  }
+  if(providerState) providerState.textContent = LIVE_FEED.stale ? 'Son doğrulanmış veri gösteriliyor' : 'Canlı bağlantı etkin';
+}
+async function loadLiveFeed(force){
+  if(liveFeedLoading) return;
+  liveFeedLoading = true;
+  renderLiveFeed();
+  try{
+    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, force:!!force } });
+    if(error) throw error;
+    if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
+    LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
+  }catch(error){
+    console.warn('[XYZSkor canlı veri]', error);
+    LIVE_FEED = { ...LIVE_FEED, error:error && error.message ? error.message : 'Bağlantı hatası', loaded:true, stale:LIVE_FEED.matches.length>0 };
+  }finally{
+    liveFeedLoading = false;
+    renderLiveFeed();
+  }
+}
+function startLiveFeed(){
+  loadLiveFeed(false);
+  if(!liveFeedHandle) liveFeedHandle = setInterval(()=>loadLiveFeed(false), LIVE_FEED_CONFIG.refreshMs);
+}
+function stopLiveFeed(){
+  if(liveFeedHandle){ clearInterval(liveFeedHandle); liveFeedHandle=null; }
+}
+
 /* ===================== MAIN TAB SWITCH ===================== */
 function switchMainTab(name){
   document.getElementById('page-story').classList.toggle('active', name==='story');
@@ -973,8 +1397,17 @@ function switchMainTab(name){
   document.getElementById('page-live').classList.toggle('active', name==='live');
   document.getElementById('tabBtnStory').classList.toggle('active', name==='story');
   document.getElementById('tabBtnLeague').classList.toggle('active', name==='league');
+  document.getElementById('tabBtnStories').classList.remove('active');
   document.getElementById('tabBtnLive').classList.toggle('active', name==='live');
+  if(name==='live') startLiveFeed(); else stopLiveFeed();
   updateMobileNavActive();
+}
+function openStories(){
+  switchMainTab('story');
+  document.getElementById('tabBtnStory').classList.remove('active');
+  document.getElementById('tabBtnStories').classList.add('active');
+  const target=document.getElementById('weeklyStoryArea');
+  if(target) target.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 /* ===================== LİG İÇİ SEKMELER ===================== */
@@ -1084,9 +1517,9 @@ function switchMcTab(tab){
 }
 function renderMcHeader(m){
   document.getElementById('mcTeamsRow').innerHTML = `
-    <div class="shield md" style="background:${crestColor(m.ev)};">${crestInitials(m.ev)}</div>
+    ${crestHTML(m.ev,'md')}
     <div class="name">${m.ev}<br><span style="color:var(--ink-faint);font-weight:400;font-size:12px;">vs</span><br>${m.konuk}</div>
-    <div class="shield md" style="background:${crestColor(m.konuk)};">${crestInitials(m.konuk)}</div>`;
+    ${crestHTML(m.konuk,'md')}`;
   document.getElementById('mcMetaRow').textContent = `${fmtKickoff(m.kickoff)} · ${m.stadyum}${m.referee_name ? ' · Hakem: '+m.referee_name : ''}`;
   document.getElementById('mcStatusBadge').textContent = matchStatusLabel(m);
 }
@@ -1149,6 +1582,21 @@ function renderMcLineups(m){
   });
   document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Yükleniyor…</div>`;
 }
+function absencePresentation(a){
+  const raw = String(a.availability_status || a.status || '').trim().toLocaleLowerCase('tr-TR');
+  const labels = {
+    official_injury:['Resmî sakatlık','official'], resmi_sakatlik:['Resmî sakatlık','official'],
+    probable_absence:['Muhtemel eksik','probable'], muhtemel_eksik:['Muhtemel eksik','probable'],
+    suspended:['Cezalı','suspended'], cezali:['Cezalı','suspended'], cezalı:['Cezalı','suspended'],
+    not_in_squad:['Maç kadrosunda yok','neutral'], kadroda_yok:['Maç kadrosunda yok','neutral'],
+    technical_decision:['Teknik tercih','neutral'], teknik_tercih:['Teknik tercih','neutral'],
+    personal_reason:['Kişisel neden','neutral'], other:['Diğer','neutral']
+  };
+  if(labels[raw]) return { label:labels[raw][0], tone:labels[raw][1] };
+  // Eski ve belirsiz "sakat" kayıtlarını resmî bilgi gibi yükseltme.
+  if(raw==='sakat' || raw==='injured' || raw==='injury') return { label:'Doğrulama bekliyor', tone:'probable' };
+  return { label:raw ? String(a.availability_status || a.status) : 'Durum belirtilmedi', tone:'neutral' };
+}
 function renderMcStats(m){
   ensureMcData(m.id).then(data=>{
     const evAbs = data.absences.filter(a=>a.team===m.ev);
@@ -1159,8 +1607,13 @@ function renderMcStats(m){
       return `<div class="mc-vs-grid"><div class="val">${evVal}</div><div class="lbl">${label}</div><div class="val">${konukVal}</div></div>`;
     }
     function absBlock(team, list){
-      if(!list.length) return `<div class="mc-empty">${team} için eksik/sakat/cezalı bilgisi yok.</div>`;
-      return list.map(a=>`<div class="mc-absence-row"><span>${a.player_name}${a.reason?' — '+a.reason:''}</span><span class="mc-absence-status">${a.status}</span></div>`).join('');
+      if(!list.length) return `<div class="mc-empty">${team} için doğrulanmış oyuncu uygunluk kaydı yok.</div>`;
+      return list.map(a=>{
+        const view = absencePresentation(a);
+        const verification = a.verification_status==='official' ? 'Resmî kaynak' : (a.verification_status==='press_report' ? 'Basın kaydı' : 'Sağlayıcı kaydı');
+        const source = a.source ? ` · ${a.source}` : '';
+        return `<div class="mc-absence-row"><span>${a.player_name}${a.reason?' — '+a.reason:''}</span><span class="mc-absence-status ${view.tone}">${view.label}</span><span class="mc-absence-meta">${verification}${source}</span></div>`;
+      }).join('');
     }
     document.getElementById('mcBody').innerHTML = `
       <div class="section-title" style="font-size:14px;">Karşılaştırma</div>
@@ -1171,7 +1624,8 @@ function renderMcStats(m){
         cmp('YEDİĞİ GOL', evRow.goals_against, konukRow.goals_against),
         cmp('SON 5', evRow.form||'Maç haftasında güncellenecek', konukRow.form||'Maç haftasında güncellenecek')
       ].join('') : `<div class="mc-empty">Karşılaştırma verisi puan durumu eklendiğinde burada gösterilecek.</div>`}
-      <div class="section-title" style="font-size:14px;margin-top:18px;">Eksikler, Sakatlar, Cezalılar</div>
+      <div class="section-title" style="font-size:14px;margin-top:18px;">Oyuncu Uygunluğu</div>
+      <div class="section-desc" style="margin-bottom:12px;">Resmî sakatlık, muhtemel eksik, ceza ve kadro tercihi birbirinden ayrı gösterilir.</div>
       <div class="section-desc" style="margin-bottom:8px;">${m.ev}</div>
       ${absBlock(m.ev, evAbs)}
       <div class="section-desc" style="margin:12px 0 8px;">${m.konuk}</div>
@@ -1184,67 +1638,19 @@ function renderMcFlow(m){
   document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Canlı maç akışı veri sağlayıcısı bağlandığında burada gösterilecek.</div>`;
 }
 function renderMcPredictions(m){
-  ensureMcData(m.id).then(data=>{
-    const u = getCurrentUser();
-    const result = getResult(m.id);
-    const locked = isLocked(m.kickoff);
-    let personalHTML = '';
-    if(u){
-      const pred = getPrediction(m.id, u.id);
-      if(pred && result){
-        const pts = computeMatchPoints(pred, result);
-        personalHTML = `<div class="mc-result-card">
-          <div style="font-size:13px;color:var(--ink-dim);">Tahminin: <b style="color:var(--ink);">${pred.pick}${pred.scoreHome!=null?` (${pred.scoreHome}-${pred.scoreAway})`:''}</b> · Gerçek sonuç: <b style="color:var(--ink);">${result.home}-${result.away}</b></div>
-          <div class="pts">+${pts.toplam} puan</div>
-          <div style="font-size:12.5px;color:var(--ink-dim);">${pts.sonuc?'Sonucu doğru bildin (+3)':'Sonucu tutmadı'}${pts.kesinSkor?' · Kesin skoru bildin (+5 bonus)':''}</div>
-        </div>`;
-      } else if(pred){
-        personalHTML = `<div class="mc-empty">Tahminin kayıtlı: ${pred.pick}${pred.scoreHome!=null?` (${pred.scoreHome}-${pred.scoreAway})`:''}. Sonuç girildiğinde puanın burada görünecek.</div>`;
-      } else if(!locked){
-        personalHTML = `<div class="mc-empty">Bu maç için henüz tahmin yapmadın. <button class="btn ghost" style="margin-top:8px;" onclick="closeMatchCenter();switchMainTab('league');">Tahmin Ligi'ne git</button></div>`;
-      } else {
-        personalHTML = `<div class="mc-empty">Bu maç için tahmin yapmadın, tahminler kilitlendi.</div>`;
-      }
-    } else {
-      personalHTML = `<div class="mc-empty">Kişisel sonucunu görmek için üye ol.</div>`;
-    }
-    let consensusHTML = '';
-    if(!locked){
-      consensusHTML = `<div class="mc-empty">Tahmin dağılımı maçtan 15 dakika önce açıklanır.</div>`;
-    } else if(data.consensus && data.consensus.total > 0){
-      const c = data.consensus;
-      consensusHTML = `
-        <div style="font-size:13px;color:var(--ink-dim);margin-bottom:6px;">${c.total} tahmine göre topluluk dağılımı</div>
-        <div class="mc-consensus-bar"><div style="width:${c.pct_1}%;background:var(--home);"></div><div style="width:${c.pct_x}%;background:var(--draw);"></div><div style="width:${c.pct_2}%;background:var(--away);"></div></div>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);">
-          <span>1: %${c.pct_1}</span><span>X: %${c.pct_x}</span><span>2: %${c.pct_2}</span>
-        </div>`;
-    } else {
-      consensusHTML = `<div class="mc-empty">Henüz tahmin girilmemiş.</div>`;
-    }
-    let modelHTML = '';
-    if(data.modelPred){
-      const mp = data.modelPred;
-      if(result){
-        const actualPick = result.home>result.away?'1':result.home<result.away?'2':'X';
-        const modelCorrect = mp.pick===actualPick;
-        modelHTML = `<div style="font-size:13.5px;">XYZSkor modeli: <b>${mp.pick}</b> tahmin etmişti — <span style="color:${modelCorrect?'var(--ok)':'var(--danger)'};">${modelCorrect?'doğru':'yanlış'}</span></div>`;
-      } else {
-        modelHTML = locked ? `<div style="font-size:13.5px;">XYZSkor modeli: <b>${mp.pick}</b></div>` : `<div class="mc-empty">Model tahmini kilitten sonra gösterilir.</div>`;
-      }
-    } else {
-      modelHTML = `<div class="mc-empty">XYZSkor modeli bu maç için henüz tahmin yapmadı.</div>`;
-    }
-    document.getElementById('mcBody').innerHTML = `
-      <div class="section-title" style="font-size:14px;">Senin Sonucun</div>
-      ${personalHTML}
-      <div class="section-title" style="font-size:14px;margin-top:18px;">Topluluk Tahminleri</div>
-      ${consensusHTML}
-      <div class="section-title" style="font-size:14px;margin-top:18px;">XYZSkor Modeli</div>
-      ${modelHTML}
-    `;
-  });
-  document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Yükleniyor…</div>`;
+  const mm=matchMathMetrics(m);
+  document.getElementById('mcBody').innerHTML = mm ? `
+    <div class="section-title" style="font-size:14px;">Matematiksel Karşılaştırma</div>
+    <div class="math-grid">
+      <div class="math-cell"><div class="math-n">${mm.powerHome.toFixed(1)}</div><div class="math-l">${m.ev} güç endeksi</div></div>
+      <div class="math-cell"><div class="math-n">${mm.powerAway.toFixed(1)}</div><div class="math-l">${m.konuk} güç endeksi</div></div>
+      <div class="math-cell"><div class="math-n">${mm.xgHome.toFixed(2)}</div><div class="math-l">${m.ev} beklenen gol</div></div>
+      <div class="math-cell"><div class="math-n">${mm.xgAway.toFixed(2)}</div><div class="math-l">${m.konuk} beklenen gol</div></div>
+    </div>
+    <div class="section-title" style="font-size:14px;margin-top:18px;">Olasılık Dağılımı</div>
+    <div class="mc-consensus-bar"><div style="width:${mm.home}%;background:var(--home);"></div><div style="width:${mm.draw}%;background:var(--draw);"></div><div style="width:${mm.away}%;background:var(--away);"></div></div>
+    <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);"><span>${m.ev}: %${mm.home.toFixed(1)}</span><span>Beraberlik: %${mm.draw.toFixed(1)}</span><span>${m.konuk}: %${mm.away.toFixed(1)}</span></div>
+    <div class="formula-note" style="padding:16px 0 0;">Bu değerler maç başı puan, gol farkı, atılan/yenen gol ortalaması ve iç saha katsayısının lojistik dağılıma dönüştürülmesiyle hesaplanır. Örneklem: ${mm.sample} maç.</div>` : `<div class="mc-empty">Matematiksel model için yeterli sezon verisi oluşmadı.</div>`;
 }
 
 /* ===================== NAV ===================== */
@@ -1330,7 +1736,7 @@ function heroCardHTML(m){
     <div class="hero-meta"><b>${fmtKickoff(m.kickoff)}</b> · ${m.stadyum} · <span class="mc-status-badge" style="margin-top:0;">${matchStatusLabel(m)}</span></div>
     <div class="hero-analysis-mini mono">${completeness}/${total} analiz başlığı hazır <div class="dots">${ANALYSIS_FIELDS.map((_,i)=>`<div class="dot ${i<completeness?'filled':''}"></div>`).join('')}</div></div>
     <div class="hero-cta">
-      <button class="btn gold" onclick="switchMainTab('league')">Tahmin Yap</button>
+      <button class="btn gold" onclick="switchMainTab('league')">Tahminini Yap</button>
       <button class="btn ghost" onclick="openMatchCenter('${m.id}')">Maç Merkezi →</button>
     </div>
   `;
@@ -1339,12 +1745,12 @@ function matchRowHTML(m){
   return `
     <div class="match-row">
       <div class="match-row-top">
-        <div class="shield sm" style="background:${crestColor(m.ev)};">${crestInitials(m.ev)}</div>
+        ${crestHTML(m.ev)}
         <div class="teams">
           <div class="names">${m.ev} <span style="color:var(--ink-faint);font-weight:400;">—</span> ${m.konuk} ${m.verified?'<span class="verify-dot" title="Doğrulandı"></span>':''}</div>
           <div class="venue">${m.stadyum} · ${matchStatusLabel(m)}</div>
         </div>
-        <div class="shield sm" style="background:${crestColor(m.konuk)};">${crestInitials(m.konuk)}</div>
+        ${crestHTML(m.konuk)}
         <div class="time-chip mono">${fmtTime(m.kickoff)}</div>
       </div>
       <div class="story-link-row"><button class="btn ghost" style="font-size:13px;padding:8px 10px;" onclick="openMatchCenter('${m.id}')">Maç Merkezi →</button></div>
@@ -1362,7 +1768,7 @@ function renderStory(){
   document.getElementById('storyMatchList').innerHTML = entries.map(([date, group], gi) => `
     <div class="date-heading">${date}</div>
     ${group.map(m => matchRowHTML(m)).join('')}
-    ${gi===0 ? `<div class="ad-slot ad-slot-inline" data-ad-position="inline-story"><span class="ad-slot-label">REKLAM</span><span class="ad-slot-size mono">336 × 280</span></div>` : ''}
+    ${gi===0 ? `<a class="inline-campaign" href="https://mythos.cards/" target="_blank" rel="noopener sponsored"><div class="inline-campaign-copy"><div class="campaign-label">Koleksiyon Vitrini</div><strong>Gerçek oyuncular, koleksiyonluk kartlar.</strong><span>Mythos Cards ürünlerini keşfet →</span></div><div class="inline-campaign-art" aria-hidden="true"></div></a>` : ''}
   `).join('');
   renderVideo();
   renderFeaturedStats();
@@ -1390,8 +1796,8 @@ function renderWeeklyStory(){
     area.innerHTML = `<div class="intro-card"><div class="t">${activeWeek}. Hafta</div><div class="d">Bu haftanın editoryal özeti henüz eklenmedi.</div></div>`;
     return;
   }
-  const cards = Array.isArray(story.cards) ? story.cards : [];
-  const watch = Array.isArray(story.watch_for) ? story.watch_for : [];
+  const cards = Array.isArray(story.cards) ? story.cards.filter(c=>!/tahmin|kupon|oran|bahis/i.test(`${c.title||''} ${c.text||''}`)) : [];
+  const watch = Array.isArray(story.watch_for) ? story.watch_for.filter(w=>!/tahmin|kupon|oran|bahis/i.test(String(w))) : [];
   area.innerHTML = `
     <div class="intro-card">
       <div class="t">${story.title || (activeWeek+'. Hafta')}</div>
@@ -1472,12 +1878,12 @@ function renderFeaturedStats(){
   const toplamMac = ms.length;
   const dogrulanan = ms.filter(m=>m.verified).length;
   const katilimci = Object.keys(PROFILES).length;
-  const tahminSayisi = ms.reduce((acc,m)=> acc + Object.keys(ALL_PREDICTIONS[m.id]||{}).length, 0);
+  const matematikHazir = ms.filter(m=>matchMathMetrics(m)).length;
   area.innerHTML = `
     <div class="pstat"><div class="n">${toplamMac}</div><div class="l">Bu Hafta Maç</div></div>
     <div class="pstat"><div class="n">${dogrulanan}/${toplamMac}</div><div class="l">Doğrulanmış Fikstür</div></div>
     <div class="pstat"><div class="n">${katilimci}</div><div class="l">Kayıtlı Kullanıcı</div></div>
-    <div class="pstat"><div class="n">${tahminSayisi}</div><div class="l">Bu Hafta Yapılan Tahmin</div></div>
+    <div class="pstat"><div class="n">${matematikHazir}/${toplamMac}</div><div class="l">Matematik Modeli Hazır</div></div>
   `;
 }
 
@@ -1525,51 +1931,55 @@ async function submitPrediction(id){
   await loadAllData(); renderAll();
   setTimeout(()=>{ const flag = document.getElementById('flag-'+id); if(flag) flag.classList.add('pop'); }, 30);
 }
+function teamMathRow(team, homeAdvantage){
+  const r = STANDINGS.find(x=>x.team===team);
+  if(!r || !Number(r.played)) return null;
+  const played = Number(r.played), ppg = Number(r.points||0)/played;
+  const gdpg = Number(r.goal_difference||0)/played;
+  const gfpg = Number(r.goals_for||0)/played;
+  const gapg = Math.max(0, gfpg-gdpg);
+  const power = Math.max(0,Math.min(100,50+(ppg-1.5)*16+gdpg*9+(homeAdvantage?3:0)));
+  return {played,ppg,gdpg,gfpg,gapg,power};
+}
+function matchMathMetrics(m){
+  const h=teamMathRow(m.ev,true), a=teamMathRow(m.konuk,false);
+  if(!h || !a) return null;
+  const draw=Math.max(18,Math.min(30,28-Math.abs(h.power-a.power)*.18));
+  const homeShare=1/(1+Math.exp(-(h.power-a.power)/11));
+  const home=(100-draw)*homeShare, away=100-draw-home;
+  const xgHome=Math.max(.15,(h.gfpg+a.gapg)/2+.15), xgAway=Math.max(.15,(a.gfpg+h.gapg)/2);
+  return {home,draw,away,xgHome,xgAway,powerHome:h.power,powerAway:a.power,sample:Math.min(h.played,a.played)};
+}
+function predictionActionHTML(m){
+  const locked=isLocked(m.kickoff), u=getCurrentUser(), pred=u?getPrediction(m.id,u.id):null;
+  if(m.status==='iptal') return `<div class="prediction-zone"><div class="locked-flag">Bu maç iptal edildi.</div></div>`;
+  if(m.status==='ertelendi') return `<div class="prediction-zone"><div class="locked-flag">Maç ertelendi; yeni tarih açıklanınca tahmin yeniden açılacak.</div></div>`;
+  if(locked) return `<div class="prediction-zone"><div class="locked-flag">Tahmin süresi kapandı. Maç verilerini Maç Merkezi’nden takip edebilirsin.</div></div>`;
+  if(pred) return `<div class="prediction-zone"><div class="prediction-label">Tahminin kaydedildi</div><div class="submitted-flag" id="flag-${m.id}"><span>${pred.pick}${pred.scoreHome!=null?` · ${pred.scoreHome}-${pred.scoreAway}`:''}</span><span class="mono">✓</span></div></div>`;
+  if(!u) return `<div class="prediction-zone"><div class="prediction-label">Ücretsiz Tahmin</div><div class="predict-cta"><button class="btn gold" onclick="openAuth('register')">Katıl ve Tahmin Yap</button></div></div>`;
+  return `<div class="prediction-zone"><div class="prediction-label">Ücretsiz Tahmin · Taraftar Ligi</div><div class="predict-cta"><button class="btn gold" onclick="togglePredictForm('${m.id}')">Tahminini Aç</button></div><div class="predict-form" id="form-${m.id}" style="display:none;"><div class="pick-row"><div class="pick-btn" role="button" tabindex="0" onclick="setPick('${m.id}','1',this)">1 · ${m.ev}</div><div class="pick-btn" role="button" tabindex="0" onclick="setPick('${m.id}','X',this)">X · Berabere</div><div class="pick-btn" role="button" tabindex="0" onclick="setPick('${m.id}','2',this)">2 · ${m.konuk}</div></div><div class="mini-note">İstersen kesin skorunu da ekle; puanlama maç sonucundan sonra otomatik yapılır.</div><div class="score-row"><span class="mono" style="font-size:12px;color:var(--ink-dim);">Skor:</span><input type="number" min="0" id="sh-${m.id}" placeholder="0" aria-label="${m.ev} gol sayısı"><span class="mono">—</span><input type="number" min="0" id="sa-${m.id}" placeholder="0" aria-label="${m.konuk} gol sayısı"><button class="btn" onclick="submitPrediction('${m.id}')">Kaydet</button></div></div></div>`;
+}
 function leagueRowHTML(m){
-  const locked = isLocked(m.kickoff);
-  const u = getCurrentUser(); const pred = u ? getPrediction(m.id, u.id) : null;
-  let actionHTML;
-  if(m.status==='iptal'){
-    actionHTML = `<div class="locked-flag">Bu maç iptal edildi; tahmin alınmıyor.</div>`;
-  } else if(m.status==='ertelendi'){
-    actionHTML = `<div class="locked-flag">Bu maç ertelendi; yeni tarih açıklanana kadar tahmin alınmıyor.</div>`;
-  } else if(locked){
-    actionHTML = `<div class="locked-flag">🔒 Tahminler kilitlendi — başlama saatine 15 dakikadan az kaldı ya da maç başladı.</div>`;
-  } else if(pred){
-    actionHTML = `<div class="submitted-flag" id="flag-${m.id}"><span>Tahminin: ${pred.pick}${pred.scoreHome!=null?` (${pred.scoreHome}-${pred.scoreAway})`:''}</span><span class="mono">✓</span></div>`;
-  } else if(u){
-    actionHTML = `
-      <div class="predict-cta"><button class="btn gold" onclick="togglePredictForm('${m.id}')">Tahminini Yap</button></div>
-      <div class="predict-form" id="form-${m.id}" style="display:none;">
-        <div class="pick-row">
-          <div class="pick-btn" role="button" tabindex="0" onclick="setPick('${m.id}','1',this)">1 · ${m.ev}</div>
-          <div class="pick-btn" role="button" tabindex="0" onclick="setPick('${m.id}','X',this)">X · Berabere</div>
-          <div class="pick-btn" role="button" tabindex="0" onclick="setPick('${m.id}','2',this)">2 · ${m.konuk}</div>
-        </div>
-        <div class="mini-note">Kesin skor tahmini ekstra puan kazandırabilir.</div>
-        <div class="score-row">
-          <span class="mono" style="font-size:13px;color:var(--ink-dim);">Skor (bonus):</span>
-          <input type="number" min="0" id="sh-${m.id}" placeholder="0" aria-label="${m.ev} gol sayısı tahmini">
-          <span class="mono">—</span>
-          <input type="number" min="0" id="sa-${m.id}" placeholder="0" aria-label="${m.konuk} gol sayısı tahmini">
-          <button class="btn" onclick="submitPrediction('${m.id}')">Kaydet</button>
-        </div>
-      </div>`;
-  } else {
-    actionHTML = `<div class="predict-cta"><button class="btn gold" onclick="openAuth('register')">Tahmin İçin Üye Ol</button></div>`;
-  }
+  const mm=matchMathMetrics(m);
+  const actionHTML = mm ? `<div class="math-grid">
+    <div class="math-cell"><div class="math-n">${mm.powerHome.toFixed(1)}</div><div class="math-l">${m.ev} güç endeksi</div></div>
+    <div class="math-cell"><div class="math-n">${mm.powerAway.toFixed(1)}</div><div class="math-l">${m.konuk} güç endeksi</div></div>
+    <div class="math-cell"><div class="math-n">${mm.xgHome.toFixed(2)} – ${mm.xgAway.toFixed(2)}</div><div class="math-l">Beklenen gol (xG)</div></div>
+    <div class="math-cell"><div class="math-n">%${mm.home.toFixed(0)} · %${mm.draw.toFixed(0)} · %${mm.away.toFixed(0)}</div><div class="math-l">Matematiksel dağılım E/B/D</div></div>
+  </div><div class="formula-note">Formül: maç başı puan + maç başı averaj + hücum/savunma ortalaması + iç saha katsayısı · Örneklem: ${mm.sample} maç</div>` : `<div class="locked-flag">Model için yeterli sezon örneklemi yok. İlk maç verileri geldikten sonra hesaplanacak.</div>`;
   return `
     <div class="match-row" id="lcard-${m.id}">
       <div class="match-row-top">
-        <div class="shield sm" style="background:${crestColor(m.ev)};">${crestInitials(m.ev)}</div>
+        ${crestHTML(m.ev)}
         <div class="teams">
           <div class="names">${m.ev} <span style="color:var(--ink-faint);font-weight:400;">—</span> ${m.konuk}</div>
           <div class="venue">${m.stadyum} · ${matchStatusLabel(m)}</div>
         </div>
-        <div class="shield sm" style="background:${crestColor(m.konuk)};">${crestInitials(m.konuk)}</div>
+        ${crestHTML(m.konuk)}
         <div class="time-chip mono">${fmtTime(m.kickoff)}</div>
       </div>
       ${actionHTML}
+      ${predictionActionHTML(m)}
       <div class="story-link-row" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn ghost" style="font-size:13px;padding:8px 10px;" onclick="switchMainTab('story')">Analiz için Hikâyeye bak</button>
         <button class="btn ghost" style="font-size:13px;padding:8px 10px;" onclick="openMatchCenter('${m.id}')">Maç Merkezi →</button>
@@ -1749,7 +2159,7 @@ function rewardCardHTML(t, r, isFirst){
   const desc = (r.aciklama==='—' || !r.aciklama) ? '<span class="reward-pending">Ödül yakında açıklanacak</span>' : r.aciklama;
   return `
     <div class="reward-card ${isFirst?'first':''}">
-      <div class="shield ${isFirst?'md':'md'} reward-crest" style="background:${crestColor(t)};">${crestInitials(t)}</div>
+      ${crestHTML(t,'md').replace('class="shield md"','class="shield md reward-crest"')}
       <div class="reward-place">${r.sira}. SIRA</div>
       <div class="reward-desc">${desc}</div>
     </div>`;
@@ -1802,7 +2212,7 @@ function renderProfile(){
   const badges = computeBadges(u.id); const level = levelFor(life.toplam);
   panel.innerHTML = `
     <div class="profile-head">
-      <div class="shield md" style="background:${crestColor(u.team)};">${crestInitials(u.team)}</div>
+      ${crestHTML(u.team,'md')}
       <div><h3 class="disp" style="font-size:17px;margin:0;">${u.username}</h3>
         <div class="mono" style="font-size:14px;color:var(--ink-dim);">${u.team} · Seviye ${level} <span style="opacity:.7;">(sıralamayı etkilemez)</span></div></div>
     </div>
@@ -1862,6 +2272,9 @@ function showLoadError(message){
   renderTicker();
 }
 function renderAll(){
+  renderMarketPulse();
+  renderMythosProducts();
+  startTransferCountdown();
   renderNav(); renderTicker(); renderStory(); renderTeamBanner(); renderProgress(); renderLeagueMatches();
   renderLeaderTabs(); renderRewards(); renderStandings();
   const u = getCurrentUser();
@@ -1869,6 +2282,9 @@ function renderAll(){
   updateMobileNavActive();
 }
 async function boot(){
+  renderMarketPulse();
+  renderMythosProducts();
+  startTransferCountdown();
   document.getElementById('navRight').innerHTML = `<span class="mono" style="font-size:14px;color:var(--ink-dim);">Yükleniyor…</span>`;
   renderSkeletons();
   lastLoadError = null;

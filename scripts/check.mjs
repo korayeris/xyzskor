@@ -4,6 +4,7 @@ import vm from 'node:vm';
 
 const htmlUrl = new URL('../index.html', import.meta.url);
 const html = await readFile(htmlUrl, 'utf8');
+const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
 const match = html.match(/<script>\s*([\s\S]*?)<\/script>\s*<\/body>/i);
 
 if (!match) {
@@ -60,5 +61,11 @@ const tiedRows = [
 ];
 assert.equal(testContext.sortRows(tiedRows,'week')[0].weekKesinSkor, 1, 'Haftalık eşitlik haftalık kesin skorla çözülmeli.');
 assert.equal(testContext.sortRows(tiedRows,'season')[0].total, 50, 'Sezon sıralaması sezon toplamına göre yapılmalı.');
+
+assert.match(html, /sb\.functions\.invoke\(LIVE_FEED_CONFIG\.functionName/, 'Canlı sekme doğrudan sağlayıcıya değil Edge Function katmanına bağlanmalı.');
+assert.doesNotMatch(html, /sportscore\.com/i, 'Görünür veya gizli SportScore bağlantısı bulunmamalı.');
+assert.match(liveFunction, /apiFootballAdapter/, 'API-Football adaptörü bulunmalı.');
+assert.match(liveFunction, /sportmonksAdapter/, 'Sportmonks geçiş adaptörü bulunmalı.');
+assert.match(liveFunction, /FOOTBALL_DATA_PROVIDER/, 'Sağlayıcı ortam ayarıyla seçilebilmeli.');
 
 console.log('XYZSkor kontrolü başarılı.');

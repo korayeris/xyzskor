@@ -2,10 +2,11 @@
   "name": "xyzskor",
   "version": "2.0.0",
   "private": true,
-  "description": "Süper Lig ücretsiz tahmin ve liderlik platformu",
+  "type": "module",
+  "description": "Süper Lig matematiksel performans ve veri analiz platformu",
   "scripts": {
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1",
-    "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1"
+    "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1",
+    "build": "node scripts/build.mjs"
   }
 }
-
