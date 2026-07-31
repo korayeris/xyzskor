@@ -67,5 +67,10 @@ assert.doesNotMatch(html, /sportscore\.com/i, 'Görünür veya gizli SportScore 
 assert.match(liveFunction, /apiFootballAdapter/, 'API-Football adaptörü bulunmalı.');
 assert.match(liveFunction, /sportmonksAdapter/, 'Sportmonks geçiş adaptörü bulunmalı.');
 assert.match(liveFunction, /FOOTBALL_DATA_PROVIDER/, 'Sağlayıcı ortam ayarıyla seçilebilmeli.');
+assert.match(html, /XYZSKOR’da satış yapılmaz/i, 'Mythos alanı XYZSKOR’da satış yapılmadığını açıkça belirtmeli.');
+assert.match(html, /Mythos Cards yalnızca ödül sponsorudur/i, 'Mythos rolü yalnızca ödül sponsoru olarak tanımlanmalı.');
+assert.doesNotMatch(html, /mythos\.cards\/product\//i, 'Mythos ürün satış sayfalarına yönlendirme bulunmamalı.');
+assert.doesNotMatch(html, /(?:\d[\d.]*)\s*TL\b/i, 'Sponsor ödüllerinde fiyat gösterilmemeli.');
+assert.doesNotMatch(html, /Satın alma işlemi/i, 'Satın alma çağrısı bulunmamalı.');
 
 console.log('XYZSkor kontrolü başarılı.');

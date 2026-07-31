@@ -2,6 +2,8 @@
 
 Süper Lig için matematiksel performans ve veri analiz platformu. Uygulama vanilla JavaScript ve Supabase ile çalışır; derleme adımı yoktur.
 
+Mythos Cards yalnızca ödül sponsorudur. XYZSKOR üzerinde ürün satışı, sepet veya ödeme akışı bulunmaz; sponsor ürünleri yarışma kazananlarına ücretsiz hediye edilir.
+
 ## Yerel çalıştırma
 
 PowerShell üzerinden:

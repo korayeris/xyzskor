@@ -4,6 +4,8 @@
 **Ürün:** Süper Lig tahmin/lider tablosu platformu (bahis/iddaa değil — ücretsiz tahmin oyunu)
 **Mimari:** Tek dosya HTML + vanilla JS + Supabase (Postgres + Auth + RLS). Framework yok (React/Vue kasıtlı olarak eklenmedi).
 
+**Sponsorluk kuralı:** Mythos Cards yalnızca ödül sponsorudur. XYZSKOR hiçbir ürün satmaz, fiyat göstermez ve satın alma bağlantısı barındırmaz. Gösterilen koleksiyon ürünleri yalnızca açıklanan yarışma kazananlarına ücretsiz hediye edilir.
+
 **Veri sağlayıcı kararı (31 Temmuz 2026):** İlk canlı bağlantı API-Football ücretsiz kotasıyla, değiştirilebilir `football-live` Edge Function üzerinden yapılır. Üretim hedefi Sportmonks; Goalserve 2–3 haftalık gölge karşılaştırmadır. Sağlayıcı değiştirilirken ön yüz kodu değişmez. Ayrıntılar için [`data-provider-architecture.md`](./data-provider-architecture.md) esas alınmalıdır.
 
 ---
