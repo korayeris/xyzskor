@@ -29,6 +29,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 
 Ardından `http://127.0.0.1:4173` adresini açın.
 
+## Başka bilgisayara taşıma
+
+Temiz proje ZIP'ini yeni bilgisayarda klasöre çıkarın. Klasör içinde PowerShell açıp şu komutu çalıştırın:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev.ps1
+```
+
+Başlatıcı PATH üzerindeki Python 3'ü, Windows `py` başlatıcısını veya o kullanıcıya ait Codex Python çalışma ortamını otomatik bulur. Hiçbiri kurulu değilse Python 3 kurulmalıdır. Ardından tarayıcıda `http://127.0.0.1:4173` adresini açın.
+
 ## Kontrol
 
 ```powershell
