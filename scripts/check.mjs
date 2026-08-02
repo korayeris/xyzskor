@@ -16,7 +16,14 @@ const migrationFiles = (await readdir(new URL('../supabase/migrations/', import.
 const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
 assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
 const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
+const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url), 'utf8');
+const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
 assert.match(documentHtml, /assets\/css\/app\.css/, 'Harici uygulama stili yüklenmeli.');
+assert.match(documentHtml, /legal\/index\.html/, 'Ana sayfadan Yasal Merkez bağlantısı bulunmalı.');
+assert.match(documentHtml, /assets\/legal\/consent\.js/, 'Çerez tercih yöneticisi ana sayfaya bağlanmalı.');
+assert.match(legalIndex, /Yasal Merkez/, 'Yasal Merkez giriş sayfası bulunmalı.');
+assert.match(legalConfig, /Şirket kuruluşundan sonra yayımlanacak/, 'Kuruluş öncesi kurumsal alanlar açıkça beklemede gösterilmeli.');
+assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
 assert.doesNotMatch(documentHtml, /<style>[\s\S]*<\/style>/i, 'Uygulama CSS’i index.html içine geri taşınmamalı.');
 assert.doesNotMatch(documentHtml, /<script>\s*[\s\S]+?<\/script>/i, 'Uygulama JavaScript’i index.html içine geri taşınmamalı.');
 for (const file of scriptFiles) assert.match(documentHtml, new RegExp(`assets/js/${file.replace('.', '\\.')}"`), `${file} sayfaya bağlanmalı.`);

@@ -18,6 +18,7 @@ if (productionHtml.includes("PRODUCTION_STRIP_LEGACY")) {
 }
 await writeFile(resolve(dist, "client", "index.html"), productionHtml);
 await cp(resolve(root, "assets"), resolve(dist, "client", "assets"), { recursive: true });
+await cp(resolve(root, "legal"), resolve(dist, "client", "legal"), { recursive: true });
 
 for (const file of ["data.js", "live.js", "match-center.js", "ui.js"]) {
   const sourcePath = resolve(root, "assets", "js", file);
