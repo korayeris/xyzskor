@@ -38,7 +38,8 @@ const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', kontrol: '31 T
 const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
   scope: 'turkey-super-lig',
-  refreshMs: 30000
+  // Sportmonks'un canlı veri güncelleme penceresiyle uyumlu istemci yenilemesi.
+  refreshMs: 8000
 };
 const VIDEO_CONFIG = {
   title: '',

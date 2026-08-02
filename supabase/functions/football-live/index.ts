@@ -190,7 +190,10 @@ function envSeconds(name: string, fallback: number, minimum: number, maximum: nu
 function ttlForResult(result: ProviderResult): number {
   const matches = Array.isArray(result?.matches) ? result.matches : [];
   if (matches.some((match) => match.status === "live" || match.status === "halftime")) {
-    return envSeconds("LIVE_CACHE_LIVE_SECONDS", 30, 15, 120);
+    // Sportmonks livescore verisi canlı maç sırasında sık güncellenir. Sekiz
+    // saniyelik TTL, güncellemeyi geciktirmeden sağlayıcı kotasını merkezi
+    // Supabase önbelleğiyle korur.
+    return envSeconds("LIVE_CACHE_LIVE_SECONDS", 8, 5, 60);
   }
   const now = Date.now();
   const hasNearKickoff = matches.some((match) => {
@@ -200,7 +203,9 @@ function ttlForResult(result: ProviderResult): number {
   });
   if (hasNearKickoff) return envSeconds("LIVE_CACHE_PREMATCH_SECONDS", 120, 30, 900);
   const legacyIdle = Number(Deno.env.get("LIVE_CACHE_SECONDS"));
-  return envSeconds("LIVE_CACHE_IDLE_SECONDS", Number.isFinite(legacyIdle) ? legacyIdle : 900, 60, 3600);
+  // Boş akışı uzun süre cache'lemek maç başlangıcını kaçırabilir. En geç bir
+  // dakika içinde in-play penceresini yeniden kontrol et.
+  return envSeconds("LIVE_CACHE_IDLE_SECONDS", Number.isFinite(legacyIdle) ? legacyIdle : 60, 30, 300);
 }
 
 function cacheControlFor(ttlSeconds: number): string {
