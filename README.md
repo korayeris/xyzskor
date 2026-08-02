@@ -44,6 +44,7 @@ npm run build
 - `assets/js/live.js`: Hafta, canlı skor ve navigasyon akışı
 - `assets/js/match-center.js`: Maç detay ürünü
 - `assets/js/ui.js`: Arayüz render zinciri ve başlangıç
+- `worker/index.js`: Statik yayın, güvenlik başlıkları ve 24 saat önbellekli X API katmanı
 - `docs/XYZSKOR-devir-teslim.md`: Mimari ve operasyon notları
 - `docs/data-provider-architecture.md`: Değiştirilebilir API-Football/Sportmonks katmanı ve veri sınıflandırma sözleşmesi
 - `docs/provider-comparison-scorecard.csv`: 2–3 haftalık sağlayıcı karşılaştırma kayıt şablonu
@@ -58,3 +59,5 @@ npm run build
 - `scripts/load-test-predictions.mjs`: Yalnız staging için tahmin yazma yük testi
 
 Supabase service-role ve spor veri sağlayıcısı anahtarları istemciye veya repoya eklenmemelidir. API-Football/Sportmonks çağrıları yalnızca sunucu tarafındaki Supabase Edge Function üzerinden yapılır. Sağlayıcı, `FOOTBALL_DATA_PROVIDER` secret'ıyla değiştirilir; ön yüz kodu değişmez.
+
+Resmî kulüp paylaşımları için Sites production ortamında `X_BEARER_TOKEN` secret'ı tanımlanır. Token hiçbir zaman istemci JavaScript'ine, `.openai/hosting.json` dosyasına veya Git deposuna yazılmaz. Sunucu X API'yi en fazla 24 saatte bir sorgular ve dört kulübün son paylaşımını aynı alan adından sunar.

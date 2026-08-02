@@ -16,6 +16,7 @@ const migrationFiles = (await readdir(new URL('../supabase/migrations/', import.
 const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
 assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
 const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
+const workerSource = await readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
 const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url), 'utf8');
 const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
 const legalCss = await readFile(new URL('../assets/legal/xyz-legal.css', import.meta.url), 'utf8');
@@ -126,11 +127,12 @@ assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
-assert.match(functionSource('loadXWidgets'), /platform\.x\.com\/widgets\.js/, 'X bileşeni resmî platform betiğini kullanmalı.');
-assert.match(functionSource('xClubTimelineHTML'), /data-dnt="true"/, 'X gömülü akışı kişiselleştirme dışı modda çalışmalı.');
-assert.match(functionSource('xClubTimelineHTML'), /data-tweet-limit="1"/, 'Her kulüp için son X paylaşımı gösterilmeli.');
-assert.match(functionSource('loadXClubTimelines'), /rankedXClubs\(\)/, 'Dört resmî kulüp akışı birlikte yüklenmeli.');
-assert.match(functionSource('renderClubSocial'), /loadXClubTimelines\(\)/, 'X akışları ara ekran olmadan otomatik yüklenmeli.');
+assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x'/, 'X paylaşımları aynı alan adlı sunucu katmanından alınmalı.');
+assert.match(functionSource('renderClubSocial'), /loadXClubPosts\(\)/, 'Dört resmî kulüp akışı ara ekran olmadan otomatik yüklenmeli.');
+assert.match(workerSource, /env\.X_BEARER_TOKEN/, 'X Bearer Token yalnız sunucu ortamından okunmalı.');
+assert.match(workerSource, /s-maxage=86400/, 'X akışı 24 saat sunucu önbelleğinde tutulmalı.');
+assert.match(workerSource, /\/2\/users\/by\?usernames=/, 'Dört resmî kulüp tek kullanıcı sorgusuyla çözülmeli.');
+assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
 assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
 assert.match(html, /id="portalSponsorRail"/i, 'Futbol portalında sağ sponsor envanteri bulunmalı.');
@@ -178,6 +180,52 @@ assert.match(functionSource('openAuth'), /authClose.*focus/, 'Auth açıldığı
 assert.match(functionSource('renderTicker'), /escapeHTML\(m\.ev\).*escapeHTML\(m\.konuk\)/s, 'Fikstür takım adları ticker HTML’ine kaçışla yazılmalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_HTML_START/, 'Production build gizli prototip HTML’ini ayıklamalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_JS_START/, 'Production build örnek market verisini ayıklamalı.');
+
+const originalFetch = globalThis.fetch;
+const originalCaches = globalThis.caches;
+const socialCache = new Map();
+const upstreamCalls = [];
+const pendingCacheWrites = [];
+try {
+  globalThis.caches = {
+    default: {
+      async match(request) { return socialCache.get(request.url)?.clone() || null; },
+      async put(request, response) { socialCache.set(request.url, response.clone()); },
+    },
+  };
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    upstreamCalls.push(url);
+    if (url.includes('/2/users/by?')) {
+      return Response.json({ data: [
+        { id:'1', username:'GalatasaraySK', profile_image_url:'https://img.example/gs.jpg' },
+        { id:'2', username:'Fenerbahce', profile_image_url:'https://img.example/fb.jpg' },
+        { id:'3', username:'Besiktas', profile_image_url:'https://img.example/bjk.jpg' },
+        { id:'4', username:'Trabzonspor', profile_image_url:'https://img.example/ts.jpg' },
+      ] });
+    }
+    const id = url.match(/\/2\/users\/(\d+)\/tweets/)?.[1];
+    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Kulüp paylaşımı ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10}, attachments:{media_keys:[`media-${id}`]} }], includes:{media:[{media_key:`media-${id}`,type:'photo',url:`https://img.example/post-${id}.jpg`}]} });
+    return Response.json({ error:'unexpected_request' }, { status:500 });
+  };
+  const worker = (await import(new URL(`../worker/index.js?check=${Date.now()}`, import.meta.url))).default;
+  const missingToken = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), {}, { waitUntil() {} });
+  assert.equal(missingToken.status, 503, 'X secret yokken sunucu açık bir yapılandırma hatası dönmeli.');
+  const context = { waitUntil(promise) { pendingCacheWrites.push(promise); } };
+  const firstFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  const firstPayload = await firstFeed.json();
+  await Promise.all(pendingCacheWrites);
+  assert.equal(firstFeed.status, 200, 'X sunucu adaptörü başarılı JSON dönmeli.');
+  assert.equal(firstPayload.clubs.length, 4, 'X sunucu adaptörü dört kulübü birlikte dönmeli.');
+  assert.equal(upstreamCalls.length, 5, 'Günlük X yenilemesi bir kullanıcı ve dört paylaşım sorgusu yapmalı.');
+  const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  assert.equal(cachedFeed.status, 200, 'Önbellekteki X akışı kullanılabilmeli.');
+  assert.equal(upstreamCalls.length, 5, 'İkinci istek 24 saatlik önbelleği aşmamalı.');
+} finally {
+  globalThis.fetch = originalFetch;
+  if (originalCaches === undefined) delete globalThis.caches;
+  else globalThis.caches = originalCaches;
+}
 
 const crestBlock = html.match(/const TEAM_CRESTS = \{([\s\S]*?)\n\};/);
 assert.ok(crestBlock, 'Kulüp arması haritası bulunmalı.');

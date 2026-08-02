@@ -204,44 +204,42 @@ function rankedXClubs(){
   return X_CLUBS.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
     .sort((a,b)=>(a.leagueRank??99)-(b.leagueRank??99) || a.fallbackOrder-b.fallbackOrder);
 }
-function loadXWidgets(){
-  if(window.twttr&&window.twttr.widgets) return Promise.resolve(window.twttr);
-  if(xWidgetsPromise) return xWidgetsPromise;
-  xWidgetsPromise=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');
-    script.src='https://platform.x.com/widgets.js'; script.async=true; script.charset='utf-8'; script.dataset.xWidgets='true';
-    script.onload=()=>window.twttr&&window.twttr.widgets?resolve(window.twttr):reject(new Error('X bileşeni hazırlanamadı.'));
-    script.onerror=()=>reject(new Error('X bileşeni yüklenemedi.'));
-    document.head.appendChild(script);
-  });
-  return xWidgetsPromise;
+function xPostDate(value){
+  const date=new Date(value); if(!value||Number.isNaN(date.getTime())) return 'Güncel paylaşım';
+  return date.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
 }
-function xClubTimelineHTML(club){
+function xMetric(value){
+  return new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(Number(value)||0);
+}
+function xPostCardHTML(club){
   const rankLabel=club.leagueRank?`Süper Lig ${escapeHTML(club.leagueRank)}. · `:'';
+  const post=club.post||null;
+  const media=post&&Array.isArray(post.media)?post.media.find(item=>item&&item.image_url):null;
+  const mediaHTML=media?`<a class="club-social-media" href="${escapeHTML(post.url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHTML(media.image_url)}" alt="${escapeHTML(media.alt_text||`${club.team} resmî paylaşım görseli`)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"></a>`:'';
+  const metrics=post&&post.metrics?post.metrics:{};
+  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>${mediaHTML}<div class="club-social-meta"><time datetime="${escapeHTML(post.created_at||'')}">${escapeHTML(xPostDate(post.created_at))}</time><span>${escapeHTML(xMetric(metrics.like_count))} beğeni</span><span>${escapeHTML(xMetric(metrics.retweet_count))} repost</span></div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısını açabilirsin.</span></div>`;
   return `<article class="club-social-card">
     <header class="club-social-card-head">${crestHTML(club.team,'xs')}<div><strong>${escapeHTML(club.team)}</strong><small>${rankLabel}@${escapeHTML(club.handle)}</small></div></header>
-    <div class="club-social-timeline"><a class="twitter-timeline" data-theme="light" data-lang="tr" data-tweet-limit="1" data-chrome="noheader nofooter noborders transparent" data-dnt="true" href="${escapeHTML(club.url)}">@${escapeHTML(club.handle)} son resmî X paylaşımı</a></div>
-    <a class="club-social-profile-link" href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">Paylaşımı X'te aç ↗</a>
+    <div class="club-social-post">${postBody}</div>
+    <a class="club-social-profile-link" href="${escapeHTML(post?.url||club.url)}" target="_blank" rel="noopener noreferrer">${post?'Paylaşımı':'Hesabı'} X'te aç ↗</a>
   </article>`;
 }
-function xClubFallbackLinkHTML(club){
-  return `<a href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(club.handle)} hesabını X'te aç ↗</a>`;
-}
-async function loadXClubTimelines(){
+async function loadXClubPosts(){
   const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
-  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>Dört kulübün güncel paylaşımları yükleniyor…</strong></div>`;
+  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>Dört kulübün günlük akışı hazırlanıyor…</strong></div>`;
   try{
-    await loadXWidgets();
-    stage.innerHTML=clubs.map(xClubTimelineHTML).join('');
-    await window.twttr.widgets.load(stage);
+    const response=await fetch('/api/social/x',{headers:{Accept:'application/json'}});
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
+    const apiClubs=new Map(payload.clubs.map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
+    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('');
   }catch(error){
-    xWidgetsPromise=null;
-    stage.innerHTML=`<div class="club-social-error"><strong>Akışlar şu anda yüklenemedi.</strong><p>Tarayıcın X bileşenini engelliyor olabilir.</p>${clubs.map(xClubFallbackLinkHTML).join('')}</div>`;
+    stage.innerHTML=clubs.map(xPostCardHTML).join('');
   }
 }
 function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
-  loadXClubTimelines();
+  loadXClubPosts();
 }
 function cardMentionsFootballTeam(card, team){
   if(team==='Tümü') return true;

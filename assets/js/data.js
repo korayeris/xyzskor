@@ -55,8 +55,6 @@ const X_CLUBS = [
   { team:'Beşiktaş', handle:'Besiktas', url:'https://x.com/Besiktas' },
   { team:'Trabzonspor', handle:'Trabzonspor', url:'https://x.com/Trabzonspor' }
 ];
-let xWidgetsPromise = null;
-
 /* ===================== CACHE (Supabase'ten yüklenen veri) ===================== */
 /* PRODUCTION_STRIP_LEGACY_JS_START */
 const MYTHOS_PRODUCTS = {

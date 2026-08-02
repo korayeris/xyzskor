@@ -80,10 +80,10 @@ window.XYZ_LEGAL_CONFIG = {
     {
       name: "X for Websites",
       provider: "X Corp.",
-      purpose: "Dört büyük kulübün güncel resmî paylaşımlarını gömülü olarak göstermek",
-      category: "İşlevsel / üçüncü taraf",
-      duration: "X tercih ve politikalarına göre",
-      storage: "cookie / benzeri tarayıcı teknolojileri"
+      purpose: "Dört büyük kulübün güncel resmî paylaşımlarını sunucu tarafında almak",
+      category: "İçerik kaynağı / üçüncü taraf",
+      duration: "24 saatlik XYZSKOR önbelleği",
+      storage: "Tarayıcı çerezi yok; yalnız sunucu önbelleği"
     }
   ]
 };
