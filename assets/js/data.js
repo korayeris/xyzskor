@@ -146,8 +146,32 @@ let activeWeek = 1;
 let activeFootballTeam = 'Tümü';
 let SERVER_LEADERBOARDS = new Map();
 let serverLeaderboardMode = 'unknown';
+let seasonFixturesReady = false;
 
 function getCurrentUser(){ return currentUser; }
+
+async function ensureSeasonFixtures(){
+  if(seasonFixturesReady) return true;
+  try{
+    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:'turkey-super-lig-season' } });
+    if(error) throw error;
+    if(!data || !Number.isFinite(Number(data.syncedMatches))) throw new Error('Fikstür senkronizasyon yanıtı geçersiz.');
+    seasonFixturesReady = true;
+    return true;
+  }catch(error){
+    DATA_ERRORS.fixture_sync = error && error.message ? error.message : 'Fikstür otomatik güncellenemedi.';
+    console.warn('[XYZSkor fikstür senkronizasyonu]', error);
+    return false;
+  }
+}
+
+function selectCurrentWeek(matches){
+  if(/^#week\/\d+$/.test(location.hash || '')) return;
+  const ordered=[...matches].filter(match=>match.hafta && match.kickoff).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  if(!ordered.length) return;
+  const next=ordered.find(match=>new Date(match.kickoff).getTime() >= Date.now());
+  activeWeek=Number((next || ordered[ordered.length-1]).hafta) || activeWeek;
+}
 
 /* ===================== VERİ YÜKLEME ===================== */
 async function requireQuery(promise, label){
@@ -229,6 +253,7 @@ async function loadAllData(){
     const authRes = await sb.auth.getSession();
     session = authRes && authRes.data ? authRes.data.session : null;
   }catch(e){ console.error('[XYZSkor veri hatası] auth.getSession', e); }
+  await ensureSeasonFixtures();
   const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
   const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});
   const [matches, analysisRows, ownProfiles, ownPredictions, results, rewards, standings, stories] = await Promise.all([
@@ -242,6 +267,7 @@ async function loadAllData(){
     moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
   ]);
   MATCHES = matches;
+  selectCurrentWeek(MATCHES);
   ANALYSIS = {}; analysisRows.forEach(r => ANALYSIS[r.match_id] = r.data || {});
   cacheProfiles(ownProfiles);
   cachePredictions(ownPredictions);

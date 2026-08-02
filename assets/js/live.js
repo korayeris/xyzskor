@@ -198,6 +198,13 @@ async function loadLiveFeed(force){
     if(error) throw error;
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
     LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
+    data.matches.forEach(liveMatch=>{
+      const stored=MATCHES.find(match=>match.id===liveMatch.id); if(!stored) return;
+      stored.status=liveMatch.status==='halftime'?'devre_arasi':(liveMatch.status==='live'?'canlı':(liveMatch.status==='finished'?'bitti':stored.status));
+      if(liveMatch.status==='finished' && liveMatch.home && liveMatch.away && liveMatch.home.score!=null && liveMatch.away.score!=null){
+        ALL_RESULTS[liveMatch.id]={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score), scoredAt:Date.now() };
+      }
+    });
   }catch(error){
     console.warn('[XYZSkor canlı veri]', error);
     LIVE_FEED = { ...LIVE_FEED, error:error && error.message ? error.message : 'Bağlantı hatası', loaded:true, stale:LIVE_FEED.matches.length>0 };
