@@ -1,28 +1,36 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-const htmlUrl = new URL('../index.html', import.meta.url);
-const html = await readFile(htmlUrl, 'utf8');
+const documentHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
+const scriptFiles = ['data.js', 'live.js', 'match-center.js', 'ui.js'];
+const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
+const appSource = scriptSources.join('\n');
+const html = [documentHtml, appCss, appSource].join('\n');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
+const coreMigration = await readFile(new URL('../supabase/migrations/20260802180000_platform_core.sql', import.meta.url), 'utf8');
+const leaderboardMigration = await readFile(new URL('../supabase/migrations/20260802181000_server_leaderboard.sql', import.meta.url), 'utf8');
+const editorialMigration = await readFile(new URL('../supabase/migrations/20260802182000_editorial_operations.sql', import.meta.url), 'utf8');
+const migrationFiles = (await readdir(new URL('../supabase/migrations/', import.meta.url))).filter((file) => file.endsWith('.sql'));
+const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
+assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
 const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
-const match = html.match(/<script>\s*([\s\S]*?)<\/script>\s*<\/body>/i);
-
-if (!match) {
-  throw new Error('Uygulama JavaScript bloğu bulunamadı.');
-}
-
-new vm.Script(match[1], { filename: 'index.html:inline-script' });
+assert.match(documentHtml, /assets\/css\/app\.css/, 'Harici uygulama stili yüklenmeli.');
+assert.doesNotMatch(documentHtml, /<style>[\s\S]*<\/style>/i, 'Uygulama CSS’i index.html içine geri taşınmamalı.');
+assert.doesNotMatch(documentHtml, /<script>\s*[\s\S]+?<\/script>/i, 'Uygulama JavaScript’i index.html içine geri taşınmamalı.');
+for (const file of scriptFiles) assert.match(documentHtml, new RegExp(`assets/js/${file.replace('.', '\\.')}"`), `${file} sayfaya bağlanmalı.`);
+scriptSources.forEach((source, index) => new vm.Script(source, { filename: `assets/js/${scriptFiles[index]}` }));
 
 function functionSource(name) {
-  const start = match[1].indexOf(`function ${name}(`);
+  const start = appSource.indexOf(`function ${name}(`);
   if (start < 0) throw new Error(`${name} fonksiyonu bulunamadı.`);
-  const bodyStart = match[1].indexOf('{', start);
+  const bodyStart = appSource.indexOf('{', start);
   let depth = 0;
   let quote = null;
   let escaped = false;
-  for (let index = bodyStart; index < match[1].length; index += 1) {
-    const char = match[1][index];
+  for (let index = bodyStart; index < appSource.length; index += 1) {
+    const char = appSource[index];
     if (quote) {
       if (escaped) escaped = false;
       else if (char === '\\') escaped = true;
@@ -31,7 +39,7 @@ function functionSource(name) {
     }
     if (char === "'" || char === '"' || char === '`') { quote = char; continue; }
     if (char === '{') depth += 1;
-    if (char === '}' && --depth === 0) return match[1].slice(start, index + 1);
+    if (char === '}' && --depth === 0) return appSource.slice(start, index + 1);
   }
   throw new Error(`${name} fonksiyonu tamamlanmamış.`);
 }
@@ -69,6 +77,18 @@ assert.doesNotMatch(html, /sportscore\.com/i, 'Görünür veya gizli SportScore 
 assert.match(liveFunction, /apiFootballAdapter/, 'API-Football adaptörü bulunmalı.');
 assert.match(liveFunction, /sportmonksAdapter/, 'Sportmonks geçiş adaptörü bulunmalı.');
 assert.match(liveFunction, /FOOTBALL_DATA_PROVIDER/, 'Sağlayıcı ortam ayarıyla seçilebilmeli.');
+assert.match(liveFunction, /LIVE_CACHE_LIVE_SECONDS/, 'Canlı maç cache süresi ayrı ayarlanmalı.');
+assert.match(liveFunction, /ttlForResult/, 'Cache süresi maç durumuna göre hesaplanmalı.');
+assert.match(functionSource('loadAllData'), /primeServerLeaderboards/, 'Liderlik verisi önce sunucu tarafı RPC’den alınmalı.');
+assert.match(functionSource('fetchServerLeaderboard'), /get_leaderboard/, 'Sunucu tarafı liderlik RPC bağlantısı bulunmalı.');
+assert.match(coreMigration, /create table if not exists public\.predictions/i, 'Tahmin tablosunun yeniden kurulabilir şeması bulunmalı.');
+assert.match(coreMigration, /predictions_integrity_before_write/i, 'Tahmin kilidi veritabanında uygulanmalı.');
+assert.match(coreMigration, /predictions_own_read/i, 'Tahminler yalnız hesap sahibi tarafından okunmalı.');
+assert.match(coreMigration, /get_match_prediction_consensus/i, 'Topluluk dağılımı anonim RPC üzerinden sunulmalı.');
+assert.match(leaderboardMigration, /create or replace function public\.get_leaderboard/i, 'Puanlama ve liderlik RPC’si bulunmalı.');
+assert.match(leaderboardMigration, /security definer/i, 'Liderlik RPC’si RLS arkasında güvenli çalışmalı.');
+assert.doesNotMatch(editorialMigration, /^\s*rollback\s*;/im, 'Editoryal migration rollback ile bitmemeli.');
+assert.match(editorialMigration, /^\s*commit\s*;/im, 'Editoryal migration kalıcı transaction ile bitmeli.');
 assert.match(html, /XYZSKOR’da satılmaz/i, 'Mythos alanı XYZSKOR’da satış yapılmadığını açıkça belirtmeli.');
 assert.match(html, /Mythos Cards[^<\n]*Ödül Sponsoru/i, 'Mythos rolü yalnızca ödül sponsoru olarak tanımlanmalı.');
 assert.doesNotMatch(html, /mythos\.cards\/product\//i, 'Mythos ürün satış sayfalarına yönlendirme bulunmamalı.');

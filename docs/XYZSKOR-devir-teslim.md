@@ -2,7 +2,7 @@
 
 **Tarih:** 31 Temmuz 2026
 **Ürün:** Süper Lig tahmin/lider tablosu platformu (bahis/iddaa değil — ücretsiz tahmin oyunu)
-**Mimari:** Tek dosya HTML + vanilla JS + Supabase (Postgres + Auth + RLS). Framework yok (React/Vue kasıtlı olarak eklenmedi).
+**Mimari:** Modüler vanilla JS/CSS + Supabase (Postgres + Auth + RLS). Framework yok; görünüm ve ürün davranışı korunurken kaynak kod sorumluluklarına göre ayrıldı.
 
 **Sponsorluk kuralı:** Mythos Cards yalnızca ödül sponsorudur. XYZSKOR hiçbir ürün satmaz, fiyat göstermez ve satın alma bağlantısı barındırmaz. Gösterilen koleksiyon ürünleri yalnızca açıklanan yarışma kazananlarına ücretsiz hediye edilir.
 
@@ -14,7 +14,12 @@
 
 | Ne | Değer |
 |---|---|
-| Ana dosya | `xyzskor-v2.html` (tek parça, ~1830 satır) |
+| HTML kabuğu | `index.html` |
+| Görsel sistem | `assets/css/app.css` |
+| Veri/Auth/Puanlama | `assets/js/data.js` |
+| Hafta/Canlı akış | `assets/js/live.js` |
+| Maç merkezi | `assets/js/match-center.js` |
+| Arayüz/Render/Boot | `assets/js/ui.js` |
 | Supabase proje adı | `xyzskor` |
 | Supabase project_id | `swhwmqbamzczztpfxctg` |
 | Supabase URL | `https://swhwmqbamzczztpfxctg.supabase.co` |
@@ -23,14 +28,15 @@
 | Bölge | eu-west-1 |
 | Maliyet | $0/ay (ücretsiz katman) |
 
-Dosyayı çalıştırmak için: herhangi bir statik hosting (Vercel/Netlify/Cloudflare Pages) veya doğrudan tarayıcıda açmak yeterli — build adımı yok, `npm install` yok.
+Yerel çalıştırma için `npm run dev`, üretim paketi için `npm run build` kullanılır. Bağımlılık kurulumu gerektiren bir frontend framework yoktur.
 
 ---
 
 ## 2. Genel Mimari
 
-- **Tek `<script>` bloğu**, üstte Supabase client (`sb`), altında sırayla: sabitler → cache değişkenleri → veri yükleme → auth → tahmin/puanlama mantığı → hafta sistemi → canlı ticker → nav/tab switching → Maç Merkezi → render fonksiyonları → master render (`renderAll`) → `boot()`.
-- **Veri akışı:** `boot()` → `loadAllData()` (Supabase'ten 8 sorgu paralel) → cache değişkenlerini doldurur → `renderAll()` tüm ekranı yeniden çizer. Her yazma işleminden sonra (`savePrediction`, `setResult`, `changeTeam` vb.) yine `loadAllData()+renderAll()` çağrılıp state tamamen taze veriyle yeniden kurulur. **Yerel optimistic update yok** — basit ama garantili tutarlılık sağlıyor.
+- **Dört sıralı JavaScript modülü:** veri/auth/puanlama → hafta ve canlı akış → Maç Merkezi → arayüz/render/boot. Klasik script sırası, mevcut inline event davranışlarını bozmadan ortak uygulama state'ini korur.
+- **Veri akışı:** `boot()` → `loadAllData()` → herkese açık futbol verileri + oturum sahibinin kendi profili/tahminleri → sunucu tarafı `get_leaderboard` RPC → `renderAll()`. RPC henüz uygulanmamış eski Supabase ortamlarında geçici uyumluluk için eski geniş sorgu akışına geri düşer.
+- **Production build:** HTML içindeki eski prototip bloklarını ve `data.js` içindeki örnek market verisini ayıklar; kaynak dosyalar ile yayın paketi birbirinden ayrıdır.
 - **Routing:** URL hash tabanlı, framework'süz.
   - `#week/N` → aktif hafta
   - `#match/MATCH_ID` → Maç Merkezi açık
@@ -75,7 +81,9 @@ authOverlay (üye ol/giriş modalı)
 | `match_absences` | match_id, team, player_name, status/availability_status, verification_status, reason, expected_return, source, source_url, checked_at | admin |
 | `match_events` | match_id, minute, event_type, team, player, description, verified, source | admin (şu an **hiç kullanılmıyor**, canlı veri sağlayıcısı bağlanınca devreye girecek) |
 
-**RLS:** Her tabloda aktif. Okuma genelde `true` (herkese açık), yazma `is_admin()` fonksiyonuna bağlı (security definer, `search_path` sabitlenmiş).
+**Yeniden kurulabilir kaynak:** `20260802180000_platform_core.sql` çekirdek tabloları, tetikleyicileri ve RLS politikalarını; `20260802181000_server_leaderboard.sql` sunucu puanlamasını; `20260802182000_editorial_operations.sql` haber operasyonu ve denetim izini tanımlar. Migration'lar canlıya uygulanmadan önce schema-only yedek ve staging testi alınmalıdır.
+
+**RLS hedefi:** Profiller ve tahminler yalnız hesap sahibine açıktır. Herkese açık sıralama bireysel tahminleri değil, yalnız `get_leaderboard` RPC'nin toplulaştırılmış sonucunu döndürür. Tahminin 15 dakika kala kilitlenmesi hem istemcide hem veritabanı tetikleyicisinde uygulanır.
 
 **Kritik RLS istisnası — `predictions`:**
 ```sql
@@ -90,11 +98,11 @@ Topluluk tahmin yüzdesini döndürür. Kilit kapanmadan (`kickoff - 15dk`) önc
 
 ## 4. Frontend Fonksiyon Haritası (önemli olanlar)
 
-**Veri:** `loadAllData()`, `requireQuery()` (Supabase hatalarını `throw` eder, `boot()` yakalar)
+**Veri:** `loadAllData()`, `moduleQuery()`, `primeServerLeaderboards()` ve `fetchServerLeaderboard()`
 
 **Auth:** `registerUser`, `loginUser`, `logoutUser`, `changeTeam`, `openAuth`/`closeAuth`
 
-**Tahmin/Puanlama:** `savePrediction`, `setResult`, `computeMatchPoints` (asıl puan mantığı — **değiştirilmemeli**, her yerde bu fonksiyona referans veriliyor), `userStatsForWeek`, `lifetimeStats`, `leaderboardFor`, `sortRows`
+**Tahmin/Puanlama:** `savePrediction`, `setResult`, `computeMatchPoints`, `get_leaderboard` RPC, `leaderboardFor`, `sortRows`. Tarayıcı hesapları yalnız migration uygulanmamış eski ortam için uyumluluk yedeğidir.
 
 **Hafta sistemi:** `getAvailableWeeks`, `weekMatches`, `weekStatus` (gerçek zamandan "3 gün kaldı"/"4'ü tamamlandı"/"tamamlandı" hesaplar), `goToWeek`/`prevWeek`/`nextWeek`, `parseHash`/`updateHash`
 
@@ -110,7 +118,7 @@ Topluluk tahmin yüzdesini döndürür. Kilit kapanmadan (`kickoff - 15dk`) önc
 
 Bunlar **kasıtlı olarak** eklenmedi — yarım/bozuk özellik bırakmamak için:
 
-- **Admin veri giriş arayüzü yok** (yeni 6 tablo için): `league_standings`, `model_predictions`, `weekly_stories`, `match_lineups`, `match_absences` şu an **sadece SQL ile** (Supabase SQL Editor / benim aracılığımla) dolduruluyor. Uygulama içi CRUD formu yok.
+- **Tam editoryal admin arayüzü henüz yok:** Kuyruk, kaynak, inceleme, düzeltme, zamanlanmış yayın, bildirim ve audit şeması migration olarak hazır; web CRUD ekranı ve worker işleyicileri sonraki fazdır.
 - **Takvime ekle, Paylaşım, Site içi arama, Takım mini sayfaları, Gol krallığı** — hiç başlanmadı (Öncelik 2/3 olarak bırakıldı, yarım buton yok).
 - **Canlı maç akışı** (`match_events`) — şema hazır, RLS hazır, ama front-end her zaman "Canlı maç akışı veri sağlayıcısı bağlandığında burada gösterilecek" diyor. Sportmonks ana akışının sunucu tarafı entegrasyonu ve Goalserve gölge testi henüz API anahtarları alınmadığı için bağlı değil.
 - **Otomatik tahmin modeli** — `model_predictions` tablosu var ama otomatik hiçbir şey çalıştırmıyor; admin manuel SQL ile tek tek girmesi gerekiyor.
@@ -128,13 +136,13 @@ Bunlar **kasıtlı olarak** eklenmedi — yarım/bozuk özellik bırakmamak içi
    ```
 4. **`league_standings.week` kolonu şu an kullanılmıyor** (front-end hep `.select('*')` ile tüm satırları çekiyor, week'e göre filtrelemiyor). Sezon ilerledikçe "haftalık snapshot" isteniyorsa bu davranış bilerek gözden geçirilmeli.
 5. **`renderMcFlow` (Maç Akışı sekmesi)** şu an `match_events` tablosunu hiç sorgulamıyor, sabit boş metin döndürüyor — canlı veri bağlanınca burası gerçek sorguya çevrilmeli.
-6. **Test edilmedi:** Gerçek tarayıcıda 360/390/430px görsel QA yapılmadı (sadece statik kod incelemesiyle kontrol edildi). İlk iş bu olmalı.
+6. **Yük testi:** `scripts/load-test-predictions.mjs` yalnız staging JWT'si ve kilitlenmemiş test maçıyla çalıştırılmalıdır; canlı kullanıcı verisine karşı çalıştırılmamalıdır.
 
 ---
 
 ## 7. Güvenlik Notları
 
-- Tüm yeni tablolarda RLS **aktif** (doğrulandı: `pg_class.relrowsecurity = true`).
+- Tüm çekirdek ve editoryal tablolarda RLS migration içinde zorunludur. Canlı ortam doğrulaması migration sonrası advisor ve SQL kontrolleriyle ayrıca yapılmalıdır.
 - `is_admin()` ve `get_match_prediction_consensus()` fonksiyonlarında `search_path` sabitlendi (Supabase advisor uyarısı giderildi).
 - `service_role` key hiçbir yerde yok.
 - Kilitlenmemiş tahminler istemciye hiç inmiyor (RLS seviyesinde, sadece UI seviyesinde değil).

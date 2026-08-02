@@ -11,14 +11,28 @@ await mkdir(resolve(dist, "client"), { recursive: true });
 
 const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
 const productionHtml = sourceHtml
-  .replace(/\s*<!-- PRODUCTION_STRIP_LEGACY_HTML_START -->[\s\S]*?<!-- PRODUCTION_STRIP_LEGACY_HTML_END -->\s*/g, "\n")
-  .replace(/\s*\/\* PRODUCTION_STRIP_LEGACY_JS_START \*\/[\s\S]*?\/\* PRODUCTION_STRIP_LEGACY_JS_END \*\/\s*/g, "\n");
+  .replace(/\s*<!-- PRODUCTION_STRIP_LEGACY_HTML_START -->[\s\S]*?<!-- PRODUCTION_STRIP_LEGACY_HTML_END -->\s*/g, "\n");
 
 if (productionHtml.includes("PRODUCTION_STRIP_LEGACY")) {
-  throw new Error("Production temizleme işaretleri eşleşmedi.");
+  throw new Error("Production HTML temizleme işaretleri eşleşmedi.");
 }
 await writeFile(resolve(dist, "client", "index.html"), productionHtml);
 await cp(resolve(root, "assets"), resolve(dist, "client", "assets"), { recursive: true });
+
+for (const file of ["data.js", "live.js", "match-center.js", "ui.js"]) {
+  const sourcePath = resolve(root, "assets", "js", file);
+  const targetPath = resolve(dist, "client", "assets", "js", file);
+  const source = await readFile(sourcePath, "utf8");
+  const productionSource = source.replace(
+    /\s*\/\* PRODUCTION_STRIP_LEGACY_JS_START \*\/[\s\S]*?\/\* PRODUCTION_STRIP_LEGACY_JS_END \*\/\s*/g,
+    "\n",
+  );
+  if (productionSource.includes("PRODUCTION_STRIP_LEGACY")) {
+    throw new Error(`${file} production temizleme işaretleri eşleşmedi.`);
+  }
+  await writeFile(targetPath, productionSource);
+}
+
 await cp(resolve(root, "worker", "index.js"), resolve(dist, "server", "index.js"));
 
 console.log("XYZSKOR production build hazır: dist/");

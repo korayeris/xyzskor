@@ -182,6 +182,32 @@ async function writeCache(scope: string, provider: string, result: ProviderResul
   });
 }
 
+function envSeconds(name: string, fallback: number, minimum: number, maximum: number): number {
+  const parsed = Number(Deno.env.get(name));
+  return Math.max(minimum, Math.min(maximum, Number.isFinite(parsed) ? parsed : fallback));
+}
+
+function ttlForResult(result: ProviderResult): number {
+  const matches = Array.isArray(result?.matches) ? result.matches : [];
+  if (matches.some((match) => match.status === "live" || match.status === "halftime")) {
+    return envSeconds("LIVE_CACHE_LIVE_SECONDS", 30, 15, 120);
+  }
+  const now = Date.now();
+  const hasNearKickoff = matches.some((match) => {
+    if (match.status !== "scheduled" || !match.startedAt) return false;
+    const kickoff = new Date(match.startedAt).getTime();
+    return kickoff >= now && kickoff - now <= 2 * 60 * 60 * 1000;
+  });
+  if (hasNearKickoff) return envSeconds("LIVE_CACHE_PREMATCH_SECONDS", 120, 30, 900);
+  const legacyIdle = Number(Deno.env.get("LIVE_CACHE_SECONDS"));
+  return envSeconds("LIVE_CACHE_IDLE_SECONDS", Number.isFinite(legacyIdle) ? legacyIdle : 900, 60, 3600);
+}
+
+function cacheControlFor(ttlSeconds: number): string {
+  const browserSeconds = Math.max(5, Math.min(30, Math.floor(ttlSeconds / 2)));
+  return `public, max-age=${browserSeconds}, stale-while-revalidate=${Math.max(30, browserSeconds * 2)}`;
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers:corsHeaders(request) });
   if (request.method !== "POST") return response(request, { error:"Yalnızca POST desteklenir." }, 405);
@@ -193,23 +219,27 @@ Deno.serve(async (request) => {
   try { body = await request.json(); } catch (_) { body = {}; }
   const scope = body?.scope === "turkey-super-lig" ? "turkey-super-lig" : "turkey-super-lig";
   const provider = (Deno.env.get("FOOTBALL_DATA_PROVIDER") || "api-football").trim().toLowerCase();
-  const ttlSeconds = Math.max(30, Number(Deno.env.get("LIVE_CACHE_SECONDS") || 900));
   const refreshSecret = Deno.env.get("LIVE_REFRESH_SECRET") || "";
   const force = Boolean(refreshSecret) && request.headers.get("x-refresh-key") === refreshSecret;
   const cached = await readCache(scope);
 
-  if (!force && cached && new Date(cached.expires_at).getTime() > Date.now()) {
-    return response(request, { ...cached.payload, stale:false }, 200, "public, max-age=30, stale-while-revalidate=60");
+  if (!force && cached?.payload) {
+    const cachedTtl = ttlForResult(cached.payload as ProviderResult);
+    const stateAwareExpiry = new Date(cached.fetched_at).getTime() + cachedTtl * 1000;
+    const storedExpiry = new Date(cached.expires_at).getTime();
+    if (Math.min(stateAwareExpiry, storedExpiry) > Date.now()) {
+      return response(request, { ...cached.payload, stale:false }, 200, cacheControlFor(cachedTtl));
+    }
   }
 
   try {
     const result = provider === "sportmonks" ? await sportmonksAdapter() : await apiFootballAdapter();
+    const ttlSeconds = ttlForResult(result);
     await writeCache(scope, provider, result, ttlSeconds);
-    return response(request, { ...result, stale:false }, 200, "public, max-age=30, stale-while-revalidate=60");
+    return response(request, { ...result, stale:false }, 200, cacheControlFor(ttlSeconds));
   } catch (error) {
     console.error("[football-live]", error instanceof Error ? error.message : error);
     if (cached?.payload) return response(request, { ...cached.payload, stale:true }, 200, "no-store");
     return response(request, { error:"Canlı veri geçici olarak kullanılamıyor." }, 503);
   }
 });
-

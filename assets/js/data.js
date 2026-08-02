@@ -1,0 +1,445 @@
+/* ===================== SUPABASE BAĞLANTISI ===================== */
+const SUPABASE_URL = 'https://swhwmqbamzczztpfxctg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Wufys3KETZb610JDyaf9WA_gD76ysAg';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===================== SABİTLER ===================== */
+const TEAMS = ['Beşiktaş','Diğer','Fenerbahçe','Galatasaray','Trabzonspor'];
+const TEAM_COLORS = {Galatasaray:'var(--gs)',Fenerbahçe:'var(--fb)',Beşiktaş:'var(--bjk)',Trabzonspor:'var(--ts)',Diğer:'var(--other)'};
+const TEAM_CRESTS = {
+  Alanyaspor:'https://upload.wikimedia.org/wikipedia/en/4/40/Alanyaspor_logo.svg',
+  'Amed Sportif Faaliyetler':'https://upload.wikimedia.org/wikipedia/en/1/18/AmedSFKLogo.png',
+  Galatasaray:'https://upload.wikimedia.org/wikipedia/commons/0/07/Galatasaray_S.K._Logo_2026_5-stars.svg',
+  Fenerbahçe:'https://upload.wikimedia.org/wikipedia/en/3/39/Fenerbah%C3%A7e.svg',
+  Beşiktaş:'https://upload.wikimedia.org/wikipedia/commons/d/da/BesiktasJK-Logo.svg',
+  Trabzonspor:'https://upload.wikimedia.org/wikipedia/en/d/de/Trabzonspor_Amblem.svg',
+  Başakşehir:'https://upload.wikimedia.org/wikipedia/en/e/e1/%C4%B0stanbul_Ba%C5%9Fak%C5%9Fehir_logo.svg',
+  'Başakşehir FK':'https://upload.wikimedia.org/wikipedia/en/e/e1/%C4%B0stanbul_Ba%C5%9Fak%C5%9Fehir_logo.svg',
+  'Çaykur Rizespor':'https://upload.wikimedia.org/wikipedia/en/5/5f/Caykur_Rizespor_logo.svg',
+  'Çorum FK':'https://upload.wikimedia.org/wikipedia/en/a/ab/%C3%87orum_F.K._crest.svg',
+  'Erzurumspor FK':'https://upload.wikimedia.org/wikipedia/en/6/68/Erzurumspor_F.K._crest_%282025%29.png',
+  Eyüpspor:'https://upload.wikimedia.org/wikipedia/commons/6/62/Ey%C3%BCpspor_Logosu.png',
+  'Gaziantep FK':'https://upload.wikimedia.org/wikipedia/en/c/c6/Gazi%C5%9Fehir_Gaziantep_logo.svg',
+  Gençlerbirliği:'https://upload.wikimedia.org/wikipedia/en/1/13/Gen%C3%A7lerbirli%C4%9Fi_S.K._crest.svg',
+  Göztepe:'https://upload.wikimedia.org/wikipedia/en/0/0f/G%C3%B6ztepe_S.K._logo.png',
+  Kasımpaşa:'https://upload.wikimedia.org/wikipedia/en/1/18/Kasimpasa_logo.svg',
+  Kocaelispor:'https://upload.wikimedia.org/wikipedia/en/c/cc/Kocaelispor_current_logo.png',
+  Konyaspor:'https://upload.wikimedia.org/wikipedia/en/d/d1/Konyaspor_logo.svg',
+  Samsunspor:'https://upload.wikimedia.org/wikipedia/en/8/83/Samsunspor_crest.svg'
+};
+const ANALYSIS_FIELDS = [
+  ['sonFormEv','Ev sahibi son 5 maç formu'], ['sonFormKonuk','Deplasman son 5 maç formu'],
+  ['evDisPerf','İç/dış saha performansı'], ['golOrt','Gol atma / yeme ortalaması'],
+  ['sakatlik','Eksik, sakat, cezalı oyuncular'], ['muhtemelKadro','Muhtemel kadrolar'],
+  ['hakem','Hakem ve eğilimleri'], ['hava','Hava durumu'], ['gecmisMaclar','Geçmiş karşılaşmalar']
+];
+const ALL_BADGES = ['İlk Tahmin','Haftayı Eksiksiz Tamamladı','Kesin Skor Uzmanı','5 Doğru Tahmin','Taraftar Ligi İlk 10','Haftanın Şampiyonu','Veri Ustası'];
+const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', kontrol: '31 Temmuz 2026' };
+const LIVE_FEED_CONFIG = {
+  functionName: 'football-live',
+  scope: 'turkey-super-lig',
+  refreshMs: 30000
+};
+const VIDEO_CONFIG = {
+  title: '',
+  description: '',
+  poster: '',
+  src: '',
+  source: '',
+  duration: ''
+};
+
+/* ===================== CACHE (Supabase'ten yüklenen veri) ===================== */
+/* PRODUCTION_STRIP_LEGACY_JS_START */
+const MYTHOS_PRODUCTS = {
+  Seçki:[
+    {name:'Champion Edition – Nova Hobby Box',year:'Galatasaray · 2026',reward:'Sezon Finali Büyük Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201415658509192_.webp',desc:'Şampiyonluk sezonunun yıldızlarını, kırılma anlarını ve kulüp mirasını premium bir kutuda buluşturan sponsor ödülü.',features:['30 kartlık premium kutu','6 numaralı kart garantisi','İmzalı veya Matchworn Patch hit']},
+    {name:'Mythos Legends – Mehmet Özdilek',year:'Beşiktaş · Legends 2026',reward:'Aylık Liderlik Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639072019845495612_.webp',desc:'Beşiktaş tarihinin simge isimlerinden Şifo Mehmet’in kariyerini numaralı ve imzalı kartlarla anlatan özel sponsor ödülü.',features:['Her pakette 5 numaralı kart','İmzalı kartlar mevcut','6,4 × 8,9 cm özel baskı']},
+    {name:'Trabzonspor Pulse 2025/26',year:'Trabzonspor · Pulse',reward:'Haftalık Taraftar Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201437618030532_.webp',desc:'Bordo-mavili kadroyu modern grafik diliyle sunan, haftanın kazananına ücretsiz verilecek futbolcu kartı paketi.',features:['2025/26 futbolcu koleksiyonu','Modern Pulse tasarım serisi','Resmî Mythos ödül paketi']}
+  ],
+  Galatasaray:[
+    {name:'Champion Edition – Nova Hobby Box',year:'2026 · Nova Hobby Box',reward:'Sezon Finali Büyük Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201415658509192_.webp',features:['6 paket · toplam 30 kart','6 numaralı kart garantisi','1 imzalı veya Matchworn Patch hit']},
+    {name:'Pulse Futbolcu Kartları 2025/26',year:'2025/26 · Tek Paket',reward:'Haftalık Taraftar Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201436045954862_.webp',features:['Futbolcu koleksiyon serisi','2025/26 sezon baskısı','Resmî Mythos ödül paketi']},
+    {name:'2025/26 Sezon Kartları – Kutu',year:'2026 · Sezon Kartları',reward:'Aylık Liderlik Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201451141428793_.webp',features:['Takım sezon koleksiyonu','Özel baskılı futbolcu kartları','Resmî Mythos ödül kutusu']}
+  ],
+  Beşiktaş:[
+    {name:'Beşiktaş 2022/23 Moments Serisi',year:'2022/23 · Moments',reward:'Haftalık Taraftar Ödülü',image:'https://cdn.mythos.cards/imgs/Image_638255592199308689_.jpg',features:['Her pakette 1 özel an kartı','Numaralı ve imzalı nadir kartlar','Forma parçalı kart ihtimali']},
+    {name:'Mythos Legends – Mehmet Özdilek',year:'2026 · Legends',reward:'Sezon Finali Büyük Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639072019845495612_.webp',features:['Her pakette 5 numaralı kart','İmzalı kartlar mevcut','6,4 × 8,9 cm özel baskı']},
+    {name:'Hyeon-Gyu Oh Koleksiyon Kartları',year:'2025 · Oyuncu Serisi',reward:'Aylık Liderlik Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201430790402622_.webp',features:['10 kart: 5 Base + 2 Parlak','2 Anime kart','1 dijital imzalı kart']}
+  ],
+  Trabzonspor:[
+    {name:'2025/26 Sezon Kartları – Kutu',year:'2026 · Sezon Kartları',reward:'Aylık Liderlik Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201454914689199_.webp',features:['Kutuda toplam 12 kart','1 parlak kart garantisi','Numaralı kart ihtimali']},
+    {name:'Trabzonspor 2025/26 Mythos First',year:'2025/26 · Mythos First',reward:'Haftalık Taraftar Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201397499182163_.webp',features:['7 Base + 3 parlak kart','Toplam 10 kart','Dijital imzalı kart ihtimali']},
+    {name:'Pulse Futbolcu Kartları 2025/26',year:'2025/26 · Pulse',reward:'Haftalık Taraftar Ödülü',image:'https://cdn.mythos.cards/imgs/Image_639201437618030532_.webp',features:['Futbolcu koleksiyon serisi','2025/26 sezon baskısı','Resmî Mythos ödül paketi']}
+  ]
+};
+let activeMythosTeam='Seçki';
+function renderMythosProducts(){
+  const grid=document.getElementById('mythosProductGrid'); if(!grid) return;
+  const editorial={Galatasaray:'Şampiyonluk kültürünü, yıldız oyuncuları ve sezonun unutulmaz anlarını koleksiyon tasarımıyla bir araya getiriyor.',Beşiktaş:'Siyah-beyaz mirası, ikonik oyuncuları ve tribün hafızasını özel baskı koleksiyon kartlarına taşıyor.',Trabzonspor:'Bordo-mavili kimliği, genç yetenekleri ve kulübün güçlü futbol hikâyesini modern bir koleksiyonda buluşturuyor.'};
+  grid.innerHTML=(MYTHOS_PRODUCTS[activeMythosTeam]||[]).map(p=>`<article class="official-product"><div class="official-product-image"><img src="${p.image}" alt="${p.name}" loading="lazy"></div><div class="official-product-body"><span class="official-product-kicker">${p.year}</span><h3>${p.name}</h3><p class="official-product-desc">${p.desc||editorial[activeMythosTeam]||'Futbol kültürünü özenli baskı ve koleksiyon değeriyle bir araya getiren resmî Mythos sponsor ödülü.'}</p><div class="official-product-reward">${p.reward}</div><ul class="product-features">${p.features.map(f=>`<li>${f}</li>`).join('')}</ul><span class="product-link">Kazanana ücretsiz hediye</span></div></article>`).join('');
+  document.querySelectorAll('.product-team-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.team===activeMythosTeam));
+}
+function selectMythosTeam(team){ activeMythosTeam=team; renderMythosProducts(); }
+
+const MARKET_DATA = {
+  transfers: [
+    {name:'Mason Greenwood', initials:'MG', photo:'https://images.fotmob.com/image_resources/playerimages/950473.png', from:'Marsilya', to:'Fenerbahçe', fee:'€39 M'},
+    {name:'Sidiki Chérif', initials:'SC', photo:'https://images.fotmob.com/image_resources/playerimages/1524069.png', from:'Angers', to:'Fenerbahçe', fee:'€18 M'},
+    {name:'Vedat Muriqi', initials:'VM', photo:'https://images.fotmob.com/image_resources/playerimages/517052.png', from:'Mallorca', to:'Fenerbahçe', fee:'€15,5 M'},
+    {name:'Aral Şimşir', initials:'AŞ', photo:'https://images.fotmob.com/image_resources/playerimages/1126769.png', from:'Midtjylland', to:'Trabzonspor', fee:'€13 M'},
+    {name:'Noah Saviolo', initials:'NS', photo:'https://images.fotmob.com/image_resources/playerimages/1793475.png', from:'Vitória SC', to:'Trabzonspor', fee:'€8,5 M'}
+  ],
+  watchlist: [
+    {name:'Darwin Núñez', initials:'DN', photo:'https://images.fotmob.com/image_resources/playerimages/950561.png', route:'Al-Hilal → Beşiktaş', status:'Yakın takip', tone:'hot'},
+    {name:'Dušan Vlahović', initials:'DV', photo:'https://images.fotmob.com/image_resources/playerimages/737857.png', route:'Serbest → Beşiktaş', status:'Fırsat hedefi', tone:'watch'},
+    {name:'Mohamed Salah', initials:'MS', photo:'https://images.fotmob.com/image_resources/playerimages/292462.png', route:'Liverpool → Beşiktaş', status:'Rafa kaldırıldı', tone:'shelved'}
+  ],
+  performers: [
+    {name:'Marco Asensio', initials:'MA', photo:'https://images.fotmob.com/image_resources/playerimages/498033.png', meta:'Fenerbahçe · Hücum', rating:'7,81'},
+    {name:'Victor Osimhen', initials:'VO', photo:'https://images.fotmob.com/image_resources/playerimages/687681.png', meta:'Galatasaray · Forvet', rating:'7,76'},
+    {name:'Orkun Kökçü', initials:'OK', photo:'https://images.fotmob.com/image_resources/playerimages/935409.png', meta:'Beşiktaş · Orta saha', rating:'7,73'}
+  ]
+};
+function marketPhoto(item){
+  return `<span class="player-photo">${item.initials}${item.photo ? `<img src="${item.photo}" alt="${item.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</span>`;
+}
+function renderMarketPulse(){
+  const transfers = document.getElementById('topTransfers');
+  const watchlist = document.getElementById('transferWatchlist');
+  const performers = document.getElementById('weeklyPlayers');
+  if(transfers) transfers.innerHTML = MARKET_DATA.transfers.map((p,i) => `<div class="transfer-row"><span class="transfer-rank">${i+1}</span>${marketPhoto(p)}<div><div class="transfer-name">${p.name}</div><div class="transfer-route"><span class="club-chip">${p.from}</span><span class="route-arrow">→</span><span class="club-chip">${p.to}</span></div></div><div class="transfer-fee">${p.fee}<small>bonservis</small></div></div>`).join('');
+  if(watchlist) watchlist.innerHTML = MARKET_DATA.watchlist.map(p => `<div class="rumor-row">${marketPhoto(p)}<div><div class="rumor-title">${p.name}</div><div class="rumor-route">${p.route}</div></div><span class="status-chip ${p.tone}">${p.status}</span></div>`).join('');
+  if(performers) performers.innerHTML = MARKET_DATA.performers.map((p,i) => `<div class="performance-row">${marketPhoto(p)}<div><div class="performance-name">${i+1}. ${p.name}</div><div class="performance-meta">${p.meta}</div></div><span class="rating-pill">${p.rating}</span></div>`).join('');
+}
+let transferCountdownHandle = null;
+function updateTransferCountdown(){
+  const el=document.getElementById('transferCountdown'); if(!el) return;
+  const remaining=new Date('2026-09-05T00:00:00+03:00').getTime()-Date.now();
+  if(remaining<=0){ el.textContent='DÖNEM KAPANDI'; return; }
+  const days=Math.floor(remaining/86400000), hours=Math.floor((remaining%86400000)/3600000), minutes=Math.floor((remaining%3600000)/60000), seconds=Math.floor((remaining%60000)/1000);
+  el.textContent=`${days}G ${String(hours).padStart(2,'0')}S ${String(minutes).padStart(2,'0')}D ${String(seconds).padStart(2,'0')}SN`;
+}
+function startTransferCountdown(){
+  updateTransferCountdown();
+  if(!transferCountdownHandle) transferCountdownHandle=setInterval(updateTransferCountdown,1000);
+}
+/* PRODUCTION_STRIP_LEGACY_JS_END */
+
+let MATCHES = [];
+let ANALYSIS = {};
+let PROFILES = {};
+let ALL_PREDICTIONS = {};
+let ALL_RESULTS = {};
+let REWARDS = {};
+let STANDINGS = [];
+let WEEKLY_STORIES = {};
+let currentUser = null;
+let tickerHandle = null;
+let liveFeedHandle = null;
+let liveFeedLoading = false;
+let LIVE_FEED = { matches:[], updatedAt:null, stale:false, error:null, loaded:false };
+let lastLoadError = null;
+let DATA_ERRORS = {};
+let activeWeek = 1;
+let activeFootballTeam = 'Tümü';
+let SERVER_LEADERBOARDS = new Map();
+let serverLeaderboardMode = 'unknown';
+
+function getCurrentUser(){ return currentUser; }
+
+/* ===================== VERİ YÜKLEME ===================== */
+async function requireQuery(promise, label){
+  const { data, error } = await promise;
+  if(error){
+    console.error('[XYZSkor veri hatası]', label, error);
+    throw new Error(label + ': ' + (error.message || error.code || 'bilinmeyen hata'));
+  }
+  return data || [];
+}
+async function moduleQuery(promise, label){
+  try{
+    const { data, error } = await promise;
+    if(error) throw error;
+    return data || [];
+  }catch(error){
+    DATA_ERRORS[label] = error && (error.message || error.code) ? (error.message || error.code) : 'bilinmeyen hata';
+    console.warn('[XYZSkor modül verisi]', label, error);
+    return [];
+  }
+}
+function cachePredictions(rows){
+  ALL_PREDICTIONS = {};
+  rows.forEach(p=>{
+    if(!ALL_PREDICTIONS[p.match_id]) ALL_PREDICTIONS[p.match_id] = {};
+    ALL_PREDICTIONS[p.match_id][p.user_id] = { pick:p.pick, scoreHome:p.score_home, scoreAway:p.score_away, submittedAt:new Date(p.submitted_at).getTime() };
+  });
+}
+function cacheProfiles(rows){
+  PROFILES = {};
+  rows.forEach(p => PROFILES[p.id] = p);
+}
+function leaderboardCacheKey(team, hafta, period){ return `${team}|${hafta}|${period}`; }
+async function fetchServerLeaderboard(team, hafta, period){
+  const key = leaderboardCacheKey(team, hafta, period);
+  if(SERVER_LEADERBOARDS.has(key)) return SERVER_LEADERBOARDS.get(key);
+  const { data, error } = await sb.rpc('get_leaderboard', {
+    p_week: hafta,
+    p_team: team==='Genel' ? null : team,
+    p_period: period,
+    p_limit: 100
+  });
+  if(error) throw error;
+  const rows = (data || []).map(row=>({
+    uid:row.user_id, username:row.username, team:row.team,
+    points:Number(row.points || 0), exact:Number(row.exact_scores || 0), correct:Number(row.correct_results || 0),
+    completedAt:row.completed_at ? new Date(row.completed_at).getTime() : 0,
+    position:Number(row.position || 0)
+  }));
+  SERVER_LEADERBOARDS.set(key, rows);
+  return rows;
+}
+async function primeServerLeaderboards(hafta){
+  if(serverLeaderboardMode==='legacy') return false;
+  try{
+    if(serverLeaderboardMode==='unknown') await fetchServerLeaderboard('Genel', hafta, 'week');
+    const scopes = ['Genel', ...TEAMS];
+    await Promise.all(scopes.flatMap(team=>[
+      fetchServerLeaderboard(team, hafta, 'week'),
+      fetchServerLeaderboard(team, hafta, 'season')
+    ]));
+    serverLeaderboardMode = 'server';
+    delete DATA_ERRORS.leaderboard;
+    return true;
+  }catch(error){
+    const initialProbe = serverLeaderboardMode==='unknown';
+    if(initialProbe) serverLeaderboardMode = 'legacy';
+    DATA_ERRORS.leaderboard = error && (error.message || error.code) ? (error.message || error.code) : 'sunucu sıralaması kullanılamıyor';
+    console.warn('[XYZSkor liderlik]', initialProbe ? 'Sunucu RPC bulunamadı; geçici eski veri akışı kullanılıyor.' : 'Sunucu sıralaması yenilenemedi; son başarılı veri korunuyor.', error);
+    return false;
+  }
+}
+async function loadAllData(){
+  DATA_ERRORS = {};
+  SERVER_LEADERBOARDS = new Map();
+  serverLeaderboardMode = 'unknown';
+  let session = null;
+  try{
+    const authRes = await sb.auth.getSession();
+    session = authRes && authRes.data ? authRes.data.session : null;
+  }catch(e){ console.error('[XYZSkor veri hatası] auth.getSession', e); }
+  const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
+  const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});
+  const [matches, analysisRows, ownProfiles, ownPredictions, results, rewards, standings, stories] = await Promise.all([
+    moduleQuery(sb.from('matches').select('*').order('kickoff'), 'matches'),
+    moduleQuery(sb.from('match_analysis').select('*'), 'match_analysis'),
+    moduleQuery(ownProfileQuery, 'own_profile'),
+    moduleQuery(ownPredictionsQuery, 'own_predictions'),
+    moduleQuery(sb.from('results').select('*'), 'results'),
+    moduleQuery(sb.from('rewards').select('*'), 'rewards'),
+    moduleQuery(sb.from('league_standings').select('*').order('points',{ascending:false}), 'league_standings'),
+    moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
+  ]);
+  MATCHES = matches;
+  ANALYSIS = {}; analysisRows.forEach(r => ANALYSIS[r.match_id] = r.data || {});
+  cacheProfiles(ownProfiles);
+  cachePredictions(ownPredictions);
+  ALL_RESULTS = {};
+  results.forEach(r=> ALL_RESULTS[r.match_id] = { home:r.home, away:r.away, scoredAt:new Date(r.scored_at).getTime() });
+  REWARDS = {}; TEAMS.forEach(t => REWARDS[t] = [{sira:1,aciklama:'—'},{sira:2,aciklama:'—'},{sira:3,aciklama:'—'}]);
+  rewards.forEach(r=>{ if(REWARDS[r.team]) REWARDS[r.team][r.sira-1] = {sira:r.sira, aciklama:r.aciklama}; });
+  STANDINGS = standings;
+  WEEKLY_STORIES = {}; stories.forEach(s => WEEKLY_STORIES[s.week] = s);
+  if(session){
+    let profile = PROFILES[session.user.id] || null;
+    if(!profile){
+      try{
+        profile = await ensureOwnProfile(session.user);
+        if(profile) PROFILES[profile.id] = profile;
+      }catch(e){ console.error('[XYZSkor veri hatası] eksik profil oluşturulamadı', e); }
+    }
+    currentUser = profile ? { ...profile, email: session.user.email } : null;
+  } else currentUser = null;
+  const serverReady = await primeServerLeaderboards(activeWeek);
+  if(!serverReady){
+    const [legacyProfiles, legacyPredictions] = await Promise.all([
+      moduleQuery(sb.from('profiles').select('*'), 'profiles_legacy'),
+      moduleQuery(sb.from('predictions').select('*'), 'predictions_legacy')
+    ]);
+    cacheProfiles(legacyProfiles);
+    cachePredictions(legacyPredictions);
+    if(currentUser && !PROFILES[currentUser.id]) PROFILES[currentUser.id] = currentUser;
+  }
+}
+
+/* ===================== AUTH ===================== */
+function authErrTR(error){
+  const m = error.message || '';
+  if(m.includes('already registered') || m.includes('already exists')) return 'Bu e-posta zaten kayıtlı.';
+  if(m.includes('Password') || m.includes('password')) return 'Şifre en az 6 karakter olmalı.';
+  if(m.includes('duplicate') || m.includes('username')) return 'Bu kullanıcı adı alınmış.';
+  return m || 'Bir hata oluştu.';
+}
+async function registerUser(username, email, pass, team){
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ username, team } } });
+  if(error) return { ok:false, err: authErrTR(error) };
+  const uid = data.user ? data.user.id : null;
+  if(!uid) return { ok:false, err:'Kullanıcı hesabı oluşturulamadı.' };
+  if(!data.session) return { ok:true, pending:true, message:'Kayıt alındı. E-postana gelen doğrulama linkine tıklayıp giriş yap.' };
+  try{ await ensureOwnProfile(data.user); }
+  catch(pErr){ return { ok:false, err: authErrTR(pErr) }; }
+  return { ok:true };
+}
+async function ensureOwnProfile(user){
+  if(!user) return null;
+  const { data: existing, error: readError } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if(readError) throw readError;
+  if(existing) return existing;
+  const meta = user.user_metadata || {};
+  if(!meta.username || !TEAMS.includes(meta.team)) return null;
+  const { data: created, error: createError } = await sb.from('profiles').insert({ id:user.id, username:meta.username, team:meta.team }).select().single();
+  if(createError) throw createError;
+  return created;
+}
+async function loginUser(email, pass){
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error) return { ok:false, err:'E-posta veya şifre hatalı.' };
+  try{ await ensureOwnProfile(data.user); }
+  catch(e){ await sb.auth.signOut(); return { ok:false, err:'Profil hazırlanamadı: '+authErrTR(e) }; }
+  return { ok:true };
+}
+async function logoutUser(){ await sb.auth.signOut(); }
+async function changeTeam(newTeam){
+  const u = getCurrentUser();
+  if(!u || u.team_changed || !TEAMS.includes(newTeam) || newTeam===u.team) return false;
+  const rpc = await sb.rpc('change_team_once', { new_team:newTeam });
+  if(!rpc.error) return true;
+  if(!String(rpc.error.code || '').startsWith('PGRST')) return false;
+  const fallback = await sb.from('profiles').update({ team:newTeam, team_changed:true }).eq('id', u.id);
+  return !fallback.error;
+}
+
+/* ===================== TAHMİN OKU/YAZ ===================== */
+function getPrediction(matchId, uid){ return (ALL_PREDICTIONS[matchId] && ALL_PREDICTIONS[matchId][uid]) || null; }
+function getResult(matchId){ return ALL_RESULTS[matchId] || null; }
+async function savePrediction(matchId, payload){
+  const u = getCurrentUser(); if(!u) return { ok:false };
+  const match = MATCHES.find(m=>m.id===matchId);
+  if(!match) return { ok:false, err:'Maç bulunamadı.' };
+  if(match.status==='iptal' || match.status==='ertelendi') return { ok:false, err:'Bu maç için tahmin alınmıyor.' };
+  if(isLocked(match.kickoff)) return { ok:false, err:'Bu maç için tahmin süresi doldu.' };
+  if(!['1','X','2'].includes(payload.pick)) return { ok:false, err:'Geçerli bir maç sonucu seç.' };
+  const hasHomeScore = payload.scoreHome != null;
+  const hasAwayScore = payload.scoreAway != null;
+  if(hasHomeScore !== hasAwayScore) return { ok:false, err:'Skor tahmini için iki takımın skorunu da gir.' };
+  if(hasHomeScore && (![payload.scoreHome,payload.scoreAway].every(Number.isInteger) || payload.scoreHome<0 || payload.scoreAway<0 || payload.scoreHome>99 || payload.scoreAway>99)){
+    return { ok:false, err:'Skorlar 0 ile 99 arasında tam sayı olmalı.' };
+  }
+  const submittedAt = new Date();
+  const { error } = await sb.from('predictions').upsert({
+    match_id: matchId, user_id: u.id, pick: payload.pick,
+    score_home: payload.scoreHome, score_away: payload.scoreAway, submitted_at: submittedAt.toISOString()
+  }, { onConflict: 'match_id,user_id' });
+  if(!error){
+    if(!ALL_PREDICTIONS[matchId]) ALL_PREDICTIONS[matchId]={};
+    ALL_PREDICTIONS[matchId][u.id]={pick:payload.pick,scoreHome:payload.scoreHome,scoreAway:payload.scoreAway,submittedAt:submittedAt.getTime()};
+  }
+  return { ok: !error, err: error && error.message };
+}
+
+/* ===================== ADMIN: SONUÇ / ÖDÜL YAZMA ===================== */
+async function setResult(matchId, home, away){
+  if(!MATCHES.some(m=>m.id===matchId) || ![home,away].every(n=>Number.isInteger(n) && n>=0 && n<=99)) return false;
+  const { error } = await sb.from('results').upsert({ match_id: matchId, home, away, scored_at: new Date().toISOString() });
+  return !error;
+}
+async function saveRewardsData(newRewards){
+  const rows = [];
+  TEAMS.forEach(t => newRewards[t].forEach(r => rows.push({ team:t, sira:r.sira, aciklama:r.aciklama })));
+  const { error } = await sb.from('rewards').upsert(rows, { onConflict:'team,sira' });
+  return !error;
+}
+
+/* ===================== PUANLAMA ===================== */
+function computeMatchPoints(pred, result){
+  if(!pred || !result) return {toplam:0, sonuc:false, kesinSkor:false};
+  const actualPick = result.home > result.away ? '1' : result.home < result.away ? '2' : 'X';
+  let puan=0, sonuc=false, kesinSkor=false;
+  if(pred.pick === actualPick){ puan += 3; sonuc = true; }
+  if(pred.scoreHome!=null && pred.scoreAway!=null){
+    if(pred.scoreHome===result.home && pred.scoreAway===result.away){ puan += 5; kesinSkor = true; }
+    else if(pred.pick !== actualPick){
+      const pd = pred.scoreHome - pred.scoreAway, ad = result.home - result.away;
+      if(pd === ad) puan += 1;
+    }
+  }
+  return {toplam:puan, sonuc, kesinSkor};
+}
+function weekMatchIds(hafta){ return MATCHES.filter(m=>m.hafta===hafta).map(m=>m.id); }
+function userStatsForWeek(uid, hafta){
+  const ids = weekMatchIds(hafta);
+  let toplam=0, sonucSayisi=0, kesinSkorSayisi=0, tahminSayisi=0, sonuclananTahminSayisi=0, tamamlaZaman=0;
+  ids.forEach(id=>{
+    const p = ALL_PREDICTIONS[id] && ALL_PREDICTIONS[id][uid];
+    if(p){ tahminSayisi++; tamamlaZaman = Math.max(tamamlaZaman, p.submittedAt); }
+    const r = ALL_RESULTS[id];
+    if(p && r){ sonuclananTahminSayisi++; const pts = computeMatchPoints(p, r); toplam += pts.toplam; if(pts.sonuc) sonucSayisi++; if(pts.kesinSkor) kesinSkorSayisi++; }
+  });
+  if(tahminSayisi === ids.length && ids.length>0) toplam += 2;
+  return {toplam, sonucSayisi, kesinSkorSayisi, tahminSayisi, sonuclananTahminSayisi, toplamMac: ids.length, tamamlaZaman};
+}
+function lifetimeStats(uid){
+  const weeks = [...new Set(MATCHES.map(m=>m.hafta))];
+  let toplam=0, sonuc=0, kesinSkor=0, tahmin=0, sonuclananTahmin=0, katilimHafta=0, tamamlaZaman=0;
+  weeks.forEach(h=>{ const s = userStatsForWeek(uid, h); if(s.tahminSayisi>0) katilimHafta++; toplam+=s.toplam; sonuc+=s.sonucSayisi; kesinSkor+=s.kesinSkorSayisi; tahmin+=s.tahminSayisi; sonuclananTahmin+=s.sonuclananTahminSayisi; tamamlaZaman=Math.max(tamamlaZaman,s.tamamlaZaman); });
+  const dogruYuzde = sonuclananTahmin>0 ? Math.round((sonuc/sonuclananTahmin)*100) : 0;
+  return {toplam, sonuc, kesinSkor, tahmin, sonuclananTahmin, katilimHafta, dogruYuzde, tamamlaZaman};
+}
+function leaderboardFor(team, hafta){
+  if(serverLeaderboardMode==='server'){
+    const weekRows = SERVER_LEADERBOARDS.get(leaderboardCacheKey(team, hafta, 'week')) || [];
+    const seasonRows = SERVER_LEADERBOARDS.get(leaderboardCacheKey(team, hafta, 'season')) || [];
+    const merged = new Map();
+    weekRows.forEach(row=>merged.set(row.uid, {
+      username:row.username, team:row.team, uid:row.uid,
+      weekPts:row.points, total:0, weekKesinSkor:row.exact, weekSonuc:row.correct,
+      kesinSkor:0, sonuc:0, weekTamamlaZaman:row.completedAt, seasonTamamlaZaman:0
+    }));
+    seasonRows.forEach(row=>{
+      const current=merged.get(row.uid) || {username:row.username,team:row.team,uid:row.uid,weekPts:0,weekKesinSkor:0,weekSonuc:0,weekTamamlaZaman:0};
+      Object.assign(current,{total:row.points,kesinSkor:row.exact,sonuc:row.correct,seasonTamamlaZaman:row.completedAt});
+      merged.set(row.uid,current);
+    });
+    return [...merged.values()];
+  }
+  const rows = Object.values(PROFILES).filter(p => team==='Genel' || p.team===team).map(p=>{
+    const s = userStatsForWeek(p.id, hafta); const life = lifetimeStats(p.id);
+    return {username:p.username, team:p.team, uid:p.id, weekPts:s.toplam, total:life.toplam, weekKesinSkor:s.kesinSkorSayisi, weekSonuc:s.sonucSayisi, kesinSkor:life.kesinSkor, sonuc:life.sonuc, weekTamamlaZaman:s.tamamlaZaman, seasonTamamlaZaman:life.tamamlaZaman};
+  });
+  return rows;
+}
+function sortRows(rows, period){
+  const key = period==='week' ? 'weekPts' : 'total';
+  const exactKey = period==='week' ? 'weekKesinSkor' : 'kesinSkor';
+  const resultKey = period==='week' ? 'weekSonuc' : 'sonuc';
+  const timeKey = period==='week' ? 'weekTamamlaZaman' : 'seasonTamamlaZaman';
+  return [...rows].sort((a,b)=>{
+    if(b[key] !== a[key]) return b[key]-a[key];
+    if(b[exactKey] !== a[exactKey]) return b[exactKey] - a[exactKey];
+    if(b[resultKey] !== a[resultKey]) return b[resultKey] - a[resultKey];
+    return (a[timeKey]||Infinity) - (b[timeKey]||Infinity);
+  });
+}
+
+/* ===================== ROZET / SEVİYE ===================== */
+function computeBadges(uid){
+  const life = lifetimeStats(uid); const badges = [];
+  if(life.tahmin>0) badges.push('İlk Tahmin');
+  if(life.kesinSkor>=5) badges.push('Kesin Skor Uzmanı');
+  if(life.sonuc>=5) badges.push('5 Doğru Tahmin');
+  MATCHES.map(m=>m.hafta).filter((v,i,a)=>a.indexOf(v)===i).forEach(h=>{
+    const s = userStatsForWeek(uid, h); if(s.tahminSayisi===s.toplamMac && s.toplamMac>0) badges.push('Haftayı Eksiksiz Tamamladı');
+  });
+  return [...new Set(badges)];
+}
+function levelFor(totalPts){ return Math.floor(totalPts/20) + 1; }

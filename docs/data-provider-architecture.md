@@ -27,7 +27,7 @@ Kaynaklar:
 
 ```text
 API-Football ─┐
-Sportmonks ───┼─> football-live Edge Function ─> XYZSKOR şeması ─> 15 dk sunucu cache ─> web uygulaması
+Sportmonks ───┼─> football-live Edge Function ─> XYZSKOR şeması ─> duruma göre 30 sn–15 dk cache ─> web uygulaması
 Goalserve ────┘                                      └─> provider_observations (gölge ölçüm)
 ```
 
@@ -45,11 +45,13 @@ FOOTBALL_DATA_PROVIDER=api-football
 API_FOOTBALL_KEY
 SPORTMONKS_API_TOKEN
 SPORTMONKS_LEAGUE_IDS
-LIVE_CACHE_SECONDS=900
+LIVE_CACHE_LIVE_SECONDS=30
+LIVE_CACHE_PREMATCH_SECONDS=120
+LIVE_CACHE_IDLE_SECONDS=900
 LIVE_ALLOWED_ORIGINS
 ```
 
-Uygulama içinde sağlayıcı bağlantısı veya reklamı gösterilmez. API-Football ücretsiz kotasında varsayılan cache 900 saniyedir; böylece açık sekme sayısı yukarı akış çağrı sayısını artırmaz. Ücretli canlı pakete geçildiğinde cache süresi sağlayıcı limitine göre düşürülebilir.
+Uygulama içinde sağlayıcı bağlantısı veya reklamı gösterilmez. Cache artık maç durumuna göre değişir: canlı/devre arasında varsayılan 30 saniye, başlama saatine iki saatten az kalan maçlarda 120 saniye, boş veya uzak fikstür akışında 900 saniye. Böylece canlı skor gecikmesi sınırlanırken açık sekme sayısı yukarı akış çağrı sayısını kontrolsüz artırmaz.
 
 ## 3. Sağlayıcı adaptörü
 

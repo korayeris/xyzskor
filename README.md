@@ -1,6 +1,6 @@
 # XYZSkor
 
-Süper Lig için matematiksel performans ve veri analiz platformu. Uygulama vanilla JavaScript ve Supabase ile çalışır; derleme adımı yoktur.
+Süper Lig için matematiksel performans ve veri analiz platformu. Uygulama modüler vanilla JavaScript/CSS, Supabase ve Cloudflare uyumlu production build ile çalışır.
 
 Mythos Cards yalnızca ödül sponsorudur. XYZSKOR üzerinde ürün satışı, sepet veya ödeme akışı bulunmaz; sponsor ürünleri yarışma kazananlarına ücretsiz hediye edilir.
 
@@ -33,17 +33,28 @@ Ardından `http://127.0.0.1:4173` adresini açın.
 
 ```powershell
 npm run check
+npm run build
 ```
 
 ## Dosyalar
 
-- `index.html`: Uygulamanın tamamı
+- `index.html`: Erişilebilir HTML kabuğu
+- `assets/css/app.css`: Görsel sistem ve responsive düzen
+- `assets/js/data.js`: Supabase, auth, tahmin ve liderlik veri katmanı
+- `assets/js/live.js`: Hafta, canlı skor ve navigasyon akışı
+- `assets/js/match-center.js`: Maç detay ürünü
+- `assets/js/ui.js`: Arayüz render zinciri ve başlangıç
 - `docs/XYZSKOR-devir-teslim.md`: Mimari ve operasyon notları
 - `docs/data-provider-architecture.md`: Değiştirilebilir API-Football/Sportmonks katmanı ve veri sınıflandırma sözleşmesi
 - `docs/provider-comparison-scorecard.csv`: 2–3 haftalık sağlayıcı karşılaştırma kayıt şablonu
+- `docs/supabase-migration-runbook.md`: Yedek, staging, migration ve yük testi yayın akışı
 - `supabase/functions/football-live/index.ts`: Canlı skor sağlayıcı adaptörü
 - `supabase/migrations/20260731_live_feed_cache.sql`: Canlı API kotasını koruyan sunucu önbelleği
+- `supabase/migrations/20260802180000_platform_core.sql`: Yeniden kurulabilir çekirdek şema, RLS ve tahmin kilidi
+- `supabase/migrations/20260802181000_server_leaderboard.sql`: Sunucu tarafı puanlama/liderlik RPC'si
+- `supabase/migrations/20260802182000_editorial_operations.sql`: Haber operasyonu, kaynak, inceleme ve audit şeması
 - `scripts/dev.ps1`: Yerel geliştirme sunucusu
-- `scripts/check.ps1`: JavaScript sözdizimi kontrolü
+- `scripts/check.mjs`: Ürün, güvenlik ve mimari regresyon kontrolleri
+- `scripts/load-test-predictions.mjs`: Yalnız staging için tahmin yazma yük testi
 
 Supabase service-role ve spor veri sağlayıcısı anahtarları istemciye veya repoya eklenmemelidir. API-Football/Sportmonks çağrıları yalnızca sunucu tarafındaki Supabase Edge Function üzerinden yapılır. Sağlayıcı, `FOOTBALL_DATA_PROVIDER` secret'ıyla değiştirilir; ön yüz kodu değişmez.
