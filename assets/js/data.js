@@ -49,6 +49,16 @@ const VIDEO_CONFIG = {
   source: '',
   duration: ''
 };
+const X_CLUBS = [
+  { team:'Galatasaray', handle:'GalatasaraySK', url:'https://x.com/GalatasaraySK' },
+  { team:'Fenerbahçe', handle:'Fenerbahce', url:'https://x.com/Fenerbahce' },
+  { team:'Beşiktaş', handle:'Besiktas', url:'https://x.com/Besiktas' },
+  { team:'Trabzonspor', handle:'Trabzonspor', url:'https://x.com/Trabzonspor' }
+];
+let activeXClub = 'Galatasaray';
+let xClubSelectionTouched = false;
+let xFeedPermissionGranted = false;
+let xWidgetsPromise = null;
 
 /* ===================== CACHE (Supabase'ten yüklenen veri) ===================== */
 /* PRODUCTION_STRIP_LEGACY_JS_START */

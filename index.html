@@ -28,6 +28,7 @@
 <nav class="football-context-nav" id="footballContextNav" aria-label="Futbol bölümleri">
   <button class="football-context-tab active" type="button" onclick="scrollFootballSection('footballMatchesSection',this)">Maçlar</button>
   <button class="football-context-tab" type="button" onclick="scrollFootballSection('footballNewsSection',this)">Gündem</button>
+  <button class="football-context-tab" type="button" onclick="scrollFootballSection('clubSocialSection',this)">Kulüpler</button>
   <button class="football-context-tab" type="button" onclick="scrollFootballSection('footballTransferSection',this)">Transfer</button>
   <button class="football-context-tab" type="button" onclick="scrollFootballSection('footballStandingsSummary',this)">Puan Durumu</button>
 </nav>
@@ -53,6 +54,20 @@
     </div>
     <div class="football-secondary-grid">
       <section class="football-module news-feed" id="footballNewsSection" aria-labelledby="footballNewsTitle"><div class="football-module-head"><div><div class="football-module-kicker">Yayınlanan İçerik</div><div class="football-module-title" id="footballNewsTitle">Güncel gelişmeler</div></div><span class="portal-section-index">GÜNDEM</span></div><div id="footballNewsStream"></div><details class="confidence-help"><summary>Haber güven seviyesi nasıl çalışır?</summary><p>Resmî: kulüp veya kurum açıklaması. Güçlü: birden fazla güvenilir kaynakla desteklenen kayıt. Gelişiyor: henüz kesinleşmeyen ve açıkça bu şekilde işaretlenen gelişme. Seviye bilgisi yoksa rozet gösterilmez.</p></details></section>
+      <section class="club-social-section" id="clubSocialSection" aria-labelledby="clubSocialTitle">
+        <header class="club-social-head">
+          <div>
+            <div class="football-module-kicker">RESMÎ KULÜP AKIŞI · PUAN SIRASI</div>
+            <h2 id="clubSocialTitle">Kulüplerden son paylaşımlar</h2>
+            <p>Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor; güncel lig sırasına göre.</p>
+          </div>
+          <span class="club-social-badge" aria-label="X platformu">𝕏</span>
+        </header>
+        <div class="club-social-body">
+          <div class="club-social-tabs" id="clubSocialTabs" role="tablist" aria-label="Kulüp X hesapları"></div>
+          <div class="club-social-stage" id="clubSocialStage" role="tabpanel" aria-live="polite"></div>
+        </div>
+      </section>
       <section class="football-module transfer-rail" id="footballTransferSection" aria-labelledby="footballTransferTitle"><div class="football-module-head"><div><div class="football-module-kicker">Kaynaklı Akış</div><div class="football-module-title" id="footballTransferTitle">Transfer gelişmeleri</div></div></div><div id="footballTransferStream"></div></section>
       <section class="football-module standings-rail" id="footballStandingsSummary" aria-labelledby="footballStandingsTitle"><div class="football-module-head"><div><div class="football-module-kicker">Süper Lig</div><div class="football-module-title" id="footballStandingsTitle">Puan durumu</div></div></div><div id="footballStandingsCompact"></div></section>
       <aside class="portal-sponsor-rail" id="portalSponsorRail" aria-label="Sponsor ve reklam alanı"></aside>

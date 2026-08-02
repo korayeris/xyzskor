@@ -195,6 +195,72 @@ function renderFootballTeamStrip(){
 function selectFootballTeam(team){
   activeFootballTeam=team||'Tümü';
   renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballNews(); renderFootballTransfers();
+  if(X_CLUBS.some(club=>club.team===team)) selectXClub(team);
+}
+
+/* ===================== RESMÎ KULÜP X AKIŞI ===================== */
+function activeXClubConfig(){
+  return X_CLUBS.find(club=>club.team===activeXClub) || X_CLUBS[0];
+}
+function rankedXClubs(){
+  const orderedStandings=[...STANDINGS].sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity) || (b.goal_difference??-Infinity)-(a.goal_difference??-Infinity) || (b.goals_for??-Infinity)-(a.goals_for??-Infinity));
+  const rankByTeam=new Map(orderedStandings.map((row,index)=>[row.team,index+1]));
+  return X_CLUBS.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
+    .sort((a,b)=>(a.leagueRank??99)-(b.leagueRank??99) || a.fallbackOrder-b.fallbackOrder);
+}
+function xTimelineGateHTML(club){
+  return `<div class="club-social-gate">
+    <span class="club-social-gate-mark" aria-hidden="true">𝕏</span>
+    <div><strong>@${escapeHTML(club.handle)} akışını göster</strong><p>X içeriği yalnızca sen istediğinde yüklenir. Bu işlem X'in çerez ve benzeri teknolojilerini çalıştırabilir.</p></div>
+    <button class="club-social-load" type="button" data-x-load>Akışı göster</button>
+    <a class="club-social-policy" href="legal/cerez-politikasi.html">Çerez Politikası</a>
+  </div>`;
+}
+function renderXClubTabs(){
+  const tabs=document.getElementById('clubSocialTabs'); if(!tabs) return;
+  tabs.innerHTML=rankedXClubs().map(club=>`<button class="club-social-tab ${club.team===activeXClub?'active':''}" type="button" role="tab" aria-selected="${club.team===activeXClub}" data-x-team="${escapeHTML(club.team)}">${crestHTML(club.team,'xs')}<span>${escapeHTML(club.team)}</span><small>${club.leagueRank?`Ligde ${escapeHTML(club.leagueRank)}. · `:''}@${escapeHTML(club.handle)}</small></button>`).join('');
+  tabs.querySelectorAll('[data-x-team]').forEach(button=>{ button.onclick=()=>selectXClub(button.dataset.xTeam); });
+}
+function renderXTimelineGate(){
+  const stage=document.getElementById('clubSocialStage'); const club=activeXClubConfig(); if(!stage||!club) return;
+  stage.innerHTML=xTimelineGateHTML(club);
+  stage.querySelector('[data-x-load]').onclick=()=>{ xFeedPermissionGranted=true; loadXClubTimeline(); };
+}
+function loadXWidgets(){
+  if(window.twttr&&window.twttr.widgets) return Promise.resolve(window.twttr);
+  if(xWidgetsPromise) return xWidgetsPromise;
+  xWidgetsPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://platform.x.com/widgets.js'; script.async=true; script.charset='utf-8'; script.dataset.xWidgets='true';
+    script.onload=()=>window.twttr&&window.twttr.widgets?resolve(window.twttr):reject(new Error('X bileşeni hazırlanamadı.'));
+    script.onerror=()=>reject(new Error('X bileşeni yüklenemedi.'));
+    document.head.appendChild(script);
+  });
+  return xWidgetsPromise;
+}
+async function loadXClubTimeline(){
+  const stage=document.getElementById('clubSocialStage'); const club=activeXClubConfig(); if(!stage||!club) return;
+  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>@${escapeHTML(club.handle)}</strong> akışı yükleniyor…</div>`;
+  try{
+    await loadXWidgets();
+    stage.innerHTML=`<div class="club-social-timeline"><a class="twitter-timeline" data-theme="light" data-lang="tr" data-height="540" data-chrome="noheader nofooter noborders transparent" data-dnt="true" href="${escapeHTML(club.url)}">@${escapeHTML(club.handle)} resmî X paylaşımları</a></div><a class="club-social-profile-link" href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(club.handle)} hesabını X'te aç ↗</a>`;
+    await window.twttr.widgets.load(stage);
+  }catch(error){
+    xWidgetsPromise=null;
+    stage.innerHTML=`<div class="club-social-error"><strong>Akış şu anda yüklenemedi.</strong><p>Tarayıcın X bileşenini engelliyor olabilir.</p><a href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(club.handle)} hesabını X'te aç ↗</a></div>`;
+  }
+}
+function selectXClub(team){
+  if(!X_CLUBS.some(club=>club.team===team)) return;
+  activeXClub=team; xClubSelectionTouched=true; renderXClubTabs();
+  if(xFeedPermissionGranted) loadXClubTimeline(); else renderXTimelineGate();
+}
+function renderClubSocial(){
+  if(!document.getElementById('clubSocialSection')) return;
+  const leader=rankedXClubs()[0];
+  if(!xClubSelectionTouched && leader) activeXClub=leader.team;
+  renderXClubTabs();
+  if(xFeedPermissionGranted) loadXClubTimeline(); else renderXTimelineGate();
 }
 function cardMentionsFootballTeam(card, team){
   if(team==='Tümü') return true;
@@ -332,7 +398,7 @@ function renderFootballStandingsCompact(){
   const rows=[...STANDINGS].sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity)).slice(0,5);
   area.innerHTML=`<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>Takım</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${escapeHTML(row.team)}</span><span>${row.played==null?'—':escapeHTML(row.played)}</span><b>${row.points==null?'—':escapeHTML(row.points)}</b></div>`).join('')}</div>`;
 }
-function renderFootballHome(){ renderPortalSponsor(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); }
+function renderFootballHome(){ renderPortalSponsor(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();

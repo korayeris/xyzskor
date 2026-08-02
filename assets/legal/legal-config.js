@@ -78,12 +78,12 @@ window.XYZ_LEGAL_CONFIG = {
       storage: "localStorage"
     },
     {
-      name: "[GERÇEK ÇEREZ VEYA DEPOLAMA ANAHTARI]",
-      provider: "[SAĞLAYICI]",
-      purpose: "[AMAÇ]",
-      category: "[Zorunlu / İşlevsel / Analitik / Pazarlama]",
-      duration: "[SÜRE]",
-      storage: "[cookie / localStorage / sessionStorage]"
+      name: "X for Websites",
+      provider: "X Corp.",
+      purpose: "Kullanıcı talep ettiğinde resmî kulüp paylaşımlarını göstermek",
+      category: "İşlevsel / üçüncü taraf",
+      duration: "X tercih ve politikalarına göre",
+      storage: "cookie / benzeri tarayıcı teknolojileri"
     }
   ]
 };
