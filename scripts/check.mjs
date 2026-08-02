@@ -19,7 +19,9 @@ const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf
 const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url), 'utf8');
 const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
 assert.match(documentHtml, /assets\/css\/app\.css/, 'Harici uygulama stili yüklenmeli.');
-assert.match(documentHtml, /legal\/index\.html/, 'Ana sayfadan Yasal Merkez bağlantısı bulunmalı.');
+assert.match(documentHtml, /legal\/kvkk-aydinlatma\.html/, 'Ana sayfadan KVKK Aydınlatma bağlantısı bulunmalı.');
+assert.match(documentHtml, /legal\/cerez-politikasi\.html/, 'Ana sayfadan Çerez Politikası bağlantısı bulunmalı.');
+assert.doesNotMatch(documentHtml, /HİSLER DEĞİL, VERİLER KONUŞUR|>YASAL BİLGİLER</, 'Kaldırılan sloganlı alt metin geri gelmemeli.');
 assert.doesNotMatch(documentHtml, /assets\/legal\/(?:xyz-legal\.css|consent\.js)/, 'Yasal merkez tasarımı ana sayfanın görünümünü değiştirmemeli.');
 assert.match(legalIndex, /Yasal Merkez/, 'Yasal Merkez giriş sayfası bulunmalı.');
 assert.match(legalConfig, /Şirket kuruluşundan sonra yayımlanacak/, 'Kuruluş öncesi kurumsal alanlar açıkça beklemede gösterilmeli.');

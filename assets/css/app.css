@@ -238,7 +238,7 @@ tr.rank1{background:linear-gradient(90deg, rgba(217,169,78,.08), transparent);}
 .err-msg{font-size:14px;color:var(--danger);margin-top:8px;display:none;}
 .err-msg.show{display:block;}
 
-footer{text-align:center;padding:26px 16px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:13px;color:var(--ink-faint);}footer>a{color:inherit;text-decoration:none;border-bottom:1px solid currentColor;margin-left:8px}
+footer{text-align:center;padding:26px 16px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:13px;color:var(--ink-faint)}.legal-footer-links{display:flex;align-items:center;justify-content:center;gap:10px 22px;flex-wrap:wrap}.legal-footer-links a{color:inherit;text-decoration:none}.legal-footer-links a:hover{color:var(--ink)}
 .admin-toggle{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-dim);cursor:pointer;text-decoration:underline;}
 #adminPanel,#adminRewardPanel{display:none;margin-top:12px;}
 #adminPanel.show,#adminRewardPanel.show{display:block;}
