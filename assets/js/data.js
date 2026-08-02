@@ -57,7 +57,6 @@ const X_CLUBS = [
 ];
 let activeXClub = 'Galatasaray';
 let xClubSelectionTouched = false;
-let xFeedPermissionGranted = false;
 let xWidgetsPromise = null;
 
 /* ===================== CACHE (Supabase'ten yüklenen veri) ===================== */

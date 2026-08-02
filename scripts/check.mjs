@@ -126,8 +126,10 @@ assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
-assert.match(functionSource('loadXWidgets'), /platform\.x\.com\/widgets\.js/, 'X bileşeni yalnız kullanıcı isteğiyle yüklenebilmeli.');
+assert.match(functionSource('loadXWidgets'), /platform\.x\.com\/widgets\.js/, 'X bileşeni resmî platform betiğini kullanmalı.');
 assert.match(functionSource('loadXClubTimeline'), /data-dnt="true"/, 'X gömülü akışı kişiselleştirme dışı modda çalışmalı.');
+assert.match(functionSource('renderClubSocial'), /loadXClubTimeline\(\)/, 'X akışı ara ekran olmadan otomatik yüklenmeli.');
+assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
 assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
 assert.match(html, /id="portalSponsorRail"/i, 'Futbol portalında sağ sponsor envanteri bulunmalı.');
 assert.match(html, /grid-template-columns:340px minmax\(0,1fr\) 290px/i, 'Masaüstü Futbol görünümü üç kolonlu portal düzenini kullanmalı.');

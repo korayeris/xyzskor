@@ -208,23 +208,10 @@ function rankedXClubs(){
   return X_CLUBS.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
     .sort((a,b)=>(a.leagueRank??99)-(b.leagueRank??99) || a.fallbackOrder-b.fallbackOrder);
 }
-function xTimelineGateHTML(club){
-  return `<div class="club-social-gate">
-    <span class="club-social-gate-mark" aria-hidden="true">𝕏</span>
-    <div><strong>@${escapeHTML(club.handle)} akışını göster</strong><p>X içeriği yalnızca sen istediğinde yüklenir. Bu işlem X'in çerez ve benzeri teknolojilerini çalıştırabilir.</p></div>
-    <button class="club-social-load" type="button" data-x-load>Akışı göster</button>
-    <a class="club-social-policy" href="legal/cerez-politikasi.html">Çerez Politikası</a>
-  </div>`;
-}
 function renderXClubTabs(){
   const tabs=document.getElementById('clubSocialTabs'); if(!tabs) return;
   tabs.innerHTML=rankedXClubs().map(club=>`<button class="club-social-tab ${club.team===activeXClub?'active':''}" type="button" role="tab" aria-selected="${club.team===activeXClub}" data-x-team="${escapeHTML(club.team)}">${crestHTML(club.team,'xs')}<span>${escapeHTML(club.team)}</span><small>${club.leagueRank?`Ligde ${escapeHTML(club.leagueRank)}. · `:''}@${escapeHTML(club.handle)}</small></button>`).join('');
   tabs.querySelectorAll('[data-x-team]').forEach(button=>{ button.onclick=()=>selectXClub(button.dataset.xTeam); });
-}
-function renderXTimelineGate(){
-  const stage=document.getElementById('clubSocialStage'); const club=activeXClubConfig(); if(!stage||!club) return;
-  stage.innerHTML=xTimelineGateHTML(club);
-  stage.querySelector('[data-x-load]').onclick=()=>{ xFeedPermissionGranted=true; loadXClubTimeline(); };
 }
 function loadXWidgets(){
   if(window.twttr&&window.twttr.widgets) return Promise.resolve(window.twttr);
@@ -253,14 +240,14 @@ async function loadXClubTimeline(){
 function selectXClub(team){
   if(!X_CLUBS.some(club=>club.team===team)) return;
   activeXClub=team; xClubSelectionTouched=true; renderXClubTabs();
-  if(xFeedPermissionGranted) loadXClubTimeline(); else renderXTimelineGate();
+  loadXClubTimeline();
 }
 function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
   const leader=rankedXClubs()[0];
   if(!xClubSelectionTouched && leader) activeXClub=leader.team;
   renderXClubTabs();
-  if(xFeedPermissionGranted) loadXClubTimeline(); else renderXTimelineGate();
+  loadXClubTimeline();
 }
 function cardMentionsFootballTeam(card, team){
   if(team==='Tümü') return true;
