@@ -20,7 +20,7 @@ const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url
 const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
 assert.match(documentHtml, /assets\/css\/app\.css/, 'Harici uygulama stili yüklenmeli.');
 assert.match(documentHtml, /legal\/index\.html/, 'Ana sayfadan Yasal Merkez bağlantısı bulunmalı.');
-assert.match(documentHtml, /assets\/legal\/consent\.js/, 'Çerez tercih yöneticisi ana sayfaya bağlanmalı.');
+assert.doesNotMatch(documentHtml, /assets\/legal\/(?:xyz-legal\.css|consent\.js)/, 'Yasal merkez tasarımı ana sayfanın görünümünü değiştirmemeli.');
 assert.match(legalIndex, /Yasal Merkez/, 'Yasal Merkez giriş sayfası bulunmalı.');
 assert.match(legalConfig, /Şirket kuruluşundan sonra yayımlanacak/, 'Kuruluş öncesi kurumsal alanlar açıkça beklemede gösterilmeli.');
 assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
