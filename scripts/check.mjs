@@ -18,6 +18,8 @@ assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabas
 const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
 const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url), 'utf8');
 const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
+const legalCss = await readFile(new URL('../assets/legal/xyz-legal.css', import.meta.url), 'utf8');
+const legalScript = await readFile(new URL('../assets/legal/legal.js', import.meta.url), 'utf8');
 assert.match(documentHtml, /assets\/css\/app\.css/, 'Harici uygulama stili yüklenmeli.');
 assert.match(documentHtml, /legal\/kvkk-aydinlatma\.html/, 'Ana sayfadan KVKK Aydınlatma bağlantısı bulunmalı.');
 assert.match(documentHtml, /legal\/cerez-politikasi\.html/, 'Ana sayfadan Çerez Politikası bağlantısı bulunmalı.');
@@ -25,6 +27,9 @@ assert.doesNotMatch(documentHtml, /HİSLER DEĞİL, VERİLER KONUŞUR|>YASAL Bİ
 assert.doesNotMatch(documentHtml, /assets\/legal\/(?:xyz-legal\.css|consent\.js)/, 'Yasal merkez tasarımı ana sayfanın görünümünü değiştirmemeli.');
 assert.match(legalIndex, /Yasal Merkez/, 'Yasal Merkez giriş sayfası bulunmalı.');
 assert.match(legalConfig, /Şirket kuruluşundan sonra yayımlanacak/, 'Kuruluş öncesi kurumsal alanlar açıkça beklemede gösterilmeli.');
+assert.match(legalCss, /--legal-bg:#171521/, 'Yasal merkez ana portalın gece rengini kullanmalı.');
+assert.match(legalCss, /--legal-gold:#c93642/, 'Yasal merkez ana portalın kırmızı vurgu rengini kullanmalı.');
+assert.match(legalScript, /legal-brand-mark/, 'Yasal merkez ana sayfadaki marka kilidini kullanmalı.');
 assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
 assert.doesNotMatch(documentHtml, /<style>[\s\S]*<\/style>/i, 'Uygulama CSS’i index.html içine geri taşınmamalı.');
 assert.doesNotMatch(documentHtml, /<script>\s*[\s\S]+?<\/script>/i, 'Uygulama JavaScript’i index.html içine geri taşınmamalı.');

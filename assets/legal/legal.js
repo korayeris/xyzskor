@@ -4,6 +4,9 @@
   const missing = (value) => value == null || String(value).trim() === '' || /\[[^\]]+\]/.test(String(value)) || /şirket kuruluşundan sonra/i.test(String(value));
   const pendingLabel = 'Şirket kuruluşundan sonra yayımlanacak';
 
+  const brand = document.querySelector('.legal-brand');
+  if (brand) brand.innerHTML = '<span class="legal-brand-mark" aria-hidden="true">X</span><span class="legal-brand-copy"><strong>XYZSKOR</strong><small>SÜPER LİG INTELLIGENCE</small></span>';
+
   document.querySelectorAll('.legal-card h2').forEach((heading) => {
     if (heading.textContent.trim() !== 'Yayın öncesi kontrol') return;
     heading.textContent = 'Kuruluş hazırlığı';
