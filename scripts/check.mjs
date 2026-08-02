@@ -127,8 +127,10 @@ assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden 
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
 assert.match(functionSource('loadXWidgets'), /platform\.x\.com\/widgets\.js/, 'X bileşeni resmî platform betiğini kullanmalı.');
-assert.match(functionSource('loadXClubTimeline'), /data-dnt="true"/, 'X gömülü akışı kişiselleştirme dışı modda çalışmalı.');
-assert.match(functionSource('renderClubSocial'), /loadXClubTimeline\(\)/, 'X akışı ara ekran olmadan otomatik yüklenmeli.');
+assert.match(functionSource('xClubTimelineHTML'), /data-dnt="true"/, 'X gömülü akışı kişiselleştirme dışı modda çalışmalı.');
+assert.match(functionSource('xClubTimelineHTML'), /data-tweet-limit="1"/, 'Her kulüp için son X paylaşımı gösterilmeli.');
+assert.match(functionSource('loadXClubTimelines'), /rankedXClubs\(\)/, 'Dört resmî kulüp akışı birlikte yüklenmeli.');
+assert.match(functionSource('renderClubSocial'), /loadXClubTimelines\(\)/, 'X akışları ara ekran olmadan otomatik yüklenmeli.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
 assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
 assert.match(html, /id="portalSponsorRail"/i, 'Futbol portalında sağ sponsor envanteri bulunmalı.');

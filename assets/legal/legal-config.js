@@ -80,7 +80,7 @@ window.XYZ_LEGAL_CONFIG = {
     {
       name: "X for Websites",
       provider: "X Corp.",
-      purpose: "Resmî kulüp paylaşımlarını gömülü olarak göstermek",
+      purpose: "Dört büyük kulübün güncel resmî paylaşımlarını gömülü olarak göstermek",
       category: "İşlevsel / üçüncü taraf",
       duration: "X tercih ve politikalarına göre",
       storage: "cookie / benzeri tarayıcı teknolojileri"

@@ -195,23 +195,14 @@ function renderFootballTeamStrip(){
 function selectFootballTeam(team){
   activeFootballTeam=team||'Tümü';
   renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballNews(); renderFootballTransfers();
-  if(X_CLUBS.some(club=>club.team===team)) selectXClub(team);
 }
 
 /* ===================== RESMÎ KULÜP X AKIŞI ===================== */
-function activeXClubConfig(){
-  return X_CLUBS.find(club=>club.team===activeXClub) || X_CLUBS[0];
-}
 function rankedXClubs(){
   const orderedStandings=[...STANDINGS].sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity) || (b.goal_difference??-Infinity)-(a.goal_difference??-Infinity) || (b.goals_for??-Infinity)-(a.goals_for??-Infinity));
   const rankByTeam=new Map(orderedStandings.map((row,index)=>[row.team,index+1]));
   return X_CLUBS.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
     .sort((a,b)=>(a.leagueRank??99)-(b.leagueRank??99) || a.fallbackOrder-b.fallbackOrder);
-}
-function renderXClubTabs(){
-  const tabs=document.getElementById('clubSocialTabs'); if(!tabs) return;
-  tabs.innerHTML=rankedXClubs().map(club=>`<button class="club-social-tab ${club.team===activeXClub?'active':''}" type="button" role="tab" aria-selected="${club.team===activeXClub}" data-x-team="${escapeHTML(club.team)}">${crestHTML(club.team,'xs')}<span>${escapeHTML(club.team)}</span><small>${club.leagueRank?`Ligde ${escapeHTML(club.leagueRank)}. · `:''}@${escapeHTML(club.handle)}</small></button>`).join('');
-  tabs.querySelectorAll('[data-x-team]').forEach(button=>{ button.onclick=()=>selectXClub(button.dataset.xTeam); });
 }
 function loadXWidgets(){
   if(window.twttr&&window.twttr.widgets) return Promise.resolve(window.twttr);
@@ -225,29 +216,32 @@ function loadXWidgets(){
   });
   return xWidgetsPromise;
 }
-async function loadXClubTimeline(){
-  const stage=document.getElementById('clubSocialStage'); const club=activeXClubConfig(); if(!stage||!club) return;
-  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>@${escapeHTML(club.handle)}</strong> akışı yükleniyor…</div>`;
+function xClubTimelineHTML(club){
+  const rankLabel=club.leagueRank?`Süper Lig ${escapeHTML(club.leagueRank)}. · `:'';
+  return `<article class="club-social-card">
+    <header class="club-social-card-head">${crestHTML(club.team,'xs')}<div><strong>${escapeHTML(club.team)}</strong><small>${rankLabel}@${escapeHTML(club.handle)}</small></div></header>
+    <div class="club-social-timeline"><a class="twitter-timeline" data-theme="light" data-lang="tr" data-tweet-limit="1" data-chrome="noheader nofooter noborders transparent" data-dnt="true" href="${escapeHTML(club.url)}">@${escapeHTML(club.handle)} son resmî X paylaşımı</a></div>
+    <a class="club-social-profile-link" href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">Paylaşımı X'te aç ↗</a>
+  </article>`;
+}
+function xClubFallbackLinkHTML(club){
+  return `<a href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(club.handle)} hesabını X'te aç ↗</a>`;
+}
+async function loadXClubTimelines(){
+  const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
+  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>Dört kulübün güncel paylaşımları yükleniyor…</strong></div>`;
   try{
     await loadXWidgets();
-    stage.innerHTML=`<div class="club-social-timeline"><a class="twitter-timeline" data-theme="light" data-lang="tr" data-height="540" data-chrome="noheader nofooter noborders transparent" data-dnt="true" href="${escapeHTML(club.url)}">@${escapeHTML(club.handle)} resmî X paylaşımları</a></div><a class="club-social-profile-link" href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(club.handle)} hesabını X'te aç ↗</a>`;
+    stage.innerHTML=clubs.map(xClubTimelineHTML).join('');
     await window.twttr.widgets.load(stage);
   }catch(error){
     xWidgetsPromise=null;
-    stage.innerHTML=`<div class="club-social-error"><strong>Akış şu anda yüklenemedi.</strong><p>Tarayıcın X bileşenini engelliyor olabilir.</p><a href="${escapeHTML(club.url)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(club.handle)} hesabını X'te aç ↗</a></div>`;
+    stage.innerHTML=`<div class="club-social-error"><strong>Akışlar şu anda yüklenemedi.</strong><p>Tarayıcın X bileşenini engelliyor olabilir.</p>${clubs.map(xClubFallbackLinkHTML).join('')}</div>`;
   }
-}
-function selectXClub(team){
-  if(!X_CLUBS.some(club=>club.team===team)) return;
-  activeXClub=team; xClubSelectionTouched=true; renderXClubTabs();
-  loadXClubTimeline();
 }
 function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
-  const leader=rankedXClubs()[0];
-  if(!xClubSelectionTouched && leader) activeXClub=leader.team;
-  renderXClubTabs();
-  loadXClubTimeline();
+  loadXClubTimelines();
 }
 function cardMentionsFootballTeam(card, team){
   if(team==='Tümü') return true;
