@@ -5,6 +5,7 @@ import vm from 'node:vm';
 const htmlUrl = new URL('../index.html', import.meta.url);
 const html = await readFile(htmlUrl, 'utf8');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
+const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
 const match = html.match(/<script>\s*([\s\S]*?)<\/script>\s*<\/body>/i);
 
 if (!match) {
@@ -47,7 +48,7 @@ const testContext = vm.createContext({
   ALL_RESULTS: { m1:{ home:2, away:1 } }
 });
 
-for (const name of ['computeMatchPoints','weekMatchIds','userStatsForWeek','lifetimeStats','sortRows']) {
+for (const name of ['computeMatchPoints','weekMatchIds','userStatsForWeek','lifetimeStats','sortRows','escapeHTML']) {
   new vm.Script(functionSource(name)).runInContext(testContext);
 }
 
@@ -61,14 +62,15 @@ const tiedRows = [
 ];
 assert.equal(testContext.sortRows(tiedRows,'week')[0].weekKesinSkor, 1, 'Haftalık eşitlik haftalık kesin skorla çözülmeli.');
 assert.equal(testContext.sortRows(tiedRows,'season')[0].total, 50, 'Sezon sıralaması sezon toplamına göre yapılmalı.');
+assert.equal(testContext.escapeHTML('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;', 'Kullanıcı metni HTML olarak çalışmamalı.');
 
 assert.match(html, /sb\.functions\.invoke\(LIVE_FEED_CONFIG\.functionName/, 'Canlı sekme doğrudan sağlayıcıya değil Edge Function katmanına bağlanmalı.');
 assert.doesNotMatch(html, /sportscore\.com/i, 'Görünür veya gizli SportScore bağlantısı bulunmamalı.');
 assert.match(liveFunction, /apiFootballAdapter/, 'API-Football adaptörü bulunmalı.');
 assert.match(liveFunction, /sportmonksAdapter/, 'Sportmonks geçiş adaptörü bulunmalı.');
 assert.match(liveFunction, /FOOTBALL_DATA_PROVIDER/, 'Sağlayıcı ortam ayarıyla seçilebilmeli.');
-assert.match(html, /XYZSKOR’da satış yapılmaz/i, 'Mythos alanı XYZSKOR’da satış yapılmadığını açıkça belirtmeli.');
-assert.match(html, /Mythos Cards yalnızca ödül sponsorudur/i, 'Mythos rolü yalnızca ödül sponsoru olarak tanımlanmalı.');
+assert.match(html, /XYZSKOR’da satılmaz/i, 'Mythos alanı XYZSKOR’da satış yapılmadığını açıkça belirtmeli.');
+assert.match(html, /Mythos Cards[^<\n]*Ödül Sponsoru/i, 'Mythos rolü yalnızca ödül sponsoru olarak tanımlanmalı.');
 assert.doesNotMatch(html, /mythos\.cards\/product\//i, 'Mythos ürün satış sayfalarına yönlendirme bulunmamalı.');
 assert.doesNotMatch(html, /(?:\d[\d.]*)\s*TL\b/i, 'Sponsor ödüllerinde fiyat gösterilmemeli.');
 assert.doesNotMatch(html, /Satın alma işlemi/i, 'Satın alma çağrısı bulunmamalı.');
@@ -77,7 +79,63 @@ assert.doesNotMatch(html, /<section class="content-network"/i, 'Kaldırılan yap
 assert.doesNotMatch(html, /<div class="inline-campaign"/i, 'Kaldırılan yapay koleksiyon şeridi geri gelmemeli.');
 assert.match(html, /viewport-fit=cover/i, 'iPhone güvenli alanları için viewport-fit etkin olmalı.');
 assert.match(html, /safe-area-inset-bottom/i, 'iOS alt güvenli alanı desteklenmeli.');
-assert.match(html, /\.mobile-bottom-nav\{top:auto;/i, 'Mobil alt menü ekranı kaplamamalı.');
+assert.match(html, /id="tabBtnFootball"[^>]*>Futbol</i, 'Futbol ana ürün alanı bulunmalı.');
+assert.match(html, /id="tabBtnPredict"[^>]*>Predict</i, 'Predict ana ürün alanı bulunmalı.');
+assert.doesNotMatch(html, /id="tabBtn(?:Story|League|Stories|Live)"/i, 'Eski ana navigasyon seçenekleri görünür DOM’da bulunmamalı.');
+assert.match(html, /id="accountOverlay"/i, 'Profil ve hesap işlemleri hesap panelinde bulunmalı.');
+assert.doesNotMatch(html, /<section class="campaign-hero"/i, 'Büyük sponsor hero ilk görünümde bulunmamalı.');
+assert.match(html, /id="footballQuickMatches"/i, 'Futbol alanında kompakt maç merkezi bulunmalı.');
+assert.match(html, /id="footballNewsStream"/i, 'Futbol alanında gerçek içerik akışı bulunmalı.');
+assert.match(html, /id="footballTransferStream"/i, 'Futbol alanında kaynaklı transfer modülü bulunmalı.');
+assert.match(html, /id="footballStandingsCompact"/i, 'Futbol alanında puan durumu özeti bulunmalı.');
+assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/i, 'Futbol içinde maç, gündem, transfer ve puan durumu erişimi bulunmalı.');
+assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
+assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
+assert.match(html, /id="portalSponsorRail"/i, 'Futbol portalında sağ sponsor envanteri bulunmalı.');
+assert.match(html, /grid-template-columns:340px minmax\(0,1fr\) 290px/i, 'Masaüstü Futbol görünümü üç kolonlu portal düzenini kullanmalı.');
+assert.match(html, /prefers-reduced-motion:reduce/i, 'Yeni portal hareket azaltma tercihini desteklemeli.');
+assert.match(functionSource('selectFootballTeam'), /renderFootballQuickMatches\(\).*renderFootballNews\(\).*renderFootballTransfers\(\)/s, 'Takım filtresi maç, gündem ve transfer akışını birlikte yenilemeli.');
+assert.doesNotMatch(functionSource('renderPortalSponsor'), /\d\s*TL\b|fiyat|satın al/i, 'Portal sponsor alanı fiyat veya satın alma çağrısı üretmemeli.');
+assert.match(functionSource('loadAllData'), /moduleQuery\(/, 'Bir modül hatası bütün Futbol ekranını durdurmamalı.');
+assert.doesNotMatch(functionSource('renderAll'), /renderMarketPulse|renderMythosProducts|startTransferCountdown/, 'Yerel transfer ve sponsor örnekleri production render zincirine girmemeli.');
+assert.match(functionSource('matchStatusLabel'), /Durum doğrulanıyor/, 'Saat tahmini doğrulanmış canlı etiketi üretmemeli.');
+assert.doesNotMatch(functionSource('matchStatusLabel'), /kt \+ 130\*60000\) return 'Canlı'/, 'Canlı etiketi yalnız açık durum kaydından gelmeli.');
+assert.match(html, /id="mcTabs" role="tablist"/i, 'Maç detayı alt bölümleri erişilebilir tablist olmalı.');
+assert.match(html, /id="mc-tab-absences"[^>]*role="tab"/i, 'Eksikler maç detayının alt bölümü olmalı.');
+assert.match(html, /id="mc-tab-news"[^>]*role="tab"/i, 'İlgili haberler maç detayının alt bölümü olmalı.');
+assert.match(functionSource('ensureMcData'), /mcQuery\(/, 'Bir maç detayı sorgusu diğer detay modüllerini durdurmamalı.');
+assert.match(functionSource('closeMatchCenter'), /history\.back\(\)/, 'Maç detayından dönüş tarayıcı geçmişini korumalı.');
+assert.match(functionSource('renderMcCommunity'), /bireysel tahminleri gösterilmez/, 'Diğer kullanıcıların bireysel tahmin gizliliği korunmalı.');
+assert.doesNotMatch(functionSource('renderMcCommunity'), /PROFILES|Object\.values\(ALL_PREDICTIONS/, 'Topluluk görünümü bireysel tahmin listesi oluşturmamalı.');
+assert.match(html, /class="predict-overview" id="progressPanel"/i, 'Predict ilk görünümünde haftalık özet bulunmalı.');
+assert.match(html, /class="predict-summary-grid"/i, 'Predict ilerleme metrikleri kompakt özet içinde olmalı.');
+assert.match(html, /class="predict-match"/i, 'Tahmin maçları kompakt satır yapısında olmalı.');
+assert.doesNotMatch(html, /aria-label="XYZSkor matematik formülleri"/i, 'Predict ilk görünümü formül paneliyle başlamamalı.');
+assert.match(functionSource('submitPrediction'), /Kaydediliyor/, 'Tahmin kaydı kaydediliyor durumunu göstermeli.');
+assert.match(functionSource('submitPrediction'), /Kaydetme başarısız/, 'Tahmin kayıt hatası görünür olmalı.');
+assert.doesNotMatch(functionSource('submitPrediction'), /alert\(/, 'Tahmin geri bildirimi tarayıcı alert kutusuna bağlı olmamalı.');
+assert.match(functionSource('predictionActionHTML'), /aria-live="polite"/, 'Tahmin kaydı sonucu erişilebilir canlı bölgede duyurulmalı.');
+assert.match(functionSource('renderAccountContent'), /Tahmin geçmişi/, 'Hesap paneli tahmin geçmişini içermeli.');
+assert.match(functionSource('renderAccountContent'), /Bildirim tercihleri/, 'Bildirim tercihleri hesap panelinde kalmalı.');
+assert.match(functionSource('renderAccountContent'), /Takip edilenler/, 'Takip edilen takım ve futbolcular hesap panelinde kalmalı.');
+assert.match(functionSource('renderAccountContent'), /u\.is_admin\?/, 'Yönetim bağlantısı yalnız admin kullanıcı için oluşturulmalı.');
+assert.doesNotMatch(functionSource('renderAccountContent'), /id="accountProfile"/, 'Profil üçüncü bir alana yönlendirilmemeli; hesap panelinde tamamlanmalı.');
+assert.match(html, /account-drawer[^}]*100dvh/i, 'Hesap paneli mobil görünüm yüksekliğine uymalı.');
+assert.match(html, /accountOverlay[^\n]*aria-hidden="true"/i, 'Kapalı hesap paneli erişilebilirlik ağacından gizlenmeli.');
+assert.match(html, /id="newsOverlay"[^>]*aria-hidden="true"/i, 'Haber detayı erişilebilir modal olarak bulunmalı.');
+assert.match(functionSource('openNewsDetail'), /story\.is_published/, 'Haber detayı yalnız yayımlanmış editoryal kaydı açmalı.');
+assert.match(functionSource('safeExternalURL'), /https:.*http:/s, 'Dış kaynak bağlantıları yalnız HTTP ve HTTPS protokollerini kabul etmeli.');
+assert.match(functionSource('openNewsDetail'), /noopener noreferrer/, 'Dış kaynak bağlantısı opener erişimini engellemeli.');
+assert.match(functionSource('storyConfidence'), /Çelişkili/, 'Çelişkili haber güven seviyesi açıkça desteklenmeli.');
+assert.match(functionSource('storyIdentityHTML'), /card\.player.*card\.related_player/, 'Gündem kimliği yalnız gerçek oyuncu alanından hazırlanmalı.');
+assert.doesNotMatch(functionSource('submitPrediction'), /loadAllData\(/, 'Tek tahmin kaydı bütün veri setini yeniden çekmemeli.');
+assert.match(functionSource('savePrediction'), /ALL_PREDICTIONS\[matchId\]\[u\.id\]/, 'Başarılı tahmin sunucu yanıtından sonra yerel cache’e yazılmalı.');
+assert.match(html, /content-visibility:auto/, 'Ekran dışı ağır bölümler render maliyetini ertelemeli.');
+assert.match(html, /id="authClose"/, 'Auth penceresinde mobilde erişilebilir kapatma düğmesi olmalı.');
+assert.match(functionSource('openAuth'), /authClose.*focus/, 'Auth açıldığında odak pencere içine taşınmalı.');
+assert.match(functionSource('renderTicker'), /escapeHTML\(m\.ev\).*escapeHTML\(m\.konuk\)/s, 'Fikstür takım adları ticker HTML’ine kaçışla yazılmalı.');
+assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_HTML_START/, 'Production build gizli prototip HTML’ini ayıklamalı.');
+assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_JS_START/, 'Production build örnek market verisini ayıklamalı.');
 
 const crestBlock = html.match(/const TEAM_CRESTS = \{([\s\S]*?)\n\};/);
 assert.ok(crestBlock, 'Kulüp arması haritası bulunmalı.');

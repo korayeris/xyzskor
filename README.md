@@ -4,6 +4,15 @@ Süper Lig için matematiksel performans ve veri analiz platformu. Uygulama vani
 
 Mythos Cards yalnızca ödül sponsorudur. XYZSKOR üzerinde ürün satışı, sepet veya ödeme akışı bulunmaz; sponsor ürünleri yarışma kazananlarına ücretsiz hediye edilir.
 
+## Ürün mimarisi
+
+Ana navigasyonda yalnızca iki ürün alanı bulunur:
+
+- **Futbol:** maçlar, canlı veri, fikstür, puan durumu ve editoryal içerik.
+- **Predict:** ücretsiz tahmin yarışması, liderlik ve ödüller.
+
+Profil, bildirimler, ayarlar, çıkış ve yetkili kullanıcılar için yönetim erişimi sağ üstteki hesap panelinden açılır.
+
 ## Yerel çalıştırma
 
 PowerShell üzerinden:
