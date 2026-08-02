@@ -39,7 +39,7 @@ const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
   scope: 'turkey-super-lig',
   // Sportmonks'un canlı veri güncelleme penceresiyle uyumlu istemci yenilemesi.
-  refreshMs: 8000
+  refreshMs: 5000
 };
 const VIDEO_CONFIG = {
   title: '',

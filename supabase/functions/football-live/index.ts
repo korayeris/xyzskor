@@ -190,10 +190,10 @@ function envSeconds(name: string, fallback: number, minimum: number, maximum: nu
 function ttlForResult(result: ProviderResult): number {
   const matches = Array.isArray(result?.matches) ? result.matches : [];
   if (matches.some((match) => match.status === "live" || match.status === "halftime")) {
-    // Sportmonks livescore verisi canlı maç sırasında sık güncellenir. Sekiz
+    // Sportmonks livescore verisi canlı maç sırasında sık güncellenir. Beş
     // saniyelik TTL, güncellemeyi geciktirmeden sağlayıcı kotasını merkezi
     // Supabase önbelleğiyle korur.
-    return envSeconds("LIVE_CACHE_LIVE_SECONDS", 8, 5, 60);
+    return envSeconds("LIVE_CACHE_LIVE_SECONDS", 5, 5, 60);
   }
   const now = Date.now();
   const hasNearKickoff = matches.some((match) => {
