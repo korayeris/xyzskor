@@ -131,7 +131,10 @@ assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x'/, 'X p
 assert.match(functionSource('renderClubSocial'), /loadXClubPosts\(\)/, 'Dört resmî kulüp akışı ara ekran olmadan otomatik yüklenmeli.');
 assert.match(workerSource, /env\.X_BEARER_TOKEN/, 'X Bearer Token yalnız sunucu ortamından okunmalı.');
 assert.match(workerSource, /s-maxage=86400/, 'X akışı 24 saat sunucu önbelleğinde tutulmalı.');
+assert.match(workerSource, /s-maxage=31536000/, 'X kulüp kimlikleri tekrar ücret oluşturmamak için uzun süre önbellekte tutulmalı.');
 assert.match(workerSource, /\/2\/users\/by\?usernames=/, 'Dört resmî kulüp tek kullanıcı sorgusuyla çözülmeli.');
+assert.match(workerSource, /cost_profile:\s*"text-only-3usd"/, 'X akışı maliyet profili yanıtta belirtilmeli.');
+assert.doesNotMatch(workerSource, /attachments\.media_keys|media\.fields/, 'Yaklaşık 3 USD profili ayrıca ücretlenen X medya verisini istememeli.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
 assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
@@ -205,7 +208,7 @@ try {
       ] });
     }
     const id = url.match(/\/2\/users\/(\d+)\/tweets/)?.[1];
-    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Kulüp paylaşımı ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10}, attachments:{media_keys:[`media-${id}`]} }], includes:{media:[{media_key:`media-${id}`,type:'photo',url:`https://img.example/post-${id}.jpg`}]} });
+    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Kulüp paylaşımı ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10} }] });
     return Response.json({ error:'unexpected_request' }, { status:500 });
   };
   const worker = (await import(new URL(`../worker/index.js?check=${Date.now()}`, import.meta.url))).default;
@@ -217,10 +220,16 @@ try {
   await Promise.all(pendingCacheWrites);
   assert.equal(firstFeed.status, 200, 'X sunucu adaptörü başarılı JSON dönmeli.');
   assert.equal(firstPayload.clubs.length, 4, 'X sunucu adaptörü dört kulübü birlikte dönmeli.');
+  assert.equal(firstPayload.cost_profile, 'text-only-3usd', 'X sunucu adaptörü etkin maliyet profilini dönmeli.');
   assert.equal(upstreamCalls.length, 5, 'Günlük X yenilemesi bir kullanıcı ve dört paylaşım sorgusu yapmalı.');
   const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(cachedFeed.status, 200, 'Önbellekteki X akışı kullanılabilmeli.');
   assert.equal(upstreamCalls.length, 5, 'İkinci istek 24 saatlik önbelleği aşmamalı.');
+  socialCache.delete('https://xyzskor.test/api/social/x');
+  const nextDayFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  await Promise.all(pendingCacheWrites);
+  assert.equal(nextDayFeed.status, 200, 'Sonraki gün X akışı yeniden oluşturulabilmeli.');
+  assert.equal(upstreamCalls.length, 9, 'Sonraki gün yalnız dört paylaşım sorgusu yapılmalı; kulüp kimlikleri tekrar okunmamalı.');
 } finally {
   globalThis.fetch = originalFetch;
   if (originalCaches === undefined) delete globalThis.caches;

@@ -70,4 +70,4 @@ npm run build
 
 Supabase service-role ve spor veri sağlayıcısı anahtarları istemciye veya repoya eklenmemelidir. API-Football/Sportmonks çağrıları yalnızca sunucu tarafındaki Supabase Edge Function üzerinden yapılır. Sağlayıcı, `FOOTBALL_DATA_PROVIDER` secret'ıyla değiştirilir; ön yüz kodu değişmez.
 
-Resmî kulüp paylaşımları için Sites production ortamında `X_BEARER_TOKEN` secret'ı tanımlanır. Token hiçbir zaman istemci JavaScript'ine, `.openai/hosting.json` dosyasına veya Git deposuna yazılmaz. Sunucu X API'yi en fazla 24 saatte bir sorgular ve dört kulübün son paylaşımını aynı alan adından sunar.
+Resmî kulüp paylaşımları için Sites production ortamında `X_BEARER_TOKEN` secret'ı tanımlanır. Token hiçbir zaman istemci JavaScript'ine, `.openai/hosting.json` dosyasına veya Git deposuna yazılmaz. Yaklaşık 3 USD/ay kullanım hedefi için sunucu dört kulübün akışını en fazla 24 saatte bir yeniler, kulüp kimliklerini bir yıl önbellekte tutar ve ayrıca ücretlenen medya içeriğini istemez. Bu profil paylaşım metni, tarihi, etkileşim sayıları ve X bağlantısını sunar; X tarafındaki harcama limiti yine geliştirici panelinden ayrıca belirlenmelidir.

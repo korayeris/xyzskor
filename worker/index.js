@@ -1,6 +1,7 @@
 const STATIC_CACHE = "public, max-age=31536000, immutable";
 const HTML_CACHE = "public, max-age=0, must-revalidate";
 const SOCIAL_CACHE = "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400";
+const X_USER_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
 const X_CLUBS = [
   { team: "Galatasaray", handle: "GalatasaraySK", url: "https://x.com/GalatasaraySK" },
   { team: "Fenerbahçe", handle: "Fenerbahce", url: "https://x.com/Fenerbahce" },
@@ -27,13 +28,8 @@ async function xRequest(pathname, token) {
   return response.json();
 }
 
-function normalizeXPost(club, post, mediaByKey) {
+function normalizeXPost(club, post) {
   if (!post) return { ...club, post: null };
-  const media = (post.attachments?.media_keys || []).map((key) => mediaByKey.get(key)).filter(Boolean).map((item) => ({
-    type: item.type,
-    image_url: item.url || item.preview_image_url || null,
-    alt_text: item.alt_text || null,
-  }));
   return {
     ...club,
     post: {
@@ -42,14 +38,26 @@ function normalizeXPost(club, post, mediaByKey) {
       created_at: post.created_at,
       url: `${club.url}/status/${post.id}`,
       metrics: post.public_metrics || {},
-      media,
     },
   };
 }
 
-async function fetchXClubFeed(token) {
+async function fetchXUsers(token, request, context) {
+  const cacheUrl = new URL("/api/social/x-users-v1", request.url);
+  const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const edgeCache = typeof caches === "undefined" ? null : caches.default;
+  const cached = edgeCache ? await edgeCache.match(cacheKey) : null;
+  if (cached) return cached.json();
+
   const usernames = X_CLUBS.map((club) => club.handle).join(",");
-  const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}&user.fields=profile_image_url`, token);
+  const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}`, token);
+  const response = jsonResponse(lookup, 200, { "Cache-Control": X_USER_CACHE });
+  if (edgeCache) context.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  return lookup;
+}
+
+async function fetchXClubFeed(token, request, context) {
+  const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
   const clubs = await Promise.all(X_CLUBS.map(async (club) => {
@@ -58,16 +66,19 @@ async function fetchXClubFeed(token) {
     const params = new URLSearchParams({
       max_results: "5",
       exclude: "replies,retweets",
-      "tweet.fields": "created_at,public_metrics,attachments,entities",
-      expansions: "attachments.media_keys",
-      "media.fields": "type,url,preview_image_url,alt_text,width,height",
+      "tweet.fields": "created_at,public_metrics",
     });
     const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
-    const mediaByKey = new Map((timeline.includes?.media || []).map((item) => [item.media_key, item]));
-    return normalizeXPost({ ...club, profile_image_url: user.profile_image_url || null }, timeline.data?.[0] || null, mediaByKey);
+    return normalizeXPost(club, timeline.data?.[0] || null);
   }));
 
-  return { source: "x-api", updated_at: new Date().toISOString(), cache_ttl_seconds: 86400, clubs };
+  return {
+    source: "x-api",
+    cost_profile: "text-only-3usd",
+    updated_at: new Date().toISOString(),
+    cache_ttl_seconds: 86400,
+    clubs,
+  };
 }
 
 async function handleXClubFeed(request, env, context) {
@@ -82,7 +93,7 @@ async function handleXClubFeed(request, env, context) {
   if (cached) return cached;
 
   try {
-    const response = jsonResponse(await fetchXClubFeed(env.X_BEARER_TOKEN), 200, { "Cache-Control": SOCIAL_CACHE });
+    const response = jsonResponse(await fetchXClubFeed(env.X_BEARER_TOKEN, request, context), 200, { "Cache-Control": SOCIAL_CACHE });
     if (edgeCache) context.waitUntil(edgeCache.put(cacheKey, response.clone()));
     return response;
   } catch (error) {
