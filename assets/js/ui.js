@@ -202,13 +202,75 @@ function scrollFootballSection(id, button){
 
 function renderLeagueClubs(){
   const area=document.getElementById('leagueClubsGrid'); if(!area) return;
-  area.innerHTML=SUPER_LIG_CLUBS_2026_27.map((club,index)=>`<article class="league-club-card">
+  area.innerHTML=SUPER_LIG_CLUBS_2026_27.map((club,index)=>`<button class="league-club-card" type="button" data-club-team="${escapeHTML(club.team)}" onclick="openClubProfile(this.dataset.clubTeam)" aria-label="${escapeHTML(club.display||club.team)} kulüp merkezini aç">
     <div class="league-club-rank">${String(index+1).padStart(2,'0')}</div>
     ${crestHTML(club.team,'lg')}
     <div class="league-club-copy"><div class="league-club-name">${escapeHTML(club.display||club.team)}${club.promoted?'<span class="promoted-chip">Yeni</span>':''}</div><div class="league-club-city">${escapeHTML(club.city)}</div></div>
     <div class="league-club-stadium"><span>Stadyum</span><strong>${escapeHTML(club.stadium)}</strong><small>${escapeHTML(club.capacity)} kapasite</small></div>
-  </article>`).join('');
+    <div class="league-club-value"><span>Kadro değeri</span><strong>${escapeHTML(club.marketValue||'Yayınlanmadı')}</strong><small>Kulüp merkezini aç →</small></div>
+  </button>`).join('');
 }
+let activeClubProfileTeam=null;
+const clubProfileCache=new Map();
+function clubRecord(team){ return SUPER_LIG_CLUBS_2026_27.find(club=>club.team===team)||null; }
+function clubDirectionsURL(club){ return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${club.stadium}, ${club.city}, Türkiye`)}`; }
+function clubMapEmbedURL(club){ return `https://www.google.com/maps?q=${encodeURIComponent(`${club.stadium}, ${club.city}, Türkiye`)}&output=embed`; }
+function clubCoachBio(coach,team){
+  if(!coach?.name) return 'Teknik direktör bilgisi doğrulanmış veri kaynağından bekleniyor.';
+  const contract=coach.contract&&coach.contract!=='Açıklanmadı'?` Sözleşme bitişi ${coach.contract} olarak listeleniyor.`:' Sözleşme bitiş tarihi kaynakta açıklanmadı.';
+  return `${coach.age?`${coach.age} yaşındaki `:''}${coach.nationality?`${coach.nationality} futbol insanı `:''}${coach.name}, ${team} A takımının teknik sorumlusu. Görev süresi ${coach.tenure||'güncel kaynakta listeleniyor'}.${contract}`;
+}
+function clubLineupHTML(data,state){
+  if(state==='loading') return `<div class="club-data-state"><span class="club-data-spinner"></span><strong>Son resmî maç kadrosu alınıyor</strong><p>Sportmonks kadro ve oyuncu kayıtları kontrol ediliyor.</p></div>`;
+  const lineup=Array.isArray(data?.lineup)?data.lineup:[];
+  if(!lineup.length){
+    const message=state==='unconfigured'?'Sportmonks sunucu anahtarı henüz canlı siteye eklenmedi. Bağlantı açıldığında son resmî maçın gerçek ilk 11’i burada otomatik yayınlanacak.':'Son resmî maç için doğrulanmış ilk 11 henüz sağlayıcıda yayınlanmadı.';
+    return `<div class="club-data-state"><span class="club-data-mark">11</span><strong>İsim uydurulmuyor</strong><p>${escapeHTML(message)}</p></div>`;
+  }
+  return `<div class="club-lineup-list">${lineup.map((player,index)=>{
+    const photo=safeExternalURL(player.image);
+    return `<article class="club-lineup-player"><span class="club-lineup-order">${String(index+1).padStart(2,'0')}</span><span class="club-player-photo">${photo?`<img src="${escapeHTML(photo)}" alt="${escapeHTML(player.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><span><strong>${escapeHTML(player.name||'Oyuncu')}</strong><small>${player.number?`${escapeHTML(player.number)} · `:''}${escapeHTML(player.position||'Pozisyon')}</small></span></article>`;
+  }).join('')}</div>`;
+}
+function clubSquadHTML(data){
+  const squad=Array.isArray(data?.squad)?data.squad:[];
+  if(!squad.length) return '';
+  return `<details class="club-squad-drawer"><summary>Güncel kadronun tamamı <span>${squad.length} oyuncu</span></summary><div class="club-squad-grid">${squad.map(player=>`<span><b>${escapeHTML(player.number||'—')}</b>${escapeHTML(player.name||'Oyuncu')}<small>${escapeHTML(player.position||'')}</small></span>`).join('')}</div></details>`;
+}
+function renderClubProfile(team,data,state='ready'){
+  const panel=document.getElementById('clubProfilePanel'); const club=clubRecord(team); if(!panel||!club) return;
+  const liveCoach=data?.coach?.name?data.coach:null;
+  const staticCoach=club.coach||{};
+  const sameCoach=liveCoach&&staticCoach.name&&String(liveCoach.name).toLocaleLowerCase('tr-TR')===String(staticCoach.name).toLocaleLowerCase('tr-TR');
+  const coach=liveCoach?(sameCoach?{...staticCoach,...liveCoach}:liveCoach):staticCoach;
+  const coachPhoto=safeExternalURL(coach.image);
+  const venue=data?.venue?.name||club.stadium;
+  const lineupFixture=data?.lineupFixture;
+  const lineupMeta=lineupFixture?.name?`${lineupFixture.name}${lineupFixture.startingAt?` · ${new Date(lineupFixture.startingAt).toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}`:''}`:'Son resmî maçın açıklanmış kadrosu';
+  const sourceState=state==='loading'?'Veri yenileniyor':state==='unconfigured'?'Sportmonks bağlantısı bekleniyor':data?.stale?'Son doğrulanmış veri':'Sportmonks güncel veri';
+  panel.hidden=false;
+  panel.innerHTML=`<header class="club-profile-head"><button class="club-profile-close" type="button" onclick="closeClubProfile()" aria-label="Kulüp merkezini kapat">×</button><div class="club-profile-identity">${crestHTML(club.team,'lg')}<div><span class="football-data-eyebrow">KULÜP MERKEZİ · ${escapeHTML(club.checkedAt)}</span><h2>${escapeHTML(club.display||club.team)}</h2><p>${escapeHTML(club.city)} · ${escapeHTML(venue)}</p></div></div><span class="club-source-state">${escapeHTML(sourceState)}</span></header>
+    <div class="club-profile-metrics"><article><span>Kadro değeri</span><strong>${escapeHTML(club.marketValue||'—')}</strong><a href="${escapeHTML(club.marketSourceUrl)}" target="_blank" rel="noopener noreferrer">Transfermarkt kaynağı ↗</a></article><article><span>Kadro genişliği</span><strong>${escapeHTML(data?.squad?.length||club.squadSize||'—')}</strong><small>oyuncu</small></article><article><span>Yaş ortalaması</span><strong>${escapeHTML(club.averageAge||'—')}</strong><small>sezon kadrosu</small></article><article><span>Stadyum kapasitesi</span><strong>${escapeHTML(club.capacity)}</strong><small>seyirci</small></article></div>
+    <div class="club-profile-main"><article class="club-stadium-feature"><div class="club-feature-title"><div><span>STADYUM VE ULAŞIM</span><h3>${escapeHTML(venue)}</h3><p>${escapeHTML(club.city)}</p></div><a href="${escapeHTML(clubDirectionsURL(club))}" target="_blank" rel="noopener noreferrer">Yol tarifi al ↗</a></div><iframe src="${escapeHTML(clubMapEmbedURL(club))}" title="${escapeHTML(venue)} haritası" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></article>
+      <article class="club-coach-feature"><div class="club-coach-photo">${coachPhoto?`<img src="${escapeHTML(coachPhoto)}" alt="${escapeHTML(coach.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span>TD</span>'}</div><div class="club-coach-copy"><span>TEKNİK DİREKTÖR</span><h3>${escapeHTML(coach.name||'Bilgi bekleniyor')}</h3><p>${escapeHTML(clubCoachBio(coach,club.display||club.team))}</p><dl><div><dt>Ülke</dt><dd>${escapeHTML(coach.nationality||'—')}</dd></div><div><dt>Görev</dt><dd>${escapeHTML(coach.tenure||'—')}</dd></div><div><dt>Sözleşme</dt><dd>${escapeHTML(coach.contract||'—')}</dd></div></dl><a href="${escapeHTML(club.coachSourceUrl)}" target="_blank" rel="noopener noreferrer">Teknik direktör kaynağı ↗</a></div></article></div>
+    <article class="club-lineup-feature"><header><div><span>SON RESMÎ MAÇ</span><h3>Güncel ilk 11</h3><p>${escapeHTML(lineupMeta)}</p></div>${data?.formation?`<strong>${escapeHTML(data.formation)}</strong>`:''}</header>${clubLineupHTML(data,state)}${clubSquadHTML(data)}</article>`;
+}
+async function loadClubProfile(team){
+  if(clubProfileCache.has(team)){ renderClubProfile(team,clubProfileCache.get(team),'ready'); return; }
+  renderClubProfile(team,null,'loading');
+  try{
+    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}`,{headers:{Accept:'application/json'}});
+    const payload=await response.json().catch(()=>({}));
+    if(response.status===503&&payload?.error==='sportmonks_not_configured'){ renderClubProfile(team,null,'unconfigured'); return; }
+    if(!response.ok||!payload?.team) throw new Error(payload?.error||'club_data_unavailable');
+    clubProfileCache.set(team,payload); renderClubProfile(team,payload,'ready');
+  }catch(_){ renderClubProfile(team,null,'unavailable'); }
+}
+function openClubProfile(team){
+  if(!clubRecord(team)) return; activeClubProfileTeam=team; loadClubProfile(team);
+  const panel=document.getElementById('clubProfilePanel'); if(panel) requestAnimationFrame(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}));
+}
+function closeClubProfile(){ const panel=document.getElementById('clubProfilePanel'); activeClubProfileTeam=null; if(panel){ panel.hidden=true; panel.innerHTML=''; } }
 function standingFormHTML(form){
   return `<span class="standing-form" aria-label="Son beş maç">${String(form||'').split('').map(result=>`<i class="${result==='W'?'win':result==='D'?'draw':'loss'}" title="${result==='W'?'Galibiyet':result==='D'?'Beraberlik':'Mağlubiyet'}">${result==='W'?'✓':result==='D'?'−':'×'}</i>`).join('')}</span>`;
 }

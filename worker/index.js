@@ -7,8 +7,12 @@ const X_TIMEOUT_MS = 8000;
 const YOUTUBE_CACHE = "public, max-age=300, s-maxage=5400, stale-while-revalidate=21600";
 const YOUTUBE_STALE_CACHE = "public, max-age=60, s-maxage=86400";
 const YOUTUBE_TIMEOUT_MS = 8000;
+const CLUB_CACHE = "public, max-age=600, s-maxage=21600, stale-while-revalidate=86400";
+const CLUB_STALE_CACHE = "public, max-age=60, s-maxage=604800";
+const SPORTMONKS_TIMEOUT_MS = 12000;
 let xFeedRefreshPromise = null;
 let youtubeFeedRefreshPromise = null;
+const clubProfileRefreshes = new Map();
 const X_CLUBS = [
   { team: "Galatasaray", handle: "GalatasaraySK", url: "https://x.com/GalatasaraySK" },
   { team: "Fenerbahçe", handle: "Fenerbahce", url: "https://x.com/Fenerbahce" },
@@ -21,6 +25,9 @@ const YOUTUBE_CHANNELS = [
   { name: "beIN SPORTS Türkiye", handle: "@beINSPORTSTurkiye", id: "UCNopxUNUMinlK3ybMGlpbGQ", url: "https://www.youtube.com/@beINSPORTSTurkiye" },
   { name: "TRT Spor", handle: "@trtspor", id: "UCebdo7-2NdjcktKzco64iNw", url: "https://www.youtube.com/@trtspor" },
 ];
+const SPORTMONKS_TEAM_SEARCH = Object.freeze({
+  Alanyaspor:"Alanyaspor", "Amed Sportif Faaliyetler":"Amed SK", Beşiktaş:"Besiktas", "Çaykur Rizespor":"Rizespor", "Çorum FK":"Corum FK", "Erzurumspor FK":"Erzurumspor", Eyüpspor:"Eyupspor", Fenerbahçe:"Fenerbahce", Galatasaray:"Galatasaray", "Gaziantep FK":"Gaziantep", Gençlerbirliği:"Genclerbirligi", Göztepe:"Goztepe", Başakşehir:"Istanbul Basaksehir", Kasımpaşa:"Kasimpasa", Kocaelispor:"Kocaelispor", Konyaspor:"Konyaspor", Samsunspor:"Samsunspor", Trabzonspor:"Trabzonspor"
+});
 
 function jsonResponse(payload, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(payload), {
@@ -261,6 +268,200 @@ async function handleYouTubeMedia(request, env, context) {
   }
 }
 
+function relationRows(value) {
+  const data = value && typeof value === "object" && "data" in value ? value.data : value;
+  if (Array.isArray(data)) return data;
+  return data && typeof data === "object" ? [data] : [];
+}
+
+function normalizedFootballName(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/g, "");
+}
+
+async function sportmonksRequest(pathname, token) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SPORTMONKS_TIMEOUT_MS);
+  try {
+    const response = await fetch(`https://api.sportmonks.com/v3/football${pathname}`, {
+      headers: { Authorization: token, Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(`Sportmonks API ${response.status}`);
+      error.status = response.status;
+      error.providerMessage = payload?.message || null;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function chooseSportmonksTeam(rows, searchName) {
+  const target = normalizedFootballName(searchName);
+  return rows.find((team) => normalizedFootballName(team?.name) === target)
+    || rows.find((team) => normalizedFootballName(team?.name).includes(target) || target.includes(normalizedFootballName(team?.name)))
+    || rows[0]
+    || null;
+}
+
+function normalizeSportmonksCoach(team) {
+  const rows = relationRows(team?.coaches);
+  const row = rows.find((coach) => !coach?.end && !coach?.meta?.end) || rows[0];
+  if (!row) return null;
+  const coach = row.coach || row;
+  const nationality = coach.nationality || row.nationality || {};
+  return {
+    id: coach.id || null,
+    name: coach.display_name || coach.common_name || coach.name || null,
+    image: coach.image_path || null,
+    nationality: nationality.name || coach.nationality_name || null,
+    dateOfBirth: coach.date_of_birth || null,
+    source: "sportmonks",
+  };
+}
+
+function normalizeSportmonksSquad(payload) {
+  return relationRows(payload?.data).filter((row) => {
+    const player = row.player || row;
+    return row.in_squad !== false && player.in_squad !== false;
+  }).map((row) => {
+    const player = row.player || row;
+    const position = row.detailedposition || row.detailedPosition || player.detailedposition || player.detailedPosition || row.position || player.position || {};
+    return {
+      id: player.id || row.player_id || null,
+      name: player.display_name || player.common_name || player.name || row.player_name || null,
+      image: player.image_path || null,
+      number: row.jersey_number ?? player.jersey_number ?? null,
+      position: position.name || position.code || null,
+    };
+  }).filter((player) => player.name);
+}
+
+function fixtureLineupForTeam(fixture, teamId) {
+  return relationRows(fixture?.lineups)
+    .filter((row) => String(row?.team_id) === String(teamId) && (Number(row?.type_id) === 11 || row?.formation_field != null))
+    .sort((a, b) => Number(a?.formation_field || 99) - Number(b?.formation_field || 99))
+    .slice(0, 11)
+    .map((row) => {
+      const player = row.player || {};
+      const position = row.position || row.detailedposition || row.detailedPosition || {};
+      return {
+        id: row.player_id || player.id || null,
+        name: row.player_name || player.display_name || player.common_name || player.name || null,
+        image: player.image_path || null,
+        number: row.jersey_number ?? null,
+        position: position.name || position.code || null,
+        formationField: row.formation_field ?? null,
+      };
+    }).filter((player) => player.name);
+}
+
+function fixtureFormationForTeam(fixture, teamId) {
+  const row = relationRows(fixture?.formations).find((formation) => String(formation?.participant_id || formation?.team_id) === String(teamId));
+  return row?.formation || row?.name || null;
+}
+
+function isoDateOffset(days) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function latestAvailableLineup(teamId, token) {
+  const windows = [[-99, 0], [-199, -100], [-299, -200], [-399, -300]];
+  for (const [startOffset, endOffset] of windows) {
+    const params = new URLSearchParams({ include: "lineups.player;lineups.position;formations", order: "desc", per_page: "25" });
+    const path = `/fixtures/between/${isoDateOffset(startOffset)}/${isoDateOffset(endOffset)}/${encodeURIComponent(teamId)}?${params}`;
+    let payload;
+    try { payload = await sportmonksRequest(path, token); } catch (error) {
+      if ([401, 403, 429].includes(error?.status)) throw error;
+      continue;
+    }
+    const fixtures = relationRows(payload?.data).sort((a, b) => new Date(b?.starting_at || 0) - new Date(a?.starting_at || 0));
+    for (const fixture of fixtures) {
+      const lineup = fixtureLineupForTeam(fixture, teamId);
+      if (lineup.length >= 11) return {
+        lineup,
+        formation: fixtureFormationForTeam(fixture, teamId),
+        fixture: { id: fixture.id || null, name: fixture.name || null, startingAt: fixture.starting_at || null },
+      };
+    }
+  }
+  return { lineup: [], formation: null, fixture: null };
+}
+
+async function fetchSportmonksClubProfile(teamName, token) {
+  const searchName = SPORTMONKS_TEAM_SEARCH[teamName];
+  const searchParams = new URLSearchParams({ include: "venue;coaches.nationality" });
+  const search = await sportmonksRequest(`/teams/search/${encodeURIComponent(searchName)}?${searchParams}`, token);
+  const team = chooseSportmonksTeam(relationRows(search?.data), searchName);
+  if (!team?.id) {
+    const error = new Error("Sportmonks team not found"); error.status = 404; throw error;
+  }
+  let squad = [];
+  try {
+    const extended = await sportmonksRequest(`/squads/teams/${encodeURIComponent(team.id)}/extended?include=position;detailedPosition`, token);
+    squad = normalizeSportmonksSquad(extended);
+  } catch (error) {
+    if ([401, 429].includes(error?.status)) throw error;
+    const standard = await sportmonksRequest(`/squads/teams/${encodeURIComponent(team.id)}?include=player;position;detailedPosition`, token);
+    squad = normalizeSportmonksSquad(standard);
+  }
+  let lastMatch = { lineup: [], formation: null, fixture: null };
+  try { lastMatch = await latestAvailableLineup(team.id, token); } catch (error) {
+    if ([401, 429].includes(error?.status)) throw error;
+  }
+  const venue = relationRows(team.venue)[0] || team.venue || null;
+  return {
+    source: "sportmonks-football-api-v3",
+    updatedAt: new Date().toISOString(),
+    team: { id: team.id, name: team.name || teamName, image: team.image_path || null, founded: team.founded || null },
+    venue: venue ? { id: venue.id || null, name: venue.name || null, city: venue.city_name || venue.city?.name || null, capacity: venue.capacity || null, image: venue.image_path || null } : null,
+    coach: normalizeSportmonksCoach(team),
+    squad,
+    lineup: lastMatch.lineup,
+    formation: lastMatch.formation,
+    lineupFixture: lastMatch.fixture,
+  };
+}
+
+async function handleClubProfile(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const url = new URL(request.url);
+  const team = url.searchParams.get("team") || "";
+  if (!SPORTMONKS_TEAM_SEARCH[team]) return jsonResponse({ error: "unknown_team" }, 400, { "Cache-Control": "no-store" });
+  const cacheUrl = new URL(url); cacheUrl.search = `?team=${encodeURIComponent(team)}`;
+  const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const staleUrl = new URL(`/api/football/club-stale-v1/${encodeURIComponent(team)}`, request.url);
+  const staleKey = new Request(staleUrl.toString(), { method: "GET" });
+  const cache = edgeCache();
+  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  const stale = await readEdgeCache(cache, staleKey);
+  try {
+    if (!clubProfileRefreshes.has(team)) clubProfileRefreshes.set(team, fetchSportmonksClubProfile(team, token));
+    const payload = await clubProfileRefreshes.get(team);
+    const response = jsonResponse(payload, 200, { "Cache-Control": CLUB_CACHE, "X-Data-Stale": "false" });
+    writeEdgeCache(cache, cacheKey, response, context);
+    writeEdgeCache(cache, staleKey, jsonResponse(payload, 200, { "Cache-Control": CLUB_STALE_CACHE }), context);
+    return response;
+  } catch (error) {
+    if (stale) {
+      const payload = await stale.json(); payload.stale = true;
+      return jsonResponse(payload, 200, { "Cache-Control": "public, max-age=60, s-maxage=300", "X-Data-Stale": "true", Warning: '110 - "Response is stale"' });
+    }
+    const status = error?.status === 401 ? 401 : error?.status === 403 ? 403 : error?.status === 429 ? 429 : error?.status === 404 ? 404 : 502;
+    const errorCode = status === 401 ? "sportmonks_token_invalid" : status === 403 ? "sportmonks_plan_restricted" : status === 429 ? "sportmonks_rate_limited" : status === 404 ? "sportmonks_team_not_found" : "sportmonks_upstream_unavailable";
+    return jsonResponse({ error: errorCode }, status, { "Cache-Control": "no-store", "Retry-After": status === 429 ? "3600" : "300" });
+  } finally {
+    clubProfileRefreshes.delete(team);
+  }
+}
+
 function handleHealth(request, env) {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
@@ -269,7 +470,7 @@ function handleHealth(request, env) {
     status: "ok",
     service: "xyzskor-web",
     timestamp: new Date().toISOString(),
-    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured" },
+    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured", sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured" },
   };
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: jsonResponse(payload, 200, { "Cache-Control": "no-store" }).headers });
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
@@ -306,6 +507,7 @@ export default {
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (url.pathname === "/api/social/x") return handleXClubFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
+    if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
     let response = await fetchAsset(request, env, pathname);
 
