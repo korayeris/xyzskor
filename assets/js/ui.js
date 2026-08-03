@@ -370,11 +370,33 @@ function playFootballLeagueTransition(fromKey, toKey){
   const transitionClasses = SELECTED_COMPETITIONS.flatMap(item=>[`league-transition-from-${item.key}`,`league-transition-to-${item.key}`]);
   document.body.classList.remove('league-switching', ...transitionClasses);
   if(leagueTransitionTimer) clearTimeout(leagueTransitionTimer);
+  document.querySelectorAll('.league-transition-stage').forEach(stage=>stage.remove());
+  const transitionLabels = {
+    'champions-league': { kicker:'UEFA', title:'Champions League', mark:'✦', detail:'Starball' },
+    'premier-league': { kicker:'England', title:'Premier League', mark:'PL', detail:'Lion mode' },
+    'super-lig': { kicker:'Türkiye', title:'Süper Lig', mark:'SL', detail:'Derbi modu' },
+    'europa-league': { kicker:'UEFA', title:'Europa League', mark:'UEL', detail:'Knockout mode' },
+    'la-liga': { kicker:'España', title:'La Liga', mark:'LL', detail:'Liga modu' },
+    all: { kicker:'XYZSKOR', title:'Tüm Ligler', mark:'XYZ', detail:'Global feed' }
+  };
+  const meta = transitionLabels[toKey] || transitionLabels['super-lig'];
+  const stage = document.createElement('div');
+  stage.className = `league-transition-stage league-transition-stage-${toKey}`;
+  stage.setAttribute('aria-hidden','true');
+  const starball = toKey==='champions-league'
+    ? `<div class="league-starball">${Array.from({length:8},(_,i)=>`<i style="--i:${i}">★</i>`).join('')}</div>`
+    : '';
+  stage.innerHTML = `
+    <div class="league-transition-orbit">${starball}<span class="league-transition-mark">${escapeHTML(meta.mark)}</span></div>
+    <div class="league-transition-title"><span>${escapeHTML(meta.kicker)}</span><strong>${escapeHTML(meta.title)}</strong><small>${escapeHTML(meta.detail)}</small></div>
+  `;
+  document.body.appendChild(stage);
   document.body.classList.add('league-switching', `league-transition-from-${fromKey||'super-lig'}`, `league-transition-to-${toKey}`);
   leagueTransitionTimer = setTimeout(()=>{
     document.body.classList.remove('league-switching', ...transitionClasses);
+    stage.remove();
     leagueTransitionTimer = null;
-  }, 980);
+  }, 1180);
 }
 function applyFootballLeagueTheme(){
   if(!document.body) return;
