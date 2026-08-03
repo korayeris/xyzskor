@@ -228,16 +228,21 @@ function xPostCardHTML(club){
     <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;
 }
+let xClubPostsRequest=null;
 async function loadXClubPosts(){
   const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
   stage.innerHTML=`<div class="club-social-loading"><span></span><strong>Dört kulübün günlük akışı hazırlanıyor…</strong></div>`;
   try{
-    const response=await fetch('/api/social/x',{headers:{Accept:'application/json'}});
-    const payload=await response.json().catch(()=>null);
-    if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
+    if(!xClubPostsRequest) xClubPostsRequest=fetch('/api/social/x',{headers:{Accept:'application/json'}}).then(async response=>{
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
+      return payload;
+    });
+    const payload=await xClubPostsRequest;
     const apiClubs=new Map(payload.clubs.map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
     stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('');
   }catch(error){
+    xClubPostsRequest=null;
     stage.innerHTML=clubs.map(xPostCardHTML).join('');
   }
 }

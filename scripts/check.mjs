@@ -137,6 +137,11 @@ assert.match(workerSource, /cost_profile:\s*"text-only-3usd"/, 'X akışı maliy
 assert.doesNotMatch(workerSource, /attachments\.media_keys|media\.fields/, 'Yaklaşık 3 USD profili ayrıca ücretlenen X medya verisini istememeli.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
 assert.match(workerSource, /function readEdgeCache/, 'X akışı çalışma zamanı önbellek hatasında tamamen çökmemeli.');
+assert.match(workerSource, /SOCIAL_STALE_CACHE/, 'X kesintisinde son doğrulanmış akış için uzun süreli yedek önbellek bulunmalı.');
+assert.match(workerSource, /xFeedRefreshPromise/, 'Aynı anda gelen X yenileme istekleri tek sorguda birleştirilmeli.');
+assert.match(workerSource, /X_TIMEOUT_MS/, 'X sağlayıcı isteği sınırsız süre açık kalmamalı.');
+assert.match(workerSource, /\/api\/health/, 'Üretim sağlık kontrolü bulunmalı.');
+assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
 assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
@@ -191,6 +196,7 @@ const originalCaches = globalThis.caches;
 const socialCache = new Map();
 const upstreamCalls = [];
 const pendingCacheWrites = [];
+let xCreditsDepleted = false;
 try {
   globalThis.caches = {
     default: {
@@ -201,6 +207,7 @@ try {
   globalThis.fetch = async (input) => {
     const url = String(input);
     upstreamCalls.push(url);
+    if (xCreditsDepleted) return Response.json({ error:'credits_depleted' }, { status:402 });
     if (url.includes('/2/users/by?')) {
       return Response.json({ data: [
         { id:'1', username:'GalatasaraySK', profile_image_url:'https://img.example/gs.jpg' },
@@ -214,6 +221,11 @@ try {
     return Response.json({ error:'unexpected_request' }, { status:500 });
   };
   const worker = (await import(new URL(`../worker/index.js?check=${Date.now()}`, import.meta.url))).default;
+  const healthResponse = await worker.fetch(new Request('https://xyzskor.test/api/health'), { X_BEARER_TOKEN:'test-token' }, { waitUntil() {} });
+  const healthPayload = await healthResponse.json();
+  assert.equal(healthResponse.status, 200, 'Üretim sağlık kontrolü başarılı yanıt vermeli.');
+  assert.equal(healthPayload.checks.x_feed, 'configured', 'Sağlık kontrolü X secret değerini göstermeden yapılandırma durumunu vermeli.');
+  assert.doesNotMatch(JSON.stringify(healthPayload), /test-token/, 'Sağlık kontrolü secret değerini sızdırmamalı.');
   const missingToken = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), {}, { waitUntil() {} });
   assert.equal(missingToken.status, 503, 'X secret yokken sunucu açık bir yapılandırma hatası dönmeli.');
   const context = { waitUntil(promise) { pendingCacheWrites.push(promise); } };
@@ -232,6 +244,11 @@ try {
   await Promise.all(pendingCacheWrites);
   assert.equal(nextDayFeed.status, 200, 'Sonraki gün X akışı yeniden oluşturulabilmeli.');
   assert.equal(upstreamCalls.length, 9, 'Sonraki gün yalnız dört paylaşım sorgusu yapılmalı; kulüp kimlikleri tekrar okunmamalı.');
+  socialCache.delete('https://xyzskor.test/api/social/x');
+  xCreditsDepleted = true;
+  const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  assert.equal(staleFeed.status, 200, 'X kesintisinde son doğrulanmış akış kullanılmalı.');
+  assert.equal(staleFeed.headers.get('X-Data-Stale'), 'true', 'Yedek akış açıkça eski veri olarak işaretlenmeli.');
 } finally {
   globalThis.fetch = originalFetch;
   if (originalCaches === undefined) delete globalThis.caches;
