@@ -223,6 +223,28 @@ function setTransferClubFilter(team){
   activeTransferClub=clubs.includes(team)?team:'all';
   renderTransferCenter();
 }
+const TRANSFER_PLAYER_PHOTOS=Object.freeze({
+  'Mason Greenwood':'https://images.fotmob.com/image_resources/playerimages/950473.png',
+  'Orkun Kökçü':'https://images.fotmob.com/image_resources/playerimages/935409.png',
+  'Leandro Trossard':'https://images.fotmob.com/image_resources/playerimages/318615.png',
+  'Vedat Muriqi':'https://images.fotmob.com/image_resources/playerimages/517052.png',
+  'Nathan Aké':'https://images.fotmob.com/image_resources/playerimages/417068.png',
+  'Kassoum Ouattara':'https://images.fotmob.com/image_resources/playerimages/1387194.png',
+  'Alexander Nübel':'https://images.fotmob.com/image_resources/playerimages/554534.png',
+  'Metehan Mimaroğlu':'https://images.fotmob.com/image_resources/playerimages/389181.png',
+  'Mohamed Salah':'https://images.fotmob.com/image_resources/playerimages/292462.png',
+  'Julio Enciso':'https://images.fotmob.com/image_resources/playerimages/1073742.png',
+  'Can Uzun':'https://images.fotmob.com/image_resources/playerimages/1367924.png',
+  'Jhon Lucumí':'https://images.fotmob.com/image_resources/playerimages/860913.png',
+  'Mathys Tel':'https://images.fotmob.com/image_resources/playerimages/1288111.png',
+  'Bruno Fernandes':'https://images.fotmob.com/image_resources/playerimages/422685.png',
+  'Rafael Leão':'https://images.fotmob.com/image_resources/playerimages/848844.png'
+});
+function transferPlayerPhotoHTML(item){
+  const initials=item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join('');
+  const photo=TRANSFER_PLAYER_PHOTOS[item.name];
+  return `<span class="transfer-player-photo" aria-hidden="true"><span>${escapeHTML(initials)}</span>${photo?`<img src="${photo}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>`;
+}
 function renderHistoricStandings(){
   const area=document.getElementById('historicStandingsTable'); if(!area) return;
   area.innerHTML=`<div class="historic-standings-head"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AG</span><span>YG</span><span>AV</span><strong>P</strong><span>Son 5</span></div><div class="historic-standings-body">${HISTORIC_STANDINGS_2024_25.map((row,index)=>`<div class="historic-standing-row ${row.zone||''}">
@@ -240,7 +262,7 @@ function renderTransferCenter(){
   summary.innerHTML=`<strong>${records.length} kayıt · ${activeTransferClub==='all'?'Tüm Süper Lig':escapeHTML(activeTransferClub)}</strong><span>${descriptions[activeTransferCenterTab]}</span>`;
   area.innerHTML=records.length?records.map((item,index)=>`<article class="transfer-center-row ${item.status==='Kulüp yalanladı'?'denied':''}">
     <span class="transfer-center-index">${String(index+1).padStart(2,'0')}</span>
-    <span class="transfer-player-monogram" aria-hidden="true">${escapeHTML(item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join(''))}</span>
+    ${transferPlayerPhotoHTML(item)}
     <div class="transfer-center-player"><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.detail||item.status)}</span></div>
     <div class="transfer-route-block"><span>${escapeHTML(item.from)}</span><b aria-hidden="true">→</b><span class="transfer-destination">${crestHTML(item.to,'xs')} ${escapeHTML(item.to)}</span></div>
     <div class="transfer-center-fee"><strong>${escapeHTML(item.fee)}</strong><span class="transfer-status-chip ${activeTransferCenterTab}">${escapeHTML(item.status)}</span></div>
@@ -449,7 +471,7 @@ function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
   const transfers=publishedStoryCards().map((card,index)=>({card,index})).filter(entry=>['transfer','transfer_development'].includes(String(entry.card.category || entry.card.type || '').toLocaleLowerCase('tr-TR')));
   if(!transfers.length){
-    area.innerHTML=`<div class="transfer-compact-list">${TRANSFER_CENTER_DATA.confirmed.slice(0,3).map(item=>`<div class="transfer-compact-row"><span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
+    area.innerHTML=`<div class="transfer-compact-list">${TRANSFER_CENTER_DATA.confirmed.slice(0,3).map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
     return;
   }
   area.innerHTML=`<div class="football-news-list">${transfers.slice(0,4).map(({card,index})=>{ const confidence=storyConfidence(card); return `<article class="football-news-card" tabindex="0" role="button" data-news-index="${index}" aria-label="${escapeHTML(card.title||'Transfer haberi')} haberini aç">${storyIdentityHTML(card)}<h3>${escapeHTML(card.title || 'Transfer gelişmesi')}</h3>${card.text?`<p>${escapeHTML(card.text)}</p>`:''}<div class="football-news-meta">${confidence?`<span class="confidence-chip ${confidence.tone}">${confidence.label}</span>`:''}${card.source?`<span>Kaynak: ${escapeHTML(card.source)}</span>`:''}${card.verified_at?`<span>${escapeHTML(fmtEditorialDate(card.verified_at))}</span>`:''}</div></article>`; }).join('')}</div>`;
@@ -674,18 +696,29 @@ function predictionActionHTML(m){
   if(m.status==='ertelendi') return `<div class="prediction-zone"><div class="locked-flag">Maç ertelendi; yeni tarih açıklanınca tahmin yeniden açılacak.</div></div>`;
   if(locked) return `<div class="prediction-zone"><div class="locked-flag">Tahmin kilitlendi. Maç başladıktan sonra değiştirilemez.</div></div>`;
   if(pred) return `<div class="prediction-zone"><div class="prediction-label">Kaydedildi</div><div class="submitted-flag" id="flag-${escapeHTML(m.id)}"><span>${escapeHTML(pred.pick)}${pred.scoreHome!=null?` · ${escapeHTML(pred.scoreHome)}–${escapeHTML(pred.scoreAway)}`:''}</span><span class="mono">✓</span></div></div>`;
-  if(!u) return `<div class="prediction-zone"><div class="prediction-label">Giriş yaptığında 1 / X / 2 seçimleri burada açılır.</div></div>`;
+  if(!u) return `<div class="prediction-zone predict-login-prompt"><div><div class="prediction-label">Seçimini kaydet</div><p>1 / X / 2 seçimi ve kesin skor için hesabına giriş yap.</p></div><button class="btn" type="button" onclick="openAuth('login')">Giriş yap</button></div>`;
   return `<div class="prediction-zone"><div class="prediction-label">Maç sonucu</div><div class="predict-form" id="form-${escapeHTML(m.id)}"><div class="pick-row"><button class="pick-btn" type="button" aria-pressed="false" onclick="setPick('${m.id}','1',this)">1 · ${escapeHTML(m.ev)}</button><button class="pick-btn" type="button" aria-pressed="false" onclick="setPick('${m.id}','X',this)">X · Berabere</button><button class="pick-btn" type="button" aria-pressed="false" onclick="setPick('${m.id}','2',this)">2 · ${escapeHTML(m.konuk)}</button></div><div class="mini-note">Kesin skor isteğe bağlıdır.</div><div class="score-row"><span class="mono" style="font-size:12px;color:var(--ink-dim);">Kesin skor</span><input type="number" min="0" max="99" id="sh-${escapeHTML(m.id)}" inputmode="numeric" placeholder="0" aria-label="${escapeHTML(m.ev)} gol sayısı"><span class="mono">—</span><input type="number" min="0" max="99" id="sa-${escapeHTML(m.id)}" inputmode="numeric" placeholder="0" aria-label="${escapeHTML(m.konuk)} gol sayısı"><button class="btn" type="button" id="savePrediction-${escapeHTML(m.id)}" onclick="submitPrediction('${m.id}')">Kaydet</button></div><div class="predict-save-status" id="saveStatus-${escapeHTML(m.id)}" role="status" aria-live="polite"></div></div></div>`;
+}
+function communityPredictionSummary(matchId){
+  const predictions=Object.values(ALL_PREDICTIONS[matchId]||{}).filter(item=>item&&['1','X','2'].includes(item.pick));
+  if(!predictions.length) return null;
+  const counts=predictions.reduce((result,item)=>{ result[item.pick]+=1; return result; },{1:0,X:0,2:0});
+  const percentage=key=>Math.round((counts[key]/predictions.length)*100);
+  return {total:predictions.length,home:percentage('1'),draw:percentage('X'),away:percentage('2')};
 }
 function leagueRowHTML(m){
   const mm=matchMathMetrics(m);
+  const community=communityPredictionSummary(m.id);
   const deadline=new Date(new Date(m.kickoff).getTime()-15*60000);
-  const dataDetails=mm?`<details class="predict-data-details"><summary>Maç önü verisini gör</summary><div style="margin-top:8px;line-height:1.6;">Güç: ${escapeHTML(m.ev)} ${mm.powerHome.toFixed(1)} · ${escapeHTML(m.konuk)} ${mm.powerAway.toFixed(1)}<br>Beklenen gol: ${mm.xgHome.toFixed(2)}–${mm.xgAway.toFixed(2)} · Örneklem: ${mm.sample} maç</div></details>`:'';
+  const dataDetails=mm?`<details class="predict-data-details"><summary>Veri özeti</summary><div>Takım gücü: ${escapeHTML(m.ev)} ${mm.powerHome.toFixed(1)} · ${escapeHTML(m.konuk)} ${mm.powerAway.toFixed(1)}<br>Veri modeli xG: ${mm.xgHome.toFixed(2)}–${mm.xgAway.toFixed(2)} · Örneklem: ${mm.sample} maç</div></details>`:'';
+  const communityHTML=community?`<div class="predict-community" aria-label="${community.total} kullanıcı tahmini"><span><b>1</b>${community.home}%</span><span><b>X</b>${community.draw}%</span><span><b>2</b>${community.away}%</span><small>${community.total} kullanıcı</small></div>`:`<div class="predict-community empty"><span>Topluluk dağılımı ilk kayıtlı tahminlerle açılır.</span></div>`;
   return `
     <article class="predict-match" id="lcard-${escapeHTML(m.id)}">
-      <div class="predict-fixture"><div class="predict-kickoff">${escapeHTML(fmtTime(m.kickoff))}<span>${escapeHTML(new Date(m.kickoff).toLocaleDateString('tr-TR',{day:'2-digit',month:'short'}))}</span></div><div class="predict-teams"><div class="predict-team">${crestHTML(m.ev,'xs')}<span>${escapeHTML(m.ev)}</span></div><div class="predict-team">${crestHTML(m.konuk,'xs')}<span>${escapeHTML(m.konuk)}</span></div></div><div class="predict-lock">${isLocked(m.kickoff)?'Kilitli':`Kapanış ${deadline.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}`}</div></div>
-      <div class="predict-action">${predictionActionHTML(m)}</div>${dataDetails}
-      <div class="predict-match-footer"><button class="football-module-action" type="button" onclick="openMatchCenter('${m.id}')">Maç detayını aç →</button></div>
+      <header class="predict-card-head"><time datetime="${escapeHTML(m.kickoff)}">${escapeHTML(fmtTime(m.kickoff))}</time><span>${isLocked(m.kickoff)?'Tahmin kapandı':`Kapanış ${deadline.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}`}</span></header>
+      <div class="predict-faceoff"><div class="predict-faceoff-team home">${crestHTML(m.ev,'md')}<strong>${escapeHTML(m.ev)}</strong><small>Ev sahibi</small></div><div class="predict-versus"><span>VS</span><small>${escapeHTML(new Date(m.kickoff).toLocaleDateString('tr-TR',{day:'2-digit',month:'short'}))}</small></div><div class="predict-faceoff-team away">${crestHTML(m.konuk,'md')}<strong>${escapeHTML(m.konuk)}</strong><small>Deplasman</small></div></div>
+      <div class="predict-action">${predictionActionHTML(m)}</div>
+      <div class="predict-evidence-row">${communityHTML}${dataDetails}</div>
+      <div class="predict-match-footer"><button class="football-module-action" type="button" onclick="openMatchCenter('${m.id}')">Maç merkezi <span aria-hidden="true">→</span></button></div>
     </article>`;
 }
 function renderLeagueMatches(){
@@ -733,7 +766,7 @@ function renderProgress(){
   const completion=stats&&stats.toplamMac?Math.round((stats.tahminSayisi/stats.toplamMac)*100):0;
   const progressText=stats ? (stats.toplamMac ? (missing?`${stats.toplamMac} maçın ${stats.tahminSayisi} tanesini tamamladın. ${missing} tahminin kaldı.`:`${stats.toplamMac} maçın tamamı için tahmin yaptın.`) : 'Bu hafta için fikstür henüz eklenmedi.') : `${matches.length} maçlık haftalık yarışma. İlerlemeni görmek için giriş yap.`;
   panel.style.display='block';
-  panel.innerHTML=`<div class="predict-overview-head"><div><div class="predict-overview-kicker">${activeWeek}. Hafta</div><div class="predict-overview-title">Haftalık Predict</div><div class="predict-overview-copy">Ücretsiz futbol tahmin yarışması · para yatırma ve bahis yok.</div></div><div class="predict-deadline"><b>${deadline?deadline.toLocaleString('tr-TR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</b><span>İlk tahmin kapanışı</span></div></div><div class="predict-summary-grid"><div class="predict-summary-item"><b>${stats?stats.tahminSayisi:'—'}</b><span>Tamamlanan</span></div><div class="predict-summary-item"><b>${missing==null?'—':missing}</b><span>Eksik tahmin</span></div><div class="predict-summary-item"><b>${stats?stats.toplam:'—'}</b><span>Haftalık puan</span></div><div class="predict-summary-item"><b>${life?life.toplam:'—'}</b><span>Sezon puanı</span></div><div class="predict-summary-item"><b>${generalRank||'—'}</b><span>Genel sıra</span></div><div class="predict-summary-item"><b>${reward?escapeHTML(reward.item.aciklama):'Açıklanmadı'}</b><span>${reward?escapeHTML(reward.team)+' ödülü':'Haftanın ödülü'}</span></div></div><div class="predict-progress-row"><div class="progress-track" aria-label="Haftalık tahmin ilerlemesi"><div class="progress-fill" style="width:${completion}%;"></div></div><p>${escapeHTML(progressText)}</p></div>${!u?'<div class="predict-guest-action"><p>Tahminlerini kaydetmek, puan toplamak ve sıralamaya katılmak için hesabına giriş yap.</p><button class="btn" type="button" onclick="openAuth(\'login\')">Giriş Yap</button></div>':''}`;
+  panel.innerHTML=`<div class="predict-rail-head"><span class="predict-overview-kicker">${activeWeek}. HAFTA · PREDICT</span><h2>Yarışma merkezim</h2><p>Seçimlerini tamamla, sıralamadaki yerini canlı takip et.</p></div><div class="predict-deadline"><span>İlk tahmin kapanışı</span><b>${deadline?deadline.toLocaleString('tr-TR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</b></div><div class="predict-progress-ring" style="--completion:${completion}%;"><strong>${completion}%</strong><span>tamamlandı</span></div><div class="predict-progress-row"><div class="progress-track" aria-label="Haftalık tahmin ilerlemesi"><div class="progress-fill" style="width:${completion}%;"></div></div><p>${escapeHTML(progressText)}</p></div><div class="predict-summary-grid"><div class="predict-summary-item"><b>${stats?stats.tahminSayisi:'—'}</b><span>Tahmin</span></div><div class="predict-summary-item"><b>${stats?stats.toplam:'—'}</b><span>Hafta puanı</span></div><div class="predict-summary-item"><b>${generalRank||'—'}</b><span>Genel sıra</span></div></div><div class="predict-reward-line"><span>Haftanın ödülü</span><strong>${reward?escapeHTML(reward.item.aciklama):'Açıklanmadı'}</strong>${reward?`<small>${escapeHTML(reward.team)}</small>`:''}</div>${!u?'<div class="predict-guest-action"><p>Skorlarını kaydetmek ve sıralamaya katılmak için giriş yap.</p><button class="btn" type="button" onclick="openAuth(\'login\')">Giriş Yap</button></div>':''}`;
 }
 
 /* ===================== LİDERLİK: HAFTALIK / SEZONLUK ===================== */

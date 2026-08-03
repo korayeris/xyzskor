@@ -160,14 +160,14 @@ const MARKET_DATA = {
   transfers: [
     {name:'Mason Greenwood', initials:'MG', photo:'https://images.fotmob.com/image_resources/playerimages/950473.png', from:'Marsilya', to:'Fenerbahçe', fee:'€39 M'},
     {name:'Orkun Kökçü', initials:'OK', photo:'https://images.fotmob.com/image_resources/playerimages/935409.png', from:'Benfica', to:'Beşiktaş', fee:'€30 M'},
-    {name:'Leandro Trossard', initials:'LT', from:'Arsenal', to:'Beşiktaş', fee:'€18 M'},
+    {name:'Leandro Trossard', initials:'LT', photo:'https://images.fotmob.com/image_resources/playerimages/318615.png', from:'Arsenal', to:'Beşiktaş', fee:'€18 M'},
     {name:'Vedat Muriqi', initials:'VM', photo:'https://images.fotmob.com/image_resources/playerimages/517052.png', from:'Mallorca', to:'Fenerbahçe', fee:'€15,5 M'},
-    {name:'Nathan Aké', initials:'NA', from:'Manchester City', to:'Fenerbahçe', fee:'€8,17 M'}
+    {name:'Nathan Aké', initials:'NA', photo:'https://images.fotmob.com/image_resources/playerimages/417068.png', from:'Manchester City', to:'Fenerbahçe', fee:'€8,17 M'}
   ],
   watchlist: [
-    {name:'Can Uzun', initials:'CU', route:'Frankfurt → Galatasaray', status:'Rumour', tone:'hot'},
-    {name:'Jhon Lucumí', initials:'JL', route:'Bologna → Galatasaray', status:'Rumour', tone:'watch'},
-    {name:'Rafael Leão', initials:'RL', route:'Milan → Fenerbahçe', status:'Kulüp yalanladı', tone:'shelved'}
+    {name:'Can Uzun', initials:'CU', photo:'https://images.fotmob.com/image_resources/playerimages/1367924.png', route:'Frankfurt → Galatasaray', status:'Rumour', tone:'hot'},
+    {name:'Jhon Lucumí', initials:'JL', photo:'https://images.fotmob.com/image_resources/playerimages/860913.png', route:'Bologna → Galatasaray', status:'Rumour', tone:'watch'},
+    {name:'Rafael Leão', initials:'RL', photo:'https://images.fotmob.com/image_resources/playerimages/848844.png', route:'Milan → Fenerbahçe', status:'Kulüp yalanladı', tone:'shelved'}
   ],
   performers: [
     {name:'Marco Asensio', initials:'MA', photo:'https://images.fotmob.com/image_resources/playerimages/498033.png', meta:'Fenerbahçe · Hücum', rating:'7,81'},

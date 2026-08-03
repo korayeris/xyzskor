@@ -214,7 +214,6 @@
 <!-- ===================== TAB 2: TAHMİN LİGİ ===================== -->
 <div class="tabpage" id="page-league">
   <div id="teamBannerArea"></div>
-  <section class="predict-overview" id="progressPanel" aria-label="Haftalık Predict özeti"></section>
 
   <div class="leaguesubtabs" id="leagueSubtabs">
     <button class="leaguesubtab active" id="lst-predict" onclick="switchLeagueSection('predict')">Tahminler</button>
@@ -223,9 +222,27 @@
   </div>
 
   <div class="league-section active" id="lsec-predict">
-    <div class="panel predict-list-panel">
-      <div class="predict-list-head"><div><h2>Haftanın tahminleri</h2><p>Maç sonucunu seç; istersen kesin skoru da ekle.</p></div><span class="predict-free-label">Ücretsiz yarışma</span></div>
-      <div id="leagueMatchList"></div>
+    <div class="predict-app-shell">
+      <main class="predict-feed-column">
+        <div class="panel predict-list-panel">
+          <div class="predict-list-head"><div><span class="predict-feed-kicker">SÜPER LİG · HAFTALIK OYUN</span><h2>Maç akışı</h2><p>Sonucu seç, istersen kesin skoru ekle. Tahminler maçtan 15 dakika önce kapanır.</p></div><span class="predict-free-label">Ücretsiz</span></div>
+          <div id="leagueMatchList"></div>
+        </div>
+      </main>
+      <aside class="predict-competition-rail" aria-label="Predict yarışma merkezi">
+        <section class="predict-overview" id="progressPanel" aria-label="Haftalık Predict özeti"></section>
+        <section class="predict-side-card predict-league-card">
+          <span class="predict-side-kicker">TARAFTAR LİGLERİ</span>
+          <h3>Kulübünle aynı tabloda yarış.</h3>
+          <p>Haftalık ve sezonluk sıralamanı gör; kendi takımının taraftarları arasındaki yerini takip et.</p>
+          <button class="predict-side-action" type="button" onclick="switchLeagueSection('leader')">Sıralamayı aç <span aria-hidden="true">→</span></button>
+        </section>
+        <details class="predict-side-card predict-rules-card">
+          <summary>Nasıl oynanır?</summary>
+          <ol><li>Maç sonucunu 1, X veya 2 olarak seç.</li><li>İstersen kesin skorunu ekle.</li><li>Doğru seçimlerle haftalık puanını yükselt.</li></ol>
+          <p>Katılım ücretsizdir; para yatırma ve bahis bulunmaz.</p>
+        </details>
+      </aside>
     </div>
   </div>
 
