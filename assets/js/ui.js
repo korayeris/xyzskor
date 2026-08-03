@@ -364,8 +364,17 @@ function setTransferCenterTab(name, button, updateUrl){
   if(updateUrl!==false) updateHash(`transfers/${name}`);
 }
 function renderFootballDataViews(){ renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
+function applyFootballLeagueTheme(){
+  if(!document.body) return;
+  const classes = SELECTED_COMPETITIONS.map(item=>`league-theme-${item.key}`);
+  document.body.classList.remove(...classes);
+  const key = SELECTED_COMPETITIONS.some(item=>item.key===activeFootballLeague) ? activeFootballLeague : 'all';
+  document.body.classList.add(`league-theme-${key}`);
+  document.body.dataset.footballLeague = key;
+}
 function renderFootballLeaguePickerInto(area){
   if(!area) return;
+  applyFootballLeagueTheme();
   area.innerHTML=SELECTED_COMPETITIONS.map(item=>`<button class="${item.key===activeFootballLeague?'active':''}" type="button" data-match-league="${escapeHTML(item.key)}" aria-pressed="${item.key===activeFootballLeague}"><span>${escapeHTML(item.short)}</span><small>${escapeHTML(item.label)}</small></button>`).join('');
   area.querySelectorAll('[data-match-league]').forEach(button=>{ button.onclick=()=>selectFootballLeague(button.dataset.matchLeague); });
 }
@@ -418,6 +427,7 @@ function renderMatchesLeagueFilters(){
 function selectFootballLeague(key){
   activeFootballLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'all';
   activeFootballTeam='Tümü';
+  applyFootballLeagueTheme();
   const weeks=getAvailableWeeks();
   if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
   renderStory();
@@ -1350,6 +1360,7 @@ function showLoadError(message){
   renderTicker();
 }
 function renderAll(){
+  applyFootballLeagueTheme();
   renderNav(); renderTicker(); renderStory(); renderTeamBanner(); renderProgress(); renderLeagueMatches();
   renderLeaderTabs(); renderRewards(); renderStandings();
   const u = getCurrentUser();
