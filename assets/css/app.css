@@ -1496,3 +1496,18 @@ body[class*="league-theme-"] .club-social-loading span{background:#89a2b9;box-sh
 body[class*="league-theme-"] .club-social-copy{color:#e7ebef}
 body[class*="league-theme-"] .club-social-card-head strong,body[class*="league-theme-"] .club-social-pending strong{color:#f4f6f8}
 body[class*="league-theme-"] .club-social-card-head small,body[class*="league-theme-"] .club-social-head p,body[class*="league-theme-"] .club-social-pending span{color:#aab4bf}
+
+/* Brand mark: a quiet football-inspired seal instead of the temporary X tile. */
+body[class*="league-theme-"] .global-header .brand-mark,
+.global-header .brand-mark{
+  position:relative;width:35px;height:35px;display:grid;place-items:center;
+  flex:0 0 35px;border:1px solid rgba(215,225,235,.48);border-radius:50%;
+  background:linear-gradient(145deg,#35404b,#1d252d);color:transparent;
+  transform:none;box-shadow:0 6px 18px rgba(8,14,22,.22);overflow:hidden;
+}
+.global-header .brand-mark::before{content:"";position:absolute;inset:7px;border:1px solid rgba(236,242,247,.86);border-radius:50%;opacity:.9}
+.global-header .brand-mark::after{content:"";position:absolute;width:6px;height:6px;border-radius:50%;background:var(--league-accent,#d9e5ef);box-shadow:9px -5px 0 -1px rgba(236,242,247,.9),-9px -5px 0 -1px rgba(236,242,247,.9),0 10px 0 -1px rgba(236,242,247,.75)}
+.global-header .brand-mark span{position:absolute;width:1px;height:20px;background:rgba(236,242,247,.38);transform:rotate(54deg);z-index:1}
+.brand-copy .logo{font-size:21px;letter-spacing:-.055em;font-weight:800;color:#f4f6f8}
+.brand-copy .logo span{color:var(--league-accent,#b9c8d6);font-weight:650}
+.brand-kicker{color:#9ba8b5;font-size:8px;letter-spacing:1.55px}
