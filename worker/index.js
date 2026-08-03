@@ -20,6 +20,36 @@ const X_CLUBS = [
   { team: "Beşiktaş", handle: "Besiktas", url: "https://x.com/Besiktas" },
   { team: "Trabzonspor", handle: "Trabzonspor", url: "https://x.com/Trabzonspor" },
 ];
+const makeXClubList = (pairs) => pairs.map(([team, handle]) => ({ team, handle, url: `https://x.com/${handle}` }));
+const X_CLUBS_BY_LEAGUE = Object.freeze({
+  "super-lig": X_CLUBS,
+  "champions-league": makeXClubList([
+    ["Arsenal", "Arsenal"], ["Bayern München", "FCBayern"], ["Liverpool", "LFC"], ["Tottenham Hotspur", "SpursOfficial"],
+    ["Barcelona", "FCBarcelona"], ["Chelsea", "ChelseaFC"], ["Sporting CP", "SportingCP"], ["Manchester City", "ManCity"],
+    ["Real Madrid", "realmadrid"], ["Inter", "Inter"], ["Paris Saint-Germain", "PSG_English"], ["Newcastle United", "NUFC"],
+    ["Juventus", "juventusfc"], ["Atlético Madrid", "Atleti"], ["Atalanta", "Atalanta_BC"], ["Bayer Leverkusen", "bayer04fussball"],
+  ]),
+  "europa-league": makeXClubList([
+    ["Roma", "OfficialASRoma"], ["Porto", "FCPorto"], ["Rangers", "RangersFC"], ["Fenerbahçe", "Fenerbahce"],
+    ["Galatasaray", "GalatasaraySK"], ["Real Betis", "RealBetis"], ["Lazio", "OfficialSSLazio"], ["Feyenoord", "Feyenoord"],
+    ["Lyon", "OL"], ["Ajax", "AFCAjax"], ["Braga", "SCBragaOficial"], ["Villarreal", "VillarrealCF"],
+    ["Freiburg", "scfreiburg"], ["Olympiacos", "olympiacosfc"], ["Trabzonspor", "Trabzonspor"], ["Beşiktaş", "Besiktas"],
+  ]),
+  "la-liga": makeXClubList([
+    ["Real Madrid", "realmadrid"], ["Barcelona", "FCBarcelona"], ["Atlético Madrid", "Atleti"], ["Athletic Club", "AthleticClub"],
+    ["Villarreal", "VillarrealCF"], ["Real Betis", "RealBetis"], ["Real Sociedad", "RealSociedad"], ["Sevilla", "SevillaFC"],
+    ["Valencia", "valenciacf"], ["Celta Vigo", "RCCelta"], ["Osasuna", "Osasuna"], ["Getafe", "GetafeCF"],
+    ["Rayo Vallecano", "RayoVallecano"], ["Mallorca", "RCD_Mallorca"], ["Girona", "GironaFC"], ["Espanyol", "RCDEspanyol"],
+    ["Levante", "LevanteUD"], ["Elche", "elchecf"], ["Alavés", "Alaves"], ["Real Oviedo", "RealOviedo"],
+  ]),
+  "premier-league": makeXClubList([
+    ["Liverpool", "LFC"], ["Arsenal", "Arsenal"], ["Manchester City", "ManCity"], ["Chelsea", "ChelseaFC"],
+    ["Tottenham Hotspur", "SpursOfficial"], ["Manchester United", "ManUtd"], ["Newcastle United", "NUFC"], ["Aston Villa", "AVFCOfficial"],
+    ["Brighton", "OfficialBHAFC"], ["Bournemouth", "afcbournemouth"], ["Crystal Palace", "CPFC"], ["Everton", "Everton"],
+    ["Fulham", "FulhamFC"], ["West Ham United", "WestHam"], ["Brentford", "BrentfordFC"], ["Wolverhampton Wanderers", "Wolves"],
+    ["Leeds United", "LUFC"], ["Sunderland", "SunderlandAFC"], ["Burnley", "BurnleyOfficial"], ["Hull City", "HullCity"],
+  ]),
+});
 const YOUTUBE_CHANNELS = [
   { name: "Sports Digitale", handle: "@sportsdigitale", id: "UCmEgRY1A2263UXrQhjDuU0Q", url: "https://www.youtube.com/@sportsdigitale" },
   { name: "HT Spor", handle: "@htspor", id: "UCK3mI2lsk3LSo8PBUc8JTSw", url: "https://www.youtube.com/@htspor" },
@@ -140,22 +170,26 @@ async function fetchXUsers(token, request, context) {
   const cached = await readEdgeCache(cache, cacheKey);
   if (cached) return cached.json();
 
-  const usernames = X_CLUBS.map((club) => club.handle).join(",");
-  const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}`, token);
+  const league = new URL(request.url).searchParams.get("league") || "super-lig";
+  const clubs = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
+  const usernames = clubs.map((club) => club.handle).join(",");
+  const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}&user.fields=verified,verified_type,profile_image_url`, token);
   const response = jsonResponse(lookup, 200, { "Cache-Control": X_USER_CACHE });
   writeEdgeCache(cache, cacheKey, response, context);
   return lookup;
 }
 
 async function fetchXClubFeed(token, request, context) {
+  const league = new URL(request.url).searchParams.get("league") || "super-lig";
+  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
   const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
-  const clubs = await Promise.all(X_CLUBS.map(async (club) => {
+  const clubs = await Promise.all(clubsForLeague.map(async (club) => {
     const user = users.get(club.handle.toLowerCase());
-    if (!user) return { ...club, post: null };
+    if (!user) return { ...club, post: null, account_found: false, verified: false };
     const params = new URLSearchParams({
-      max_results: "5",
+      max_results: "3",
       exclude: "replies,retweets",
       "tweet.fields": "created_at,public_metrics,attachments",
       expansions: "attachments.media_keys",
@@ -163,12 +197,14 @@ async function fetchXClubFeed(token, request, context) {
     });
     const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
     const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-    return normalizeXPost(club, timeline.data?.[0] || null, mediaByKey);
+    return { ...normalizeXPost(club, timeline.data?.[0] || null, mediaByKey), account_found: true, verified: Boolean(user.verified || user.verified_type), profile_image_url: user.profile_image_url || null };
   }));
 
   return {
     source: "x-api",
+    league,
     cost_profile: "media-rich-daily",
+    fetch_mode: "verified-club-latest-post-daily",
     updated_at: new Date().toISOString(),
     cache_ttl_seconds: 86400,
     clubs,
@@ -180,8 +216,12 @@ async function handleXClubFeed(request, env, context) {
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
   const cacheUrl = new URL("/api/social/x-media-v2", request.url);
+  const requestedLeague = cacheUrl.searchParams.get("league");
+  const league = requestedLeague || "super-lig";
+  if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const staleUrl = new URL("/api/social/x-media-stale-v2", request.url);
+  if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey);

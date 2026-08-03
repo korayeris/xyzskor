@@ -579,9 +579,10 @@ function selectFootballLeague(key){
 
 /* ===================== RESMÎ KULÜP X AKIŞI ===================== */
 function rankedXClubs(){
-  const orderedStandings=[...STANDINGS].sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity) || (b.goal_difference??-Infinity)-(a.goal_difference??-Infinity) || (b.goals_for??-Infinity)-(a.goals_for??-Infinity));
+  const sourceClubs=X_CLUBS_BY_LEAGUE?.[activeFootballLeague]||X_CLUBS;
+  const orderedStandings=standingRowsForActiveLeague().sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity) || (b.goal_difference??-Infinity)-(a.goal_difference??-Infinity) || (b.goals_for??-Infinity)-(a.goals_for??-Infinity));
   const rankByTeam=new Map(orderedStandings.map((row,index)=>[row.team,index+1]));
-  return X_CLUBS.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
+  return sourceClubs.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
     .sort((a,b)=>(a.leagueRank??99)-(b.leagueRank??99) || a.fallbackOrder-b.fallbackOrder);
 }
 function xPostDate(value){
@@ -606,7 +607,7 @@ function xPostMediaHTML(club,post,targetURL){
   }).join('')}</div>`;
 }
 function xPostCardHTML(club){
-  const rankLabel=club.leagueRank?`Süper Lig ${escapeHTML(club.leagueRank)}. · `:'';
+  const rankLabel=club.leagueRank?`${escapeHTML(competitionShortBySlug(activeFootballLeague))} ${escapeHTML(club.leagueRank)}. · `:'';
   const post=club.post||null;
   const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
@@ -617,23 +618,29 @@ function xPostCardHTML(club){
       <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
-    </div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısı hazır.</span></div>`;
+    </div>`:club.account_found===false?`<div class="club-social-pending"><strong>Resmî X hesabı doğrulanıyor</strong><span>Hesap kataloğu güncellenirken bu kulüp için bağlantı bekleniyor.</span></div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısı hazır.</span></div>`;
+  const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
   return `<article class="club-social-card ${mediaBody?'has-media':''}">
-    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong><span class="club-social-verified" aria-label="Resmî hesap">✓</span></span><small>${rankLabel}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">𝕏</span></header>
+    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${rankLabel}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">𝕏</span></header>
     <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;
 }
 let xClubPostsRequest=null;
 async function loadXClubPosts(){
   const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
-  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>Dört kulübün günlük akışı hazırlanıyor…</strong></div>`;
+  const label=competitionLabelBySlug(activeFootballLeague);
+  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>${escapeHTML(label)} kulüp akışı hazırlanıyor…</strong></div>`;
   try{
-    if(!xClubPostsRequest) xClubPostsRequest=fetch('/api/social/x-media-v2',{headers:{Accept:'application/json'}}).then(async response=>{
+    const requestedLeague=activeFootballLeague;
+    if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
+      const request=fetch('/api/social/x-media-v2'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
       return payload;
-    });
-    const payload=await xClubPostsRequest;
+      });
+      xClubPostsRequest={league:requestedLeague,promise:request};
+    }
+    const payload=await xClubPostsRequest.promise;
     const apiClubs=new Map(payload.clubs.map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
     stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('');
   }catch(error){
@@ -643,14 +650,7 @@ async function loadXClubPosts(){
 }
 function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
-  if(!isSuperLigScope()){
-    const stage=document.getElementById('clubSocialStage');
-    const title=document.getElementById('clubSocialTitle');
-    if(title) title.textContent=`${competitionLabelBySlug(activeFootballLeague)} gündemi`;
-    if(stage) stage.innerHTML=`<div class="club-social-loading"><strong>Resmî sosyal akış bekleniyor</strong><p>${escapeHTML(competitionLabelBySlug(activeFootballLeague))} kulüplerinin doğrulanmış hesapları bağlandığında son gönderiler burada görünecek.</p></div>`;
-    return;
-  }
-  const title=document.getElementById('clubSocialTitle'); if(title) title.textContent='Kulüp Gündemi';
+  const title=document.getElementById('clubSocialTitle'); if(title) title.textContent=`${competitionLabelBySlug(activeFootballLeague)} kulüp akışı`;
   loadXClubPosts();
 }
 function scrollClubSocial(direction){

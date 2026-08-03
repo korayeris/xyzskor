@@ -133,6 +133,36 @@ const X_CLUBS = [
   { team:'Beşiktaş', handle:'Besiktas', url:'https://x.com/Besiktas' },
   { team:'Trabzonspor', handle:'Trabzonspor', url:'https://x.com/Trabzonspor' }
 ];
+const makeXClubList = pairs => pairs.map(([team,handle])=>({team,handle,url:`https://x.com/${handle}`}));
+const X_CLUBS_BY_LEAGUE = Object.freeze({
+  'super-lig': X_CLUBS,
+  'champions-league': makeXClubList([
+    ['Arsenal','Arsenal'],['Bayern München','FCBayern'],['Liverpool','LFC'],['Tottenham Hotspur','SpursOfficial'],
+    ['Barcelona','FCBarcelona'],['Chelsea','ChelseaFC'],['Sporting CP','SportingCP'],['Manchester City','ManCity'],
+    ['Real Madrid','realmadrid'],['Inter','Inter'],['Paris Saint-Germain','PSG_English'],['Newcastle United','NUFC'],
+    ['Juventus','juventusfc'],['Atlético Madrid','Atleti'],['Atalanta','Atalanta_BC'],['Bayer Leverkusen','bayer04fussball']
+  ]),
+  'europa-league': makeXClubList([
+    ['Roma','OfficialASRoma'],['Porto','FCPorto'],['Rangers','RangersFC'],['Fenerbahçe','Fenerbahce'],
+    ['Galatasaray','GalatasaraySK'],['Real Betis','RealBetis'],['Lazio','OfficialSSLazio'],['Feyenoord','Feyenoord'],
+    ['Lyon','OL'],['Ajax','AFCAjax'],['Braga','SCBragaOficial'],['Villarreal','VillarrealCF'],
+    ['Freiburg','scfreiburg'],['Olympiacos','olympiacosfc'],['Trabzonspor','Trabzonspor'],['Beşiktaş','Besiktas']
+  ]),
+  'la-liga': makeXClubList([
+    ['Real Madrid','realmadrid'],['Barcelona','FCBarcelona'],['Atlético Madrid','Atleti'],['Athletic Club','AthleticClub'],
+    ['Villarreal','VillarrealCF'],['Real Betis','RealBetis'],['Real Sociedad','RealSociedad'],['Sevilla','SevillaFC'],
+    ['Valencia','valenciacf'],['Celta Vigo','RCCelta'],['Osasuna','Osasuna'],['Getafe','GetafeCF'],
+    ['Rayo Vallecano','RayoVallecano'],['Mallorca','RCD_Mallorca'],['Girona','GironaFC'],['Espanyol','RCDEspanyol'],
+    ['Levante','LevanteUD'],['Elche','elchecf'],['Alavés','Alaves'],['Real Oviedo','RealOviedo']
+  ]),
+  'premier-league': makeXClubList([
+    ['Liverpool','LFC'],['Arsenal','Arsenal'],['Manchester City','ManCity'],['Chelsea','ChelseaFC'],
+    ['Tottenham Hotspur','SpursOfficial'],['Manchester United','ManUtd'],['Newcastle United','NUFC'],['Aston Villa','AVFCOfficial'],
+    ['Brighton','OfficialBHAFC'],['Bournemouth','afcbournemouth'],['Crystal Palace','CPFC'],['Everton','Everton'],
+    ['Fulham','FulhamFC'],['West Ham United','WestHam'],['Brentford','BrentfordFC'],['Wolverhampton Wanderers','Wolves'],
+    ['Leeds United','LUFC'],['Sunderland','SunderlandAFC'],['Burnley','BurnleyOfficial'],['Hull City','HullCity']
+  ])
+});
 
 const HISTORIC_STANDINGS_2024_25 = [
   {team:'Galatasaray',played:36,won:30,drawn:5,lost:1,goals_for:91,goals_against:31,goal_difference:60,points:95,form:'WWWWW',zone:'champion'},
