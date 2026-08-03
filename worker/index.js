@@ -190,7 +190,7 @@ async function fetchXClubFeed(token, request, context) {
       const user = users.get(club.handle.toLowerCase());
       if (!user) return { ...club, post: null, account_found: false, verified: false };
       const params = new URLSearchParams({
-        max_results: "3",
+        max_results: "5",
         exclude: "replies,retweets",
         "tweet.fields": "created_at,public_metrics,attachments",
         expansions: "attachments.media_keys",
