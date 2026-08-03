@@ -527,7 +527,7 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
-    if (url.pathname === "/api/social/x") return handleXClubFeed(request, env, context);
+    if (["/api/social/x", "/api/social/x-media-v2"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;

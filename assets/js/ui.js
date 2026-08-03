@@ -407,7 +407,7 @@ async function loadXClubPosts(){
   const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
   stage.innerHTML=`<div class="club-social-loading"><span></span><strong>Dört kulübün günlük akışı hazırlanıyor…</strong></div>`;
   try{
-    if(!xClubPostsRequest) xClubPostsRequest=fetch('/api/social/x',{headers:{Accept:'application/json'}}).then(async response=>{
+    if(!xClubPostsRequest) xClubPostsRequest=fetch('/api/social/x-media-v2',{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
       return payload;

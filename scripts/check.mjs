@@ -134,7 +134,7 @@ assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
-assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x'/, 'X paylaşımları aynı alan adlı sunucu katmanından alınmalı.');
+assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x-media-v2'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
 assert.match(functionSource('renderClubSocial'), /loadXClubPosts\(\)/, 'Dört resmî kulüp akışı ara ekran olmadan otomatik yüklenmeli.');
 assert.match(workerSource, /env\.X_BEARER_TOKEN/, 'X Bearer Token yalnız sunucu ortamından okunmalı.');
 assert.match(workerSource, /s-maxage=86400/, 'X akışı 24 saat sunucu önbelleğinde tutulmalı.');
@@ -215,6 +215,7 @@ assert.match(functionSource('openAuth'), /authClose.*focus/, 'Auth açıldığı
 assert.match(functionSource('renderTicker'), /escapeHTML\(m\.ev\).*escapeHTML\(m\.konuk\)/s, 'Fikstür takım adları ticker HTML’ine kaçışla yazılmalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_HTML_START/, 'Production build gizli prototip HTML’ini ayıklamalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_JS_START/, 'Production build örnek market verisini ayıklamalı.');
+assert.match(buildScript, /createHash\("sha256"\)/, 'Production HTML değişen CSS ve JavaScript varlıklarını otomatik sürümlemeli.');
 
 const originalFetch = globalThis.fetch;
 const originalCaches = globalThis.caches;
@@ -270,7 +271,7 @@ try {
   assert.equal(healthPayload.checks.youtube_media, 'configured', 'Sağlık kontrolü YouTube secret değerini göstermeden yapılandırma durumunu vermeli.');
   assert.equal(healthPayload.checks.sportmonks_clubs, 'configured', 'Sağlık kontrolü Sportmonks secret değerini göstermeden yapılandırma durumunu vermeli.');
   assert.doesNotMatch(JSON.stringify(healthPayload), /test-token/, 'Sağlık kontrolü secret değerini sızdırmamalı.');
-  const missingToken = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), {}, { waitUntil() {} });
+  const missingToken = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), {}, { waitUntil() {} });
   assert.equal(missingToken.status, 503, 'X secret yokken sunucu açık bir yapılandırma hatası dönmeli.');
   const missingSportmonksToken = await worker.fetch(new Request('https://xyzskor.test/api/football/club?team=Galatasaray'), {}, { waitUntil() {} });
   assert.equal(missingSportmonksToken.status, 503, 'Sportmonks secret yokken kulüp merkezi açık bir yapılandırma hatası dönmeli.');
@@ -286,7 +287,7 @@ try {
   const cachedClubProfile = await worker.fetch(new Request('https://xyzskor.test/api/football/club?team=Galatasaray'), { SPORTMONKS_API_TOKEN:'sportmonks-test-token' }, context);
   assert.equal(cachedClubProfile.status, 200, 'Önbellekteki Sportmonks kulüp profili kullanılabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.sportmonks.com/')).length, sportmonksCallsAfterFirst, 'Tekrarlanan kulüp isteği Sportmonks kotasını yeniden tüketmemeli.');
-  const firstFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  const firstFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   const firstPayload = await firstFeed.json();
   await Promise.all(pendingCacheWrites);
   assert.equal(firstFeed.status, 200, 'X sunucu adaptörü başarılı JSON dönmeli.');
@@ -295,17 +296,17 @@ try {
   assert.equal(firstPayload.clubs[0].post.media[0].url, 'https://pbs.twimg.com/media/club-1.jpg', 'X gönderisinin gerçek görseli istemciye güvenli veri olarak dönmeli.');
   const xCallsAfterFirst = upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length;
   assert.equal(xCallsAfterFirst, 5, 'Günlük X yenilemesi bir kullanıcı ve dört paylaşım sorgusu yapmalı.');
-  const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(cachedFeed.status, 200, 'Önbellekteki X akışı kullanılabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, xCallsAfterFirst, 'İkinci istek 24 saatlik önbelleği aşmamalı.');
   socialCache.delete('https://xyzskor.test/api/social/x-media-v2');
-  const nextDayFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  const nextDayFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   await Promise.all(pendingCacheWrites);
   assert.equal(nextDayFeed.status, 200, 'Sonraki gün X akışı yeniden oluşturulabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, 9, 'Sonraki gün yalnız dört paylaşım sorgusu yapılmalı; kulüp kimlikleri tekrar okunmamalı.');
   socialCache.delete('https://xyzskor.test/api/social/x-media-v2');
   xCreditsDepleted = true;
-  const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
+  const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(staleFeed.status, 200, 'X kesintisinde son doğrulanmış akış kullanılmalı.');
   assert.equal(staleFeed.headers.get('X-Data-Stale'), 'true', 'Yedek akış açıkça eski veri olarak işaretlenmeli.');
   const missingYouTubeKey = await worker.fetch(new Request('https://xyzskor.test/api/media/youtube'), {}, context);

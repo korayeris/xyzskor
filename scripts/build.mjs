@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,13 +11,19 @@ await mkdir(resolve(dist, "server"), { recursive: true });
 await mkdir(resolve(dist, "client"), { recursive: true });
 
 const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
+const clientFingerprintSources = await Promise.all([
+  resolve(root, "assets", "css", "app.css"),
+  ...["data.js", "live.js", "match-center.js", "ui.js"].map((file) => resolve(root, "assets", "js", file)),
+].map((file) => readFile(file, "utf8")));
+const buildVersion = createHash("sha256").update([sourceHtml, ...clientFingerprintSources].join("\n")).digest("hex").slice(0, 10);
 const productionHtml = sourceHtml
   .replace(/\s*<!-- PRODUCTION_STRIP_LEGACY_HTML_START -->[\s\S]*?<!-- PRODUCTION_STRIP_LEGACY_HTML_END -->\s*/g, "\n");
+const versionedProductionHtml = productionHtml.replace(/\b(href|src)="(assets\/[^"?]+)(?:\?[^"#]*)?"/g, `$1="$2?v=${buildVersion}"`);
 
 if (productionHtml.includes("PRODUCTION_STRIP_LEGACY")) {
   throw new Error("Production HTML temizleme işaretleri eşleşmedi.");
 }
-await writeFile(resolve(dist, "client", "index.html"), productionHtml);
+await writeFile(resolve(dist, "client", "index.html"), versionedProductionHtml);
 await cp(resolve(root, "assets"), resolve(dist, "client", "assets"), { recursive: true });
 await cp(resolve(root, "legal"), resolve(dist, "client", "legal"), { recursive: true });
 
