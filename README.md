@@ -56,6 +56,7 @@ npm run build
 - `assets/js/ui.js`: Arayüz render zinciri ve başlangıç
 - `worker/index.js`: Statik yayın, güvenlik başlıkları ve 24 saat önbellekli X API katmanı
 - `docs/XYZSKOR-devir-teslim.md`: Mimari ve operasyon notları
+- `docs/professional-handoff-2026-08-03.md`: Profesyonel yazılımcıya teknik devir, satın alım/env/envanter ve mimari gerçeklik özeti
 - `docs/data-provider-architecture.md`: Değiştirilebilir API-Football/Sportmonks katmanı ve veri sınıflandırma sözleşmesi
 - `docs/provider-comparison-scorecard.csv`: 2–3 haftalık sağlayıcı karşılaştırma kayıt şablonu
 - `docs/supabase-migration-runbook.md`: Yedek, staging, migration ve yük testi yayın akışı

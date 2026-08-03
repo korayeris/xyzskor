@@ -3,6 +3,8 @@ const HTML_CACHE = "public, max-age=0, must-revalidate";
 const SOCIAL_CACHE = "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400";
 const SOCIAL_STALE_CACHE = "public, max-age=60, s-maxage=604800";
 const X_USER_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
+const X_PRESEASON_CACHE = "public, max-age=900, s-maxage=21600, stale-while-revalidate=86400";
+const X_PRESEASON_STALE_CACHE = "public, max-age=120, s-maxage=86400";
 const X_TIMEOUT_MS = 8000;
 const YOUTUBE_CACHE = "public, max-age=300, s-maxage=5400, stale-while-revalidate=21600";
 const YOUTUBE_STALE_CACHE = "public, max-age=60, s-maxage=86400";
@@ -14,6 +16,7 @@ const SEASON_CACHE = "public, max-age=120, s-maxage=900, stale-while-revalidate=
 const LIVE_API_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
 const SPORTMONKS_TIMEOUT_MS = 12000;
 let xFeedRefreshPromise = null;
+let xPreseasonRefreshPromise = null;
 let youtubeFeedRefreshPromise = null;
 const clubProfileRefreshes = new Map();
 const X_CLUBS = [
@@ -58,6 +61,25 @@ const X_CLUBS_BY_LEAGUE = Object.freeze({
     ["Leeds United", "LUFC"], ["Sunderland", "SunderlandAFC"], ["Burnley", "BurnleyOfficial"], ["Hull City", "HullCity"],
   ]),
 });
+const PRESEASON_KEYWORDS = [
+  "hazirlik",
+  "hazırlık",
+  "preseason",
+  "pre-season",
+  "friendly",
+  "friendlies",
+  "amistoso",
+  "amichevole",
+  "amical",
+  "test match",
+  "hazirlik maci",
+  "hazırlık maçı",
+  "kamp kadrosu",
+  "camp squad",
+  "matchday",
+  "play-off",
+  "playoff",
+];
 const YOUTUBE_CHANNELS = [
   { name: "Sports Digitale", handle: "@sportsdigitale", id: "UCmEgRY1A2263UXrQhjDuU0Q", url: "https://www.youtube.com/@sportsdigitale" },
   { name: "HT Spor", handle: "@htspor", id: "UCK3mI2lsk3LSo8PBUc8JTSw", url: "https://www.youtube.com/@htspor" },
@@ -171,6 +193,33 @@ function normalizeXPost(club, post, mediaByKey = new Map()) {
   };
 }
 
+function normalizeLooseText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("en-US");
+}
+
+function isPreseasonPost(post) {
+  const haystack = normalizeLooseText(`${post?.text || ""}`);
+  return PRESEASON_KEYWORDS.some((keyword) => haystack.includes(normalizeLooseText(keyword)));
+}
+
+function extractScoreline(text) {
+  const match = String(text || "").match(/(^|[^\d])(\d{1,2})\s*[-:–]\s*(\d{1,2})([^\d]|$)/);
+  if (!match) return null;
+  return `${match[2]}-${match[3]}`;
+}
+
+function preseasonLabel(post) {
+  const text = normalizeLooseText(post?.text || "");
+  if (extractScoreline(post?.text || "")) return "Son sonuc";
+  if (text.includes("matchday") || text.includes("bugun") || text.includes("today")) return "Mac gunu";
+  if (text.includes("camp") || text.includes("kamp")) return "Kamp";
+  if (text.includes("play-off") || text.includes("playoff")) return "Eslesme";
+  return "Hazirlik";
+}
+
 async function fetchXUsers(token, request, context) {
   const cacheUrl = new URL("/api/social/x-users-v1", request.url);
   const requestedLeague = new URL(request.url).searchParams.get("league");
@@ -231,6 +280,61 @@ async function fetchXClubFeed(token, request, context) {
   };
 }
 
+async function fetchXPreseasonFeed(token, request, context) {
+  const league = new URL(request.url).searchParams.get("league") || "super-lig";
+  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
+  const lookup = await fetchXUsers(token, request, context);
+  const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
+
+  const loadAccount = async (club) => {
+    try {
+      const user = users.get(club.handle.toLowerCase());
+      if (!user) return { ...club, preseason_post: null, account_found: false, verified: false };
+      const params = new URLSearchParams({
+        max_results: "10",
+        exclude: "replies,retweets",
+        "tweet.fields": "created_at,public_metrics,attachments",
+        expansions: "attachments.media_keys",
+        "media.fields": "media_key,type,url,preview_image_url,width,height,alt_text",
+      });
+      const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
+      const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
+      const preseasonPost = (timeline.data || []).find((post) => isPreseasonPost(post)) || null;
+      const normalized = normalizeXPost(club, preseasonPost, mediaByKey);
+      return {
+        ...club,
+        account_found: true,
+        verified: Boolean(user.verified || user.verified_type),
+        profile_image_url: user.profile_image_url || null,
+        preseason_post: normalized.post
+          ? {
+              ...normalized.post,
+              scoreline: extractScoreline(normalized.post.text),
+              label: preseasonLabel(normalized.post),
+            }
+          : null,
+      };
+    } catch (error) {
+      if (error?.status === 402) throw error;
+      return { ...club, preseason_post: null, account_found: true, verified: false, upstream_error: error?.status || "unavailable" };
+    }
+  };
+
+  const clubs = await Promise.all(clubsForLeague.map((club) => loadAccount(club)));
+  clubs.sort((a, b) => {
+    const aTime = a.preseason_post?.created_at ? new Date(a.preseason_post.created_at).getTime() : 0;
+    const bTime = b.preseason_post?.created_at ? new Date(b.preseason_post.created_at).getTime() : 0;
+    return bTime - aTime || String(a.team).localeCompare(String(b.team), "tr");
+  });
+  return {
+    source: "x-api",
+    league,
+    updated_at: new Date().toISOString(),
+    cache_ttl_seconds: 21600,
+    clubs,
+  };
+}
+
 async function handleXClubFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
@@ -270,6 +374,47 @@ async function handleXClubFeed(request, env, context) {
     return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "300" });
   } finally {
     xFeedRefreshPromise = null;
+  }
+}
+
+async function handleXPreseasonFeed(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
+
+  const cacheUrl = new URL("/api/social/x-preseason-v1", request.url);
+  const requestedLeague = cacheUrl.searchParams.get("league");
+  if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
+  const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const staleUrl = new URL("/api/social/x-preseason-stale-v1", request.url);
+  if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
+  const staleKey = new Request(staleUrl.toString(), { method: "GET" });
+  const cache = edgeCache();
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (cached) return cached;
+  const stale = await readEdgeCache(cache, staleKey);
+
+  try {
+    if (!xPreseasonRefreshPromise) xPreseasonRefreshPromise = fetchXPreseasonFeed(env.X_BEARER_TOKEN, request, context);
+    const payload = await xPreseasonRefreshPromise;
+    const response = jsonResponse(payload, 200, { "Cache-Control": X_PRESEASON_CACHE, "X-Data-Stale": "false" });
+    const staleResponse = jsonResponse(payload, 200, { "Cache-Control": X_PRESEASON_STALE_CACHE });
+    writeEdgeCache(cache, cacheKey, response, context);
+    writeEdgeCache(cache, staleKey, staleResponse, context);
+    return response;
+  } catch (error) {
+    if (stale) {
+      const headers = new Headers(stale.headers);
+      headers.set("Cache-Control", "public, max-age=120, s-maxage=900");
+      headers.set("Warning", '110 - "Response is stale"');
+      headers.set("X-Data-Stale", "true");
+      return new Response(stale.body, { status: 200, headers });
+    }
+    if (error?.status === 402) {
+      return jsonResponse({ error: "x_credits_depleted" }, 402, { "Cache-Control": "no-store" });
+    }
+    return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "900" });
+  } finally {
+    xPreseasonRefreshPromise = null;
   }
 }
 
@@ -840,6 +985,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (["/api/social/x", "/api/social/x-media-v2"].includes(url.pathname)) return handleXClubFeed(request, env, context);
+    if (url.pathname === "/api/social/x-preseason-v1") return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);

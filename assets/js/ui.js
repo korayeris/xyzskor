@@ -666,6 +666,61 @@ function scrollClubSocial(direction){
   const step=card?card.getBoundingClientRect().width+1:stage.clientWidth*.82;
   stage.scrollBy({left:(direction<0?-1:1)*step,behavior:'smooth'});
 }
+function preseasonCardHTML(club){
+  const post=club.preseason_post||null;
+  const targetURL=post?.url||club.url;
+  const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
+  const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
+  const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">${escapeHTML(post.label||'Hazırlık')}</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(post.text)}</p>${mediaBody}
+    <div class="club-social-meta preseason-social-meta" aria-label="Paylaşım etkileşimleri">
+      <span aria-label="${escapeHTML(xMetric(post.metrics?.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(post.metrics?.reply_count))}</span>
+      <span aria-label="${escapeHTML(xMetric(post.metrics?.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(post.metrics?.retweet_count))}</span>
+      <span aria-label="${escapeHTML(xMetric(post.metrics?.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(post.metrics?.like_count))}</span>
+      <span aria-label="${escapeHTML(xMetric(post.metrics?.impression_count))} görüntülenme"><i aria-hidden="true">◔</i>${escapeHTML(xMetric(post.metrics?.impression_count))}</span>
+    </div>`:`<div class="club-social-pending preseason-social-pending"><strong>Hazırlık maçı paylaşımı bulunamadı</strong><span>Resmî hesapta son kamp veya hazırlık maçı gönderisi düştüğünde burada görünür.</span></div>`;
+  return `<article class="club-social-card preseason-social-card ${mediaBody?'has-media':''}">
+    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · @${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">◎</span></header>
+    <div class="club-social-post preseason-social-post">${body}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük taranır'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
+  </article>`;
+}
+let preseasonPostsRequest=null;
+async function loadPreseasonPosts(){
+  const stage=document.getElementById('preseasonSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
+  const label=competitionLabelBySlug(activeFootballLeague);
+  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>${escapeHTML(label)} hazırlık maçı akışı yükleniyor…</strong></div>`;
+  try{
+    const requestedLeague=activeFootballLeague;
+    if(!preseasonPostsRequest||preseasonPostsRequest.league!==requestedLeague){
+      const request=fetch('/api/social/x-preseason-v1'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+        const payload=await response.json().catch(()=>null);
+        if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('Hazırlık maçı akışı hazır değil.');
+        return payload;
+      });
+      preseasonPostsRequest={league:requestedLeague,promise:request};
+    }
+    const payload=await preseasonPostsRequest.promise;
+    const apiClubs=new Map((payload.clubs||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
+    stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('');
+  }catch(_error){
+    preseasonPostsRequest=null;
+    stage.innerHTML=clubs.map(preseasonCardHTML).join('');
+  }
+}
+function renderPreseasonSocial(){
+  if(!document.getElementById('preseasonSocialSection')) return;
+  const label=competitionLabelBySlug(activeFootballLeague);
+  const clubs=rankedXClubs();
+  const title=document.getElementById('preseasonSocialTitle'); if(title) title.textContent=`${label} hazırlık maçı akışı`;
+  const kicker=document.getElementById('preseasonSocialKicker'); if(kicker) kicker.textContent=`HAZIRLIK MAÇLARI · ${competitionShortBySlug(activeFootballLeague)}`;
+  const description=document.getElementById('preseasonSocialDescription'); if(description) description.textContent=`${clubs.length} kulübün resmî hesaplarından kamp, hazırlık maçı ve son skor paylaşımları.`;
+  loadPreseasonPosts();
+}
+function scrollPreseasonSocial(direction){
+  const stage=document.getElementById('preseasonSocialStage'); if(!stage) return;
+  const card=stage.querySelector('.preseason-social-card,.club-social-card');
+  const step=card?card.getBoundingClientRect().width+1:stage.clientWidth*.82;
+  stage.scrollBy({left:(direction<0?-1:1)*step,behavior:'smooth'});
+}
 function cardMentionsFootballTeam(card, team){
   if(team==='Tümü') return true;
   const fields=[card.team,card.related_team,card.title,card.text,card.summary,card.spot,card.body,card.content].filter(Boolean).join(' ');
@@ -973,7 +1028,7 @@ function renderFootballStandingsCompact(){
   const label=activeFootballLeague==='super-lig'?'2024–25 final':competitionShortBySlug(activeFootballLeague);
   area.innerHTML=`<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
 }
-function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
+function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
