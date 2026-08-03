@@ -178,6 +178,7 @@ function footballEmpty(title, text){
 }
 let activeFootballSection='matches';
 let activeTransferCenterTab='confirmed';
+let activeTransferClub='all';
 function footballSectionHash(section){ return ({matches:'football',news:'agenda',clubs:'clubs',transfers:'transfers',standings:'standings'})[section] || 'football'; }
 function openFootballSection(section, button, updateUrl){
   const valid=['matches','news','clubs','transfers','standings'];
@@ -211,6 +212,17 @@ function renderLeagueClubs(){
 function standingFormHTML(form){
   return `<span class="standing-form" aria-label="Son beş maç">${String(form||'').split('').map(result=>`<i class="${result==='W'?'win':result==='D'?'draw':'loss'}" title="${result==='W'?'Galibiyet':result==='D'?'Beraberlik':'Mağlubiyet'}">${result==='W'?'✓':result==='D'?'−':'×'}</i>`).join('')}</span>`;
 }
+function renderTransferCenterFilters(){
+  const select=document.getElementById('transferClubFilter'); if(!select) return;
+  const clubs=SUPER_LIG_CLUBS_2026_27.map(club=>club.team).sort((a,b)=>String(a).localeCompare(String(b),'tr'));
+  select.innerHTML=`<option value="all">Tüm kulüpler</option>${clubs.map(team=>`<option value="${escapeHTML(team)}">${escapeHTML(team)}</option>`).join('')}`;
+  select.value=clubs.includes(activeTransferClub)?activeTransferClub:'all';
+}
+function setTransferClubFilter(team){
+  const clubs=SUPER_LIG_CLUBS_2026_27.map(club=>club.team);
+  activeTransferClub=clubs.includes(team)?team:'all';
+  renderTransferCenter();
+}
 function renderHistoricStandings(){
   const area=document.getElementById('historicStandingsTable'); if(!area) return;
   area.innerHTML=`<div class="historic-standings-head"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AG</span><span>YG</span><span>AV</span><strong>P</strong><span>Son 5</span></div><div class="historic-standings-body">${HISTORIC_STANDINGS_2024_25.map((row,index)=>`<div class="historic-standing-row ${row.zone||''}">
@@ -221,9 +233,11 @@ function renderTransferCenter(){
   const area=document.getElementById('transferCenterList');
   const summary=document.getElementById('transferCenterSummary');
   if(!area || !summary) return;
-  const records=TRANSFER_CENTER_DATA[activeTransferCenterTab]||[];
+  renderTransferCenterFilters();
+  const allRecords=TRANSFER_CENTER_DATA[activeTransferCenterTab]||[];
+  const records=activeTransferClub==='all'?allRecords:allRecords.filter(item=>item.to===activeTransferClub || item.from===activeTransferClub);
   const descriptions={confirmed:'Kulüp veya kayıt kaynağında tamamlanmış olarak yer alan işlemler.',talks:'Yetkili açıklamasına dayanan, henüz sonuçlanmamış süreçler.',rumours:'Resmî olmayan iddialar. Her kayıt kaynak ve doğrulama durumu ile birlikte gösterilir.'};
-  summary.innerHTML=`<strong>${records.length} kayıt</strong><span>${descriptions[activeTransferCenterTab]}</span>`;
+  summary.innerHTML=`<strong>${records.length} kayıt · ${activeTransferClub==='all'?'Tüm Süper Lig':escapeHTML(activeTransferClub)}</strong><span>${descriptions[activeTransferCenterTab]}</span>`;
   area.innerHTML=records.length?records.map((item,index)=>`<article class="transfer-center-row ${item.status==='Kulüp yalanladı'?'denied':''}">
     <span class="transfer-center-index">${String(index+1).padStart(2,'0')}</span>
     <span class="transfer-player-monogram" aria-hidden="true">${escapeHTML(item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join(''))}</span>

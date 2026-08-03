@@ -178,13 +178,26 @@
       <div><span class="football-data-eyebrow">2026 YAZ TRANSFER MERKEZİ</span><h1 id="footballTransfersViewTitle">Transfer dosyası</h1><p>Resmî işlemler, devam eden görüşmeler ve kaynaklı söylentiler birbirine karıştırılmadan gösterilir.</p></div>
       <div class="transfer-window-card"><span>Dönemin kapanmasına</span><strong id="transferCenterCountdown">—</strong><small>4 Eylül 2026 · 23.59</small></div>
     </header>
-    <div class="transfer-center-tabs" role="tablist" aria-label="Transfer durumları">
-      <button class="transfer-center-tab active" type="button" role="tab" aria-selected="true" data-transfer-view="confirmed" onclick="setTransferCenterTab('confirmed',this)">Gerçekleşenler</button>
-      <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="talks" onclick="setTransferCenterTab('talks',this)">Görüşmeler</button>
-      <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="rumours" onclick="setTransferCenterTab('rumours',this)">Rumours</button>
+    <div class="transfer-center-workspace">
+      <aside class="transfer-filter-panel" aria-label="Süper Lig transfer filtreleri">
+        <h2>Düzenle</h2>
+        <div class="transfer-filter-group"><span>Lig</span><div class="transfer-filter-static">Trendyol Süper Lig <span>TR</span></div></div>
+        <div class="transfer-filter-group"><label for="transferClubFilter">Kulüp</label><select id="transferClubFilter" onchange="setTransferClubFilter(this.value)"><option value="all">Tüm kulüpler</option></select></div>
+        <div class="transfer-filter-group"><span>Veri standardı</span><strong>Kaynak bağlantılı</strong><small>Resmî işlem ve iddia aynı etiketi kullanmaz.</small></div>
+        <div class="transfer-filter-group"><span>Dönem</span><strong>2026 yaz</strong><small>Yalnız Süper Lig hareketleri</small></div>
+        <button class="transfer-filter-reset" type="button" onclick="setTransferClubFilter('all')">Filtreyi temizle</button>
+      </aside>
+      <div class="transfer-center-main">
+        <div class="transfer-center-tabs" role="tablist" aria-label="Transfer durumları">
+          <button class="transfer-center-tab active" type="button" role="tab" aria-selected="true" data-transfer-view="confirmed" onclick="setTransferCenterTab('confirmed',this)">Gerçekleşenler</button>
+          <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="talks" onclick="setTransferCenterTab('talks',this)">Görüşmeler</button>
+          <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="rumours" onclick="setTransferCenterTab('rumours',this)">Söylentiler</button>
+        </div>
+        <div class="transfer-center-summary" id="transferCenterSummary"></div>
+        <div class="transfer-center-columns" aria-hidden="true"><span>#</span><span>Oyuncu</span><span>Nereden → Nereye</span><span>Bedel / Durum</span><span>Kaynak</span></div>
+        <div class="transfer-center-list" id="transferCenterList" aria-live="polite"></div>
+      </div>
     </div>
-    <div class="transfer-center-summary" id="transferCenterSummary"></div>
-    <div class="transfer-center-list" id="transferCenterList" aria-live="polite"></div>
   </section>
 
   <section class="football-data-view standings-view" id="footballStandingsView" aria-labelledby="footballStandingsViewTitle" hidden>
