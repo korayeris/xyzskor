@@ -41,6 +41,7 @@ type SeasonInfo = {
 };
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
+const DEFAULT_SELECTED_LEAGUE_IDS = ["600", "2", "5", "564", "8"];
 
 function allowedOrigin(request: Request): string {
   const origin = request.headers.get("origin") || "";
@@ -129,10 +130,11 @@ function sportmonksCurrentScore(scores: any[], participantId: unknown): number |
 }
 
 function sportmonksLeagueIds(): string[] {
-  return (Deno.env.get("SPORTMONKS_LEAGUE_IDS") || "")
+  const configured = (Deno.env.get("SPORTMONKS_LEAGUE_IDS") || "")
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
+  return configured.length ? configured : DEFAULT_SELECTED_LEAGUE_IDS;
 }
 
 async function sportmonksGet(url: URL): Promise<any> {
@@ -395,7 +397,7 @@ Deno.serve(async (request) => {
   try { body = await request.json(); } catch (_) { body = {}; }
   const requestedScope = String(body?.scope || "selected-leagues");
   const scope = requestedScope === "turkey-super-lig-season" || requestedScope === "selected-leagues-season" ? "selected-leagues-season" : "selected-leagues";
-  const provider = (Deno.env.get("FOOTBALL_DATA_PROVIDER") || "api-football").trim().toLowerCase();
+  const provider = (Deno.env.get("FOOTBALL_DATA_PROVIDER") || "sportmonks").trim().toLowerCase();
   const refreshSecret = Deno.env.get("LIVE_REFRESH_SECRET") || "";
   const force = Boolean(refreshSecret) && request.headers.get("x-refresh-key") === refreshSecret;
   const cached = await readCache(scope);
