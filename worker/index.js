@@ -165,6 +165,8 @@ function normalizeXPost(club, post, mediaByKey = new Map()) {
 
 async function fetchXUsers(token, request, context) {
   const cacheUrl = new URL("/api/social/x-users-v1", request.url);
+  const requestedLeague = new URL(request.url).searchParams.get("league");
+  if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey);
