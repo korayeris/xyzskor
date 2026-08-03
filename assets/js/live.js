@@ -48,7 +48,11 @@ function parseHash(){
   const h = (location.hash || '').replace('#','');
   if(h.startsWith('week/')) return { type:'week', value: parseInt(h.split('/')[1],10) };
   if(h.startsWith('match/')) return { type:'match', value: h.split('/')[1] };
-  if(['football','story','stories','live','matches','standings'].includes(h)) return { type:'product', value:'football' };
+  if(h==='agenda') return { type:'football-section', value:'news' };
+  if(h==='clubs') return { type:'football-section', value:'clubs' };
+  if(h==='standings') return { type:'football-section', value:'standings' };
+  if(h==='transfers' || h.startsWith('transfers/')) return { type:'football-section', value:'transfers', sub:h.split('/')[1] || 'confirmed' };
+  if(['football','story','stories','live','matches'].includes(h)) return { type:'product', value:'football' };
   if(['predict','league','leader','rewards','profile'].includes(h)) return { type:'product', value:'predict' };
   return null;
 }
@@ -75,6 +79,7 @@ window.addEventListener('hashchange', ()=>{
   const parsed = parseHash();
   if(parsed && parsed.type==='match'){ openMatchCenter(parsed.value, false); }
   else if(parsed && parsed.type==='week'){ if(mcMatchId) closeMatchCenter(false); goToWeek(parsed.value, false); }
+  else if(parsed && parsed.type==='football-section'){ if(mcMatchId) closeMatchCenter(false); switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
   else if(parsed && parsed.type==='product'){ if(mcMatchId) closeMatchCenter(false); switchMainTab(parsed.value, false); }
   else { if(mcMatchId) closeMatchCenter(false); }
 });
@@ -232,6 +237,7 @@ function switchMainTab(name, updateUrl){
   document.getElementById('tabBtnPredict').classList.toggle('active', product==='predict');
   const footballContextNav=document.getElementById('footballContextNav');
   if(footballContextNav) footballContextNav.hidden=product!=='football';
+  if(product==='football' && updateUrl!==false && name==='football' && typeof openFootballSection==='function') openFootballSection('matches',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
   if(updateUrl !== false && ['football','predict'].includes(name)) updateHash(product);
   updateMobileNavActive();

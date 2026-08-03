@@ -26,17 +26,18 @@
 <div class="live-ticker"><div class="ticker-inner" id="liveTicker"></div></div>
 
 <nav class="football-context-nav" id="footballContextNav" aria-label="Futbol bölümleri">
-  <button class="football-context-tab active" type="button" onclick="scrollFootballSection('footballMatchesSection',this)">Maçlar</button>
-  <button class="football-context-tab" type="button" onclick="scrollFootballSection('footballNewsSection',this)">Gündem</button>
-  <button class="football-context-tab" type="button" onclick="scrollFootballSection('clubSocialSection',this)">Kulüpler</button>
-  <button class="football-context-tab" type="button" onclick="scrollFootballSection('footballTransferSection',this)">Transfer</button>
-  <button class="football-context-tab" type="button" onclick="scrollFootballSection('footballStandingsSummary',this)">Puan Durumu</button>
+  <button class="football-context-tab active" data-football-route="matches" type="button" onclick="openFootballSection('matches',this)">Maçlar</button>
+  <button class="football-context-tab" data-football-route="news" type="button" onclick="openFootballSection('news',this)">Gündem</button>
+  <button class="football-context-tab" data-football-route="clubs" type="button" onclick="openFootballSection('clubs',this)">Kulüpler</button>
+  <button class="football-context-tab" data-football-route="transfers" type="button" onclick="openFootballSection('transfers',this)">Transfer</button>
+  <button class="football-context-tab" data-football-route="standings" type="button" onclick="openFootballSection('standings',this)">Puan Durumu</button>
 </nav>
 
 <div class="wrap">
 
 <!-- ===================== TAB 1: HAFTANIN HİKAYESİ ===================== -->
 <div class="tabpage active" id="page-story">
+  <div id="footballOverviewView">
   <section class="portal-sponsor-banner" id="portalSponsorBanner" aria-label="Ödül sponsoru alanı"></section>
   <div id="weekSelector" class="week-selector-bar"></div>
   <div class="data-status-line" id="dataStatusLine"></div>
@@ -162,6 +163,39 @@
       </div>
     </aside>
   </div>
+  </div>
+
+  <section class="football-data-view" id="footballClubsView" aria-labelledby="footballClubsViewTitle" hidden>
+    <header class="football-data-hero clubs-hero">
+      <div><span class="football-data-eyebrow">2026–27 · 18 KULÜP</span><h1 id="footballClubsViewTitle">Süper Lig kulüpleri</h1><p>Şehir, stadyum ve kapasite bilgileriyle yeni sezonun tüm katılımcıları.</p></div>
+      <a class="football-source-link" href="https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig" target="_blank" rel="noopener noreferrer">Sezon kaynağı ↗</a>
+    </header>
+    <div class="league-clubs-grid" id="leagueClubsGrid"></div>
+  </section>
+
+  <section class="football-data-view" id="footballTransfersView" aria-labelledby="footballTransfersViewTitle" hidden>
+    <header class="football-data-hero transfer-center-hero">
+      <div><span class="football-data-eyebrow">2026 YAZ TRANSFER MERKEZİ</span><h1 id="footballTransfersViewTitle">Transfer dosyası</h1><p>Resmî işlemler, devam eden görüşmeler ve kaynaklı söylentiler birbirine karıştırılmadan gösterilir.</p></div>
+      <div class="transfer-window-card"><span>Dönemin kapanmasına</span><strong id="transferCenterCountdown">—</strong><small>4 Eylül 2026 · 23.59</small></div>
+    </header>
+    <div class="transfer-center-tabs" role="tablist" aria-label="Transfer durumları">
+      <button class="transfer-center-tab active" type="button" role="tab" aria-selected="true" data-transfer-view="confirmed" onclick="setTransferCenterTab('confirmed',this)">Gerçekleşenler</button>
+      <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="talks" onclick="setTransferCenterTab('talks',this)">Görüşmeler</button>
+      <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="rumours" onclick="setTransferCenterTab('rumours',this)">Rumours</button>
+    </div>
+    <div class="transfer-center-summary" id="transferCenterSummary"></div>
+    <div class="transfer-center-list" id="transferCenterList" aria-live="polite"></div>
+  </section>
+
+  <section class="football-data-view standings-view" id="footballStandingsView" aria-labelledby="footballStandingsViewTitle" hidden>
+    <header class="football-data-hero standings-hero">
+      <div><span class="football-data-eyebrow">TAMAMLANAN SEZON · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p>2024–25 Trendyol Süper Lig Şamil Ekinci Sezonu final sıralaması.</p></div>
+      <a class="football-source-link" href="https://www.tff.org/default.aspx?2586pg=47&amp;ftxtID=47737&amp;pageID=471" target="_blank" rel="noopener noreferrer">TFF kaynağı ↗</a>
+    </header>
+    <div class="standings-season-card"><span>Sezon</span><strong>2024–25</strong><small>38. hafta · final</small></div>
+    <div class="historic-standings-shell" id="historicStandingsTable"></div>
+    <div class="standings-legend" aria-label="Puan durumu renk açıklamaları"><span class="champion">Şampiyon</span><span class="europe">Avrupa kupaları</span><span class="relegated">Küme düşenler</span></div>
+  </section>
 </div>
 
 <!-- ===================== TAB 2: TAHMİN LİGİ ===================== -->

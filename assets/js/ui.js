@@ -176,11 +176,71 @@ function matchRowHTML(m){
 function footballEmpty(title, text){
   return `<div class="football-empty"><strong>${escapeHTML(title)}</strong>${escapeHTML(text)}</div>`;
 }
-function scrollFootballSection(id, button){
-  const target=document.getElementById(id); if(!target) return;
-  document.querySelectorAll('.football-context-tab').forEach(tab=>tab.classList.toggle('active',tab===button));
-  target.scrollIntoView({behavior:'smooth',block:'start'});
+let activeFootballSection='matches';
+let activeTransferCenterTab='confirmed';
+function footballSectionHash(section){ return ({matches:'football',news:'agenda',clubs:'clubs',transfers:'transfers',standings:'standings'})[section] || 'football'; }
+function openFootballSection(section, button, updateUrl){
+  const valid=['matches','news','clubs','transfers','standings'];
+  activeFootballSection=valid.includes(section)?section:'matches';
+  const dedicated=['clubs','transfers','standings'].includes(activeFootballSection);
+  const overview=document.getElementById('footballOverviewView');
+  if(overview) overview.hidden=dedicated;
+  const views={clubs:'footballClubsView',transfers:'footballTransfersView',standings:'footballStandingsView'};
+  Object.entries(views).forEach(([key,id])=>{ const view=document.getElementById(id); if(view) view.hidden=key!==activeFootballSection; });
+  document.querySelectorAll('.football-context-tab').forEach(tab=>tab.classList.toggle('active',tab.dataset.footballRoute===activeFootballSection));
+  renderFootballDataViews();
+  if(updateUrl!==false) updateHash(footballSectionHash(activeFootballSection));
+  const target=dedicated ? document.getElementById(views[activeFootballSection]) : document.getElementById(activeFootballSection==='news'?'footballNewsSection':'footballMatchesSection');
+  if(target) requestAnimationFrame(()=>target.scrollIntoView({behavior:'smooth',block:'start'}));
 }
+function scrollFootballSection(id, button){
+  const route={footballMatchesSection:'matches',footballNewsSection:'news',clubSocialSection:'clubs',footballTransferSection:'transfers',footballStandingsSummary:'standings'}[id];
+  if(route){ openFootballSection(route,button); return; }
+  const target=document.getElementById(id); if(target) target.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderLeagueClubs(){
+  const area=document.getElementById('leagueClubsGrid'); if(!area) return;
+  area.innerHTML=SUPER_LIG_CLUBS_2026_27.map((club,index)=>`<article class="league-club-card">
+    <div class="league-club-rank">${String(index+1).padStart(2,'0')}</div>
+    ${crestHTML(club.team,'lg')}
+    <div class="league-club-copy"><div class="league-club-name">${escapeHTML(club.display||club.team)}${club.promoted?'<span class="promoted-chip">Yeni</span>':''}</div><div class="league-club-city">${escapeHTML(club.city)}</div></div>
+    <div class="league-club-stadium"><span>Stadyum</span><strong>${escapeHTML(club.stadium)}</strong><small>${escapeHTML(club.capacity)} kapasite</small></div>
+  </article>`).join('');
+}
+function standingFormHTML(form){
+  return `<span class="standing-form" aria-label="Son beş maç">${String(form||'').split('').map(result=>`<i class="${result==='W'?'win':result==='D'?'draw':'loss'}" title="${result==='W'?'Galibiyet':result==='D'?'Beraberlik':'Mağlubiyet'}">${result==='W'?'✓':result==='D'?'−':'×'}</i>`).join('')}</span>`;
+}
+function renderHistoricStandings(){
+  const area=document.getElementById('historicStandingsTable'); if(!area) return;
+  area.innerHTML=`<div class="historic-standings-head"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AG</span><span>YG</span><span>AV</span><strong>P</strong><span>Son 5</span></div><div class="historic-standings-body">${HISTORIC_STANDINGS_2024_25.map((row,index)=>`<div class="historic-standing-row ${row.zone||''}">
+    <span class="historic-rank">${index+1}</span><span class="historic-team">${crestHTML(row.team,'xs')}<b>${escapeHTML(row.team)}</b></span><span>${row.played}</span><span>${row.won}</span><span>${row.drawn}</span><span>${row.lost}</span><span>${row.goals_for}</span><span>${row.goals_against}</span><span>${row.goal_difference>0?'+':''}${row.goal_difference}</span><strong>${row.points}</strong>${standingFormHTML(row.form)}
+  </div>`).join('')}</div>`;
+}
+function renderTransferCenter(){
+  const area=document.getElementById('transferCenterList');
+  const summary=document.getElementById('transferCenterSummary');
+  if(!area || !summary) return;
+  const records=TRANSFER_CENTER_DATA[activeTransferCenterTab]||[];
+  const descriptions={confirmed:'Kulüp veya kayıt kaynağında tamamlanmış olarak yer alan işlemler.',talks:'Yetkili açıklamasına dayanan, henüz sonuçlanmamış süreçler.',rumours:'Resmî olmayan iddialar. Her kayıt kaynak ve doğrulama durumu ile birlikte gösterilir.'};
+  summary.innerHTML=`<strong>${records.length} kayıt</strong><span>${descriptions[activeTransferCenterTab]}</span>`;
+  area.innerHTML=records.length?records.map((item,index)=>`<article class="transfer-center-row ${item.status==='Kulüp yalanladı'?'denied':''}">
+    <span class="transfer-center-index">${String(index+1).padStart(2,'0')}</span>
+    <span class="transfer-player-monogram" aria-hidden="true">${escapeHTML(item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join(''))}</span>
+    <div class="transfer-center-player"><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.detail||item.status)}</span></div>
+    <div class="transfer-route-block"><span>${escapeHTML(item.from)}</span><b aria-hidden="true">→</b><span class="transfer-destination">${crestHTML(item.to,'xs')} ${escapeHTML(item.to)}</span></div>
+    <div class="transfer-center-fee"><strong>${escapeHTML(item.fee)}</strong><span class="transfer-status-chip ${activeTransferCenterTab}">${escapeHTML(item.status)}</span></div>
+    <a class="transfer-record-source" href="${escapeHTML(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(item.source)} ↗</a>
+  </article>`).join(''):footballEmpty('Kayıt bulunmuyor','Bu durum için kaynaklı bir transfer kaydı henüz eklenmedi.');
+  document.querySelectorAll('.transfer-center-tab').forEach(tab=>{ const active=tab.dataset.transferView===activeTransferCenterTab; tab.classList.toggle('active',active); tab.setAttribute('aria-selected',active?'true':'false'); });
+}
+function setTransferCenterTab(name, button, updateUrl){
+  if(!TRANSFER_CENTER_DATA[name]) return;
+  activeTransferCenterTab=name;
+  renderTransferCenter();
+  if(updateUrl!==false) updateHash(`transfers/${name}`);
+}
+function renderFootballDataViews(){ renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
 function footballTeamOptions(){
   const names=[...MATCHES.flatMap(match=>[match.ev,match.konuk]),...STANDINGS.map(row=>row.team)].filter(Boolean);
   return [...new Set(names)].sort((a,b)=>String(a).localeCompare(String(b),'tr')).slice(0,18);
@@ -373,20 +433,20 @@ function renderFootballNews(){
 }
 function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
-  if(DATA_ERRORS.weekly_stories){ area.innerHTML=footballEmpty('Transfer akışı alınamadı','Doğrulanmamış veya yerel örnek içerik gösterilmiyor.'); return; }
   const transfers=publishedStoryCards().map((card,index)=>({card,index})).filter(entry=>['transfer','transfer_development'].includes(String(entry.card.category || entry.card.type || '').toLocaleLowerCase('tr-TR')));
-  if(!transfers.length){ area.innerHTML=footballEmpty('Doğrulanmış transfer gelişmesi yok','Kaynak ve durum bilgisi olan bir kayıt yayımlandığında bu alan güncellenecek.'); return; }
+  if(!transfers.length){
+    area.innerHTML=`<div class="transfer-compact-list">${TRANSFER_CENTER_DATA.confirmed.slice(0,3).map(item=>`<div class="transfer-compact-row"><span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
+    return;
+  }
   area.innerHTML=`<div class="football-news-list">${transfers.slice(0,4).map(({card,index})=>{ const confidence=storyConfidence(card); return `<article class="football-news-card" tabindex="0" role="button" data-news-index="${index}" aria-label="${escapeHTML(card.title||'Transfer haberi')} haberini aç">${storyIdentityHTML(card)}<h3>${escapeHTML(card.title || 'Transfer gelişmesi')}</h3>${card.text?`<p>${escapeHTML(card.text)}</p>`:''}<div class="football-news-meta">${confidence?`<span class="confidence-chip ${confidence.tone}">${confidence.label}</span>`:''}${card.source?`<span>Kaynak: ${escapeHTML(card.source)}</span>`:''}${card.verified_at?`<span>${escapeHTML(fmtEditorialDate(card.verified_at))}</span>`:''}</div></article>`; }).join('')}</div>`;
   area.querySelectorAll('[data-news-index]').forEach(article=>{ article.onclick=()=>openNewsDetail(Number(article.dataset.newsIndex)); article.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openNewsDetail(Number(article.dataset.newsIndex));} }; });
 }
 function renderFootballStandingsCompact(){
   const area=document.getElementById('footballStandingsCompact'); if(!area) return;
-  if(DATA_ERRORS.league_standings){ area.innerHTML=footballEmpty('Puan durumu alınamadı','Diğer Futbol içerikleri kullanılabilir.'); return; }
-  if(!STANDINGS.length){ area.innerHTML=footballEmpty('Puan durumu yok','Sağlayıcıdan yayınlanmış tablo henüz bulunmuyor.'); return; }
-  const rows=[...STANDINGS].sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity)).slice(0,5);
-  area.innerHTML=`<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>Takım</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${escapeHTML(row.team)}</span><span>${row.played==null?'—':escapeHTML(row.played)}</span><b>${row.points==null?'—':escapeHTML(row.points)}</b></div>`).join('')}</div>`;
+  const rows=HISTORIC_STANDINGS_2024_25.slice(0,5);
+  area.innerHTML=`<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>2024–25 final</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
 }
-function renderFootballHome(){ renderPortalSponsor(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); }
+function renderFootballHome(){ renderPortalSponsor(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
@@ -930,6 +990,7 @@ async function boot(){
     }
     renderAll();
     if(parsed && parsed.type==='match'){ openMatchCenter(parsed.value, false); }
+    else if(parsed && parsed.type==='football-section'){ switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
     else if(parsed && parsed.type==='product'){ switchMainTab(parsed.value, false); }
   }catch(e){
     console.error('[XYZSkor] boot() veri yükleme başarısız:', e);

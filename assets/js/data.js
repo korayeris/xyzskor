@@ -55,6 +55,72 @@ const X_CLUBS = [
   { team:'Beşiktaş', handle:'Besiktas', url:'https://x.com/Besiktas' },
   { team:'Trabzonspor', handle:'Trabzonspor', url:'https://x.com/Trabzonspor' }
 ];
+
+const HISTORIC_STANDINGS_2024_25 = [
+  {team:'Galatasaray',played:36,won:30,drawn:5,lost:1,goals_for:91,goals_against:31,goal_difference:60,points:95,form:'WWWWW',zone:'champion'},
+  {team:'Fenerbahçe',played:36,won:26,drawn:6,lost:4,goals_for:90,goals_against:39,goal_difference:51,points:84,form:'LWWLW',zone:'europe'},
+  {team:'Samsunspor',played:36,won:19,drawn:7,lost:10,goals_for:55,goals_against:41,goal_difference:14,points:64,form:'WWWDW',zone:'europe'},
+  {team:'Beşiktaş',played:36,won:17,drawn:11,lost:8,goals_for:59,goals_against:36,goal_difference:23,points:62,form:'WWDLW',zone:'europe'},
+  {team:'Başakşehir',played:36,won:16,drawn:6,lost:14,goals_for:60,goals_against:56,goal_difference:4,points:54,form:'WLWLL',zone:'europe'},
+  {team:'Eyüpspor',played:36,won:15,drawn:8,lost:13,goals_for:53,goals_against:47,goal_difference:6,points:53,form:'LLLLW'},
+  {team:'Trabzonspor',played:36,won:13,drawn:12,lost:11,goals_for:58,goals_against:45,goal_difference:13,points:51,form:'LLDDW'},
+  {team:'Göztepe',played:36,won:13,drawn:11,lost:12,goals_for:59,goals_against:50,goal_difference:9,points:50,form:'WDLLW'},
+  {team:'Çaykur Rizespor',played:36,won:15,drawn:4,lost:17,goals_for:52,goals_against:58,goal_difference:-6,points:49,form:'WLWWW'},
+  {team:'Kasımpaşa',played:36,won:11,drawn:14,lost:11,goals_for:62,goals_against:63,goal_difference:-1,points:47,form:'DWLDL'},
+  {team:'Konyaspor',played:36,won:13,drawn:7,lost:16,goals_for:45,goals_against:50,goal_difference:-5,points:46,form:'WLWLL'},
+  {team:'Alanyaspor',played:36,won:12,drawn:9,lost:15,goals_for:43,goals_against:50,goal_difference:-7,points:45,form:'WDDWW'},
+  {team:'Kayserispor',played:36,won:11,drawn:12,lost:13,goals_for:45,goals_against:57,goal_difference:-12,points:45,form:'WWLDL'},
+  {team:'Gaziantep FK',played:36,won:12,drawn:9,lost:15,goals_for:45,goals_against:50,goal_difference:-5,points:45,form:'LLDDD'},
+  {team:'Antalyaspor',played:36,won:12,drawn:8,lost:16,goals_for:37,goals_against:62,goal_difference:-25,points:44,form:'WLDLL'},
+  {team:'Bodrum FK',played:36,won:9,drawn:10,lost:17,goals_for:26,goals_against:43,goal_difference:-17,points:37,form:'LDDDL',zone:'relegated'},
+  {team:'Sivasspor',played:36,won:9,drawn:8,lost:19,goals_for:44,goals_against:60,goal_difference:-16,points:35,form:'WLDLL',zone:'relegated'},
+  {team:'Hatayspor',played:36,won:6,drawn:8,lost:22,goals_for:47,goals_against:74,goal_difference:-27,points:26,form:'LDWWL',zone:'relegated'},
+  {team:'Adana Demirspor',played:36,won:3,drawn:5,lost:28,goals_for:34,goals_against:92,goal_difference:-58,points:2,form:'LLLWD',zone:'relegated'}
+];
+
+const SUPER_LIG_CLUBS_2026_27 = [
+  {team:'Alanyaspor',city:'Antalya · Alanya',stadium:'Alanya Oba Stadyumu',capacity:'9.789'},
+  {team:'Amed Sportif Faaliyetler',display:'Amed SFK',city:'Diyarbakır · Kayapınar',stadium:'Diyarbakır Stadyumu',capacity:'30.480',promoted:true},
+  {team:'Beşiktaş',city:'İstanbul · Beşiktaş',stadium:'Beşiktaş Park',capacity:'42.593'},
+  {team:'Çaykur Rizespor',city:'Rize',stadium:'Çaykur Didi Stadyumu',capacity:'15.332'},
+  {team:'Çorum FK',city:'Çorum',stadium:'Çorum Şehir Stadyumu',capacity:'15.000',promoted:true},
+  {team:'Erzurumspor FK',city:'Erzurum · Yakutiye',stadium:'Kâzım Karabekir Stadyumu',capacity:'21.374',promoted:true},
+  {team:'Eyüpspor',city:'İstanbul · Eyüpsultan',stadium:'Recep Tayyip Erdoğan Stadyumu',capacity:'14.234'},
+  {team:'Fenerbahçe',city:'İstanbul · Kadıköy',stadium:'Şükrü Saracoğlu Stadyumu',capacity:'47.430'},
+  {team:'Galatasaray',city:'İstanbul · Sarıyer',stadium:'Ali Sami Yen Spor Kompleksi',capacity:'53.798'},
+  {team:'Gaziantep FK',city:'Gaziantep · Şehitkamil',stadium:'Gaziantep Stadyumu',capacity:'33.502'},
+  {team:'Gençlerbirliği',city:'Ankara · Yenimahalle',stadium:'Eryaman Stadyumu',capacity:'20.672'},
+  {team:'Göztepe',city:'İzmir · Konak',stadium:'Gürsel Aksel Stadyumu',capacity:'25.035'},
+  {team:'Başakşehir',city:'İstanbul · Başakşehir',stadium:'Başakşehir Fatih Terim Stadyumu',capacity:'17.319'},
+  {team:'Kasımpaşa',city:'İstanbul · Beyoğlu',stadium:'Recep Tayyip Erdoğan Stadyumu',capacity:'14.234'},
+  {team:'Kocaelispor',city:'Kocaeli · İzmit',stadium:'Kocaeli Stadyumu',capacity:'34.829'},
+  {team:'Konyaspor',city:'Konya · Selçuklu',stadium:'Konya Büyükşehir Bld. Stadyumu',capacity:'42.000'},
+  {team:'Samsunspor',city:'Samsun · Canik',stadium:'Samsun 19 Mayıs Stadyumu',capacity:'33.919'},
+  {team:'Trabzonspor',city:'Trabzon · Ortahisar',stadium:'Şenol Güneş Spor Kompleksi',capacity:'41.461'}
+];
+
+const TRANSFER_CENTER_DATA = {
+  confirmed:[
+    {name:'Mason Greenwood',from:'Marsilya',to:'Fenerbahçe',fee:'€39 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Orkun Kökçü',from:'Benfica',to:'Beşiktaş',fee:'€30 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Leandro Trossard',from:'Arsenal',to:'Beşiktaş',fee:'€18 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Vedat Muriqi',from:'Mallorca',to:'Fenerbahçe',fee:'€15,5 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Nathan Aké',from:'Manchester City',to:'Fenerbahçe',fee:'€8,17 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Kassoum Ouattara',from:'Monaco',to:'Beşiktaş',fee:'€8 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Alexander Nübel',from:'Bayern Münih',to:'Beşiktaş',fee:'€6,25 M',status:'Resmî işlem',source:'2026–27 Süper Lig transferleri',sourceUrl:'https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig_transferleri'},
+    {name:'Metehan Mimaroğlu',from:'Açıklanmadı',to:'Trabzonspor',fee:'Açıklanmadı',status:'Kulüp kadrosunda',source:'Anadolu Ajansı · 16 Temmuz 2026',sourceUrl:'https://www.aa.com.tr/tr/spor/trabzonspor-teknik-direktoru-fatih-tekke-transferde-son-bir-iki-hamlemiz-daha-olacak/4000657'}
+  ],
+  talks:[
+    {name:'Trabzonspor’un son 1–2 hamlesi',from:'Pozisyon açıklanmadı',to:'Trabzonspor',fee:'Görüşmeler sürüyor',status:'Teknik direktör açıklaması',detail:'Fatih Tekke, yönetimin kadroya bir veya iki takviye için çalışmalarını sürdürdüğünü açıkladı.',source:'Anadolu Ajansı · 16 Temmuz 2026',sourceUrl:'https://www.aa.com.tr/tr/spor/trabzonspor-teknik-direktoru-fatih-tekke-transferde-son-bir-iki-hamlemiz-daha-olacak/4000657'}
+  ],
+  rumours:[
+    {name:'Can Uzun',from:'Eintracht Frankfurt',to:'Galatasaray',fee:'Bedel açıklanmadı',status:'Rumour',detail:'29 Temmuz tarihli dış basın iddiası; kulüp açıklaması bulunmuyor.',source:'Fussball Europa · 29 Temmuz 2026',sourceUrl:'https://www.fussballeuropa.com/team/galatasaray/transfer-geruechte'},
+    {name:'Jhon Lucumí',from:'Bologna',to:'Galatasaray',fee:'Bedel açıklanmadı',status:'Rumour',detail:'26 Temmuz tarihli dış basın iddiası; resmî transfer değildir.',source:'Fussball Europa · 26 Temmuz 2026',sourceUrl:'https://www.fussballeuropa.com/team/galatasaray/transfer-geruechte'},
+    {name:'Mathys Tel',from:'Tottenham',to:'Galatasaray',fee:'Bedel açıklanmadı',status:'Rumour',detail:'18 Temmuz tarihli dış basın iddiası; doğrulama bekliyor.',source:'Fussball Europa · 18 Temmuz 2026',sourceUrl:'https://www.fussballeuropa.com/team/galatasaray/transfer-geruechte'},
+    {name:'Bruno Fernandes',from:'Manchester United',to:'Galatasaray',fee:'Bedel açıklanmadı',status:'Rumour',detail:'30 Haziran tarihli dış basın iddiası; resmî açıklama yok.',source:'Fussball Europa · 30 Haziran 2026',sourceUrl:'https://www.fussballeuropa.com/team/galatasaray/transfer-geruechte'},
+    {name:'Rafael Leão',from:'Milan',to:'Fenerbahçe',fee:'—',status:'Kulüp yalanladı',detail:'Fenerbahçe oyuncu veya kulübüyle temas kurulmadığını açıkladı.',source:'Fenerbahçe açıklaması · 25 Temmuz 2026',sourceUrl:'https://football-italia.net/official-fenerbahce-deny-offer-milan-leao/'}
+  ]
+};
 /* ===================== CACHE (Supabase'ten yüklenen veri) ===================== */
 /* PRODUCTION_STRIP_LEGACY_JS_START */
 const MYTHOS_PRODUCTS = {
@@ -91,15 +157,15 @@ function selectMythosTeam(team){ activeMythosTeam=team; renderMythosProducts(); 
 const MARKET_DATA = {
   transfers: [
     {name:'Mason Greenwood', initials:'MG', photo:'https://images.fotmob.com/image_resources/playerimages/950473.png', from:'Marsilya', to:'Fenerbahçe', fee:'€39 M'},
-    {name:'Sidiki Chérif', initials:'SC', photo:'https://images.fotmob.com/image_resources/playerimages/1524069.png', from:'Angers', to:'Fenerbahçe', fee:'€18 M'},
+    {name:'Orkun Kökçü', initials:'OK', photo:'https://images.fotmob.com/image_resources/playerimages/935409.png', from:'Benfica', to:'Beşiktaş', fee:'€30 M'},
+    {name:'Leandro Trossard', initials:'LT', from:'Arsenal', to:'Beşiktaş', fee:'€18 M'},
     {name:'Vedat Muriqi', initials:'VM', photo:'https://images.fotmob.com/image_resources/playerimages/517052.png', from:'Mallorca', to:'Fenerbahçe', fee:'€15,5 M'},
-    {name:'Aral Şimşir', initials:'AŞ', photo:'https://images.fotmob.com/image_resources/playerimages/1126769.png', from:'Midtjylland', to:'Trabzonspor', fee:'€13 M'},
-    {name:'Noah Saviolo', initials:'NS', photo:'https://images.fotmob.com/image_resources/playerimages/1793475.png', from:'Vitória SC', to:'Trabzonspor', fee:'€8,5 M'}
+    {name:'Nathan Aké', initials:'NA', from:'Manchester City', to:'Fenerbahçe', fee:'€8,17 M'}
   ],
   watchlist: [
-    {name:'Darwin Núñez', initials:'DN', photo:'https://images.fotmob.com/image_resources/playerimages/950561.png', route:'Al-Hilal → Beşiktaş', status:'Yakın takip', tone:'hot'},
-    {name:'Dušan Vlahović', initials:'DV', photo:'https://images.fotmob.com/image_resources/playerimages/737857.png', route:'Serbest → Beşiktaş', status:'Fırsat hedefi', tone:'watch'},
-    {name:'Mohamed Salah', initials:'MS', photo:'https://images.fotmob.com/image_resources/playerimages/292462.png', route:'Liverpool → Beşiktaş', status:'Rafa kaldırıldı', tone:'shelved'}
+    {name:'Can Uzun', initials:'CU', route:'Frankfurt → Galatasaray', status:'Rumour', tone:'hot'},
+    {name:'Jhon Lucumí', initials:'JL', route:'Bologna → Galatasaray', status:'Rumour', tone:'watch'},
+    {name:'Rafael Leão', initials:'RL', route:'Milan → Fenerbahçe', status:'Kulüp yalanladı', tone:'shelved'}
   ],
   performers: [
     {name:'Marco Asensio', initials:'MA', photo:'https://images.fotmob.com/image_resources/playerimages/498033.png', meta:'Fenerbahçe · Hücum', rating:'7,81'},
@@ -118,19 +184,20 @@ function renderMarketPulse(){
   if(watchlist) watchlist.innerHTML = MARKET_DATA.watchlist.map(p => `<div class="rumor-row">${marketPhoto(p)}<div><div class="rumor-title">${p.name}</div><div class="rumor-route">${p.route}</div></div><span class="status-chip ${p.tone}">${p.status}</span></div>`).join('');
   if(performers) performers.innerHTML = MARKET_DATA.performers.map((p,i) => `<div class="performance-row">${marketPhoto(p)}<div><div class="performance-name">${i+1}. ${p.name}</div><div class="performance-meta">${p.meta}</div></div><span class="rating-pill">${p.rating}</span></div>`).join('');
 }
+/* PRODUCTION_STRIP_LEGACY_JS_END */
+
 let transferCountdownHandle = null;
 function updateTransferCountdown(){
-  const el=document.getElementById('transferCountdown'); if(!el) return;
+  const target=document.getElementById('transferCenterCountdown'); if(!target) return;
   const remaining=new Date('2026-09-05T00:00:00+03:00').getTime()-Date.now();
-  if(remaining<=0){ el.textContent='DÖNEM KAPANDI'; return; }
+  if(remaining<=0){ target.textContent='DÖNEM KAPANDI'; return; }
   const days=Math.floor(remaining/86400000), hours=Math.floor((remaining%86400000)/3600000), minutes=Math.floor((remaining%3600000)/60000), seconds=Math.floor((remaining%60000)/1000);
-  el.textContent=`${days}G ${String(hours).padStart(2,'0')}S ${String(minutes).padStart(2,'0')}D ${String(seconds).padStart(2,'0')}SN`;
+  target.textContent=`${days}G ${String(hours).padStart(2,'0')}S ${String(minutes).padStart(2,'0')}D ${String(seconds).padStart(2,'0')}SN`;
 }
 function startTransferCountdown(){
   updateTransferCountdown();
   if(!transferCountdownHandle) transferCountdownHandle=setInterval(updateTransferCountdown,1000);
 }
-/* PRODUCTION_STRIP_LEGACY_JS_END */
 
 let MATCHES = [];
 let ANALYSIS = {};
