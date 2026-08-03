@@ -339,7 +339,58 @@ function setTransferCenterTab(name, button, updateUrl){
   renderTransferCenter();
   if(updateUrl!==false) updateHash(`transfers/${name}`);
 }
-function renderFootballDataViews(){ renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
+function sportmonksStatusLabel(status){
+  return status==='wired' ? 'Baglandi' : status==='ready' ? 'Hazir' : 'Sezon baslayinca';
+}
+function sportmonksStatusText(status){
+  return status==='wired' ? 'Sitede alani hazir; veri katmani bagli.' : status==='ready' ? 'Plan ve kota yonetimi icin hazir.' : 'Mac haftasi verisi geldikce otomatik dolacak.';
+}
+function sportmonksModuleCardHTML(item, compact=false){
+  return `<article class="sportmonks-data-card ${escapeHTML(item.status)}">
+    <div class="sportmonks-data-card-top"><span>${escapeHTML(item.group)}</span><b>${escapeHTML(sportmonksStatusLabel(item.status))}</b></div>
+    <h3>${escapeHTML(item.title)}</h3>
+    <p>${escapeHTML(item.description)}</p>
+    ${compact?'':`<small>${escapeHTML(item.destination)} modulu</small>`}
+  </article>`;
+}
+function renderSportmonksHub(){
+  const hub=document.getElementById('sportmonksDataHub'); if(!hub) return;
+  const rows=SPORTMONKS_DATA_MODULES || [];
+  const wired=rows.filter(item=>item.status==='wired').length;
+  const ready=rows.filter(item=>item.status==='ready').length;
+  const season=rows.filter(item=>item.status==='season').length;
+  hub.innerHTML=`<header class="sportmonks-data-head">
+    <div><span class="sportmonks-eyebrow">SPORTMONKS DATA LAYER</span><h2 id="sportmonksDataHubTitle">Sezon baslayinca dolacak canli veri alanlari</h2><p>Bu alanlar tahmin veya fake veri basmaz. Saglayicidan kayit geldikce mac, kulup, oyuncu ve lig panellerine otomatik dagitilir.</p></div>
+    <div class="sportmonks-plan-card"><span>Starter plan</span><strong>5 lig / 2.000 cagri</strong><small>entity basina saatlik limit</small></div>
+  </header>
+  <div class="sportmonks-metrics"><article><b>${wired}</b><span>bagli modul</span></article><article><b>${ready}</b><span>altyapi hazir</span></article><article><b>${season}</b><span>sezon verisi bekliyor</span></article></div>
+  <div class="sportmonks-data-grid">${rows.map(item=>sportmonksModuleCardHTML(item)).join('')}</div>`;
+}
+function ensureSportmonksSectionPanel(id, afterSelector){
+  let panel=document.getElementById(id);
+  if(panel) return panel;
+  const anchor=document.querySelector(afterSelector);
+  if(!anchor || !anchor.parentElement) return null;
+  panel=document.createElement('div');
+  panel.id=id;
+  panel.className='sportmonks-section-panel';
+  anchor.insertAdjacentElement('afterend',panel);
+  return panel;
+}
+function renderSportmonksSectionPanel(id, area, title, copy){
+  const viewByPanel={matchesSportmonksPanel:'footballMatchesView',clubsSportmonksPanel:'footballClubsView',standingsSportmonksPanel:'footballStandingsView'};
+  const panel=ensureSportmonksSectionPanel(id, `#${viewByPanel[id]} .football-data-hero`);
+  if(!panel) return;
+  const rows=(SPORTMONKS_DATA_MODULES||[]).filter(item=>item.area===area);
+  panel.innerHTML=`<div class="sportmonks-section-copy"><span>Sportmonks kapsam alani</span><strong>${escapeHTML(title)}</strong><p>${escapeHTML(copy)}</p></div><div class="sportmonks-section-list">${rows.map(item=>sportmonksModuleCardHTML(item,true)).join('')}</div>`;
+}
+function renderSportmonksPanels(){
+  renderSportmonksHub();
+  renderSportmonksSectionPanel('matchesSportmonksPanel','matches','Mac merkezi veri slotlari','Fikstur, canli skor, olay akisi, resmi ilk 11, eksikler ve mac istatistikleri bu sayfaya baglanacak.');
+  renderSportmonksSectionPanel('clubsSportmonksPanel','clubs','Kulup ve oyuncu veri slotlari','Arma, kadro, oyuncu profili, teknik direktor, stadyum ve yol tarifi bilgileri kulup merkezinde toplanacak.');
+  renderSportmonksSectionPanel('standingsSportmonksPanel','standings','Lig tablosu veri slotlari','Puan durumu, form, ic/dis saha ve gol kralligi sezon basladiginda bu tabloya eklenecek.');
+}
+function renderFootballDataViews(){ renderSportmonksPanels(); renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
 function footballTeamOptions(){
   const names=[...MATCHES.flatMap(match=>[match.ev,match.konuk]),...STANDINGS.map(row=>row.team)].filter(Boolean);
   return [...new Set(names)].sort((a,b)=>String(a).localeCompare(String(b),'tr')).slice(0,18);
