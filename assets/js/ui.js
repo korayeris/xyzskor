@@ -364,6 +364,18 @@ function setTransferCenterTab(name, button, updateUrl){
   if(updateUrl!==false) updateHash(`transfers/${name}`);
 }
 function renderFootballDataViews(){ renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
+let leagueTransitionTimer = null;
+function playFootballLeagueTransition(fromKey, toKey){
+  if(!document.body || !toKey || fromKey===toKey) return;
+  const transitionClasses = SELECTED_COMPETITIONS.flatMap(item=>[`league-transition-from-${item.key}`,`league-transition-to-${item.key}`]);
+  document.body.classList.remove('league-switching', ...transitionClasses);
+  if(leagueTransitionTimer) clearTimeout(leagueTransitionTimer);
+  document.body.classList.add('league-switching', `league-transition-from-${fromKey||'super-lig'}`, `league-transition-to-${toKey}`);
+  leagueTransitionTimer = setTimeout(()=>{
+    document.body.classList.remove('league-switching', ...transitionClasses);
+    leagueTransitionTimer = null;
+  }, 980);
+}
 function applyFootballLeagueTheme(){
   if(!document.body) return;
   const classes = SELECTED_COMPETITIONS.map(item=>`league-theme-${item.key}`);
@@ -428,8 +440,10 @@ function renderMatchesLeagueFilters(){
   renderFootballLeaguePickerInto(document.getElementById('matchesLeagueFilters'));
 }
 function selectFootballLeague(key){
+  const previousLeague=activeFootballLeague;
   activeFootballLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'super-lig';
   activeFootballTeam='Tümü';
+  playFootballLeagueTransition(previousLeague, activeFootballLeague);
   applyFootballLeagueTheme();
   const weeks=getAvailableWeeks();
   if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];

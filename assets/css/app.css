@@ -1255,6 +1255,110 @@ body.league-theme-premier-league .football-context-tab.active{
   color:#06100b!important;
   background:var(--league-accent)!important;
 }
+body.league-switching{overflow-x:hidden}
+body.league-switching::after{
+  content:"";
+  position:fixed;
+  inset:-18vh -18vw;
+  z-index:9998;
+  pointer-events:none;
+  opacity:0;
+  transform:translateX(-110%) skewX(-10deg);
+  will-change:transform,opacity,filter;
+}
+body.league-switching .football-league-command{
+  animation:leagueCommandPulse .78s cubic-bezier(.2,.85,.18,1);
+}
+.football-top-league-list button{
+  position:relative;
+  overflow:hidden;
+}
+.football-top-league-list button.active::after{
+  content:"";
+  position:absolute;
+  left:18%;
+  right:18%;
+  bottom:5px;
+  height:2px;
+  border-radius:999px;
+  background:var(--league-accent,#f05a65);
+  box-shadow:0 0 18px var(--league-accent,#f05a65);
+  animation:leagueActiveRail .68s cubic-bezier(.2,.85,.18,1);
+}
+body.league-transition-to-champions-league::after{
+  background:
+    radial-gradient(circle at 20% 28%,rgba(255,255,255,.92) 0 1px,transparent 2px),
+    radial-gradient(circle at 44% 18%,rgba(255,255,255,.62) 0 1px,transparent 2px),
+    radial-gradient(circle at 70% 35%,rgba(255,255,255,.76) 0 1px,transparent 2px),
+    radial-gradient(circle at 82% 62%,rgba(255,255,255,.54) 0 1px,transparent 2px),
+    radial-gradient(circle at 52% 74%,rgba(255,255,255,.82) 0 1px,transparent 2px),
+    radial-gradient(circle at 50% 50%,rgba(88,179,255,.48),transparent 34%),
+    linear-gradient(112deg,transparent 0 22%,rgba(18,78,183,.92) 34%,rgba(3,14,54,.96) 58%,rgba(77,174,255,.52) 70%,transparent 82%),
+    linear-gradient(90deg,transparent,#06133e,transparent);
+  animation:leagueUclSweep .92s cubic-bezier(.15,.82,.22,1);
+  filter:saturate(1.25);
+}
+body.league-transition-to-premier-league::after{
+  background:
+    radial-gradient(circle at 34% 44%,rgba(0,255,135,.62),transparent 22%),
+    radial-gradient(circle at 68% 36%,rgba(198,0,255,.68),transparent 24%),
+    repeating-linear-gradient(118deg,transparent 0 20px,rgba(255,255,255,.08) 21px 22px,transparent 23px 44px),
+    linear-gradient(112deg,transparent 0 18%,rgba(45,0,80,.92) 30%,rgba(0,255,135,.82) 51%,rgba(198,0,255,.88) 66%,transparent 82%);
+  animation:leagueElectricSweep .88s cubic-bezier(.16,.86,.22,1);
+  mix-blend-mode:screen;
+}
+body.league-transition-to-super-lig::after{
+  background:
+    radial-gradient(circle at 42% 48%,rgba(243,209,90,.42),transparent 24%),
+    linear-gradient(112deg,transparent 0 24%,rgba(215,25,32,.93) 36%,rgba(23,17,22,.96) 55%,rgba(243,209,90,.54) 70%,transparent 84%);
+  animation:leagueSlashSweep .82s cubic-bezier(.18,.78,.24,1);
+}
+body.league-transition-to-europa-league::after{
+  background:
+    radial-gradient(circle at 54% 46%,rgba(255,194,71,.5),transparent 25%),
+    linear-gradient(112deg,transparent 0 22%,rgba(255,122,26,.92) 35%,rgba(36,26,18,.96) 58%,rgba(255,194,71,.55) 72%,transparent 84%);
+  animation:leagueSlashSweep .82s cubic-bezier(.18,.78,.24,1);
+}
+body.league-transition-to-la-liga::after{
+  background:
+    radial-gradient(circle at 38% 42%,rgba(255,210,61,.46),transparent 24%),
+    linear-gradient(112deg,transparent 0 20%,rgba(255,64,90,.9) 34%,rgba(36,28,32,.96) 58%,rgba(255,210,61,.48) 72%,transparent 84%);
+  animation:leagueSlashSweep .82s cubic-bezier(.18,.78,.24,1);
+}
+body.league-transition-to-all::after{
+  background:
+    radial-gradient(circle at 52% 46%,rgba(143,150,163,.45),transparent 26%),
+    linear-gradient(112deg,transparent 0 22%,rgba(58,63,71,.92) 36%,rgba(24,26,30,.96) 58%,rgba(240,90,101,.35) 72%,transparent 84%);
+  animation:leagueSlashSweep .82s cubic-bezier(.18,.78,.24,1);
+}
+@keyframes leagueUclSweep{
+  0%{opacity:0;transform:translateX(-112%) skewX(-12deg) scale(.98);filter:blur(10px) saturate(1.1)}
+  22%{opacity:.98}
+  52%{opacity:.92;transform:translateX(0) skewX(-8deg) scale(1);filter:blur(0) saturate(1.35)}
+  100%{opacity:0;transform:translateX(112%) skewX(-8deg) scale(1.02);filter:blur(12px) saturate(1.05)}
+}
+@keyframes leagueElectricSweep{
+  0%{opacity:0;transform:translateX(-110%) skewX(-16deg);filter:blur(14px) hue-rotate(-20deg)}
+  18%{opacity:.86}
+  44%{opacity:.94;transform:translateX(-4%) skewX(-12deg);filter:blur(1px) hue-rotate(18deg)}
+  100%{opacity:0;transform:translateX(112%) skewX(-10deg);filter:blur(16px) hue-rotate(0)}
+}
+@keyframes leagueSlashSweep{
+  0%{opacity:0;transform:translateX(-112%) skewX(-14deg);filter:blur(12px)}
+  24%{opacity:.82}
+  50%{opacity:.9;transform:translateX(-2%) skewX(-10deg);filter:blur(0)}
+  100%{opacity:0;transform:translateX(112%) skewX(-8deg);filter:blur(14px)}
+}
+@keyframes leagueCommandPulse{
+  0%{box-shadow:0 18px 34px rgba(0,0,0,.18),inset 0 0 0 0 color-mix(in srgb,var(--league-accent) 0%,transparent)}
+  38%{box-shadow:0 20px 42px rgba(0,0,0,.24),inset 0 0 0 1px color-mix(in srgb,var(--league-accent) 58%,transparent)}
+  100%{box-shadow:0 18px 34px rgba(0,0,0,.18),inset 0 0 0 0 color-mix(in srgb,var(--league-accent) 0%,transparent)}
+}
+@keyframes leagueActiveRail{
+  0%{transform:scaleX(.2);opacity:0}
+  45%{transform:scaleX(1.08);opacity:1}
+  100%{transform:scaleX(1);opacity:1}
+}
 @media(max-width:767px){
   body[class*="league-theme-"] .global-header{background:linear-gradient(90deg,var(--league-nav),var(--league-nav-2))!important}
   body[class*="league-theme-"] .football-context-nav{background:linear-gradient(90deg,var(--league-nav-2),var(--league-raised))!important}
@@ -1275,4 +1379,8 @@ body.league-theme-premier-league .football-context-tab.active{
     border-color:var(--league-line)!important;
     background:linear-gradient(145deg,var(--league-panel),color-mix(in srgb,var(--league-panel) 74%,#000 26%))!important;
   }
+}
+@media(prefers-reduced-motion:reduce){
+  body.league-switching::after{display:none!important}
+  body.league-switching .football-league-command,.football-top-league-list button.active::after{animation:none!important}
 }
