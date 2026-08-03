@@ -42,6 +42,14 @@ type SeasonInfo = {
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
 const DEFAULT_SELECTED_LEAGUE_IDS = ["600", "2", "5", "564", "8"];
+const SELECTED_LEAGUE_IDS_BY_KEY: Record<string, string[]> = {
+  "super-lig": ["600"],
+  "champions-league": ["2"],
+  "europa-league": ["5"],
+  "la-liga": ["564"],
+  "premier-league": ["8"],
+  "all": DEFAULT_SELECTED_LEAGUE_IDS,
+};
 
 function allowedOrigin(request: Request): string {
   const origin = request.headers.get("origin") || "";
@@ -137,6 +145,14 @@ function sportmonksLeagueIds(): string[] {
   return configured.length ? configured : DEFAULT_SELECTED_LEAGUE_IDS;
 }
 
+function sportmonksLeagueIdsForSelection(selection: unknown): string[] {
+  const configured = sportmonksLeagueIds();
+  const requested = String(selection || "super-lig").trim().toLowerCase();
+  const target = SELECTED_LEAGUE_IDS_BY_KEY[requested] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
+  const allowed = target.filter((id) => configured.includes(id));
+  return allowed.length ? allowed : target;
+}
+
 async function sportmonksGet(url: URL): Promise<any> {
   url.searchParams.set("api_token", requireSecret("SPORTMONKS_API_TOKEN"));
   const upstream = await fetch(url);
@@ -145,8 +161,7 @@ async function sportmonksGet(url: URL): Promise<any> {
   return payload;
 }
 
-async function sportmonksAdapter(): Promise<ProviderResult> {
-  const leagueIds = sportmonksLeagueIds();
+async function sportmonksAdapter(leagueIds = sportmonksLeagueIds()): Promise<ProviderResult> {
   if (!leagueIds.length) throw new Error("SPORTMONKS_LEAGUE_IDS yapılandırılmamış.");
   const url = new URL("https://api.sportmonks.com/v3/football/livescores/inplay");
   url.searchParams.set("include", "participants;scores;league;state");
@@ -240,8 +255,7 @@ async function currentSportmonksSeasonInfo(leagueId: string): Promise<SeasonInfo
   };
 }
 
-async function syncSportmonksSeason(): Promise<SeasonSyncResult> {
-  const leagueIds = sportmonksLeagueIds();
+async function syncSportmonksSeason(leagueIds = sportmonksLeagueIds()): Promise<SeasonSyncResult> {
   if (!leagueIds.length) throw new Error("SPORTMONKS_LEAGUE_IDS yapılandırılmamış.");
   const matchRows: any[] = [];
   const resultRows: any[] = [];
@@ -396,20 +410,23 @@ Deno.serve(async (request) => {
   let body: any = {};
   try { body = await request.json(); } catch (_) { body = {}; }
   const requestedScope = String(body?.scope || "selected-leagues");
-  const scope = requestedScope === "turkey-super-lig-season" || requestedScope === "selected-leagues-season" ? "selected-leagues-season" : "selected-leagues";
+  const baseScope = requestedScope === "turkey-super-lig-season" || requestedScope === "selected-leagues-season" ? "selected-leagues-season" : "selected-leagues";
+  const requestedLeague = String(body?.league || body?.league_key || body?.competition || "super-lig");
+  const selectedLeagueIds = sportmonksLeagueIdsForSelection(requestedLeague);
+  const scope = `${baseScope}:${selectedLeagueIds.join("-")}`;
   const provider = (Deno.env.get("FOOTBALL_DATA_PROVIDER") || "sportmonks").trim().toLowerCase();
   const refreshSecret = Deno.env.get("LIVE_REFRESH_SECRET") || "";
   const force = Boolean(refreshSecret) && request.headers.get("x-refresh-key") === refreshSecret;
   const cached = await readCache(scope);
 
-  if (scope === "selected-leagues-season") {
+  if (baseScope === "selected-leagues-season") {
     const seasonTtl = envSeconds("SEASON_CACHE_SECONDS", 21600, 300, 86400);
     if (!force && cached?.payload && new Date(cached.expires_at).getTime() > Date.now()) {
       return response(request, { ...cached.payload, stale:false }, 200, cacheControlFor(seasonTtl));
     }
     try {
       if (provider !== "sportmonks") throw new Error("Sezon senkronizasyonu için Sportmonks etkin olmalıdır.");
-      const seasonResult = await syncSportmonksSeason();
+      const seasonResult = await syncSportmonksSeason(selectedLeagueIds);
       await writeCache(scope, provider, seasonResult, seasonTtl);
       return response(request, { ...seasonResult, stale:false }, 200, cacheControlFor(seasonTtl));
     } catch (error) {
@@ -434,7 +451,7 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const result = provider === "sportmonks" ? await sportmonksAdapter() : await apiFootballAdapter();
+    const result = provider === "sportmonks" ? await sportmonksAdapter(selectedLeagueIds) : await apiFootballAdapter();
     const ttlSeconds = ttlForResult(result);
     if (provider === "sportmonks") await persistFinishedLiveMatches(result);
     await writeCache(scope, provider, result, ttlSeconds);

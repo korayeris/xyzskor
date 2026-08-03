@@ -201,7 +201,8 @@ async function loadLiveFeed(force){
   liveFeedLoading = true;
   renderLiveFeed();
   try{
-    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, force:!!force } });
+    const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
+    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
     if(error) throw error;
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
     LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
@@ -239,6 +240,8 @@ function switchMainTab(name, updateUrl){
   document.getElementById('tabBtnPredict').classList.toggle('active', product==='predict');
   const footballContextNav=document.getElementById('footballContextNav');
   if(footballContextNav) footballContextNav.hidden=product!=='football';
+  const footballLeagueCommand=document.getElementById('footballLeagueCommand');
+  if(footballLeagueCommand) footballLeagueCommand.hidden=product!=='football';
   if(product==='football' && name==='football' && typeof openFootballSection==='function') openFootballSection('home',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
   if(updateUrl !== false && ['football','predict'].includes(name)) updateHash(product);

@@ -42,12 +42,12 @@ const LIVE_FEED_CONFIG = {
   refreshMs: 5000
 };
 const SELECTED_COMPETITIONS = [
-  { key:'all', label:'Tüm ligler', short:'Tümü' },
-  { key:'super-lig', label:'Süper Lig', short:'Süper Lig' },
-  { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL' },
-  { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL' },
-  { key:'la-liga', label:'La Liga', short:'La Liga' },
-  { key:'premier-league', label:'Premier League', short:'EPL' }
+  { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
+  { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL', sportmonksId:'2' },
+  { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL', sportmonksId:'5' },
+  { key:'la-liga', label:'La Liga', short:'La Liga', sportmonksId:'564' },
+  { key:'premier-league', label:'Premier League', short:'EPL', sportmonksId:'8' },
+  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
 ];
 const LEAGUE_CONTEXT = {
   all:{headline:'5 lig futbol merkezi',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League aynı ekranda.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
@@ -262,10 +262,10 @@ let lastLoadError = null;
 let DATA_ERRORS = {};
 let activeWeek = 1;
 let activeFootballTeam = 'Tümü';
-let activeFootballLeague = 'all';
+let activeFootballLeague = 'super-lig';
 let SERVER_LEADERBOARDS = new Map();
 let serverLeaderboardMode = 'unknown';
-let seasonFixturesReady = false;
+let seasonFixturesReady = new Set();
 
 function getCurrentUser(){ return currentUser; }
 function normalizeCompetitionText(value){
@@ -297,6 +297,12 @@ function competitionLabelBySlug(slug){
 function competitionShortBySlug(slug){
   return (SELECTED_COMPETITIONS.find(item=>item.key===slug) || SELECTED_COMPETITIONS[0]).short;
 }
+function activeFootballLeagueConfig(){
+  return SELECTED_COMPETITIONS.find(item=>item.key===activeFootballLeague) || SELECTED_COMPETITIONS[0];
+}
+function footballLeagueRequestKey(){
+  return activeFootballLeagueConfig().key;
+}
 function matchInActiveLeague(match){
   return activeFootballLeague==='all' || competitionSlug(competitionName(match))===activeFootballLeague;
 }
@@ -311,12 +317,13 @@ function activeLeagueContext(){
 }
 
 async function ensureSeasonFixtures(){
-  if(seasonFixturesReady) return true;
+  const leagueKey = footballLeagueRequestKey();
+  if(seasonFixturesReady.has(leagueKey)) return true;
   try{
-    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.seasonScope } });
+    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.seasonScope, league:leagueKey } });
     if(error) throw error;
     if(!data || !Number.isFinite(Number(data.syncedMatches))) throw new Error('Fikstür senkronizasyon yanıtı geçersiz.');
-    seasonFixturesReady = true;
+    seasonFixturesReady.add(leagueKey);
     return true;
   }catch(error){
     DATA_ERRORS.fixture_sync = error && error.message ? error.message : 'Fikstür otomatik güncellenemedi.';

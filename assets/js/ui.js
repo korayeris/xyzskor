@@ -375,6 +375,8 @@ function applyFootballLeagueTheme(){
 function renderFootballLeaguePickerInto(area){
   if(!area) return;
   applyFootballLeagueTheme();
+  const commandTitle=document.getElementById('footballLeagueCommandTitle');
+  if(commandTitle) commandTitle.textContent=competitionLabelBySlug(activeFootballLeague);
   area.innerHTML=SELECTED_COMPETITIONS.map(item=>`<button class="${item.key===activeFootballLeague?'active':''}" type="button" data-match-league="${escapeHTML(item.key)}" aria-pressed="${item.key===activeFootballLeague}"><span>${escapeHTML(item.short)}</span><small>${escapeHTML(item.label)}</small></button>`).join('');
   area.querySelectorAll('[data-match-league]').forEach(button=>{ button.onclick=()=>selectFootballLeague(button.dataset.matchLeague); });
 }
@@ -421,11 +423,12 @@ function selectFootballTeam(team){
   renderFootballTeamStrip(); renderFootballQuickMatches(); renderMatchesHub(); renderFootballNews(); renderNewsHub(); renderFootballTransfers(); renderEditorialNews();
 }
 function renderMatchesLeagueFilters(){
+  renderFootballLeaguePickerInto(document.getElementById('footballTopLeagueStrip'));
   renderFootballLeaguePickerInto(document.getElementById('footballLeagueStrip'));
   renderFootballLeaguePickerInto(document.getElementById('matchesLeagueFilters'));
 }
 function selectFootballLeague(key){
-  activeFootballLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'all';
+  activeFootballLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'super-lig';
   activeFootballTeam='Tümü';
   applyFootballLeagueTheme();
   const weeks=getAvailableWeeks();
@@ -434,6 +437,14 @@ function selectFootballLeague(key){
   renderFootballDataViews();
   renderTicker();
   renderLiveFeed();
+  if(typeof ensureSeasonFixtures==='function'){
+    ensureSeasonFixtures().then(async ready=>{
+      if(!ready) return;
+      await loadAllData();
+      renderAll();
+      if(typeof loadLiveFeed==='function') loadLiveFeed(false);
+    });
+  }
 }
 
 /* ===================== RESMÎ KULÜP X AKIŞI ===================== */
