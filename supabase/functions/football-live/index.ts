@@ -25,10 +25,19 @@ type ProviderResult = {
 };
 
 type SeasonSyncResult = {
-  seasonId: string;
+  seasonIds: string[];
+  leagueIds: string[];
   syncedMatches: number;
   syncedResults: number;
   updatedAt: string;
+};
+
+type SeasonInfo = {
+  leagueId: string;
+  seasonId: string;
+  competition: string;
+  competitionLogo: string | null;
+  country: string | null;
 };
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
@@ -153,7 +162,7 @@ async function sportmonksAdapter(): Promise<ProviderResult> {
         id: `sportmonks:${fixture.id}`,
         competition: String(fixture?.league?.name || "Süper Lig"),
         competitionLogo: fixture?.league?.image_path || null,
-        country: "Turkey",
+        country: fixture?.league?.country?.name || fixture?.country?.name || null,
         startedAt: fixture?.starting_at || null,
         status: normalizedStatus(stateCode, fixture?.state?.minute),
         minute: Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null,
@@ -195,13 +204,22 @@ function scheduleDatabaseStatus(fixture: any, roundFinished: boolean): string | 
   return null;
 }
 
-async function currentSportmonksSeasonId(leagueId: string): Promise<string> {
+async function currentSportmonksSeasonInfo(leagueId: string): Promise<SeasonInfo> {
   const leagueUrl = new URL(`https://api.sportmonks.com/v3/football/leagues/${leagueId}`);
-  leagueUrl.searchParams.set("include", "currentSeason");
+  leagueUrl.searchParams.set("include", "currentSeason;country");
   const leaguePayload = await sportmonksGet(leagueUrl);
+  const league = leaguePayload?.data || {};
   const current = leaguePayload?.data?.currentseason || leaguePayload?.data?.currentSeason;
   const currentRow = Array.isArray(current) ? current[0] : current;
-  if (currentRow?.id) return String(currentRow.id);
+  if (currentRow?.id) {
+    return {
+      leagueId,
+      seasonId:String(currentRow.id),
+      competition:String(league?.name || `Lig ${leagueId}`),
+      competitionLogo:league?.image_path || null,
+      country:league?.country?.name || null,
+    };
+  }
 
   const seasonsUrl = new URL("https://api.sportmonks.com/v3/football/seasons");
   seasonsUrl.searchParams.set("filters", `seasonLeagues:${leagueId}`);
@@ -210,54 +228,70 @@ async function currentSportmonksSeasonId(leagueId: string): Promise<string> {
   const seasonsPayload = await sportmonksGet(seasonsUrl);
   const seasons = Array.isArray(seasonsPayload?.data) ? seasonsPayload.data : [];
   const fallback = seasons.find((season: any) => season?.is_current) || seasons.find((season: any) => season?.pending) || seasons[0];
-  if (!fallback?.id) throw new Error("Sportmonks aktif Süper Lig sezonu bulunamadı.");
-  return String(fallback.id);
+  if (!fallback?.id) throw new Error("Aktif sezon bulunamadı.");
+  return {
+    leagueId,
+    seasonId:String(fallback.id),
+    competition:String(league?.name || fallback?.name || `Lig ${leagueId}`),
+    competitionLogo:league?.image_path || null,
+    country:league?.country?.name || null,
+  };
 }
 
 async function syncSportmonksSeason(): Promise<SeasonSyncResult> {
-  const leagueId = sportmonksLeagueIds()[0];
-  if (!leagueId) throw new Error("SPORTMONKS_LEAGUE_IDS yapılandırılmamış.");
-  const seasonId = await currentSportmonksSeasonId(leagueId);
-  const scheduleUrl = new URL(`https://api.sportmonks.com/v3/football/schedules/seasons/${seasonId}`);
-  const payload = await sportmonksGet(scheduleUrl);
-  const stages = Array.isArray(payload?.data) ? payload.data : [];
+  const leagueIds = sportmonksLeagueIds();
+  if (!leagueIds.length) throw new Error("SPORTMONKS_LEAGUE_IDS yapılandırılmamış.");
   const matchRows: any[] = [];
   const resultRows: any[] = [];
+  const seasonIds: string[] = [];
 
-  for (const stage of stages) {
-    const rounds = Array.isArray(stage?.rounds) ? stage.rounds : [];
-    for (let roundIndex = 0; roundIndex < rounds.length; roundIndex += 1) {
-      const round = rounds[roundIndex];
-      const parsedWeek = Number.parseInt(String(round?.name || ""), 10);
-      const week = Number.isFinite(parsedWeek) && parsedWeek > 0 ? parsedWeek : roundIndex + 1;
-      const fixtures = Array.isArray(round?.fixtures) ? round.fixtures : [];
-      for (const fixture of fixtures) {
-        if (String(fixture?.league_id || leagueId) !== leagueId) continue;
-        const kickoff = normalizedKickoff(fixture?.starting_at);
-        const { home, away } = scheduleParticipants(fixture);
-        if (!fixture?.id || !kickoff || !home?.name || !away?.name) continue;
-        const id = `sportmonks:${fixture.id}`;
-        const status = scheduleDatabaseStatus(fixture, Boolean(round?.finished));
-        matchRows.push({
-          id,
-          hafta:week,
-          ev:String(home.name),
-          konuk:String(away.name),
-          kickoff,
-          stadyum:String(fixture?.venue?.name || "Açıklanacak"),
-          status,
-          verified:true,
-        });
-        const homeScore = fixture?.home_score !== null && fixture?.home_score !== undefined && Number.isFinite(Number(fixture.home_score)) ? Number(fixture.home_score) : sportmonksCurrentScore(fixture?.scores, home.id);
-        const awayScore = fixture?.away_score !== null && fixture?.away_score !== undefined && Number.isFinite(Number(fixture.away_score)) ? Number(fixture.away_score) : sportmonksCurrentScore(fixture?.scores, away.id);
-        if (status === "bitti" && homeScore !== null && awayScore !== null) {
-          resultRows.push({ match_id:id, home:homeScore, away:awayScore, scored_at:new Date().toISOString() });
+  for (const leagueId of leagueIds) {
+    const seasonInfo = await currentSportmonksSeasonInfo(leagueId);
+    seasonIds.push(seasonInfo.seasonId);
+    const scheduleUrl = new URL(`https://api.sportmonks.com/v3/football/schedules/seasons/${seasonInfo.seasonId}`);
+    const payload = await sportmonksGet(scheduleUrl);
+    const stages = Array.isArray(payload?.data) ? payload.data : [];
+
+    for (const stage of stages) {
+      const rounds = Array.isArray(stage?.rounds) ? stage.rounds : [];
+      for (let roundIndex = 0; roundIndex < rounds.length; roundIndex += 1) {
+        const round = rounds[roundIndex];
+        const parsedWeek = Number.parseInt(String(round?.name || ""), 10);
+        const week = Number.isFinite(parsedWeek) && parsedWeek > 0 ? parsedWeek : roundIndex + 1;
+        const fixtures = Array.isArray(round?.fixtures) ? round.fixtures : [];
+        for (const fixture of fixtures) {
+          if (String(fixture?.league_id || leagueId) !== leagueId) continue;
+          const kickoff = normalizedKickoff(fixture?.starting_at);
+          const { home, away } = scheduleParticipants(fixture);
+          if (!fixture?.id || !kickoff || !home?.name || !away?.name) continue;
+          const id = `sportmonks:${fixture.id}`;
+          const status = scheduleDatabaseStatus(fixture, Boolean(round?.finished));
+          matchRows.push({
+            id,
+            hafta:week,
+            ev:String(home.name),
+            konuk:String(away.name),
+            kickoff,
+            stadyum:String(fixture?.venue?.name || "Açıklanacak"),
+            status,
+            verified:true,
+            competition:fixture?.league?.name || seasonInfo.competition,
+            competition_logo:fixture?.league?.image_path || seasonInfo.competitionLogo,
+            country:fixture?.league?.country?.name || seasonInfo.country,
+            provider_league_id:seasonInfo.leagueId,
+            provider_season_id:seasonInfo.seasonId,
+          });
+          const homeScore = fixture?.home_score !== null && fixture?.home_score !== undefined && Number.isFinite(Number(fixture.home_score)) ? Number(fixture.home_score) : sportmonksCurrentScore(fixture?.scores, home.id);
+          const awayScore = fixture?.away_score !== null && fixture?.away_score !== undefined && Number.isFinite(Number(fixture.away_score)) ? Number(fixture.away_score) : sportmonksCurrentScore(fixture?.scores, away.id);
+          if (status === "bitti" && homeScore !== null && awayScore !== null) {
+            resultRows.push({ match_id:id, home:homeScore, away:awayScore, scored_at:new Date().toISOString() });
+          }
         }
       }
     }
   }
 
-  if (!matchRows.length) throw new Error("Sportmonks sezon fikstürü henüz yayınlanmadı.");
+  if (!matchRows.length) throw new Error("Seçili liglerin sezon fikstürü henüz yayınlanmadı.");
   const uniqueMatchRows = [...new Map(matchRows.map((row) => [row.id, row])).values()];
   const uniqueResultRows = [...new Map(resultRows.map((row) => [row.match_id, row])).values()];
   const admin = adminClient();
@@ -268,7 +302,7 @@ async function syncSportmonksSeason(): Promise<SeasonSyncResult> {
     const { error:resultError } = await admin.from("results").upsert(uniqueResultRows, { onConflict:"match_id" });
     if (resultError) throw resultError;
   }
-  return { seasonId, syncedMatches:uniqueMatchRows.length, syncedResults:uniqueResultRows.length, updatedAt:new Date().toISOString() };
+  return { seasonIds, leagueIds, syncedMatches:uniqueMatchRows.length, syncedResults:uniqueResultRows.length, updatedAt:new Date().toISOString() };
 }
 
 async function persistFinishedLiveMatches(result: ProviderResult) {
@@ -359,13 +393,14 @@ Deno.serve(async (request) => {
 
   let body: any = {};
   try { body = await request.json(); } catch (_) { body = {}; }
-  const scope = body?.scope === "turkey-super-lig-season" ? "turkey-super-lig-season" : "turkey-super-lig";
+  const requestedScope = String(body?.scope || "selected-leagues");
+  const scope = requestedScope === "turkey-super-lig-season" || requestedScope === "selected-leagues-season" ? "selected-leagues-season" : "selected-leagues";
   const provider = (Deno.env.get("FOOTBALL_DATA_PROVIDER") || "api-football").trim().toLowerCase();
   const refreshSecret = Deno.env.get("LIVE_REFRESH_SECRET") || "";
   const force = Boolean(refreshSecret) && request.headers.get("x-refresh-key") === refreshSecret;
   const cached = await readCache(scope);
 
-  if (scope === "turkey-super-lig-season") {
+  if (scope === "selected-leagues-season") {
     const seasonTtl = envSeconds("SEASON_CACHE_SECONDS", 21600, 300, 86400);
     if (!force && cached?.payload && new Date(cached.expires_at).getTime() > Date.now()) {
       return response(request, { ...cached.payload, stale:false }, 200, cacheControlFor(seasonTtl));
@@ -383,7 +418,7 @@ Deno.serve(async (request) => {
           : String(error);
       console.error("[football-season]", syncMessage);
       if (cached?.payload) return response(request, { ...cached.payload, stale:true }, 200, "no-store");
-      return response(request, { error:"Süper Lig fikstürü geçici olarak alınamıyor." }, 503);
+      return response(request, { error:"Seçili lig fikstürleri geçici olarak alınamıyor." }, 503);
     }
   }
 

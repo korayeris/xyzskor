@@ -19,8 +19,8 @@ function groupByDate(matches){
 }
 
 /* ===================== HAFTA SİSTEMİ ===================== */
-function getAvailableWeeks(){ return [...new Set(MATCHES.map(m=>m.hafta))].sort((a,b)=>a-b); }
-function weekMatches(w){ return MATCHES.filter(m=>m.hafta===w); }
+function getAvailableWeeks(){ return [...new Set(MATCHES.filter(matchInActiveLeague).map(m=>m.hafta))].sort((a,b)=>a-b); }
+function weekMatches(w){ return MATCHES.filter(m=>m.hafta===w && matchInActiveLeague(m)); }
 function weekStatus(w){
   const ms = weekMatches(w);
   if(!ms.length) return { key:'none', text:'Bu hafta için fikstür henüz eklenmedi.' };
@@ -110,7 +110,7 @@ function renderWeekSelector(){
 /* ===================== CANLI ŞERİT (sıradaki maç sayacı) ===================== */
 function nextUpcomingMatch(){
   const now = Date.now();
-  return MATCHES.filter(m => m.status!=='iptal' && m.status!=='ertelendi' && new Date(m.kickoff).getTime() > now).sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff))[0] || null;
+  return MATCHES.filter(m => matchInActiveLeague(m) && m.status!=='iptal' && m.status!=='ertelendi' && new Date(m.kickoff).getTime() > now).sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff))[0] || null;
 }
 function updateTickerCountdown(m){
   const el = document.getElementById('tickerCountdown'); if(!el) return;
@@ -161,7 +161,7 @@ function renderLiveFeed(){
   if(!list) return;
   if(refreshBtn) refreshBtn.disabled = liveFeedLoading;
   if(liveFeedLoading && !LIVE_FEED.loaded){
-    list.innerHTML = `<div class="live-notice"><strong>Canlı maçlar kontrol ediliyor</strong><p>En güncel Süper Lig verisi alınıyor…</p></div>`;
+    list.innerHTML = `<div class="live-notice"><strong>Canlı maçlar kontrol ediliyor</strong><p>Seçili liglerdeki en güncel maç verisi alınıyor…</p></div>`;
     if(freshness) freshness.textContent='Güncelleniyor…';
     return;
   }
@@ -171,16 +171,17 @@ function renderLiveFeed(){
     if(providerState) providerState.textContent='Canlı kaynak bekleniyor';
     return;
   }
-  if(!LIVE_FEED.matches.length){
-    list.innerHTML = `<div class="live-notice"><strong>Şu anda Süper Lig'de canlı maç yok</strong><p>Canlı karşılaşma başladığında skor, dakika ve maç durumu bu ekrana otomatik olarak düşecek.</p></div>`;
+  const visibleMatches = LIVE_FEED.matches.filter(match=>activeFootballLeague==='all' || competitionSlug(match.competition)===activeFootballLeague);
+  if(!visibleMatches.length){
+    list.innerHTML = `<div class="live-notice"><strong>Şu anda seçili liglerde canlı maç yok</strong><p>Canlı karşılaşma başladığında skor, dakika ve maç durumu bu ekrana otomatik olarak düşecek.</p></div>`;
   }else{
-    list.innerHTML = LIVE_FEED.matches.map(match=>{
+    list.innerHTML = visibleMatches.map(match=>{
       const view = liveStatusView(match);
       const home = match.home || {}, away = match.away || {};
       const homeScore = home.score===null || home.score===undefined ? '—' : escapeLiveHTML(home.score);
       const awayScore = away.score===null || away.score===undefined ? '—' : escapeLiveHTML(away.score);
       return `<article class="live-card ${view.live?'is-live':''}">
-        <div class="live-competition">${safeLiveImage(match.competitionLogo)?`<img src="${safeLiveImage(match.competitionLogo)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}<span>${escapeLiveHTML(match.competition || 'Süper Lig')}</span></div>
+        <div class="live-competition">${safeLiveImage(match.competitionLogo)?`<img src="${safeLiveImage(match.competitionLogo)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}<span>${escapeLiveHTML(match.competition || 'Seçili lig')}</span></div>
         <div class="live-teams">
           <div class="live-team">${liveTeamMark(home)}<span>${escapeLiveHTML(home.name || 'Takım adı alınamadı')}</span><span class="live-score">${homeScore}</span></div>
           <div class="live-team">${liveTeamMark(away)}<span>${escapeLiveHTML(away.name || 'Takım adı alınamadı')}</span><span class="live-score">${awayScore}</span></div>

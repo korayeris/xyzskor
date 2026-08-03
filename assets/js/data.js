@@ -37,8 +37,25 @@ const ALL_BADGES = ['İlk Tahmin','Haftayı Eksiksiz Tamamladı','Kesin Skor Uzm
 const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', kontrol: '31 Temmuz 2026' };
 const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
-  scope: 'turkey-super-lig',
+  scope: 'selected-leagues',
+  seasonScope: 'selected-leagues-season',
   refreshMs: 5000
+};
+const SELECTED_COMPETITIONS = [
+  { key:'all', label:'Tüm ligler', short:'Tümü' },
+  { key:'super-lig', label:'Süper Lig', short:'Süper Lig' },
+  { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL' },
+  { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL' },
+  { key:'la-liga', label:'La Liga', short:'La Liga' },
+  { key:'premier-league', label:'Premier League', short:'EPL' }
+];
+const LEAGUE_CONTEXT = {
+  all:{headline:'5 lig futbol merkezi',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League aynı ekranda.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
+  'super-lig':{headline:'Süper Lig futbol merkezi',copy:'Türkiye futbol gündemi, maç akışı, kulüp merkezi ve transfer dosyası.',agenda:'Süper Lig gündemi',standings:'2024–25 Süper Lig final tablosu',transfer:'Süper Lig transfer gelişmeleri'},
+  'champions-league':{headline:'Şampiyonlar Ligi merkezi',copy:'Avrupa’nın en üst seviye kulüp turnuvası için fikstür, canlı skor ve veri panelleri.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
+  'europa-league':{headline:'UEFA Avrupa Ligi merkezi',copy:'UEFA Avrupa Ligi maçları, canlı durumları ve takım bazlı takip alanı.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
+  'la-liga':{headline:'La Liga merkezi',copy:'İspanya ligi için fikstür, canlı skor, puan durumu ve kulüp gündemi.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},
+  'premier-league':{headline:'Premier League merkezi',copy:'İngiltere ligi için fikstür, canlı skor, puan durumu ve kulüp gündemi.',agenda:'Premier League gündemi',standings:'Premier League puan durumu',transfer:'Premier League transfer gelişmeleri'}
 };
 const VIDEO_CONFIG = {
   title: '',
@@ -245,16 +262,58 @@ let lastLoadError = null;
 let DATA_ERRORS = {};
 let activeWeek = 1;
 let activeFootballTeam = 'Tümü';
+let activeFootballLeague = 'all';
 let SERVER_LEADERBOARDS = new Map();
 let serverLeaderboardMode = 'unknown';
 let seasonFixturesReady = false;
 
 function getCurrentUser(){ return currentUser; }
+function normalizeCompetitionText(value){
+  return String(value || '')
+    .toLocaleLowerCase('tr-TR')
+    .replaceAll('ı','i')
+    .replaceAll('ü','u')
+    .replaceAll('ş','s')
+    .replaceAll('ğ','g')
+    .replaceAll('ç','c')
+    .replaceAll('ö','o');
+}
+function competitionName(match){
+  return match?.competition || match?.tournament || match?.league_name || match?.league || match?.competition_name || 'Süper Lig';
+}
+function competitionSlug(value){
+  const raw = normalizeCompetitionText(value);
+  if(!raw || raw==='all') return 'all';
+  if(raw.includes('champions') || raw.includes('sampiyonlar')) return 'champions-league';
+  if(raw.includes('europa') || raw.includes('avrupa')) return 'europa-league';
+  if(raw.includes('la liga') || raw.includes('laliga') || raw.includes('spain') || raw.includes('espana')) return 'la-liga';
+  if(raw.includes('premier') || raw.includes('england') || raw.includes('ingiltere')) return 'premier-league';
+  if(raw.includes('super lig') || raw.includes('süper lig') || raw.includes('trendyol') || raw.includes('turkey') || raw.includes('turkiye')) return 'super-lig';
+  return raw.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'all';
+}
+function competitionLabelBySlug(slug){
+  return (SELECTED_COMPETITIONS.find(item=>item.key===slug) || SELECTED_COMPETITIONS[0]).label;
+}
+function competitionShortBySlug(slug){
+  return (SELECTED_COMPETITIONS.find(item=>item.key===slug) || SELECTED_COMPETITIONS[0]).short;
+}
+function matchInActiveLeague(match){
+  return activeFootballLeague==='all' || competitionSlug(competitionName(match))===activeFootballLeague;
+}
+function matchInActiveTeam(match){
+  return activeFootballTeam==='Tümü' || match?.ev===activeFootballTeam || match?.konuk===activeFootballTeam;
+}
+function isSuperLigScope(){
+  return activeFootballLeague==='all' || activeFootballLeague==='super-lig';
+}
+function activeLeagueContext(){
+  return LEAGUE_CONTEXT[activeFootballLeague] || LEAGUE_CONTEXT.all;
+}
 
 async function ensureSeasonFixtures(){
   if(seasonFixturesReady) return true;
   try{
-    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:'turkey-super-lig-season' } });
+    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.seasonScope } });
     if(error) throw error;
     if(!data || !Number.isFinite(Number(data.syncedMatches))) throw new Error('Fikstür senkronizasyon yanıtı geçersiz.');
     seasonFixturesReady = true;

@@ -115,7 +115,7 @@ document.getElementById('mcTabs').addEventListener('keydown', event=>{
   tabs[next].focus(); switchMcTab(tabs[next].dataset.mcTab);
 });
 function renderMcHeader(m){
-  const result=getResult(m.id); const tournament=m.competition || m.tournament || m.league_name || 'Süper Lig';
+  const result=getResult(m.id); const tournament=m.competition || m.tournament || m.league_name || 'Seçili lig';
   const centerValue=result ? `${escapeHTML(result.home)}–${escapeHTML(result.away)}` : escapeHTML(fmtTime(m.kickoff));
   const centerCaption=result ? 'Maç sonucu' : 'Başlangıç';
   const meta=[fmtKickoff(m.kickoff),m.stadyum,m.referee_name?`Hakem: ${m.referee_name}`:''].filter(Boolean);

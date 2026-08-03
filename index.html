@@ -14,7 +14,7 @@
 <nav class="global-header" aria-label="Ana navigasyon">
   <div class="brand-lockup">
     <div class="brand-mark" aria-hidden="true">X</div>
-    <div class="brand-copy"><div class="logo">XYZ<span>SKOR</span></div><div class="brand-kicker">Süper Lig Intelligence</div></div>
+    <div class="brand-copy"><div class="logo">XYZ<span>SKOR</span></div><div class="brand-kicker">Football Intelligence</div></div>
   </div>
   <div class="primary-nav" role="navigation" aria-label="Ürün alanları">
     <button class="maintab active" id="tabBtnFootball" type="button" onclick="switchMainTab('football')">Futbol</button>
@@ -42,20 +42,24 @@
   <section class="portal-sponsor-banner" id="portalSponsorBanner" aria-label="Ödül sponsoru alanı"></section>
   <div id="weekSelector" class="week-selector-bar"></div>
   <div class="data-status-line" id="dataStatusLine"></div>
+  <section class="portal-league-strip" aria-labelledby="portalLeagueStripTitle">
+    <div class="portal-team-strip-copy"><strong id="portalLeagueStripTitle">Lig seçimi</strong><span>Tüm sayfa seçtiğin lige göre yenilenir.</span></div>
+    <div class="portal-league-list" id="footballLeagueStrip"></div>
+  </section>
   <section class="portal-team-strip" aria-labelledby="portalTeamStripTitle">
-    <div class="portal-team-strip-copy"><strong id="portalTeamStripTitle">Takım gündemi</strong><span>Maç ve haber akışını kulübüne göre daralt.</span></div>
+    <div class="portal-team-strip-copy"><strong id="portalTeamStripTitle">Takım gündemi</strong><span id="portalTeamStripNote">Maç ve haber akışını kulübüne göre daralt.</span></div>
     <div class="portal-team-list" id="footballTeamStrip"></div>
   </section>
   <section class="football-home" aria-label="Futbol gündemi">
     <div class="football-primary-grid">
       <section class="football-module match-rail" id="footballMatchesSection" aria-labelledby="footballMatchesTitle">
-        <div class="football-module-head"><div><div class="football-module-kicker">Maç Merkezi</div><div class="football-module-title" id="footballMatchesTitle">Canlı ve yaklaşan maçlar</div><div class="football-module-note">Durum ve skor yalnız doğrulanmış kayıtlardan gösterilir.</div></div><button class="football-module-action" type="button" onclick="openFootballSection('matches')">Tüm maçlar →</button></div>
+        <div class="football-module-head"><div><div class="football-module-kicker" id="footballMatchesKicker">Maç Merkezi</div><div class="football-module-title" id="footballMatchesTitle">Canlı ve yaklaşan maçlar</div><div class="football-module-note" id="footballMatchesNote">Durum ve skor yalnız doğrulanmış kayıtlardan gösterilir.</div></div><button class="football-module-action" type="button" onclick="openFootballSection('matches')">Tüm maçlar →</button></div>
         <div class="football-quick-list" id="footballQuickMatches"></div>
       </section>
       <article class="football-module featured-development headline-stage" id="footballFeaturedDevelopment" aria-live="polite"></article>
     </div>
     <div class="football-secondary-grid">
-      <section class="football-module news-feed" id="footballNewsSection" aria-labelledby="footballNewsTitle"><div class="football-module-head"><div><div class="football-module-kicker">Yayınlanan İçerik</div><div class="football-module-title" id="footballNewsTitle">Güncel gelişmeler</div></div><span class="portal-section-index">GÜNDEM</span></div><div id="footballNewsStream"></div><details class="confidence-help"><summary>Haber güven seviyesi nasıl çalışır?</summary><p>Resmî: kulüp veya kurum açıklaması. Güçlü: birden fazla güvenilir kaynakla desteklenen kayıt. Gelişiyor: henüz kesinleşmeyen ve açıkça bu şekilde işaretlenen gelişme. Seviye bilgisi yoksa rozet gösterilmez.</p></details></section>
+      <section class="football-module news-feed" id="footballNewsSection" aria-labelledby="footballNewsTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballNewsKicker">Yayınlanan İçerik</div><div class="football-module-title" id="footballNewsTitle">Güncel gelişmeler</div></div><span class="portal-section-index">GÜNDEM</span></div><div id="footballNewsStream"></div><details class="confidence-help"><summary>Haber güven seviyesi nasıl çalışır?</summary><p>Resmî: kulüp veya kurum açıklaması. Güçlü: birden fazla güvenilir kaynakla desteklenen kayıt. Gelişiyor: henüz kesinleşmeyen ve açıkça bu şekilde işaretlenen gelişme. Seviye bilgisi yoksa rozet gösterilmez.</p></details></section>
       <section class="club-social-section" id="clubSocialSection" aria-labelledby="clubSocialTitle">
         <header class="club-social-head">
           <div>
@@ -73,15 +77,15 @@
           <div class="club-social-stage" id="clubSocialStage" aria-live="polite"></div>
         </div>
       </section>
-      <section class="football-module transfer-rail" id="footballTransferSection" aria-labelledby="footballTransferTitle"><div class="football-module-head"><div><div class="football-module-kicker">Kaynaklı Akış</div><div class="football-module-title" id="footballTransferTitle">Transfer gelişmeleri</div></div></div><div id="footballTransferStream"></div></section>
-      <section class="football-module standings-rail" id="footballStandingsSummary" aria-labelledby="footballStandingsTitle"><div class="football-module-head"><div><div class="football-module-kicker">Süper Lig</div><div class="football-module-title" id="footballStandingsTitle">Puan durumu</div></div></div><div id="footballStandingsCompact"></div></section>
+      <section class="football-module transfer-rail" id="footballTransferSection" aria-labelledby="footballTransferTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballTransferKicker">Kaynaklı Akış</div><div class="football-module-title" id="footballTransferTitle">Transfer gelişmeleri</div></div></div><div id="footballTransferStream"></div></section>
+      <section class="football-module standings-rail" id="footballStandingsSummary" aria-labelledby="footballStandingsTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballStandingsKicker">Süper Lig</div><div class="football-module-title" id="footballStandingsTitle">Puan durumu</div></div></div><div id="footballStandingsCompact"></div></section>
       <aside class="portal-sponsor-rail" id="portalSponsorRail" aria-label="Sponsor ve reklam alanı"></aside>
     </div>
   </section>
 
   <section class="editorial-desk" id="editorialDesk" aria-labelledby="editorialDeskTitle">
     <header class="editorial-desk-head">
-      <div><span class="editorial-desk-kicker">XYZSKOR HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p>Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
+      <div><span class="editorial-desk-kicker">XYZSKOR HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p id="editorialDeskCopy">Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
       <button class="editorial-desk-action" type="button" onclick="openFootballSection('news')">Tüm gündemi aç <span aria-hidden="true">→</span></button>
     </header>
     <div class="editorial-desk-grid">
@@ -192,7 +196,7 @@
 
   <section class="football-data-view matches-hub-view" id="footballMatchesView" aria-labelledby="footballMatchesViewTitle" hidden>
     <header class="football-data-hero matches-data-hero">
-      <div><span class="football-data-eyebrow">SÜPER LİG · MAÇ MERKEZİ</span><h1 id="footballMatchesViewTitle">Maçlar</h1><p>Canlı durum, yaklaşan fikstür ve tamamlanan karşılaşmalar aynı doğrulanmış veri akışında.</p></div>
+      <div><span class="football-data-eyebrow" id="footballMatchesViewKicker">5 LİG · MAÇ MERKEZİ</span><h1 id="footballMatchesViewTitle">Maçlar</h1><p id="footballMatchesViewCopy">Canlı durum, yaklaşan fikstür ve tamamlanan karşılaşmalar aynı doğrulanmış veri akışında.</p></div>
       <div class="matches-live-status"><span aria-hidden="true"></span><strong>Veri bağlantısı</strong><small>Skor tahmin edilmez; sağlayıcı kaydı beklenir.</small></div>
     </header>
     <div class="matches-hub-metrics" id="footballMatchesStats" aria-label="Maç merkezi özeti"></div>
@@ -200,6 +204,7 @@
       <main class="matches-hub-feed">
         <header class="matches-hub-toolbar">
           <div><span>FİKSTÜR AKIŞI</span><h2>Tüm karşılaşmalar</h2></div>
+          <div class="matches-league-filters" id="matchesLeagueFilters" role="group" aria-label="Lig filtresi"></div>
           <div class="matches-hub-filters" role="group" aria-label="Maç durumu filtresi">
             <button class="active" type="button" data-match-hub-filter="all" onclick="setMatchHubFilter('all',this)">Tümü</button>
             <button type="button" data-match-hub-filter="live" onclick="setMatchHubFilter('live',this)">Canlı</button>
@@ -233,8 +238,8 @@
 
   <section class="football-data-view" id="footballClubsView" aria-labelledby="footballClubsViewTitle" hidden>
     <header class="football-data-hero clubs-hero">
-      <div><span class="football-data-eyebrow">2026–27 · 18 KULÜP</span><h1 id="footballClubsViewTitle">Süper Lig kulüp merkezi</h1><p>Kadro değeri, güncel takım bilgisi, stadyum erişimi ve teknik direktör profili tek ekranda.</p></div>
-      <a class="football-source-link" href="https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig" target="_blank" rel="noopener noreferrer">Sezon kaynağı ↗</a>
+      <div><span class="football-data-eyebrow" id="footballClubsViewKicker">2026–27 · KULÜP MERKEZİ</span><h1 id="footballClubsViewTitle">Kulüpler</h1><p id="footballClubsViewCopy">Kadro değeri, güncel takım bilgisi, stadyum erişimi ve teknik direktör profili tek ekranda.</p></div>
+      <a class="football-source-link" id="footballClubsSourceLink" href="https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig" target="_blank" rel="noopener noreferrer">Sezon kaynağı ↗</a>
     </header>
     <section class="club-profile-shell" id="clubProfilePanel" aria-live="polite" hidden></section>
     <div class="league-clubs-grid" id="leagueClubsGrid"></div>
@@ -248,10 +253,10 @@
     <div class="transfer-center-workspace">
       <aside class="transfer-filter-panel" aria-label="Süper Lig transfer filtreleri">
         <h2>Düzenle</h2>
-        <div class="transfer-filter-group"><span>Lig</span><div class="transfer-filter-static">Trendyol Süper Lig <span>TR</span></div></div>
+        <div class="transfer-filter-group"><span>Lig</span><div class="transfer-filter-static" id="transferLeagueStatic">Trendyol Süper Lig <span>TR</span></div></div>
         <div class="transfer-filter-group"><label for="transferClubFilter">Kulüp</label><select id="transferClubFilter" onchange="setTransferClubFilter(this.value)"><option value="all">Tüm kulüpler</option></select></div>
         <div class="transfer-filter-group"><span>Veri standardı</span><strong>Kaynak bağlantılı</strong><small>Resmî işlem ve iddia aynı etiketi kullanmaz.</small></div>
-        <div class="transfer-filter-group"><span>Dönem</span><strong>2026 yaz</strong><small>Yalnız Süper Lig hareketleri</small></div>
+        <div class="transfer-filter-group"><span>Dönem</span><strong>2026 yaz</strong><small id="transferPeriodNote">Yalnız Süper Lig hareketleri</small></div>
         <button class="transfer-filter-reset" type="button" onclick="setTransferClubFilter('all')">Filtreyi temizle</button>
       </aside>
       <div class="transfer-center-main">
@@ -269,8 +274,8 @@
 
   <section class="football-data-view standings-view" id="footballStandingsView" aria-labelledby="footballStandingsViewTitle" hidden>
     <header class="football-data-hero standings-hero">
-      <div><span class="football-data-eyebrow">TAMAMLANAN SEZON · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p>2024–25 Trendyol Süper Lig Şamil Ekinci Sezonu final sıralaması.</p></div>
-      <a class="football-source-link" href="https://www.tff.org/default.aspx?2586pg=47&amp;ftxtID=47737&amp;pageID=471" target="_blank" rel="noopener noreferrer">TFF kaynağı ↗</a>
+      <div><span class="football-data-eyebrow" id="footballStandingsViewKicker">TAMAMLANAN SEZON · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p id="footballStandingsViewCopy">2024–25 Trendyol Süper Lig Şamil Ekinci Sezonu final sıralaması.</p></div>
+      <a class="football-source-link" id="footballStandingsSourceLink" href="https://www.tff.org/default.aspx?2586pg=47&amp;ftxtID=47737&amp;pageID=471" target="_blank" rel="noopener noreferrer">TFF kaynağı ↗</a>
     </header>
     <div class="standings-season-card"><span>Sezon</span><strong>2024–25</strong><small>38. hafta · final</small></div>
     <div class="historic-standings-shell" id="historicStandingsTable"></div>
