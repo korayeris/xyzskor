@@ -1120,8 +1120,13 @@ body[class*="league-theme-"] .football-league-command-copy strong{color:var(--le
 body[class*="league-theme-"] .football-context-tab.active,
 body[class*="league-theme-"] .primary-nav .maintab.active{
   color:#fff!important;
+  background:transparent!important;
   border-bottom-color:var(--league-accent)!important;
   box-shadow:inset 0 -3px var(--league-accent)!important;
+}
+body[class*="league-theme-"] .primary-nav .maintab.active::after,
+body[class*="league-theme-"] .football-context-tab.active::after{
+  background:var(--league-accent)!important;
 }
 body[class*="league-theme-"] #page-story{
   --graphite-bg:var(--league-bg-1);--graphite-panel:var(--league-panel);--graphite-raised:var(--league-raised);
@@ -1252,8 +1257,15 @@ body.league-theme-champions-league .editorial-match-visual{
 }
 body.league-theme-premier-league .primary-nav .maintab.active,
 body.league-theme-premier-league .football-context-tab.active{
-  color:#06100b!important;
-  background:var(--league-accent)!important;
+  color:#fff!important;
+  background:transparent!important;
+}
+body.league-theme-premier-league .football-league-command,
+body.league-theme-premier-league .football-context-nav{
+  background:linear-gradient(90deg,#17101f,#251332 62%,#15161b)!important;
+}
+#footballOverviewView .portal-league-strip{
+  display:none!important;
 }
 body.league-switching{overflow-x:hidden}
 body.league-switching::after{
