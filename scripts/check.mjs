@@ -144,6 +144,8 @@ assert.match(workerSource, /cost_profile:\s*"media-rich-daily"/, 'X akışı med
 assert.match(workerSource, /expansions:\s*"attachments\.media_keys"/, 'X akışı gönderiye bağlı gerçek medyayı expansion ile istemeli.');
 assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image_url,width,height,alt_text"/, 'X medya görselleri, video kapakları ve erişilebilir açıklamaları istemeli.');
 assert.match(functionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
+assert.match(appCss, /club-social-card\.has-media \.club-social-copy\{height:82px;min-height:82px/, 'Masaüstü X kartlarında medya başlangıç çizgisi eşitlenmeli.');
+assert.match(appCss, /club-social-media\.items-3\{grid-template-columns:minmax\(0,1\.28fr\) minmax\(0,\.72fr\)/, 'Üç görselli X gönderisi dengeli bir ana görsel kompozisyonu kullanmalı.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
 assert.match(workerSource, /function readEdgeCache/, 'X akışı çalışma zamanı önbellek hatasında tamamen çökmemeli.');
 assert.match(workerSource, /SOCIAL_STALE_CACHE/, 'X kesintisinde son doğrulanmış akış için uzun süreli yedek önbellek bulunmalı.');
