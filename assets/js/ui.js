@@ -424,6 +424,12 @@ function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
   loadXClubPosts();
 }
+function scrollClubSocial(direction){
+  const stage=document.getElementById('clubSocialStage'); if(!stage) return;
+  const card=stage.querySelector('.club-social-card');
+  const step=card?card.getBoundingClientRect().width+1:stage.clientWidth*.82;
+  stage.scrollBy({left:(direction<0?-1:1)*step,behavior:'smooth'});
+}
 function cardMentionsFootballTeam(card, team){
   if(team==='Tümü') return true;
   const fields=[card.team,card.related_team,card.title,card.text,card.summary,card.spot,card.body,card.content].filter(Boolean).join(' ');

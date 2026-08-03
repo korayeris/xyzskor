@@ -63,7 +63,11 @@
             <h2 id="clubSocialTitle">Kulüplerin Resmî Akışı</h2>
             <p>Dört büyük kulübün doğrulanmış hesaplarından, kaynağında ve güncel.</p>
           </div>
-          <span class="club-social-badge" aria-label="X platformu">𝕏</span>
+          <div class="club-social-actions" aria-label="Kulüp akışı kontrolleri">
+            <button class="club-social-scroll-button" type="button" onclick="scrollClubSocial(-1)" aria-label="Kulüp akışını sola kaydır">←</button>
+            <button class="club-social-scroll-button" type="button" onclick="scrollClubSocial(1)" aria-label="Kulüp akışını sağa kaydır">→</button>
+            <span class="club-social-badge" aria-label="X platformu">𝕏</span>
+          </div>
         </header>
         <div class="club-social-body">
           <div class="club-social-stage" id="clubSocialStage" aria-live="polite"></div>

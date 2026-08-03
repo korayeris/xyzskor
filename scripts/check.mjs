@@ -136,6 +136,9 @@ assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmal
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
 assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x-media-v2'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
 assert.match(functionSource('renderClubSocial'), /loadXClubPosts\(\)/, 'Dört resmî kulüp akışı ara ekran olmadan otomatik yüklenmeli.');
+assert.match(functionSource('scrollClubSocial'), /getBoundingClientRect\(\)\.width[\s\S]*scrollBy/, 'Büyük X kartları bir kart genişliğinde yatay kaydırılabilmeli.');
+assert.match(html, /aria-label="Kulüp akışını sağa kaydır"/, 'X akışında görünür ve erişilebilir yatay kaydırma kontrolü bulunmalı.');
+assert.match(appCss, /grid-auto-columns:clamp\(390px,32vw,440px\)[^}]*overflow-x:auto[^}]*scroll-snap-type:x mandatory/, 'Masaüstü X akışı büyük kartlı yatay ray kullanmalı.');
 assert.match(workerSource, /env\.X_BEARER_TOKEN/, 'X Bearer Token yalnız sunucu ortamından okunmalı.');
 assert.match(workerSource, /s-maxage=86400/, 'X akışı 24 saat sunucu önbelleğinde tutulmalı.');
 assert.match(workerSource, /s-maxage=31536000/, 'X kulüp kimlikleri tekrar ücret oluşturmamak için uzun süre önbellekte tutulmalı.');
