@@ -9,6 +9,7 @@ const YOUTUBE_STALE_CACHE = "public, max-age=60, s-maxage=86400";
 const YOUTUBE_TIMEOUT_MS = 8000;
 const CLUB_CACHE = "public, max-age=600, s-maxage=21600, stale-while-revalidate=86400";
 const CLUB_STALE_CACHE = "public, max-age=60, s-maxage=604800";
+const TRANSFER_CACHE = "public, max-age=600, s-maxage=3600, stale-while-revalidate=21600";
 const SPORTMONKS_TIMEOUT_MS = 12000;
 let xFeedRefreshPromise = null;
 let youtubeFeedRefreshPromise = null;
@@ -27,6 +28,14 @@ const YOUTUBE_CHANNELS = [
 ];
 const SPORTMONKS_TEAM_SEARCH = Object.freeze({
   Alanyaspor:"Alanyaspor", "Amed Sportif Faaliyetler":"Amed SK", Beşiktaş:"Besiktas", "Çaykur Rizespor":"Rizespor", "Çorum FK":"Corum FK", "Erzurumspor FK":"Erzurumspor", Eyüpspor:"Eyupspor", Fenerbahçe:"Fenerbahce", Galatasaray:"Galatasaray", "Gaziantep FK":"Gaziantep", Gençlerbirliği:"Genclerbirligi", Göztepe:"Goztepe", Başakşehir:"Istanbul Basaksehir", Kasımpaşa:"Kasimpasa", Kocaelispor:"Kocaelispor", Konyaspor:"Konyaspor", Samsunspor:"Samsunspor", Trabzonspor:"Trabzonspor"
+});
+const SELECTED_LEAGUE_IDS_BY_KEY = Object.freeze({
+  "super-lig": ["600"],
+  "champions-league": ["2"],
+  "europa-league": ["5"],
+  "la-liga": ["564"],
+  "premier-league": ["8"],
+  all: ["600", "2", "5", "564", "8"],
 });
 
 function jsonResponse(payload, status = 200, extraHeaders = {}) {
@@ -304,7 +313,9 @@ async function sportmonksRequest(pathname, token) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SPORTMONKS_TIMEOUT_MS);
   try {
-    const response = await fetch(`https://api.sportmonks.com/v3/football${pathname}`, {
+    const requestUrl = new URL(`https://api.sportmonks.com/v3/football${pathname}`);
+    if (!requestUrl.searchParams.has("api_token")) requestUrl.searchParams.set("api_token", token);
+    const response = await fetch(requestUrl.toString(), {
       headers: { Authorization: token, Accept: "application/json" },
       signal: controller.signal,
     });
@@ -362,6 +373,94 @@ function normalizeSportmonksSquad(payload) {
   }).filter((player) => player.name);
 }
 
+function textValue(...values) {
+  return values.find((value) => value !== null && value !== undefined && String(value).trim()) || "";
+}
+
+function normalizeTeamName(row, keys) {
+  for (const key of keys) {
+    const value = row?.[key] || row?.[key?.toLowerCase?.()] || row?.[key?.replace?.(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)];
+    if (typeof value === "string") return value;
+    if (value?.name || value?.display_name) return value.name || value.display_name;
+  }
+  return "";
+}
+
+function normalizeTransferAmount(row) {
+  const amount = row?.amount ?? row?.fee ?? row?.transfer_fee ?? row?.market_value ?? null;
+  const currency = row?.currency || row?.currency_code || "EUR";
+  if (amount === null || amount === undefined || amount === "") return row?.type?.name || row?.type || "Açıklanmadı";
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric)) return String(amount);
+  const compact = new Intl.NumberFormat("tr-TR", { notation: "compact", maximumFractionDigits: 2 }).format(numeric);
+  return `${currency === "EUR" ? "€" : `${currency} `}${compact}`;
+}
+
+function normalizeSportmonksTransfer(row, kind) {
+  const player = row?.player || {};
+  const from = normalizeTeamName(row, ["fromTeam", "fromteam", "from_team", "from"]);
+  const to = normalizeTeamName(row, ["toTeam", "toteam", "to_team", "to"]);
+  const probability = row?.probability || row?.certainty || row?.confidence || "";
+  const source = row?.source || row?.source_name || row?.publication || (kind === "rumour" ? "Sportmonks Transfer Rumours" : "Sportmonks Transfers");
+  return {
+    id: String(row?.id || `${kind}:${player?.id || ""}:${from}:${to}`),
+    kind,
+    name: textValue(player.display_name, player.common_name, player.name, row?.player_name, "Oyuncu"),
+    photo: player.image_path || row?.player_image || null,
+    from: from || "Açıklanmadı",
+    to: to || "Açıklanmadı",
+    fee: normalizeTransferAmount(row),
+    status: kind === "rumour" ? (probability ? `Söylenti · ${probability}` : "Söylenti") : (row?.completed || row?.confirmed ? "Resmî işlem" : textValue(row?.status, row?.type?.name, "Transfer")),
+    detail: textValue(row?.description, row?.info, row?.type?.name, row?.date),
+    date: textValue(row?.date, row?.updated_at, row?.created_at),
+    source,
+    sourceUrl: row?.source_url || row?.url || row?.source?.url || null,
+  };
+}
+
+async function handleFootballTransfers(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const url = new URL(request.url);
+  const league = url.searchParams.get("league") || "super-lig";
+  const teamNames = (url.searchParams.get("teams") || "").split("|").map((name) => name.trim()).filter(Boolean);
+  const teamSet = new Set(teamNames.map((name) => normalizedFootballName(name)));
+  const cacheUrl = new URL(url);
+  cacheUrl.search = `?league=${encodeURIComponent(league)}&teams=${encodeURIComponent(teamNames.slice(0, 80).join("|"))}`;
+  const cache = edgeCache();
+  const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
+  const filters = leagueIds?.length ? `&filters=transferLeagues:${leagueIds.join(",")}` : "";
+  const confirmedPath = `/transfers?include=player;fromTeam;toTeam&per_page=50${filters}`;
+  const rumoursPath = `/transfer-rumours?include=player&per_page=50`;
+  const [confirmedResult, rumourResult] = await Promise.allSettled([
+    sportmonksRequest(confirmedPath, token),
+    sportmonksRequest(rumoursPath, token),
+  ]);
+  const errors = [];
+  if (confirmedResult.status === "rejected") errors.push({ source: "transfers", status: confirmedResult.reason?.status || 502, message: confirmedResult.reason?.providerMessage || confirmedResult.reason?.message || "unavailable" });
+  if (rumourResult.status === "rejected") errors.push({ source: "transfer-rumours", status: rumourResult.reason?.status || 502, message: rumourResult.reason?.providerMessage || rumourResult.reason?.message || "unavailable" });
+  const confirmed = confirmedResult.status === "fulfilled" ? relationRows(confirmedResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "confirmed")) : [];
+  const rumours = rumourResult.status === "fulfilled" ? relationRows(rumourResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "rumour")) : [];
+  const inScope = (row) => {
+    if (!teamSet.size) return true;
+    return teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to));
+  };
+  const payload = {
+    source: "sportmonks-football-api-v3",
+    league,
+    updatedAt: new Date().toISOString(),
+    confirmed: confirmed.filter(inScope).slice(0, 24),
+    rumours: rumours.filter(inScope).slice(0, 24),
+    errors,
+  };
+  const response = jsonResponse(payload, 200, { "Cache-Control": TRANSFER_CACHE });
+  writeEdgeCache(cache, cacheKey, response, context);
+  return response;
+}
+
 function fixtureLineupForTeam(fixture, teamId) {
   return relationRows(fixture?.lineups)
     .filter((row) => String(row?.team_id) === String(teamId) && (Number(row?.type_id) === 11 || row?.formation_field != null))
@@ -416,7 +515,7 @@ async function latestAvailableLineup(teamId, token) {
 }
 
 async function fetchSportmonksClubProfile(teamName, token) {
-  const searchName = SPORTMONKS_TEAM_SEARCH[teamName];
+  const searchName = SPORTMONKS_TEAM_SEARCH[teamName] || teamName;
   const searchParams = new URLSearchParams({ include: "venue;coaches.nationality" });
   const search = await sportmonksRequest(`/teams/search/${encodeURIComponent(searchName)}?${searchParams}`, token);
   const team = chooseSportmonksTeam(relationRows(search?.data), searchName);
@@ -456,7 +555,7 @@ async function handleClubProfile(request, env, context) {
   if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
   const url = new URL(request.url);
   const team = url.searchParams.get("team") || "";
-  if (!SPORTMONKS_TEAM_SEARCH[team]) return jsonResponse({ error: "unknown_team" }, 400, { "Cache-Control": "no-store" });
+  if (!team.trim()) return jsonResponse({ error: "unknown_team" }, 400, { "Cache-Control": "no-store" });
   const cacheUrl = new URL(url); cacheUrl.search = `?team=${encodeURIComponent(team)}`;
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const staleUrl = new URL(`/api/football/club-stale-v1/${encodeURIComponent(team)}`, request.url);
@@ -530,6 +629,7 @@ export default {
     if (["/api/social/x", "/api/social/x-media-v2"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
+    if (url.pathname === "/api/football/transfers") return handleFootballTransfers(request, env, context);
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
     let response = await fetchAsset(request, env, pathname);
 

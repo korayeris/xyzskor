@@ -29,6 +29,7 @@ type SeasonSyncResult = {
   leagueIds: string[];
   syncedMatches: number;
   syncedResults: number;
+  syncedStandings: number;
   updatedAt: string;
 };
 
@@ -221,6 +222,64 @@ function scheduleDatabaseStatus(fixture: any, roundFinished: boolean): string | 
   return null;
 }
 
+function standingDetailValue(row: any, names: string[]): number {
+  const normalizedNames = names.map((name) => String(name).toLowerCase());
+  const direct = names.find((name) => row?.[name] !== undefined && row?.[name] !== null);
+  if (direct) return Number(row[direct]) || 0;
+  const details = Array.isArray(row?.details) ? row.details : [];
+  const match = details.find((detail: any) => {
+    const code = String(detail?.type?.code || detail?.type?.name || detail?.code || detail?.name || "").toLowerCase();
+    return normalizedNames.some((name) => code === name || code.includes(name));
+  });
+  return Number(match?.value ?? match?.points ?? match?.standing_value ?? 0) || 0;
+}
+
+function normalizeStandingRow(row: any, seasonInfo: SeasonInfo, index: number) {
+  const participant = row?.participant || row?.team || {};
+  const played = standingDetailValue(row, ["played", "overall_matches_played", "matches_played", "games_played"]);
+  const won = standingDetailValue(row, ["won", "overall_won", "wins"]);
+  const drawn = standingDetailValue(row, ["draw", "drawn", "overall_draw", "draws"]);
+  const lost = standingDetailValue(row, ["lost", "overall_lost", "losses"]);
+  const goalsFor = standingDetailValue(row, ["goals_for", "overall_goals_for", "scored", "goals_scored"]);
+  const goalsAgainst = standingDetailValue(row, ["goals_against", "overall_goals_against", "conceded", "goals_conceded"]);
+  const points = Number(row?.points ?? standingDetailValue(row, ["points", "overall_points"])) || 0;
+  const goalDifference = Number(row?.goal_difference ?? row?.goaldifference ?? (goalsFor - goalsAgainst)) || 0;
+  return {
+    season:seasonInfo.seasonId,
+    week:0,
+    team:String(participant?.name || row?.team_name || `Takım ${index + 1}`),
+    played,
+    won,
+    drawn,
+    lost,
+    goals_for:goalsFor,
+    goals_against:goalsAgainst,
+    goal_difference:goalDifference,
+    points,
+    home_played:standingDetailValue(row, ["home_played", "home_matches_played"]),
+    home_points:standingDetailValue(row, ["home_points"]),
+    away_played:standingDetailValue(row, ["away_played", "away_matches_played"]),
+    away_points:standingDetailValue(row, ["away_points"]),
+    form:String(row?.form || "").slice(0, 8),
+    source:"sportmonks",
+    verified_at:new Date().toISOString(),
+    competition:seasonInfo.competition,
+    competition_logo:seasonInfo.competitionLogo,
+    country:seasonInfo.country,
+    provider_league_id:seasonInfo.leagueId,
+    provider_season_id:seasonInfo.seasonId,
+    provider_team_id:participant?.id ? String(participant.id) : null,
+  };
+}
+
+async function fetchSportmonksStandings(seasonInfo: SeasonInfo): Promise<any[]> {
+  const url = new URL(`https://api.sportmonks.com/v3/football/standings/seasons/${seasonInfo.seasonId}`);
+  url.searchParams.set("include", "participant;details.type");
+  const payload = await sportmonksGet(url);
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  return rows.map((row: any, index: number) => normalizeStandingRow(row, seasonInfo, index)).filter((row: any) => row.team);
+}
+
 async function currentSportmonksSeasonInfo(leagueId: string): Promise<SeasonInfo> {
   const leagueUrl = new URL(`https://api.sportmonks.com/v3/football/leagues/${leagueId}`);
   leagueUrl.searchParams.set("include", "currentSeason;country");
@@ -259,11 +318,17 @@ async function syncSportmonksSeason(leagueIds = sportmonksLeagueIds()): Promise<
   if (!leagueIds.length) throw new Error("SPORTMONKS_LEAGUE_IDS yapılandırılmamış.");
   const matchRows: any[] = [];
   const resultRows: any[] = [];
+  const standingRows: any[] = [];
   const seasonIds: string[] = [];
 
   for (const leagueId of leagueIds) {
     const seasonInfo = await currentSportmonksSeasonInfo(leagueId);
     seasonIds.push(seasonInfo.seasonId);
+    try {
+      standingRows.push(...await fetchSportmonksStandings(seasonInfo));
+    } catch (error) {
+      console.warn("[football-standings]", error instanceof Error ? error.message : error);
+    }
     const scheduleUrl = new URL(`https://api.sportmonks.com/v3/football/schedules/seasons/${seasonInfo.seasonId}`);
     const payload = await sportmonksGet(scheduleUrl);
     const stages = Array.isArray(payload?.data) ? payload.data : [];
@@ -318,7 +383,14 @@ async function syncSportmonksSeason(leagueIds = sportmonksLeagueIds()): Promise<
     const { error:resultError } = await admin.from("results").upsert(uniqueResultRows, { onConflict:"match_id" });
     if (resultError) throw resultError;
   }
-  return { seasonIds, leagueIds, syncedMatches:uniqueMatchRows.length, syncedResults:uniqueResultRows.length, updatedAt:new Date().toISOString() };
+  const uniqueStandingRows = [...new Map(standingRows.map((row) => [`${row.season}:${row.week}:${row.team}`, row])).values()];
+  let syncedStandings = 0;
+  if (uniqueStandingRows.length) {
+    const { error:standingError } = await admin.from("league_standings").upsert(uniqueStandingRows, { onConflict:"season,week,team" });
+    if (standingError) console.warn("[football-standings-upsert]", standingError.message || standingError);
+    else syncedStandings = uniqueStandingRows.length;
+  }
+  return { seasonIds, leagueIds, syncedMatches:uniqueMatchRows.length, syncedResults:uniqueResultRows.length, syncedStandings, updatedAt:new Date().toISOString() };
 }
 
 async function persistFinishedLiveMatches(result: ProviderResult) {
