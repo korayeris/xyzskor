@@ -124,6 +124,13 @@ assert.match(html, /id="footballNewsStream"/i, 'Futbol alanında gerçek içerik
 assert.match(html, /id="footballTransferStream"/i, 'Futbol alanında kaynaklı transfer modülü bulunmalı.');
 assert.match(html, /id="footballStandingsCompact"/i, 'Futbol alanında puan durumu özeti bulunmalı.');
 assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/i, 'Futbol içinde maç, gündem, transfer ve puan durumu erişimi bulunmalı.');
+assert.match(html, /data-football-route="home"[^>]*>Anasayfa</i, 'Futbol portalının ayrı bir Anasayfa rotası bulunmalı.');
+assert.match(html, /id="footballMatchesView"[^>]*hidden/i, 'Maçlar için ana sayfadan ayrı tam detay görünümü bulunmalı.');
+assert.match(html, /id="footballNewsView"[^>]*hidden/i, 'Gündem için ana sayfadan ayrı tam detay görünümü bulunmalı.');
+assert.match(functionSource('openFootballSection'), /activeFootballSection!==['"]home['"]/, 'Yalnız Anasayfa özet görünümünü kullanmalı; diğer sekmeler ayrı ekran açmalı.');
+assert.match(functionSource('renderMatchesHub'), /openMatchCenter/, 'Tam maç akışındaki her kayıt kendi maç merkezini açmalı.');
+assert.match(functionSource('renderNewsHub'), /editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
+assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe0e2,#d3d5d8/i, 'Maçlar ekranı göz yormayan gri portal yüzeyi kullanmalı.');
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');

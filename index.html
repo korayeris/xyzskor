@@ -26,7 +26,8 @@
 <div class="live-ticker"><div class="ticker-inner" id="liveTicker"></div></div>
 
 <nav class="football-context-nav" id="footballContextNav" aria-label="Futbol bölümleri">
-  <button class="football-context-tab active" data-football-route="matches" type="button" onclick="openFootballSection('matches',this)">Maçlar</button>
+  <button class="football-context-tab active" data-football-route="home" type="button" onclick="openFootballSection('home',this)">Anasayfa</button>
+  <button class="football-context-tab" data-football-route="matches" type="button" onclick="openFootballSection('matches',this)">Maçlar</button>
   <button class="football-context-tab" data-football-route="news" type="button" onclick="openFootballSection('news',this)">Gündem</button>
   <button class="football-context-tab" data-football-route="clubs" type="button" onclick="openFootballSection('clubs',this)">Kulüpler</button>
   <button class="football-context-tab" data-football-route="transfers" type="button" onclick="openFootballSection('transfers',this)">Transfer</button>
@@ -48,7 +49,7 @@
   <section class="football-home" aria-label="Futbol gündemi">
     <div class="football-primary-grid">
       <section class="football-module match-rail" id="footballMatchesSection" aria-labelledby="footballMatchesTitle">
-        <div class="football-module-head"><div><div class="football-module-kicker">Maç Merkezi</div><div class="football-module-title" id="footballMatchesTitle">Canlı ve yaklaşan maçlar</div><div class="football-module-note">Durum ve skor yalnız doğrulanmış kayıtlardan gösterilir.</div></div><button class="football-module-action" type="button" onclick="scrollToLiveCenter()">Canlı merkez ↓</button></div>
+        <div class="football-module-head"><div><div class="football-module-kicker">Maç Merkezi</div><div class="football-module-title" id="footballMatchesTitle">Canlı ve yaklaşan maçlar</div><div class="football-module-note">Durum ve skor yalnız doğrulanmış kayıtlardan gösterilir.</div></div><button class="football-module-action" type="button" onclick="openFootballSection('matches')">Tüm maçlar →</button></div>
         <div class="football-quick-list" id="footballQuickMatches"></div>
       </section>
       <article class="football-module featured-development headline-stage" id="footballFeaturedDevelopment" aria-live="polite"></article>
@@ -77,7 +78,7 @@
   <section class="editorial-desk" id="editorialDesk" aria-labelledby="editorialDeskTitle">
     <header class="editorial-desk-head">
       <div><span class="editorial-desk-kicker">XYZSKOR HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p>Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
-      <button class="editorial-desk-action" type="button" onclick="scrollFootballSection('footballNewsSection')">Tüm gündeme dön <span aria-hidden="true">↑</span></button>
+      <button class="editorial-desk-action" type="button" onclick="openFootballSection('news')">Tüm gündemi aç <span aria-hidden="true">→</span></button>
     </header>
     <div class="editorial-desk-grid">
       <div class="editorial-lead" id="editorialLeadNews"></div>
@@ -184,6 +185,47 @@
     </aside>
   </div>
   </div>
+
+  <section class="football-data-view matches-hub-view" id="footballMatchesView" aria-labelledby="footballMatchesViewTitle" hidden>
+    <header class="football-data-hero matches-data-hero">
+      <div><span class="football-data-eyebrow">SÜPER LİG · MAÇ MERKEZİ</span><h1 id="footballMatchesViewTitle">Maçlar</h1><p>Canlı durum, yaklaşan fikstür ve tamamlanan karşılaşmalar aynı doğrulanmış veri akışında.</p></div>
+      <div class="matches-live-status"><span aria-hidden="true"></span><strong>Veri bağlantısı</strong><small>Skor tahmin edilmez; sağlayıcı kaydı beklenir.</small></div>
+    </header>
+    <div class="matches-hub-metrics" id="footballMatchesStats" aria-label="Maç merkezi özeti"></div>
+    <div class="matches-hub-workspace">
+      <main class="matches-hub-feed">
+        <header class="matches-hub-toolbar">
+          <div><span>FİKSTÜR AKIŞI</span><h2>Tüm karşılaşmalar</h2></div>
+          <div class="matches-hub-filters" role="group" aria-label="Maç durumu filtresi">
+            <button class="active" type="button" data-match-hub-filter="all" onclick="setMatchHubFilter('all',this)">Tümü</button>
+            <button type="button" data-match-hub-filter="live" onclick="setMatchHubFilter('live',this)">Canlı</button>
+            <button type="button" data-match-hub-filter="upcoming" onclick="setMatchHubFilter('upcoming',this)">Yaklaşan</button>
+            <button type="button" data-match-hub-filter="results" onclick="setMatchHubFilter('results',this)">Sonuçlar</button>
+          </div>
+        </header>
+        <div class="matches-hub-list" id="footballMatchesFullList" aria-live="polite"></div>
+      </main>
+      <aside class="matches-hub-sidebar" aria-label="Maç merkezi bilgileri">
+        <section><span class="matches-side-index">01</span><strong>Canlı etiketi yalnız resmî durum kaydından gelir.</strong><p>Saate bakarak maç başlamış kabul edilmez. Sağlayıcı gecikirse ekranda “durum bekleniyor” görünür.</p></section>
+        <section><span class="matches-side-index">02</span><strong>Her karşılaşmanın ayrı merkezi var.</strong><p>Kadro, eksikler, matematik, topluluk dağılımı ve ilgili haberler maç kartından açılır.</p></section>
+        <button type="button" onclick="switchMainTab('predict')">Ücretsiz Predict’e geç <span aria-hidden="true">→</span></button>
+      </aside>
+    </div>
+  </section>
+
+  <section class="football-data-view news-hub-view" id="footballNewsView" aria-labelledby="footballNewsViewTitle" hidden>
+    <header class="football-data-hero news-data-hero">
+      <div><span class="football-data-eyebrow">XYZSKOR HABER MERKEZİ</span><h1 id="footballNewsViewTitle">Gündem</h1><p>Resmî açıklama, güçlü iddia, söylenti ve veri analizi birbirine karıştırılmadan tam akışta gösterilir.</p></div>
+      <div class="news-desk-seal"><strong>Kaynaklı</strong><small>Her kaydın türü ve kaynağı görünür.</small></div>
+    </header>
+    <div class="news-hub-workspace">
+      <main class="news-hub-feed">
+        <div class="news-hub-title"><span>GÜNCEL AKIŞ</span><h2>Son gelişmeler</h2><p>Bir kayda basarak kaynaklarını, kronolojisini ve ilgili maçını aç.</p></div>
+        <div id="footballNewsFullStream" aria-live="polite"></div>
+      </main>
+      <aside class="news-hub-sidebar" id="footballNewsHubSidebar" aria-label="Haber merkezi standardı"></aside>
+    </div>
+  </section>
 
   <section class="football-data-view" id="footballClubsView" aria-labelledby="footballClubsViewTitle" hidden>
     <header class="football-data-hero clubs-hero">

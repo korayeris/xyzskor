@@ -48,11 +48,12 @@ function parseHash(){
   const h = (location.hash || '').replace('#','');
   if(h.startsWith('week/')) return { type:'week', value: parseInt(h.split('/')[1],10) };
   if(h.startsWith('match/')) return { type:'match', value: h.split('/')[1] };
+  if(h==='matches') return { type:'football-section', value:'matches' };
   if(h==='agenda') return { type:'football-section', value:'news' };
   if(h==='clubs') return { type:'football-section', value:'clubs' };
   if(h==='standings') return { type:'football-section', value:'standings' };
   if(h==='transfers' || h.startsWith('transfers/')) return { type:'football-section', value:'transfers', sub:h.split('/')[1] || 'confirmed' };
-  if(['football','story','stories','live','matches'].includes(h)) return { type:'product', value:'football' };
+  if(['football','story','stories','live'].includes(h)) return { type:'product', value:'football' };
   if(['predict','league','leader','rewards','profile'].includes(h)) return { type:'product', value:'predict' };
   return null;
 }
@@ -237,7 +238,7 @@ function switchMainTab(name, updateUrl){
   document.getElementById('tabBtnPredict').classList.toggle('active', product==='predict');
   const footballContextNav=document.getElementById('footballContextNav');
   if(footballContextNav) footballContextNav.hidden=product!=='football';
-  if(product==='football' && updateUrl!==false && name==='football' && typeof openFootballSection==='function') openFootballSection('matches',null,false);
+  if(product==='football' && name==='football' && typeof openFootballSection==='function') openFootballSection('home',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
   if(updateUrl !== false && ['football','predict'].includes(name)) updateHash(product);
   updateMobileNavActive();
