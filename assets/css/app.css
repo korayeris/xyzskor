@@ -1006,3 +1006,29 @@ body{background:#101114}
   .transfer-center-hero{display:grid!important;gap:14px!important;padding:20px 16px!important}.transfer-window-card{width:100%;flex-basis:auto}.transfer-center-workspace{grid-template-columns:1fr}.transfer-filter-panel{grid-template-columns:1fr 1fr}.transfer-center-main{overflow:hidden}.transfer-center-tabs{overflow-x:auto}.transfer-center-row{grid-template-columns:28px 46px minmax(0,1fr);padding:15px 13px}.transfer-center-fee{grid-column:3;grid-row:2}.transfer-record-source{grid-column:2/-1}
   .football-live-module{max-width:100%!important;margin:0!important;padding:0 10px;background:#1d1f23}.football-live-module .live-shell{padding:12px 0 32px}.football-live-module .live-head{display:grid;gap:14px;padding:20px 16px;border-radius:14px;background:linear-gradient(135deg,#30353c,#202328)}.football-live-module .live-head h2{font-size:27px}.football-live-module .live-card{grid-template-columns:1fr;gap:12px}.football-live-module .live-state{text-align:left}.football-live-module .live-notice{padding:42px 18px}
 }
+
+/* ===================== MOBILE NEWS FEED REWORK ===================== */
+@media(max-width:767px){
+  #footballOverviewView .news-feed{border-color:#383d45;background:#17191d;box-shadow:0 18px 42px rgba(0,0,0,.24)}
+  #footballOverviewView .news-feed .football-module-head{align-items:center;min-height:0;padding:18px 16px;border-bottom:0;background:radial-gradient(circle at 100% 0,rgba(201,54,66,.14),transparent 42%),linear-gradient(135deg,#24272d,#1a1c20)}
+  #footballOverviewView .news-feed .football-module-kicker{margin-bottom:7px;color:#ff636d;font-size:8px;letter-spacing:.16em}
+  #footballOverviewView .news-feed .football-module-title{font-size:22px;letter-spacing:-.035em}
+  #footballOverviewView .news-feed .portal-section-index{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border:1px solid #444a54;border-radius:999px;background:#202328;color:#b8bec7;font:760 9px/1 var(--font-mono);letter-spacing:.08em}
+  #footballNewsStream{padding:12px;background:#131519}
+  #footballOverviewView .news-feed .football-news-list{display:grid;gap:10px}
+  #footballOverviewView .news-feed .football-news-card{position:relative;display:grid;gap:11px;padding:14px;border:1px solid #323740;border-radius:13px;background:linear-gradient(180deg,#202328,#191c20);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+  #footballOverviewView .news-feed .football-news-card::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;border-radius:13px 0 0 13px;background:#c93642}
+  #footballOverviewView .news-feed .football-news-card:hover,#footballOverviewView .news-feed .football-news-card:focus-visible{border-color:#4b525d;background:linear-gradient(180deg,#242830,#1d2025)}
+  #footballOverviewView .news-feed .football-news-identity{display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;align-items:center;margin:0}
+  #footballOverviewView .news-feed .football-news-avatar{width:36px;height:36px;flex-basis:36px;border:1px solid #3c424c;background:#2a2e36;color:#cfd4dc;font-size:9px}
+  #footballOverviewView .news-feed .football-news-byline b{font-size:11px;color:#f1f3f5}
+  #footballOverviewView .news-feed .football-news-byline span{margin-top:4px;color:#818994;font-size:8px}
+  #footballOverviewView .news-feed .football-news-card h3{margin:0;color:#fff;font-size:18px;line-height:1.18;letter-spacing:-.03em}
+  #footballOverviewView .news-feed .football-news-card p{margin:0;color:#a4abb5;font-size:12px;line-height:1.58;-webkit-line-clamp:3}
+  #footballOverviewView .news-feed .football-news-meta{display:flex;align-items:center;gap:7px;margin-top:0;color:#8d95a0;font-size:8px}
+  #footballOverviewView .news-feed .confidence-chip{min-height:23px;padding:0 8px;border-color:#444b55;border-radius:999px;background:#252a31;color:#c5cbd3}
+  #footballOverviewView .news-feed .confidence-chip.official{border-color:#365f8f;background:#182636;color:#8fc5ff}
+  #footballOverviewView .news-feed .football-news-meta>span:not(.confidence-chip){display:inline-flex;align-items:center;min-height:23px;padding:0 8px;border:1px solid #343a43;border-radius:999px;background:#171a1f;color:#929aa5}
+  #footballOverviewView .news-feed .football-news-meta .football-module-action{width:100%;justify-content:center;margin-top:3px;min-height:36px;border:1px solid #3d4550;border-radius:9px;background:#222730;color:#f36b75;font-size:9px}
+  #footballOverviewView .news-feed .confidence-help{display:none}
+}
