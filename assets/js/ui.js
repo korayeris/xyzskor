@@ -1022,13 +1022,59 @@ function renderFootballTransfers(){
   area.innerHTML=`<div class="football-news-list">${transfers.slice(0,4).map(({card,index})=>{ const confidence=storyConfidence(card); return `<article class="football-news-card" tabindex="0" role="button" data-news-index="${index}" aria-label="${escapeHTML(card.title||'Transfer haberi')} haberini aç">${storyIdentityHTML(card)}<h3>${escapeHTML(card.title || 'Transfer gelişmesi')}</h3>${card.text?`<p>${escapeHTML(card.text)}</p>`:''}<div class="football-news-meta">${confidence?`<span class="confidence-chip ${confidence.tone}">${confidence.label}</span>`:''}${card.source?`<span>Kaynak: ${escapeHTML(card.source)}</span>`:''}${card.verified_at?`<span>${escapeHTML(fmtEditorialDate(card.verified_at))}</span>`:''}</div></article>`; }).join('')}</div>`;
   area.querySelectorAll('[data-news-index]').forEach(article=>{ article.onclick=()=>openNewsDetail(Number(article.dataset.newsIndex)); article.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openNewsDetail(Number(article.dataset.newsIndex));} }; });
 }
+function officialSeasonSummaryForLeague(key){
+  return OFFICIAL_SEASON_SUMMARIES?.[key] || null;
+}
+function seasonSummaryCardHTML(key, summary){
+  if(!summary) return '';
+  const crest=TEAM_CRESTS?.[summary.champion] ? crestHTML(summary.champion,'xs') : '';
+  const links=(Array.isArray(summary.sourceLinks)?summary.sourceLinks:[])
+    .map(link=>{
+      const url=safeExternalURL(link?.url);
+      if(!url) return '';
+      return `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(link.label||'Resmî kaynak')} ↗</a>`;
+    }).filter(Boolean).join('');
+  return `<article class="season-honor-card ${key===activeFootballLeague?'is-active':''}">
+    <div class="season-honor-head">
+      <span class="season-honor-season">${escapeHTML(summary.season||'')}</span>
+      <span class="season-honor-context">${escapeHTML(competitionShortBySlug(key))}</span>
+    </div>
+    <div class="season-honor-grid">
+      <div class="season-honor-stat">
+        <small>Şampiyon</small>
+        <strong>${crest}${escapeHTML(summary.champion||'')}</strong>
+        <span>${escapeHTML(summary.championNote||'')}</span>
+      </div>
+      <div class="season-honor-stat">
+        <small>${escapeHTML(summary.standoutLabel||'Öne çıkan isim')}</small>
+        <strong>${escapeHTML(summary.standout||'')}</strong>
+        <span>${escapeHTML([summary.standoutTeam,summary.standoutNote].filter(Boolean).join(' · '))}</span>
+      </div>
+    </div>
+    ${links?`<div class="season-honor-links">${links}</div>`:''}
+  </article>`;
+}
+function renderFootballSeasonHonors(){
+  const area=document.getElementById('footballSeasonHonors'); if(!area) return;
+  const keys=activeFootballLeague==='all'
+    ? SELECTED_COMPETITIONS.filter(item=>item.key!=='all').map(item=>item.key)
+    : [activeFootballLeague];
+  const cards=keys.map(key=>seasonSummaryCardHTML(key,officialSeasonSummaryForLeague(key))).filter(Boolean);
+  if(!cards.length){ area.innerHTML=''; return; }
+  area.innerHTML=`<div class="season-honor-shell ${keys.length>1?'multi':''}">
+    <div class="season-honor-kicker">Resmî sezon özeti</div>
+    <div class="season-honor-cards">${cards.join('')}</div>
+  </div>`;
+}
 function renderFootballStandingsCompact(){
   const area=document.getElementById('footballStandingsCompact'); if(!area) return;
   const rows=standingRowsForActiveLeague().slice(0,5);
-  const label=activeFootballLeague==='super-lig'?'2024–25 final':competitionShortBySlug(activeFootballLeague);
-  area.innerHTML=`<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
+  const summary=officialSeasonSummaryForLeague(activeFootballLeague);
+  const label=summary?.season ? `${summary.season} tablo` : (activeFootballLeague==='super-lig'?'2024–25 final':competitionShortBySlug(activeFootballLeague));
+  const note=summary ? `<div class="standing-compact-note">Üstte son tamamlanan sezonun resmî özeti, altta bu lig için tabloda görünen son kayıt yer alır.</div>` : '';
+  area.innerHTML=`${note}<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
 }
-function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
+function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();

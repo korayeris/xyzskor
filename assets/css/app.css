@@ -761,6 +761,23 @@ body{background:var(--portal-night);background-image:none}
 .transfer-rail .football-module-head{border-bottom-color:#7a7282}.transfer-rail .football-news-card{padding:13px}.transfer-rail .football-news-card h3{font-size:12px}.transfer-rail .football-news-card p{font-size:10px}.transfer-rail .football-news-avatar{display:none}.transfer-rail .football-news-identity{margin-bottom:6px}.standings-rail .football-module-head{border-bottom-color:var(--portal-green)}
 .football-empty{margin:0;padding:18px 15px;border:0;border-radius:0;background:#f7f6f3;color:var(--portal-muted);font-size:11px}.football-empty strong{color:var(--portal-ink)}
 .standing-compact-header,.standing-compact-row{display:grid;grid-template-columns:23px minmax(0,1fr) 24px 32px;gap:5px;align-items:center}.standing-compact-header{padding:8px 12px;background:#f0efec;color:#898d91;font:700 8px/1 var(--font-mono);text-transform:uppercase}.standing-compact-row{padding:9px 12px;border-top:1px solid var(--portal-soft);color:var(--portal-ink);font-size:10px}.standing-compact-row:first-child{border-top:0}.standing-compact-row b{text-align:right;font-size:10px}.standing-compact-team{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.season-honor-shell{display:grid;gap:10px;padding:12px 12px 10px;border-bottom:1px solid var(--portal-soft);background:linear-gradient(180deg,#f8f6f1,#f1ede4)}
+.season-honor-kicker{color:#8b8f94;font:700 8px/1 var(--font-mono);letter-spacing:.18em;text-transform:uppercase}
+.season-honor-cards{display:grid;gap:10px}
+.season-honor-card{display:grid;gap:10px;padding:12px;border:1px solid rgba(36,41,48,.09);border-radius:14px;background:rgba(255,255,255,.78)}
+.season-honor-card.is-active{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--league-accent,#1f7aff) 32%,transparent)}
+.season-honor-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.season-honor-season{color:#1e2228;font:760 15px/1 var(--font-display);letter-spacing:-.02em}
+.season-honor-context{color:#8b8f94;font:700 8px/1 var(--font-mono);text-transform:uppercase}
+.season-honor-grid{display:grid;gap:8px}
+.season-honor-stat{display:grid;gap:5px}
+.season-honor-stat small{color:#8b8f94;font:700 8px/1 var(--font-mono);text-transform:uppercase}
+.season-honor-stat strong{display:flex;align-items:center;gap:6px;color:#171a1f;font:760 14px/1.25 var(--font-display)}
+.season-honor-stat span{color:#6f7781;font-size:10px;line-height:1.45}
+.season-honor-links{display:flex;flex-wrap:wrap;gap:7px}
+.season-honor-links a{display:inline-flex;align-items:center;padding:6px 8px;border:1px solid rgba(36,41,48,.1);border-radius:999px;color:#2a2f36;font:700 8px/1 var(--font-mono);text-decoration:none}
+.season-honor-links a:hover{background:#fff}
+.standing-compact-note{padding:10px 12px;border-bottom:1px solid var(--portal-soft);background:#f7f4ee;color:#6f7781;font-size:9px;line-height:1.5}
 .portal-sponsor-rail{min-height:180px;padding:19px;background:linear-gradient(150deg,#27202e,#17151d);color:#fff}.portal-rail-label{color:#ff8b90;font:700 8px/1 var(--font-mono);letter-spacing:1px;text-transform:uppercase}.portal-rail-title{margin-top:12px;font:700 21px/1.12 var(--font-display);letter-spacing:-.025em}.portal-rail-note{margin-top:10px;color:#b8b1bb;font-size:10px;line-height:1.55}.portal-rail-mark{margin-top:22px;padding-top:12px;border-top:1px solid #49414d;color:#fff;font:800 14px/1 var(--font-display)}
 .portal-team-button:focus-visible,.football-match-row:focus-visible,.headline-actions button:focus-visible,.football-news-card:focus-visible{outline:3px solid #255fa8;outline-offset:2px}.primary-nav .maintab:focus-visible,.football-context-tab:focus-visible{outline:2px solid #ff9297;outline-offset:-3px}
 .football-data-view[hidden],#footballOverviewView[hidden]{display:none!important}
@@ -924,6 +941,7 @@ body{background:#101114}
 .club-social-actions{display:flex;align-items:center;gap:8px}.club-social-scroll-button{display:grid;place-items:center;width:42px;height:42px;border:1px solid #2f3336;border-radius:50%;background:#0b0b0b;color:#e7e9ea;font:600 18px/1 var(--font-body);cursor:pointer;transition:border-color .18s ease,background-color .18s ease,color .18s ease}.club-social-scroll-button:hover{border-color:#1d9bf0;background:#111820;color:#8ecdf7}.club-social-scroll-button:focus-visible{outline:2px solid #1d9bf0;outline-offset:3px}.club-social-stage{display:grid;grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:clamp(390px,32vw,440px);align-items:stretch;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-inline:1px;overscroll-behavior-inline:contain;scrollbar-width:thin;scrollbar-color:#2f3336 #050505}.club-social-stage::-webkit-scrollbar{height:8px}.club-social-stage::-webkit-scrollbar-track{background:#050505}.club-social-stage::-webkit-scrollbar-thumb{border:2px solid #050505;border-radius:999px;background:#2f3336}.club-social-stage::-webkit-scrollbar-thumb:hover{background:#1d9bf0}.club-social-card{min-height:480px;scroll-snap-align:start;scroll-snap-stop:normal}.club-social-card:nth-child(n){border-left:1px solid #2f3336}.club-social-card:first-child{border-left:0}.club-social-post{padding-right:22px;padding-left:22px}.club-social-body{min-height:0}
 @media(max-width:1100px){.club-social-stage{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(360px,72vw)}.club-social-card:nth-child(n){border-left:1px solid #2f3336}.club-social-card:first-child{border-left:0}}
 @media(max-width:767px){.club-social-head{align-items:flex-start}.club-social-actions{gap:5px}.club-social-actions .club-social-badge{display:none}.club-social-scroll-button{width:36px;height:36px;font-size:16px}.club-social-stage{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(292px,88vw);padding-bottom:2px}.club-social-card{min-height:0}.club-social-post{padding-right:17px;padding-left:17px}}
+@media(max-width:767px){.season-honor-shell{padding:11px 11px 9px}.season-honor-card{padding:11px;border-radius:12px}.season-honor-head{align-items:flex-start;flex-direction:column}.season-honor-stat strong{font-size:13px}.season-honor-links a{width:100%;justify-content:center}}
 
 /* ===================== ELITE GRAPHITE FOOTBALL SYSTEM ===================== */
 #page-story{--graphite-bg:#24272c;--graphite-panel:#1b1d21;--graphite-raised:#292c31;--graphite-line:#3a3e45;--graphite-text:#f2f3f4;--graphite-muted:#9298a1;background:linear-gradient(180deg,#2b2e33 0,#23262b 44%,#1d1f23 100%);color:var(--graphite-text)}
@@ -939,6 +957,14 @@ body{background:#101114}
 #footballOverviewView .football-module-head{border-bottom-color:#3c4047;background:#23262b}
 #footballOverviewView .football-module-title,#footballOverviewView .football-news-card h3,#footballOverviewView .football-news-byline b,#footballOverviewView .football-empty strong,#footballOverviewView .standing-compact-row,#footballOverviewView .football-score{color:var(--graphite-text)}
 #footballOverviewView .football-module-note,#footballOverviewView .football-news-card p,#footballOverviewView .football-news-byline span,#footballOverviewView .football-news-meta,#footballOverviewView .confidence-help,#footballOverviewView .football-empty{color:var(--graphite-muted)}
+#footballOverviewView .season-honor-shell{border-bottom-color:#30343a;background:linear-gradient(180deg,#1f2328,#191c21)}
+#footballOverviewView .season-honor-kicker,#footballOverviewView .season-honor-context,#footballOverviewView .season-honor-stat small{color:#8f98a3}
+#footballOverviewView .season-honor-card{border-color:#30343a;background:#171a1f}
+#footballOverviewView .season-honor-season,#footballOverviewView .season-honor-stat strong{color:#f3f5f7}
+#footballOverviewView .season-honor-stat span{color:#9aa3ad}
+#footballOverviewView .season-honor-links a{border-color:#3a4048;color:#d6dce3;background:#1d2024}
+#footballOverviewView .season-honor-links a:hover{background:#242830}
+#footballOverviewView .standing-compact-note{border-bottom-color:#30343a;background:#171a1f;color:#9aa3ad}
 #footballOverviewView .football-match-row,#footballOverviewView .football-news-card{border-color:#30343a;background:#1d2024;color:#f0f1f2}
 #footballOverviewView .football-match-row:hover,#footballOverviewView .football-match-row:focus-visible,#footballOverviewView .football-news-card:hover,#footballOverviewView .football-news-card:focus-visible{border-color:#42474f;background:#272a2f}
 #footballOverviewView .football-state,#footballOverviewView .prediction-indicator{background:#30343a;color:#aab0b7}

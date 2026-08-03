@@ -59,6 +59,73 @@ const LEAGUE_CONTEXT = {
   'la-liga':{headline:'La Liga merkezi',copy:'İspanya ligi için fikstür, canlı skor, puan durumu ve kulüp gündemi.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},
   'premier-league':{headline:'Premier League merkezi',copy:'İngiltere ligi için fikstür, canlı skor, puan durumu ve kulüp gündemi.',agenda:'Premier League gündemi',standings:'Premier League puan durumu',transfer:'Premier League transfer gelişmeleri'}
 };
+const OFFICIAL_SEASON_SUMMARIES = Object.freeze({
+  'super-lig':{
+    season:'2025/26',
+    champion:'Galatasaray',
+    championNote:'TFF tescili · son tamamlanan sezon',
+    standoutLabel:'Gol kralları',
+    standout:'Paul Onuachu · Eldor Shomurodov',
+    standoutTeam:'Trabzonspor · Başakşehir',
+    standoutNote:'TFF resmî gol krallığı kaydı',
+    sourceLinks:[
+      {label:'TFF şampiyonluk tescili',url:'https://www.tff.org/default.aspx?pageID=687&ftxtID=50600'},
+      {label:'TFF gol krallığı',url:'https://www.tff.org/default.aspx?pageID=545'}
+    ]
+  },
+  'champions-league':{
+    season:'2025/26',
+    champion:'Paris Saint-Germain',
+    championNote:'UEFA resmî şampiyon kaydı',
+    standoutLabel:'Sezonun oyuncusu',
+    standout:'Khvicha Kvaratskhelia',
+    standoutTeam:'Paris Saint-Germain',
+    standoutNote:'UEFA Teknik Gözlemciler',
+    sourceLinks:[
+      {label:'UEFA sezon kaydı',url:'https://www.uefa.com/uefachampionsleague/history/seasons/2026/'},
+      {label:'UEFA sezonun oyuncusu',url:'https://www.uefa.com/uefachampionsleague/news/029a-1e2f66419d80-e5c6f9634f70-1000--kvaratskhelia-named-2025-26-uefa-champions-league-player/'}
+    ]
+  },
+  'europa-league':{
+    season:'2025/26',
+    champion:'Aston Villa',
+    championNote:'UEFA resmî şampiyon kaydı',
+    standoutLabel:'Sezonun oyuncusu',
+    standout:'Morgan Rogers',
+    standoutTeam:'Aston Villa',
+    standoutNote:'UEFA Teknik Gözlemciler',
+    sourceLinks:[
+      {label:'UEFA sezon kaydı',url:'https://www.uefa.com/uefaeuropaleague/history/seasons/2026/'},
+      {label:'UEFA sezonun oyuncusu',url:'https://www.uefa.com/uefaeuropaleague/news/029a-1e2f3953e01d-5791ee9eef57-1000--rogers-named-2025-26-uefa-europa-league-player-of-the-s/'}
+    ]
+  },
+  'la-liga':{
+    season:'2025/26',
+    champion:'Barcelona',
+    championNote:'LALIGA resmî sezon kaydı',
+    standoutLabel:'Sezonun oyuncusu',
+    standout:'Lamine Yamal',
+    standoutTeam:'Barcelona',
+    standoutNote:'LALIGA EA SPORTS ödülü',
+    sourceLinks:[
+      {label:'LALIGA sezon özeti',url:'https://www.laliga.com/en-GB/news/fc-barcelona-win-laliga-ea-sports-title-2025-26'},
+      {label:'LALIGA sezonun oyuncusu',url:'https://www.laliga.com/en-GB/news/lamine-yamal-named-laliga-ea-sports-player-of-the-season-2025-26'}
+    ]
+  },
+  'premier-league':{
+    season:'2025/26',
+    champion:'Arsenal',
+    championNote:'Premier League resmî sezon kaydı',
+    standoutLabel:'Sezonun oyuncusu',
+    standout:'Bruno Fernandes',
+    standoutTeam:'Manchester United',
+    standoutNote:'EA SPORTS Player of the Season',
+    sourceLinks:[
+      {label:'Premier League sezon özeti',url:'https://www.premierleague.com/news/4309828'},
+      {label:'Premier League sezonun oyuncusu',url:'https://www.premierleague.com/news/4307899'}
+    ]
+  }
+});
 const LEAGUE_FALLBACK_CLUBS = Object.freeze({
   'champions-league':['Arsenal','Bayern München','Liverpool','Tottenham Hotspur','Barcelona','Chelsea','Sporting CP','Manchester City','Real Madrid','Inter','Paris Saint-Germain','Newcastle United','Juventus','Atlético Madrid','Atalanta','Bayer Leverkusen'],
   'europa-league':['Roma','Porto','Rangers','Fenerbahçe','Galatasaray','Real Betis','Lazio','Feyenoord','Lyon','Ajax','Braga','Villarreal','Freiburg','Olympiacos','Trabzonspor','Beşiktaş'],
