@@ -1496,6 +1496,13 @@ body[class*="league-theme-"] .club-social-loading span{background:#89a2b9;box-sh
 body[class*="league-theme-"] .club-social-copy{color:#e7ebef}
 body[class*="league-theme-"] .club-social-card-head strong,body[class*="league-theme-"] .club-social-pending strong{color:#f4f6f8}
 body[class*="league-theme-"] .club-social-card-head small,body[class*="league-theme-"] .club-social-head p,body[class*="league-theme-"] .club-social-pending span{color:#aab4bf}
+
+/* Remove the oversized watermark/ring decorations from the page background. */
+body[class*="league-theme-"] #page-story::before,
+body[class*="league-theme-"] #footballOverviewView .headline-stage::after,
+body[class*="league-theme-"] .editorial-match-glow,
+body[class*="league-theme-"] .editorial-match-visual::before{display:none!important}
+body[class*="league-theme-"] #page-story{background-image:linear-gradient(180deg,var(--league-bg-1),var(--league-bg-2) 48%,var(--league-bg-3))!important}
 body[class*="league-theme-"] .club-social-card.publisher-card{background:#2f3a45!important;box-shadow:inset 0 2px 0 color-mix(in srgb,var(--league-accent) 58%,transparent)}
 body[class*="league-theme-"] .club-social-card.publisher-card .club-social-team-line strong{letter-spacing:-.02em}
 
