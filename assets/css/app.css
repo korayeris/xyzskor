@@ -1464,3 +1464,35 @@ body[class*="league-transition-to-"]::after{
   body.league-switching::after,.league-transition-stage{display:none!important}
   body.league-switching .football-league-command,.football-top-league-list button.active::after{animation:none!important}
 }
+
+/* Final soft-surface pass: placed after league variants so it wins over the
+   legacy high-contrast theme rules without removing each league's accent. */
+body[class*="league-theme-"]{
+  --league-bg-1:#303841;--league-bg-2:#272f38;--league-bg-3:#1f272f;
+  --league-panel:#252d35;--league-raised:#2d3640;--league-line:#46515d;
+  --league-nav:#202830;--league-nav-2:#2b343e;--league-copy:#f3f5f7;
+  --league-muted:#a9b2bc;--league-glow:rgba(156,177,201,.14);
+}
+body.league-theme-champions-league{--league-bg-1:#2c405b;--league-bg-2:#25364c;--league-bg-3:#1f2d40;--league-nav:#1d2c40;--league-nav-2:#2a3d55;--league-accent:#78b9e9;--league-accent-2:#a8c9e6}
+body.league-theme-europa-league{--league-bg-1:#443b32;--league-bg-2:#352f29;--league-bg-3:#29251f;--league-nav:#27231f;--league-nav-2:#3d352d;--league-accent:#d89b64;--league-accent-2:#edc28d}
+body.league-theme-la-liga{--league-bg-1:#473942;--league-bg-2:#383038;--league-bg-3:#2b272e;--league-nav:#29242b;--league-nav-2:#40333d;--league-accent:#e28a9a;--league-accent-2:#e8cc78}
+body.league-theme-premier-league{--league-bg-1:#3b384d;--league-bg-2:#302e40;--league-bg-3:#262533;--league-nav:#242330;--league-nav-2:#373349;--league-accent:#7fd4b0;--league-accent-2:#c2a4d8}
+body.league-theme-super-lig{--league-bg-1:#443b40;--league-bg-2:#352f34;--league-bg-3:#29262a;--league-nav:#282226;--league-nav-2:#403038;--league-accent:#e17e86;--league-accent-2:#e5cf89}
+body[class*="league-theme-"] .club-social-section{border-color:#4b5661!important;background:#252d35!important;box-shadow:0 24px 58px rgba(9,16,24,.22)!important}
+body[class*="league-theme-"] .club-social-head{background:linear-gradient(135deg,#303943,#252d35)!important;border-bottom-color:#46515d!important}
+body[class*="league-theme-"] .club-social-body,body[class*="league-theme-"] .club-social-stage{background:#252d35!important}
+body[class*="league-theme-"] .club-social-card{background:#29323b!important;border-color:#46515d!important}
+body[class*="league-theme-"] .club-social-card:hover{background:#303a44!important}
+body[class*="league-theme-"] .club-social-avatar{background:#232b33;border-color:#56616c}
+body[class*="league-theme-"] .club-social-media{background:#303943;border-color:#56616c!important}
+body[class*="league-theme-"] .club-social-card-foot{border-top-color:#3d4853}
+body[class*="league-theme-"] .club-social-scroll-button,body[class*="league-theme-"] .club-social-badge{background:#29323b;border-color:#56616c}
+body[class*="league-theme-"] .club-social-scroll-button:hover{background:#35414c;border-color:var(--league-accent);color:#f5f7f9}
+body[class*="league-theme-"] .club-social-stage{scrollbar-color:#6f7f90 #252d35}
+body[class*="league-theme-"] .club-social-stage::-webkit-scrollbar-track{background:#252d35}
+body[class*="league-theme-"] .club-social-stage::-webkit-scrollbar-thumb{border-color:#252d35;background:#6f7f90}
+body[class*="league-theme-"] .club-social-stage::-webkit-scrollbar-thumb:hover{background:var(--league-accent)}
+body[class*="league-theme-"] .club-social-loading span{background:#89a2b9;box-shadow:0 0 0 6px rgba(137,162,185,.12)}
+body[class*="league-theme-"] .club-social-copy{color:#e7ebef}
+body[class*="league-theme-"] .club-social-card-head strong,body[class*="league-theme-"] .club-social-pending strong{color:#f4f6f8}
+body[class*="league-theme-"] .club-social-card-head small,body[class*="league-theme-"] .club-social-head p,body[class*="league-theme-"] .club-social-pending span{color:#aab4bf}

@@ -629,7 +629,7 @@ let xClubPostsRequest=null;
 async function loadXClubPosts(){
   const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
   const label=competitionLabelBySlug(activeFootballLeague);
-  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>${escapeHTML(label)} kulüp akışı hazırlanıyor…</strong></div>`;
+  stage.innerHTML=`<div class="club-social-loading"><span></span><strong>${escapeHTML(label)} kulüp paylaşımları yükleniyor…</strong></div>`;
   try{
     const requestedLeague=activeFootballLeague;
     if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
@@ -650,7 +650,11 @@ async function loadXClubPosts(){
 }
 function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
-  const title=document.getElementById('clubSocialTitle'); if(title) title.textContent=`${competitionLabelBySlug(activeFootballLeague)} kulüp akışı`;
+  const label=competitionLabelBySlug(activeFootballLeague);
+  const clubs=rankedXClubs();
+  const title=document.getElementById('clubSocialTitle'); if(title) title.textContent=`${label} kulüp akışı`;
+  const kicker=document.getElementById('clubSocialKicker'); if(kicker) kicker.textContent=`RESMÎ KULÜP AKIŞI · ${competitionShortBySlug(activeFootballLeague)}`;
+  const description=document.getElementById('clubSocialDescription'); if(description) description.textContent=`${clubs.length} doğrulanmış kulüp hesabından son paylaşımlar, görseller ve video kapakları.`;
   loadXClubPosts();
 }
 function scrollClubSocial(direction){
