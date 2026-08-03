@@ -21,6 +21,12 @@ const X_CLUBS = [
   { team: "Trabzonspor", handle: "Trabzonspor", url: "https://x.com/Trabzonspor" },
 ];
 const makeXClubList = (pairs) => pairs.map(([team, handle]) => ({ team, handle, url: `https://x.com/${handle}` }));
+const X_PUBLISHERS_BY_LEAGUE = Object.freeze({
+  "champions-league": makeXClubList([
+    ["UEFA Champions League", "ChampionsLeague"],
+    ["UEFA", "UEFAcom"],
+  ]),
+});
 const X_CLUBS_BY_LEAGUE = Object.freeze({
   "super-lig": X_CLUBS,
   "champions-league": makeXClubList([
@@ -174,7 +180,8 @@ async function fetchXUsers(token, request, context) {
 
   const league = new URL(request.url).searchParams.get("league") || "super-lig";
   const clubs = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
-  const usernames = clubs.map((club) => club.handle).join(",");
+  const publishers = X_PUBLISHERS_BY_LEAGUE[league] || [];
+  const usernames = [...clubs, ...publishers].map((club) => club.handle).join(",");
   const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}&user.fields=verified,verified_type,profile_image_url`, token);
   const response = jsonResponse(lookup, 200, { "Cache-Control": X_USER_CACHE });
   writeEdgeCache(cache, cacheKey, response, context);
@@ -184,13 +191,14 @@ async function fetchXUsers(token, request, context) {
 async function fetchXClubFeed(token, request, context) {
   const league = new URL(request.url).searchParams.get("league") || "super-lig";
   const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
+  const publishersForLeague = X_PUBLISHERS_BY_LEAGUE[league] || [];
   const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
-  const clubs = await Promise.all(clubsForLeague.map(async (club) => {
+  const loadAccount = async (club, publisher = false) => {
     try {
       const user = users.get(club.handle.toLowerCase());
-      if (!user) return { ...club, post: null, account_found: false, verified: false };
+      if (!user) return { ...club, publisher, post: null, account_found: false, verified: false };
       const params = new URLSearchParams({
         max_results: "5",
         exclude: "replies,retweets",
@@ -200,12 +208,14 @@ async function fetchXClubFeed(token, request, context) {
       });
       const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
       const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-      return { ...normalizeXPost(club, timeline.data?.[0] || null, mediaByKey), account_found: true, verified: Boolean(user.verified || user.verified_type), profile_image_url: user.profile_image_url || null };
+      return { ...normalizeXPost({ ...club, publisher }, timeline.data?.[0] || null, mediaByKey), account_found: true, verified: Boolean(user.verified || user.verified_type), profile_image_url: user.profile_image_url || null };
     } catch (error) {
       if (error?.status === 402) throw error;
-      return { ...club, post: null, account_found: true, verified: false, upstream_error: error?.status || "unavailable" };
+      return { ...club, publisher, post: null, account_found: true, verified: false, upstream_error: error?.status || "unavailable" };
     }
-  }));
+  };
+  const clubs = await Promise.all(clubsForLeague.map((club) => loadAccount(club)));
+  const publishers = await Promise.all(publishersForLeague.map((club) => loadAccount(club, true)));
 
   return {
     source: "x-api",
@@ -215,6 +225,7 @@ async function fetchXClubFeed(token, request, context) {
     updated_at: new Date().toISOString(),
     cache_ttl_seconds: 86400,
     clubs,
+    publishers,
   };
 }
 
