@@ -38,25 +38,8 @@ const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', kontrol: '31 T
 const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
   scope: 'turkey-super-lig',
-  // Sportmonks'un canlı veri güncelleme penceresiyle uyumlu istemci yenilemesi.
   refreshMs: 5000
 };
-const SPORTMONKS_DATA_MODULES = [
-  { key:'selectedLeagues', group:'Plan kapsami', title:'5 secili lig', description:'Super Lig merkezli secili lig havuzu. Lig ekleme ve cikarma saglayici panelinden yonetilecek.', destination:'Lig Ayarlari', area:'overview', status:'ready' },
-  { key:'rateLimit', group:'Altyapi', title:'2.000 cagri / entity / saat', description:'Canli macta gereksiz sorgu atmayacak onbellekli sunucu katmanina baglanacak.', destination:'Veri Sagligi', area:'overview', status:'ready' },
-  { key:'fixtures', group:'Mac merkezi', title:'Fikstur ve mac takvimi', description:'Hafta, tarih, saat, stadyum ve mac durumlari sezon fiksturu acilinca otomatik guncellenecek.', destination:'Maclar', area:'matches', status:'wired' },
-  { key:'liveScores', group:'Mac merkezi', title:'Canli skor ve mac durumu', description:'Skor, dakika, devre ve bitmis mac durumlari mac oynanirken sunucu katmanindan yenilenecek.', destination:'Canli Merkez', area:'matches', status:'wired' },
-  { key:'events', group:'Mac akisi', title:'Gol, kart, oyuncu degisikligi, penalti', description:'Mac merkezindeki akis sekmesi olay tiplerini dakikasiyla ayri ayri gosterecek.', destination:'Mac Akisi', area:'matches', status:'season' },
-  { key:'standings', group:'Lig tablosu', title:'Puan durumu, form, ic/dis saha', description:'2026/27 basladiginda genel tablo, son form ve ic/dis saha kirilimlari canli tabloya donecek.', destination:'Puan Durumu', area:'standings', status:'season' },
-  { key:'teams', group:'Kulup merkezi', title:'Takim profilleri, armalar, kadro listeleri', description:'Kulup sayfalarinda arma, guncel kadro, yas ortalamasi ve oyuncu listesi ayni veri modelinde tutulacak.', destination:'Kulupler', area:'clubs', status:'wired' },
-  { key:'players', group:'Oyuncu merkezi', title:'Oyuncu profilleri ve sezon istatistikleri', description:'Oyuncu kartlarinda profil gorseli, mevki, forma numarasi ve sezon metrikleri icin alan hazir.', destination:'Oyuncular', area:'clubs', status:'season' },
-  { key:'coachRefereeVenue', group:'Saha bilgisi', title:'Teknik direktor, hakem, stadyum / venue', description:'Teknik direktor profili, hakem atamasi, stadyum kapasitesi ve yol tarifi ayri kaynak etiketiyle gosterilecek.', destination:'Kulup + Mac Detayi', area:'clubs', status:'wired' },
-  { key:'lineups', group:'Kadrolar', title:'Onayli ilk 11, dizilis, oyuncu mac verisi', description:'Resmi ilk 11 aciklaninca mac merkezindeki Kadrolar sekmesi tahmin yerine gercek dizilisi basacak.', destination:'Kadrolar', area:'matches', status:'season' },
-  { key:'absences', group:'Eksikler', title:'Sakatlik ve ceza bilgileri', description:'Resmi sakatlik, muhtemel eksik, ceza ve teknik tercih birbirine karismadan ayri etiketlenecek.', destination:'Eksikler', area:'matches', status:'season' },
-  { key:'topScorers', group:'Lig liderleri', title:'Gol kralligi / top scorers', description:'Gol, asist ve kart liderleri sezon verisi olustukca oyuncu liderlik alaninda gosterilecek.', destination:'Oyuncu Liderleri', area:'standings', status:'season' },
-  { key:'teamOfWeek', group:'Performans', title:'Haftanin takimi', description:'Haftanin oyuncusu ve haftanin 11i Sportmonks performans verisi geldikce yayinlanacak.', destination:'Performans', area:'overview', status:'season' },
-  { key:'leagueStats', group:'Analiz', title:'Mac / lig istatistikleri', description:'Sut, topa sahip olma, pas, xG varsa ve plan izin verirse gelismis metrikler mac detayina eklenecek.', destination:'Istatistikler', area:'matches', status:'season' }
-];
 const VIDEO_CONFIG = {
   title: '',
   description: '',

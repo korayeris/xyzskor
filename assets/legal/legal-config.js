@@ -38,7 +38,7 @@ window.XYZ_LEGAL_CONFIG = {
   infrastructure: {
     hostingProvider: "Supabase",
     hostingRegion: "West EU (Ireland)",
-    footballDataProvider: "Sportmonks",
+    footballDataProvider: "[FUTBOL VERİ SAĞLAYICISI]",
     analyticsProvider: "[KULLANILMIYOR / SAĞLAYICI ADI]",
     errorMonitoringProvider: "[KULLANILMIYOR / SAĞLAYICI ADI]",
     emailProvider: "[KULLANILMIYOR / SAĞLAYICI ADI]",

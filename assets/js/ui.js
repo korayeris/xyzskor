@@ -222,10 +222,10 @@ function clubCoachBio(coach,team){
   return `${coach.age?`${coach.age} yaşındaki `:''}${coach.nationality?`${coach.nationality} futbol insanı `:''}${coach.name}, ${team} A takımının teknik sorumlusu. Görev süresi ${coach.tenure||'güncel kaynakta listeleniyor'}.${contract}`;
 }
 function clubLineupHTML(data,state){
-  if(state==='loading') return `<div class="club-data-state"><span class="club-data-spinner"></span><strong>Son resmî maç kadrosu alınıyor</strong><p>Sportmonks kadro ve oyuncu kayıtları kontrol ediliyor.</p></div>`;
+  if(state==='loading') return `<div class="club-data-state"><span class="club-data-spinner"></span><strong>Son resmî maç kadrosu alınıyor</strong><p>Resmî kadro ve oyuncu kayıtları kontrol ediliyor.</p></div>`;
   const lineup=Array.isArray(data?.lineup)?data.lineup:[];
   if(!lineup.length){
-    const message=state==='unconfigured'?'Sportmonks sunucu anahtarı henüz canlı siteye eklenmedi. Bağlantı açıldığında son resmî maçın gerçek ilk 11’i burada otomatik yayınlanacak.':'Son resmî maç için doğrulanmış ilk 11 henüz sağlayıcıda yayınlanmadı.';
+    const message=state==='unconfigured'?'Canlı kadro bağlantısı henüz yayın ortamında aktif değil. Bağlantı açıldığında son resmî maçın gerçek ilk 11’i burada otomatik yayınlanacak.':'Son resmî maç için doğrulanmış ilk 11 henüz veri kaynağında yayınlanmadı.';
     return `<div class="club-data-state"><span class="club-data-mark">11</span><strong>İsim uydurulmuyor</strong><p>${escapeHTML(message)}</p></div>`;
   }
   return `<div class="club-lineup-list">${lineup.map((player,index)=>{
@@ -248,7 +248,7 @@ function renderClubProfile(team,data,state='ready'){
   const venue=data?.venue?.name||club.stadium;
   const lineupFixture=data?.lineupFixture;
   const lineupMeta=lineupFixture?.name?`${lineupFixture.name}${lineupFixture.startingAt?` · ${new Date(lineupFixture.startingAt).toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}`:''}`:'Son resmî maçın açıklanmış kadrosu';
-  const sourceState=state==='loading'?'Veri yenileniyor':state==='unconfigured'?'Sportmonks bağlantısı bekleniyor':data?.stale?'Son doğrulanmış veri':'Sportmonks güncel veri';
+  const sourceState=state==='loading'?'Veri yenileniyor':state==='unconfigured'?'Canlı bağlantı bekleniyor':data?.stale?'Son doğrulanmış veri':'Güncel resmî veri';
   panel.hidden=false;
   panel.innerHTML=`<header class="club-profile-head"><button class="club-profile-close" type="button" onclick="closeClubProfile()" aria-label="Kulüp merkezini kapat">×</button><div class="club-profile-identity">${crestHTML(club.team,'lg')}<div><span class="football-data-eyebrow">KULÜP MERKEZİ · ${escapeHTML(club.checkedAt)}</span><h2>${escapeHTML(club.display||club.team)}</h2><p>${escapeHTML(club.city)} · ${escapeHTML(venue)}</p></div></div><span class="club-source-state">${escapeHTML(sourceState)}</span></header>
     <div class="club-profile-metrics"><article><span>Kadro değeri</span><strong>${escapeHTML(club.marketValue||'—')}</strong><a href="${escapeHTML(club.marketSourceUrl)}" target="_blank" rel="noopener noreferrer">Transfermarkt kaynağı ↗</a></article><article><span>Kadro genişliği</span><strong>${escapeHTML(data?.squad?.length||club.squadSize||'—')}</strong><small>oyuncu</small></article><article><span>Yaş ortalaması</span><strong>${escapeHTML(club.averageAge||'—')}</strong><small>sezon kadrosu</small></article><article><span>Stadyum kapasitesi</span><strong>${escapeHTML(club.capacity)}</strong><small>seyirci</small></article></div>
@@ -262,7 +262,7 @@ async function loadClubProfile(team){
   try{
     const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}`,{headers:{Accept:'application/json'}});
     const payload=await response.json().catch(()=>({}));
-    if(response.status===503&&payload?.error==='sportmonks_not_configured'){ renderClubProfile(team,null,'unconfigured'); return; }
+    if(response.status===503){ renderClubProfile(team,null,'unconfigured'); return; }
     if(!response.ok||!payload?.team) throw new Error(payload?.error||'club_data_unavailable');
     clubProfileCache.set(team,payload); renderClubProfile(team,payload,'ready');
   }catch(_){ renderClubProfile(team,null,'unavailable'); }
@@ -339,58 +339,7 @@ function setTransferCenterTab(name, button, updateUrl){
   renderTransferCenter();
   if(updateUrl!==false) updateHash(`transfers/${name}`);
 }
-function sportmonksStatusLabel(status){
-  return status==='wired' ? 'Baglandi' : status==='ready' ? 'Hazir' : 'Sezon baslayinca';
-}
-function sportmonksStatusText(status){
-  return status==='wired' ? 'Sitede alani hazir; veri katmani bagli.' : status==='ready' ? 'Plan ve kota yonetimi icin hazir.' : 'Mac haftasi verisi geldikce otomatik dolacak.';
-}
-function sportmonksModuleCardHTML(item, compact=false){
-  return `<article class="sportmonks-data-card ${escapeHTML(item.status)}">
-    <div class="sportmonks-data-card-top"><span>${escapeHTML(item.group)}</span><b>${escapeHTML(sportmonksStatusLabel(item.status))}</b></div>
-    <h3>${escapeHTML(item.title)}</h3>
-    <p>${escapeHTML(item.description)}</p>
-    ${compact?'':`<small>${escapeHTML(item.destination)} modulu</small>`}
-  </article>`;
-}
-function renderSportmonksHub(){
-  const hub=document.getElementById('sportmonksDataHub'); if(!hub) return;
-  const rows=SPORTMONKS_DATA_MODULES || [];
-  const wired=rows.filter(item=>item.status==='wired').length;
-  const ready=rows.filter(item=>item.status==='ready').length;
-  const season=rows.filter(item=>item.status==='season').length;
-  hub.innerHTML=`<header class="sportmonks-data-head">
-    <div><span class="sportmonks-eyebrow">SPORTMONKS DATA LAYER</span><h2 id="sportmonksDataHubTitle">Sezon baslayinca dolacak canli veri alanlari</h2><p>Bu alanlar tahmin veya fake veri basmaz. Saglayicidan kayit geldikce mac, kulup, oyuncu ve lig panellerine otomatik dagitilir.</p></div>
-    <div class="sportmonks-plan-card"><span>Starter plan</span><strong>5 lig / 2.000 cagri</strong><small>entity basina saatlik limit</small></div>
-  </header>
-  <div class="sportmonks-metrics"><article><b>${wired}</b><span>bagli modul</span></article><article><b>${ready}</b><span>altyapi hazir</span></article><article><b>${season}</b><span>sezon verisi bekliyor</span></article></div>
-  <div class="sportmonks-data-grid">${rows.map(item=>sportmonksModuleCardHTML(item)).join('')}</div>`;
-}
-function ensureSportmonksSectionPanel(id, afterSelector){
-  let panel=document.getElementById(id);
-  if(panel) return panel;
-  const anchor=document.querySelector(afterSelector);
-  if(!anchor || !anchor.parentElement) return null;
-  panel=document.createElement('div');
-  panel.id=id;
-  panel.className='sportmonks-section-panel';
-  anchor.insertAdjacentElement('afterend',panel);
-  return panel;
-}
-function renderSportmonksSectionPanel(id, area, title, copy){
-  const viewByPanel={matchesSportmonksPanel:'footballMatchesView',clubsSportmonksPanel:'footballClubsView',standingsSportmonksPanel:'footballStandingsView'};
-  const panel=ensureSportmonksSectionPanel(id, `#${viewByPanel[id]} .football-data-hero`);
-  if(!panel) return;
-  const rows=(SPORTMONKS_DATA_MODULES||[]).filter(item=>item.area===area);
-  panel.innerHTML=`<div class="sportmonks-section-copy"><span>Sportmonks kapsam alani</span><strong>${escapeHTML(title)}</strong><p>${escapeHTML(copy)}</p></div><div class="sportmonks-section-list">${rows.map(item=>sportmonksModuleCardHTML(item,true)).join('')}</div>`;
-}
-function renderSportmonksPanels(){
-  renderSportmonksHub();
-  renderSportmonksSectionPanel('matchesSportmonksPanel','matches','Mac merkezi veri slotlari','Fikstur, canli skor, olay akisi, resmi ilk 11, eksikler ve mac istatistikleri bu sayfaya baglanacak.');
-  renderSportmonksSectionPanel('clubsSportmonksPanel','clubs','Kulup ve oyuncu veri slotlari','Arma, kadro, oyuncu profili, teknik direktor, stadyum ve yol tarifi bilgileri kulup merkezinde toplanacak.');
-  renderSportmonksSectionPanel('standingsSportmonksPanel','standings','Lig tablosu veri slotlari','Puan durumu, form, ic/dis saha ve gol kralligi sezon basladiginda bu tabloya eklenecek.');
-}
-function renderFootballDataViews(){ renderSportmonksPanels(); renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
+function renderFootballDataViews(){ renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
 function footballTeamOptions(){
   const names=[...MATCHES.flatMap(match=>[match.ev,match.konuk]),...STANDINGS.map(row=>row.team)].filter(Boolean);
   return [...new Set(names)].sort((a,b)=>String(a).localeCompare(String(b),'tr')).slice(0,18);
