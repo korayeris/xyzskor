@@ -220,9 +220,9 @@ let transferCountdownHandle = null;
 function updateTransferCountdown(){
   const target=document.getElementById('transferCenterCountdown'); if(!target) return;
   const remaining=new Date('2026-09-05T00:00:00+03:00').getTime()-Date.now();
-  if(remaining<=0){ target.textContent='DÖNEM KAPANDI'; return; }
+  if(remaining<=0){ target.innerHTML='<span class="countdown-closed">DÖNEM KAPANDI</span>'; return; }
   const days=Math.floor(remaining/86400000), hours=Math.floor((remaining%86400000)/3600000), minutes=Math.floor((remaining%3600000)/60000), seconds=Math.floor((remaining%60000)/1000);
-  target.textContent=`${days}G ${String(hours).padStart(2,'0')}S ${String(minutes).padStart(2,'0')}D ${String(seconds).padStart(2,'0')}SN`;
+  target.innerHTML=`<span><b>${days}</b><small>GÜN</small></span><i>:</i><span><b>${String(hours).padStart(2,'0')}</b><small>SAAT</small></span><i>:</i><span><b>${String(minutes).padStart(2,'0')}</b><small>DK</small></span><i>:</i><span><b>${String(seconds).padStart(2,'0')}</b><small>SN</small></span>`;
 }
 function startTransferCountdown(){
   updateTransferCountdown();
