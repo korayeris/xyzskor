@@ -135,6 +135,8 @@ assert.match(workerSource, /s-maxage=31536000/, 'X kulüp kimlikleri tekrar ücr
 assert.match(workerSource, /\/2\/users\/by\?usernames=/, 'Dört resmî kulüp tek kullanıcı sorgusuyla çözülmeli.');
 assert.match(workerSource, /cost_profile:\s*"text-only-3usd"/, 'X akışı maliyet profili yanıtta belirtilmeli.');
 assert.doesNotMatch(workerSource, /attachments\.media_keys|media\.fields/, 'Yaklaşık 3 USD profili ayrıca ücretlenen X medya verisini istememeli.');
+assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
+assert.match(workerSource, /function readEdgeCache/, 'X akışı çalışma zamanı önbellek hatasında tamamen çökmemeli.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
 assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');

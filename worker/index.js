@@ -24,8 +24,38 @@ async function xRequest(pathname, token) {
   const response = await fetch(`https://api.x.com${pathname}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
-  if (!response.ok) throw new Error(`X API ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(`X API ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
   return response.json();
+}
+
+function edgeCache() {
+  try {
+    return typeof caches === "undefined" ? null : caches.default || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readEdgeCache(cache, key) {
+  if (!cache) return null;
+  try {
+    return await cache.match(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeEdgeCache(cache, key, response, context) {
+  if (!cache || !context?.waitUntil) return;
+  try {
+    context.waitUntil(cache.put(key, response.clone()).catch(() => {}));
+  } catch {
+    // The response still succeeds when the runtime cache is unavailable.
+  }
 }
 
 function normalizeXPost(club, post) {
@@ -45,14 +75,14 @@ function normalizeXPost(club, post) {
 async function fetchXUsers(token, request, context) {
   const cacheUrl = new URL("/api/social/x-users-v1", request.url);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const edgeCache = typeof caches === "undefined" ? null : caches.default;
-  const cached = edgeCache ? await edgeCache.match(cacheKey) : null;
+  const cache = edgeCache();
+  const cached = await readEdgeCache(cache, cacheKey);
   if (cached) return cached.json();
 
   const usernames = X_CLUBS.map((club) => club.handle).join(",");
   const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}`, token);
   const response = jsonResponse(lookup, 200, { "Cache-Control": X_USER_CACHE });
-  if (edgeCache) context.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  writeEdgeCache(cache, cacheKey, response, context);
   return lookup;
 }
 
@@ -88,15 +118,18 @@ async function handleXClubFeed(request, env, context) {
   const cacheUrl = new URL(request.url);
   cacheUrl.search = "";
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const edgeCache = typeof caches === "undefined" ? null : caches.default;
-  const cached = edgeCache ? await edgeCache.match(cacheKey) : null;
+  const cache = edgeCache();
+  const cached = await readEdgeCache(cache, cacheKey);
   if (cached) return cached;
 
   try {
     const response = jsonResponse(await fetchXClubFeed(env.X_BEARER_TOKEN, request, context), 200, { "Cache-Control": SOCIAL_CACHE });
-    if (edgeCache) context.waitUntil(edgeCache.put(cacheKey, response.clone()));
+    writeEdgeCache(cache, cacheKey, response, context);
     return response;
   } catch (error) {
+    if (error?.status === 402) {
+      return jsonResponse({ error: "x_credits_depleted" }, 402, { "Cache-Control": "no-store" });
+    }
     return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "300" });
   }
 }
