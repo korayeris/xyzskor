@@ -370,19 +370,34 @@ function xPostDate(value){
 function xMetric(value){
   return new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(Number(value)||0);
 }
+function xMediaPreviewURL(media){
+  const candidate=media?.type==='photo'?media?.url:(media?.preview_image_url||media?.url);
+  return safeExternalURL(candidate);
+}
+function xPostMediaHTML(club,post,targetURL){
+  const media=(Array.isArray(post?.media)?post.media:[]).map(item=>({item,url:xMediaPreviewURL(item)})).filter(entry=>entry.url).slice(0,4);
+  if(!media.length) return '';
+  const countClass=`items-${media.length}`;
+  return `<div class="club-social-media ${countClass}" aria-label="${escapeHTML(club.team)} paylaşım medyası">${media.map(({item,url})=>{
+    const label=item.alt_text||`${club.team} resmî paylaşım görseli`;
+    const kind=item.type==='video'?'Video':item.type==='animated_gif'?'GIF':'';
+    return `<a class="club-social-media-item" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(label)}"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">${kind?`<span class="club-social-media-kind"><b aria-hidden="true">${item.type==='video'?'▶':'GIF'}</b>${escapeHTML(kind)}</span>`:''}</a>`;
+  }).join('')}</div>`;
+}
 function xPostCardHTML(club){
   const rankLabel=club.leagueRank?`Süper Lig ${escapeHTML(club.leagueRank)}. · `:'';
   const post=club.post||null;
   const metrics=post&&post.metrics?post.metrics:{};
-  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>
+  const targetURL=post?.url||club.url;
+  const mediaBody=xPostMediaHTML(club,post,targetURL);
+  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>${mediaBody}
     <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
     </div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısı hazır.</span></div>`;
-  const targetURL=post?.url||club.url;
-  return `<article class="club-social-card">
+  return `<article class="club-social-card ${mediaBody?'has-media':''}">
     <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong><span class="club-social-verified" aria-label="Resmî hesap">✓</span></span><small>${rankLabel}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">𝕏</span></header>
     <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;

@@ -90,8 +90,27 @@ function writeEdgeCache(cache, key, response, context) {
   }
 }
 
-function normalizeXPost(club, post) {
+function normalizeXMedia(media) {
+  if (!media?.media_key) return null;
+  const previewUrl = media.type === "photo" ? media.url : (media.preview_image_url || media.url);
+  if (!previewUrl) return null;
+  return {
+    media_key: media.media_key,
+    type: media.type || "photo",
+    url: media.url || null,
+    preview_image_url: media.preview_image_url || null,
+    width: Number(media.width) || null,
+    height: Number(media.height) || null,
+    alt_text: media.alt_text || "",
+  };
+}
+
+function normalizeXPost(club, post, mediaByKey = new Map()) {
   if (!post) return { ...club, post: null };
+  const media = (post.attachments?.media_keys || [])
+    .map((key) => normalizeXMedia(mediaByKey.get(key)))
+    .filter(Boolean)
+    .slice(0, 4);
   return {
     ...club,
     post: {
@@ -100,6 +119,7 @@ function normalizeXPost(club, post) {
       created_at: post.created_at,
       url: `${club.url}/status/${post.id}`,
       metrics: post.public_metrics || {},
+      media,
     },
   };
 }
@@ -128,15 +148,18 @@ async function fetchXClubFeed(token, request, context) {
     const params = new URLSearchParams({
       max_results: "5",
       exclude: "replies,retweets",
-      "tweet.fields": "created_at,public_metrics",
+      "tweet.fields": "created_at,public_metrics,attachments",
+      expansions: "attachments.media_keys",
+      "media.fields": "media_key,type,url,preview_image_url,width,height,alt_text",
     });
     const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
-    return normalizeXPost(club, timeline.data?.[0] || null);
+    const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
+    return normalizeXPost(club, timeline.data?.[0] || null, mediaByKey);
   }));
 
   return {
     source: "x-api",
-    cost_profile: "text-only-3usd",
+    cost_profile: "media-rich-daily",
     updated_at: new Date().toISOString(),
     cache_ttl_seconds: 86400,
     clubs,
@@ -147,10 +170,9 @@ async function handleXClubFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL(request.url);
-  cacheUrl.search = "";
+  const cacheUrl = new URL("/api/social/x-media-v2", request.url);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-stale-v1", request.url);
+  const staleUrl = new URL("/api/social/x-media-stale-v2", request.url);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey);

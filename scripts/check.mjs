@@ -140,8 +140,10 @@ assert.match(workerSource, /env\.X_BEARER_TOKEN/, 'X Bearer Token yalnız sunucu
 assert.match(workerSource, /s-maxage=86400/, 'X akışı 24 saat sunucu önbelleğinde tutulmalı.');
 assert.match(workerSource, /s-maxage=31536000/, 'X kulüp kimlikleri tekrar ücret oluşturmamak için uzun süre önbellekte tutulmalı.');
 assert.match(workerSource, /\/2\/users\/by\?usernames=/, 'Dört resmî kulüp tek kullanıcı sorgusuyla çözülmeli.');
-assert.match(workerSource, /cost_profile:\s*"text-only-3usd"/, 'X akışı maliyet profili yanıtta belirtilmeli.');
-assert.doesNotMatch(workerSource, /attachments\.media_keys|media\.fields/, 'Yaklaşık 3 USD profili ayrıca ücretlenen X medya verisini istememeli.');
+assert.match(workerSource, /cost_profile:\s*"media-rich-daily"/, 'X akışı medya destekli günlük maliyet profilini yanıtta belirtmeli.');
+assert.match(workerSource, /expansions:\s*"attachments\.media_keys"/, 'X akışı gönderiye bağlı gerçek medyayı expansion ile istemeli.');
+assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image_url,width,height,alt_text"/, 'X medya görselleri, video kapakları ve erişilebilir açıklamaları istemeli.');
+assert.match(functionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
 assert.match(workerSource, /function readEdgeCache/, 'X akışı çalışma zamanı önbellek hatasında tamamen çökmemeli.');
 assert.match(workerSource, /SOCIAL_STALE_CACHE/, 'X kesintisinde son doğrulanmış akış için uzun süreli yedek önbellek bulunmalı.');
@@ -257,7 +259,7 @@ try {
       ] });
     }
     const id = url.match(/\/2\/users\/(\d+)\/tweets/)?.[1];
-    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Kulüp paylaşımı ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10} }] });
+    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Kulüp paylaşımı ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10}, attachments:{media_keys:[`3_media-${id}`]} }], includes:{media:[{media_key:`3_media-${id}`,type:'photo',url:`https://pbs.twimg.com/media/club-${id}.jpg`,width:1600,height:900,alt_text:`Kulüp görseli ${id}`}] } });
     return Response.json({ error:'unexpected_request' }, { status:500 });
   };
   const worker = (await import(new URL(`../worker/index.js?check=${Date.now()}`, import.meta.url))).default;
@@ -289,18 +291,19 @@ try {
   await Promise.all(pendingCacheWrites);
   assert.equal(firstFeed.status, 200, 'X sunucu adaptörü başarılı JSON dönmeli.');
   assert.equal(firstPayload.clubs.length, 4, 'X sunucu adaptörü dört kulübü birlikte dönmeli.');
-  assert.equal(firstPayload.cost_profile, 'text-only-3usd', 'X sunucu adaptörü etkin maliyet profilini dönmeli.');
+  assert.equal(firstPayload.cost_profile, 'media-rich-daily', 'X sunucu adaptörü etkin medya maliyet profilini dönmeli.');
+  assert.equal(firstPayload.clubs[0].post.media[0].url, 'https://pbs.twimg.com/media/club-1.jpg', 'X gönderisinin gerçek görseli istemciye güvenli veri olarak dönmeli.');
   const xCallsAfterFirst = upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length;
   assert.equal(xCallsAfterFirst, 5, 'Günlük X yenilemesi bir kullanıcı ve dört paylaşım sorgusu yapmalı.');
   const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(cachedFeed.status, 200, 'Önbellekteki X akışı kullanılabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, xCallsAfterFirst, 'İkinci istek 24 saatlik önbelleği aşmamalı.');
-  socialCache.delete('https://xyzskor.test/api/social/x');
+  socialCache.delete('https://xyzskor.test/api/social/x-media-v2');
   const nextDayFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
   await Promise.all(pendingCacheWrites);
   assert.equal(nextDayFeed.status, 200, 'Sonraki gün X akışı yeniden oluşturulabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, 9, 'Sonraki gün yalnız dört paylaşım sorgusu yapılmalı; kulüp kimlikleri tekrar okunmamalı.');
-  socialCache.delete('https://xyzskor.test/api/social/x');
+  socialCache.delete('https://xyzskor.test/api/social/x-media-v2');
   xCreditsDepleted = true;
   const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(staleFeed.status, 200, 'X kesintisinde son doğrulanmış akış kullanılmalı.');
