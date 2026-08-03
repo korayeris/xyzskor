@@ -171,6 +171,12 @@ assert.match(html, /id="editorialDesk"/, 'Ana sayfada profesyonel haber merkezi 
 assert.match(html, /id="youtubeMediaGrid"/, 'Ana sayfada YouTube canlı ve program paneli bulunmalı.');
 assert.match(functionSource('renderEditorialNews'), /editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
 assert.match(functionSource('renderEditorialNews'), /editorial-portrait-shell/, 'Haber merkezi oyuncu görsellerini kesmeden dairesel portre içinde göstermeli.');
+assert.match(functionSource('renderEditorialNews'), /editorialMatchVisualHTML/, 'Görseli olmayan açılış maçı haberi gerçek maç eşleşmesiyle görselleştirilmeli.');
+assert.match(functionSource('editorialMatchVisualHTML'), /crestHTML\(match\.ev,'lg'\).*crestHTML\(match\.konuk,'lg'\)/s, 'Açılış maçı görseli iki gerçek takım armasını kullanmalı.');
+assert.match(functionSource('renderClubProfile'), /club-coach-portrait/, 'Teknik direktör görseli profesyonel portre çerçevesinde gösterilmeli.');
+assert.match(appCss, /ELITE GRAPHITE FOOTBALL SYSTEM/, 'Futbol ürünü tek bir elit grafit tasarım sistemi kullanmalı.');
+assert.match(appCss, /club-coach-portrait\{[^}]*overflow:hidden[^}]*border-radius:50%/s, 'Teknik direktör fotoğrafı kesilmeyen dairesel portre çerçevesinde tutulmalı.');
+assert.match(appCss, /editorial-match-visual\{[^}]*grid-template-columns/s, 'Açılış maçı için iki kulüplü görsel kompozisyon bulunmalı.');
 assert.doesNotMatch(functionSource('renderEditorialNews'), /EDITORIAL_NEWS_CACHE\.slice\(0,3\).*filter\(item=>item\.image\)/s, 'Manşet haberi başka haberlerin ilgisiz oyuncu görsellerini ödünç almamalı.');
 assert.match(functionSource('editorialNewsEntries'), /imageType:editorialPhoto\?'photo':playerPortrait\?'portrait':'none'/, 'Editoryal fotoğraf ile oyuncu portresi ayrıştırılmalı.');
 assert.match(functionSource('renderYouTubeMedia'), /\/api\/media\/youtube/, 'YouTube paneli sunucu adaptörünü kullanmalı.');

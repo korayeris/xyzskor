@@ -253,7 +253,7 @@ function renderClubProfile(team,data,state='ready'){
   panel.innerHTML=`<header class="club-profile-head"><button class="club-profile-close" type="button" onclick="closeClubProfile()" aria-label="Kulüp merkezini kapat">×</button><div class="club-profile-identity">${crestHTML(club.team,'lg')}<div><span class="football-data-eyebrow">KULÜP MERKEZİ · ${escapeHTML(club.checkedAt)}</span><h2>${escapeHTML(club.display||club.team)}</h2><p>${escapeHTML(club.city)} · ${escapeHTML(venue)}</p></div></div><span class="club-source-state">${escapeHTML(sourceState)}</span></header>
     <div class="club-profile-metrics"><article><span>Kadro değeri</span><strong>${escapeHTML(club.marketValue||'—')}</strong><a href="${escapeHTML(club.marketSourceUrl)}" target="_blank" rel="noopener noreferrer">Transfermarkt kaynağı ↗</a></article><article><span>Kadro genişliği</span><strong>${escapeHTML(data?.squad?.length||club.squadSize||'—')}</strong><small>oyuncu</small></article><article><span>Yaş ortalaması</span><strong>${escapeHTML(club.averageAge||'—')}</strong><small>sezon kadrosu</small></article><article><span>Stadyum kapasitesi</span><strong>${escapeHTML(club.capacity)}</strong><small>seyirci</small></article></div>
     <div class="club-profile-main"><article class="club-stadium-feature"><div class="club-feature-title"><div><span>STADYUM VE ULAŞIM</span><h3>${escapeHTML(venue)}</h3><p>${escapeHTML(club.city)}</p></div><a href="${escapeHTML(clubDirectionsURL(club))}" target="_blank" rel="noopener noreferrer">Yol tarifi al ↗</a></div><iframe src="${escapeHTML(clubMapEmbedURL(club))}" title="${escapeHTML(venue)} haritası" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></article>
-      <article class="club-coach-feature"><div class="club-coach-photo">${coachPhoto?`<img src="${escapeHTML(coachPhoto)}" alt="${escapeHTML(coach.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span>TD</span>'}</div><div class="club-coach-copy"><span>TEKNİK DİREKTÖR</span><h3>${escapeHTML(coach.name||'Bilgi bekleniyor')}</h3><p>${escapeHTML(clubCoachBio(coach,club.display||club.team))}</p><dl><div><dt>Ülke</dt><dd>${escapeHTML(coach.nationality||'—')}</dd></div><div><dt>Görev</dt><dd>${escapeHTML(coach.tenure||'—')}</dd></div><div><dt>Sözleşme</dt><dd>${escapeHTML(coach.contract||'—')}</dd></div></dl><a href="${escapeHTML(club.coachSourceUrl)}" target="_blank" rel="noopener noreferrer">Teknik direktör kaynağı ↗</a></div></article></div>
+      <article class="club-coach-feature"><div class="club-coach-photo"><span class="club-coach-portrait">${coachPhoto?`<img src="${escapeHTML(coachPhoto)}" alt="${escapeHTML(coach.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<b aria-hidden="true">TD</b></span></div><div class="club-coach-copy"><span>TEKNİK DİREKTÖR</span><h3>${escapeHTML(coach.name||'Bilgi bekleniyor')}</h3><p>${escapeHTML(clubCoachBio(coach,club.display||club.team))}</p><dl><div><dt>Ülke</dt><dd>${escapeHTML(coach.nationality||'—')}</dd></div><div><dt>Görev</dt><dd>${escapeHTML(coach.tenure||'—')}</dd></div><div><dt>Sözleşme</dt><dd>${escapeHTML(coach.contract||'—')}</dd></div></dl><a href="${escapeHTML(club.coachSourceUrl)}" target="_blank" rel="noopener noreferrer">Teknik direktör kaynağı ↗</a></div></article></div>
     <article class="club-lineup-feature"><header><div><span>SON RESMÎ MAÇ</span><h3>Güncel ilk 11</h3><p>${escapeHTML(lineupMeta)}</p></div>${data?.formation?`<strong>${escapeHTML(data.formation)}</strong>`:''}</header>${clubLineupHTML(data,state)}${clubSquadHTML(data)}</article>`;
 }
 async function loadClubProfile(team){
@@ -619,10 +619,27 @@ function editorialNewsEntries(){
   const storyEntries=publishedStoryCards().map((card,index)=>{
     const editorialPhoto=safeExternalURL(card.hero_image||card.image_url||card.image||card.thumbnail_url);
     const playerPortrait=safeExternalURL(card.player_image);
-    return {kind:'story',index,title:card.title||'Futbol gündemi',text:card.spot||card.summary||card.text||'',source:card.source||'XYZSKOR',label:storyConfidence(card)?.label||'Güncel',time:card.verified_at||card.updated_at||card.published_at||'',image:editorialPhoto||playerPortrait,imageType:editorialPhoto?'photo':playerPortrait?'portrait':'none'};
+    const relatedMatch=editorialRelatedMatch(card);
+    return {kind:'story',index,title:card.title||'Futbol gündemi',text:card.spot||card.summary||card.text||'',source:card.source||'XYZSKOR',label:storyConfidence(card)?.label||'Güncel',time:card.verified_at||card.updated_at||card.published_at||'',image:editorialPhoto||playerPortrait,imageType:editorialPhoto?'photo':playerPortrait?'portrait':'none',relatedMatch};
   });
   const seen=new Set();
   return [...storyEntries,...editorialTransferEntries()].filter(item=>{ const key=String(item.title).toLocaleLowerCase('tr-TR'); if(seen.has(key)) return false; seen.add(key); return true; });
+}
+function editorialRelatedMatch(card){
+  const direct=MATCHES.find(match=>match.id===card.related_match_id);
+  if(direct) return direct;
+  const storyText=`${card.title||''} ${card.spot||''} ${card.summary||''} ${card.text||''}`.toLocaleLowerCase('tr-TR');
+  const mentionedTeams=SUPER_LIG_CLUBS_2026_27.map(club=>club.team).filter(team=>storyText.includes(team.toLocaleLowerCase('tr-TR')));
+  if(mentionedTeams.length<2) return null;
+  return MATCHES.find(match=>mentionedTeams.includes(match.ev)&&mentionedTeams.includes(match.konuk))||null;
+}
+function editorialMatchVisualHTML(item){
+  const match=item?.relatedMatch;
+  if(!match) return '';
+  const kickoff=match.kickoff?new Date(match.kickoff):null;
+  const dateLabel=kickoff&&!Number.isNaN(kickoff.getTime())?kickoff.toLocaleDateString('tr-TR',{day:'2-digit',month:'short'}):'';
+  const meta=[match.hafta?`${match.hafta}. hafta`:'',dateLabel].filter(Boolean).join(' · ');
+  return `<div class="editorial-match-visual" role="img" aria-label="${escapeHTML(match.ev)} ile ${escapeHTML(match.konuk)} açılış maçı"><span class="editorial-match-glow" aria-hidden="true"></span><div class="editorial-match-club">${crestHTML(match.ev,'lg')}<strong>${escapeHTML(match.ev)}</strong></div><div class="editorial-match-center"><small>HAFTANIN AÇILIŞI</small><b>VS</b>${meta?`<span>${escapeHTML(meta)}</span>`:''}</div><div class="editorial-match-club">${crestHTML(match.konuk,'lg')}<strong>${escapeHTML(match.konuk)}</strong></div></div>`;
 }
 function openEditorialEntry(index){
   const entry=EDITORIAL_NEWS_CACHE[index]; if(!entry) return;
@@ -640,8 +657,10 @@ function renderEditorialNews(){
   EDITORIAL_NEWS_CACHE=editorialNewsEntries();
   const primary=EDITORIAL_NEWS_CACHE[0];
   if(!primary){ lead.innerHTML=footballEmpty('Gündem hazırlanıyor','Kaynağı doğrulanmış ilk içerik yayınlandığında burada görünecek.'); list.innerHTML=''; return; }
-  const leadMedia=primary.image?`<span class="editorial-portrait-shell"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-portrait-shell').remove()"></span>`:'<div class="editorial-media-fallback"><span>XYZ</span><small>Kaynaklı futbol gündemi</small></div>';
-  lead.innerHTML=`<article class="editorial-lead-card" tabindex="0" role="button" data-editorial-index="0" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="editorial-lead-media ${primary.imageType==='portrait'?'portrait':'photo'}">${leadMedia}</div><div class="editorial-lead-copy"><span class="editorial-news-label">${escapeHTML(primary.label)}</span><h3>${escapeHTML(primary.title)}</h3><p>${escapeHTML(primary.text)}</p><footer><strong>${escapeHTML(primary.source)}</strong>${primary.time?`<time>${escapeHTML(fmtEditorialDate(primary.time))}</time>`:''}</footer></div></article>`;
+  const matchVisual=editorialMatchVisualHTML(primary);
+  const leadMedia=primary.image?`<span class="editorial-portrait-shell"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-portrait-shell').remove()"></span>`:matchVisual||'<div class="editorial-media-fallback"><span>XYZ</span><small>Kaynaklı futbol gündemi</small></div>';
+  const leadMediaType=primary.imageType==='portrait'?'portrait':matchVisual?'match':'photo';
+  lead.innerHTML=`<article class="editorial-lead-card" tabindex="0" role="button" data-editorial-index="0" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="editorial-lead-media ${leadMediaType}">${leadMedia}</div><div class="editorial-lead-copy"><span class="editorial-news-label">${escapeHTML(primary.label)}</span><h3>${escapeHTML(primary.title)}</h3><p>${escapeHTML(primary.text)}</p><footer><strong>${escapeHTML(primary.source)}</strong>${primary.time?`<time>${escapeHTML(fmtEditorialDate(primary.time))}</time>`:''}</footer></div></article>`;
   list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} haberini aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source)}${item.time?` · ${escapeHTML(fmtEditorialDate(item.time))}`:''}</p></div>${item.image?`<span class="editorial-highlight-image ${item.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">XYZ</span>'}</article>`).join('')}`;
   bindEditorialEntries(lead); bindEditorialEntries(list);
 }
