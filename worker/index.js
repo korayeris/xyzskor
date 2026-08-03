@@ -4,12 +4,22 @@ const SOCIAL_CACHE = "public, max-age=300, s-maxage=86400, stale-while-revalidat
 const SOCIAL_STALE_CACHE = "public, max-age=60, s-maxage=604800";
 const X_USER_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
 const X_TIMEOUT_MS = 8000;
+const YOUTUBE_CACHE = "public, max-age=300, s-maxage=5400, stale-while-revalidate=21600";
+const YOUTUBE_STALE_CACHE = "public, max-age=60, s-maxage=86400";
+const YOUTUBE_TIMEOUT_MS = 8000;
 let xFeedRefreshPromise = null;
+let youtubeFeedRefreshPromise = null;
 const X_CLUBS = [
   { team: "Galatasaray", handle: "GalatasaraySK", url: "https://x.com/GalatasaraySK" },
   { team: "Fenerbahçe", handle: "Fenerbahce", url: "https://x.com/Fenerbahce" },
   { team: "Beşiktaş", handle: "Besiktas", url: "https://x.com/Besiktas" },
   { team: "Trabzonspor", handle: "Trabzonspor", url: "https://x.com/Trabzonspor" },
+];
+const YOUTUBE_CHANNELS = [
+  { name: "Sports Digitale", handle: "@sportsdigitale", id: "UCmEgRY1A2263UXrQhjDuU0Q", url: "https://www.youtube.com/@sportsdigitale" },
+  { name: "HT Spor", handle: "@htspor", id: "UCK3mI2lsk3LSo8PBUc8JTSw", url: "https://www.youtube.com/@htspor" },
+  { name: "beIN SPORTS Türkiye", handle: "@beINSPORTSTurkiye", id: "UCNopxUNUMinlK3ybMGlpbGQ", url: "https://www.youtube.com/@beINSPORTSTurkiye" },
+  { name: "TRT Spor", handle: "@trtspor", id: "UCebdo7-2NdjcktKzco64iNw", url: "https://www.youtube.com/@trtspor" },
 ];
 
 function jsonResponse(payload, status = 200, extraHeaders = {}) {
@@ -165,6 +175,92 @@ async function handleXClubFeed(request, env, context) {
   }
 }
 
+async function youtubeRequest(pathname, apiKey) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), YOUTUBE_TIMEOUT_MS);
+  try {
+    const separator = pathname.includes("?") ? "&" : "?";
+    const response = await fetch(`https://www.googleapis.com/youtube/v3${pathname}${separator}key=${encodeURIComponent(apiKey)}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const error = new Error(`YouTube API ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchYouTubeMedia(apiKey) {
+  const channelResults = await Promise.all(YOUTUBE_CHANNELS.map(async (channel) => {
+    const params = new URLSearchParams({ part: "snippet", channelId: channel.id, maxResults: "4", order: "date", type: "video" });
+    const payload = await youtubeRequest(`/search?${params}`, apiKey);
+    return (payload.items || []).map((item) => ({ ...item, channel }));
+  }));
+  const searchItems = channelResults.flat();
+  const videoIds = [...new Set(searchItems.map((item) => item.id?.videoId).filter(Boolean))];
+  let detailById = new Map();
+  if (videoIds.length) {
+    const params = new URLSearchParams({ part: "snippet,contentDetails,liveStreamingDetails", id: videoIds.join(",") });
+    const details = await youtubeRequest(`/videos?${params}`, apiKey);
+    detailById = new Map((details.items || []).map((item) => [item.id, item]));
+  }
+  const items = searchItems.map((item) => {
+    const id = item.id.videoId;
+    const detail = detailById.get(id) || {};
+    const snippet = detail.snippet || item.snippet || {};
+    const liveState = snippet.liveBroadcastContent || item.snippet?.liveBroadcastContent || "none";
+    const thumbnail = snippet.thumbnails?.maxres?.url || snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || "";
+    return {
+      id,
+      title: snippet.title || "YouTube yayını",
+      channelTitle: snippet.channelTitle || item.channel.name,
+      channelHandle: item.channel.handle,
+      publishedAt: snippet.publishedAt || item.snippet?.publishedAt || null,
+      thumbnail,
+      duration: detail.contentDetails?.duration || null,
+      live: liveState === "live",
+      upcoming: liveState === "upcoming",
+      concurrentViewers: detail.liveStreamingDetails?.concurrentViewers || null,
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+    };
+  }).filter((item) => item.id && item.thumbnail);
+  items.sort((a, b) => Number(b.live) - Number(a.live) || Number(b.upcoming) - Number(a.upcoming) || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+  return { source: "youtube-data-api-v3", updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: items.slice(0, 8) };
+}
+
+async function handleYouTubeMedia(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  if (!env.YOUTUBE_API_KEY) return jsonResponse({ error: "youtube_not_configured", channels: YOUTUBE_CHANNELS }, 503, { "Cache-Control": "no-store" });
+  const cacheUrl = new URL(request.url); cacheUrl.search = "";
+  const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const staleUrl = new URL("/api/media/youtube-stale-v1", request.url);
+  const staleKey = new Request(staleUrl.toString(), { method: "GET" });
+  const cache = edgeCache();
+  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  const stale = await readEdgeCache(cache, staleKey);
+  try {
+    if (!youtubeFeedRefreshPromise) youtubeFeedRefreshPromise = fetchYouTubeMedia(env.YOUTUBE_API_KEY);
+    const payload = await youtubeFeedRefreshPromise;
+    const response = jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_CACHE, "X-Data-Stale": "false" });
+    writeEdgeCache(cache, cacheKey, response, context);
+    writeEdgeCache(cache, staleKey, jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_STALE_CACHE }), context);
+    return response;
+  } catch (error) {
+    if (stale) {
+      const headers = new Headers(stale.headers); headers.set("X-Data-Stale", "true"); headers.set("Warning", '110 - "Response is stale"');
+      return new Response(stale.body, { status: 200, headers });
+    }
+    return jsonResponse({ error: error?.status === 403 ? "youtube_quota_or_key_error" : "youtube_upstream_unavailable", channels: YOUTUBE_CHANNELS }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "900" });
+  } finally {
+    youtubeFeedRefreshPromise = null;
+  }
+}
+
 function handleHealth(request, env) {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
@@ -173,7 +269,7 @@ function handleHealth(request, env) {
     status: "ok",
     service: "xyzskor-web",
     timestamp: new Date().toISOString(),
-    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured" },
+    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured" },
   };
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: jsonResponse(payload, 200, { "Cache-Control": "no-store" }).headers });
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
@@ -209,6 +305,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (url.pathname === "/api/social/x") return handleXClubFeed(request, env, context);
+    if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
     let response = await fetchAsset(request, env, pathname);
 

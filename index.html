@@ -73,6 +73,26 @@
       <aside class="portal-sponsor-rail" id="portalSponsorRail" aria-label="Sponsor ve reklam alanı"></aside>
     </div>
   </section>
+
+  <section class="editorial-desk" id="editorialDesk" aria-labelledby="editorialDeskTitle">
+    <header class="editorial-desk-head">
+      <div><span class="editorial-desk-kicker">XYZSKOR HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p>Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
+      <button class="editorial-desk-action" type="button" onclick="scrollFootballSection('footballNewsSection')">Tüm gündeme dön <span aria-hidden="true">↑</span></button>
+    </header>
+    <div class="editorial-desk-grid">
+      <div class="editorial-lead" id="editorialLeadNews"></div>
+      <div class="editorial-highlights" id="editorialHighlights" aria-label="Öne çıkan haberler"></div>
+    </div>
+  </section>
+
+  <section class="broadcast-desk" id="broadcastDesk" aria-labelledby="broadcastDeskTitle">
+    <header class="broadcast-desk-head">
+      <div><span class="broadcast-live-mark" aria-hidden="true"></span><div><span class="editorial-desk-kicker">YOUTUBE / DOĞRULANMIŞ KANALLAR</span><h2 id="broadcastDeskTitle">Canlı yayınlar ve son programlar</h2><p>Türkiye futbol gündemini takip eden resmî ve doğrulanmış yayın kanalları.</p></div></div>
+      <span class="broadcast-status" id="youtubeMediaStatus">Yayın akışı kontrol ediliyor</span>
+    </header>
+    <div class="youtube-media-grid" id="youtubeMediaGrid" aria-live="polite"></div>
+  </section>
+
   <div id="weeklyStoryArea" class="football-legacy-story"></div>
 
   <!-- PRODUCTION_STRIP_LEGACY_HTML_START -->

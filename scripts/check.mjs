@@ -141,6 +141,13 @@ assert.match(workerSource, /SOCIAL_STALE_CACHE/, 'X kesintisinde son doğrulanm�
 assert.match(workerSource, /xFeedRefreshPromise/, 'Aynı anda gelen X yenileme istekleri tek sorguda birleştirilmeli.');
 assert.match(workerSource, /X_TIMEOUT_MS/, 'X sağlayıcı isteği sınırsız süre açık kalmamalı.');
 assert.match(workerSource, /\/api\/health/, 'Üretim sağlık kontrolü bulunmalı.');
+assert.match(workerSource, /env\.YOUTUBE_API_KEY/, 'YouTube API anahtarı yalnız sunucu ortamından okunmalı.');
+assert.match(workerSource, /s-maxage=5400/, 'YouTube aramaları kota dostu sunucu önbelleği kullanmalı.');
+assert.match(workerSource, /\/api\/media\/youtube/, 'Doğrulanmış YouTube medya ucu bulunmalı.');
+assert.match(html, /id="editorialDesk"/, 'Ana sayfada profesyonel haber merkezi bulunmalı.');
+assert.match(html, /id="youtubeMediaGrid"/, 'Ana sayfada YouTube canlı ve program paneli bulunmalı.');
+assert.match(functionSource('renderEditorialNews'), /editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
+assert.match(functionSource('renderYouTubeMedia'), /\/api\/media\/youtube/, 'YouTube paneli sunucu adaptörünü kullanmalı.');
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
@@ -207,6 +214,14 @@ try {
   globalThis.fetch = async (input) => {
     const url = String(input);
     upstreamCalls.push(url);
+    if (url.includes('googleapis.com/youtube/v3/search')) {
+      const channelId = new URL(url).searchParams.get('channelId') || 'unknown';
+      return Response.json({ items:[{ id:{videoId:`video-${channelId.slice(-6)}`}, snippet:{title:`Program ${channelId.slice(-4)}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}} }] });
+    }
+    if (url.includes('googleapis.com/youtube/v3/videos')) {
+      const ids=(new URL(url).searchParams.get('id')||'').split(',').filter(Boolean);
+      return Response.json({items:ids.map(id=>({id,snippet:{title:`Program ${id}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}},contentDetails:{duration:'PT12M5S'}}))});
+    }
     if (xCreditsDepleted) return Response.json({ error:'credits_depleted' }, { status:402 });
     if (url.includes('/2/users/by?')) {
       return Response.json({ data: [
@@ -221,10 +236,11 @@ try {
     return Response.json({ error:'unexpected_request' }, { status:500 });
   };
   const worker = (await import(new URL(`../worker/index.js?check=${Date.now()}`, import.meta.url))).default;
-  const healthResponse = await worker.fetch(new Request('https://xyzskor.test/api/health'), { X_BEARER_TOKEN:'test-token' }, { waitUntil() {} });
+  const healthResponse = await worker.fetch(new Request('https://xyzskor.test/api/health'), { X_BEARER_TOKEN:'test-token', YOUTUBE_API_KEY:'youtube-test-key' }, { waitUntil() {} });
   const healthPayload = await healthResponse.json();
   assert.equal(healthResponse.status, 200, 'Üretim sağlık kontrolü başarılı yanıt vermeli.');
   assert.equal(healthPayload.checks.x_feed, 'configured', 'Sağlık kontrolü X secret değerini göstermeden yapılandırma durumunu vermeli.');
+  assert.equal(healthPayload.checks.youtube_media, 'configured', 'Sağlık kontrolü YouTube secret değerini göstermeden yapılandırma durumunu vermeli.');
   assert.doesNotMatch(JSON.stringify(healthPayload), /test-token/, 'Sağlık kontrolü secret değerini sızdırmamalı.');
   const missingToken = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), {}, { waitUntil() {} });
   assert.equal(missingToken.status, 503, 'X secret yokken sunucu açık bir yapılandırma hatası dönmeli.');
@@ -249,6 +265,18 @@ try {
   const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(staleFeed.status, 200, 'X kesintisinde son doğrulanmış akış kullanılmalı.');
   assert.equal(staleFeed.headers.get('X-Data-Stale'), 'true', 'Yedek akış açıkça eski veri olarak işaretlenmeli.');
+  const missingYouTubeKey = await worker.fetch(new Request('https://xyzskor.test/api/media/youtube'), {}, context);
+  assert.equal(missingYouTubeKey.status, 503, 'YouTube anahtarı yokken kanal rehberine geçiş için açık durum dönmeli.');
+  const youtubeFeed = await worker.fetch(new Request('https://xyzskor.test/api/media/youtube'), { YOUTUBE_API_KEY:'youtube-test-key' }, context);
+  const youtubePayload = await youtubeFeed.json();
+  await Promise.all(pendingCacheWrites);
+  assert.equal(youtubeFeed.status, 200, 'YouTube medya adaptörü başarılı JSON dönmeli.');
+  assert.equal(youtubePayload.items.length, 4, 'Dört doğrulanmış kanalın en yeni programı dönmeli.');
+  const youtubeCallsAfterFirst = upstreamCalls.filter(url=>url.includes('googleapis.com/youtube/v3/')).length;
+  assert.equal(youtubeCallsAfterFirst, 5, 'YouTube yenilemesi dört kanal araması ve tek toplu video detay sorgusu kullanmalı.');
+  const cachedYouTubeFeed = await worker.fetch(new Request('https://xyzskor.test/api/media/youtube'), { YOUTUBE_API_KEY:'youtube-test-key' }, context);
+  assert.equal(cachedYouTubeFeed.status, 200, 'Önbellekteki YouTube akışı kullanılabilmeli.');
+  assert.equal(upstreamCalls.filter(url=>url.includes('googleapis.com/youtube/v3/')).length, youtubeCallsAfterFirst, 'Tekrarlanan YouTube isteği kotayı yeniden tüketmemeli.');
 } finally {
   globalThis.fetch = originalFetch;
   if (originalCaches === undefined) delete globalThis.caches;

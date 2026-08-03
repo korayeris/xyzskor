@@ -290,7 +290,7 @@ function renderFootballTeamStrip(){
 }
 function selectFootballTeam(team){
   activeFootballTeam=team||'Tümü';
-  renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballNews(); renderFootballTransfers();
+  renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballNews(); renderFootballTransfers(); renderEditorialNews();
 }
 
 /* ===================== RESMÎ KULÜP X AKIŞI ===================== */
@@ -467,6 +467,84 @@ function renderFootballNews(){
   area.querySelectorAll('[data-news-index]').forEach(article=>{ article.onclick=event=>{ if(!event.target.closest('[data-news-match]')) openNewsDetail(Number(article.dataset.newsIndex)); }; article.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openNewsDetail(Number(article.dataset.newsIndex));} }; });
   area.querySelectorAll('[data-news-match]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.newsMatch); });
 }
+
+/* ===================== HABER + YOUTUBE YAYIN MASASI ===================== */
+const YOUTUBE_CHANNEL_FALLBACK=[
+  {name:'Sports Digitale',handle:'@sportsdigitale',url:'https://www.youtube.com/@sportsdigitale',note:'Futbol gündemi, yorum ve canlı programlar'},
+  {name:'HT Spor',handle:'@htspor',url:'https://www.youtube.com/@htspor',note:'Güncel spor haberleri ve stüdyo yayınları'},
+  {name:'beIN SPORTS Türkiye',handle:'@beINSPORTSTurkiye',url:'https://www.youtube.com/@beINSPORTSTurkiye',note:'Süper Lig röportajları, özetler ve programlar'},
+  {name:'TRT Spor',handle:'@trtspor',url:'https://www.youtube.com/@trtspor',note:'Resmî spor yayınları ve gündem programları'}
+];
+let EDITORIAL_NEWS_CACHE=[];
+let youtubeMediaRequest=null;
+function editorialTransferEntries(){
+  const rows=[
+    ...(TRANSFER_CENTER_DATA.confirmed||[]).map(item=>({...item,editorialTone:'Resmî işlem',editorialKind:'confirmed'})),
+    ...(TRANSFER_CENTER_DATA.rumours||[]).map(item=>({...item,editorialTone:item.status,editorialKind:'rumour'}))
+  ];
+  return rows.filter(item=>activeFootballTeam==='Tümü'||item.to===activeFootballTeam||item.from===activeFootballTeam).map(item=>({
+    kind:'source',
+    title:item.editorialKind==='confirmed'?`${item.name}: ${item.from} → ${item.to}`:`${item.name} için ${item.to} gündeminde son durum`,
+    text:item.detail||`${item.fee} · ${item.status}`,
+    source:item.source,
+    sourceUrl:safeExternalURL(item.sourceUrl),
+    label:item.editorialTone,
+    image:TRANSFER_PLAYER_PHOTOS[item.name]||null
+  }));
+}
+function editorialNewsEntries(){
+  const storyEntries=publishedStoryCards().map((card,index)=>({
+    kind:'story',index,title:card.title||'Futbol gündemi',text:card.spot||card.summary||card.text||'',source:card.source||'XYZSKOR',label:storyConfidence(card)?.label||'Güncel',time:card.verified_at||card.updated_at||card.published_at||'',image:safeExternalURL(card.hero_image||card.image_url||card.image||card.thumbnail_url||card.player_image)
+  }));
+  const seen=new Set();
+  return [...storyEntries,...editorialTransferEntries()].filter(item=>{ const key=String(item.title).toLocaleLowerCase('tr-TR'); if(seen.has(key)) return false; seen.add(key); return true; }).slice(0,7);
+}
+function openEditorialEntry(index){
+  const entry=EDITORIAL_NEWS_CACHE[index]; if(!entry) return;
+  if(entry.kind==='story'){ openNewsDetail(entry.index); return; }
+  if(entry.sourceUrl){ const opened=window.open(entry.sourceUrl,'_blank','noopener,noreferrer'); if(opened) opened.opener=null; }
+}
+function bindEditorialEntries(area){
+  area.querySelectorAll('[data-editorial-index]').forEach(card=>{
+    card.onclick=()=>openEditorialEntry(Number(card.dataset.editorialIndex));
+    card.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){ event.preventDefault(); openEditorialEntry(Number(card.dataset.editorialIndex)); } };
+  });
+}
+function renderEditorialNews(){
+  const lead=document.getElementById('editorialLeadNews'); const list=document.getElementById('editorialHighlights'); if(!lead||!list) return;
+  EDITORIAL_NEWS_CACHE=editorialNewsEntries();
+  const primary=EDITORIAL_NEWS_CACHE[0];
+  if(!primary){ lead.innerHTML=footballEmpty('Gündem hazırlanıyor','Kaynağı doğrulanmış ilk içerik yayınlandığında burada görünecek.'); list.innerHTML=''; return; }
+  const media=EDITORIAL_NEWS_CACHE.slice(0,3).filter(item=>item.image);
+  lead.innerHTML=`<article class="editorial-lead-card" tabindex="0" role="button" data-editorial-index="0" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="editorial-lead-media ${media.length>1?'collage':''}">${media.length?media.map(item=>`<img src="${escapeHTML(item.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`).join(''):'<div class="editorial-media-fallback">XYZ</div>'}</div><div class="editorial-lead-copy"><span class="editorial-news-label">${escapeHTML(primary.label)}</span><h3>${escapeHTML(primary.title)}</h3><p>${escapeHTML(primary.text)}</p><footer><strong>${escapeHTML(primary.source)}</strong>${primary.time?`<time>${escapeHTML(fmtEditorialDate(primary.time))}</time>`:''}</footer></div></article>`;
+  list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} haberini aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source)}${item.time?` · ${escapeHTML(fmtEditorialDate(item.time))}`:''}</p></div>${item.image?`<img src="${escapeHTML(item.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span class="editorial-highlight-mark">XYZ</span>'}</article>`).join('')}`;
+  bindEditorialEntries(lead); bindEditorialEntries(list);
+}
+function formatYouTubeDuration(value){
+  const match=String(value||'').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/); if(!match) return '';
+  const hours=Number(match[1]||0),minutes=Number(match[2]||0),seconds=Number(match[3]||0);
+  return `${hours?`${hours}:`:''}${String(minutes).padStart(hours?2:1,'0')}:${String(seconds).padStart(2,'0')}`;
+}
+function renderYouTubeFallback(){
+  const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
+  status.textContent='Doğrulanmış kanal rehberi';
+  grid.innerHTML=`<div class="youtube-channel-intro"><span class="youtube-play-mark">▶</span><div><strong>Canlı yayın bulunduğunda burada otomatik görünür.</strong><p>Şimdilik doğrulanmış yayıncıların resmî YouTube kanallarına doğrudan ulaşabilirsin.</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/live" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(channel.note)}</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
+}
+function renderYouTubeItems(payload){
+  const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
+  const items=Array.isArray(payload?.items)?payload.items.slice(0,6):[]; if(!items.length){ renderYouTubeFallback(); return; }
+  const liveCount=items.filter(item=>item.live).length;
+  status.textContent=liveCount?`${liveCount} canlı yayın`:`${items.length} güncel program`;
+  grid.innerHTML=items.map((item,index)=>`<a class="youtube-video-card ${index===0?'featured':''}" href="${escapeHTML(item.url)}" target="_blank" rel="noopener noreferrer"><div class="youtube-video-thumb"><img src="${escapeHTML(item.thumbnail)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="youtube-video-play" aria-hidden="true">▶</span>${item.live?'<span class="youtube-live-chip">CANLI</span>':item.upcoming?'<span class="youtube-upcoming-chip">YAKINDA</span>':''}${item.duration?`<span class="youtube-duration">${escapeHTML(formatYouTubeDuration(item.duration))}</span>`:''}</div><div class="youtube-video-copy"><span>${escapeHTML(item.channelTitle)}</span><h3>${escapeHTML(item.title)}</h3><p>${item.live&&item.concurrentViewers?`${escapeHTML(String(item.concurrentViewers))} kişi izliyor`:escapeHTML(fmtEditorialDate(item.publishedAt))}</p></div></a>`).join('');
+}
+async function renderYouTubeMedia(){
+  const grid=document.getElementById('youtubeMediaGrid'); if(!grid) return;
+  grid.innerHTML='<div class="youtube-media-loading"><span></span>Doğrulanmış yayınlar kontrol ediliyor…</div>';
+  try{
+    if(!youtubeMediaRequest) youtubeMediaRequest=fetch('/api/media/youtube',{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok) throw new Error(payload?.error||'youtube_unavailable'); return payload; });
+    renderYouTubeItems(await youtubeMediaRequest);
+  }catch(_error){ youtubeMediaRequest=null; renderYouTubeFallback(); }
+}
 function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
   const transfers=publishedStoryCards().map((card,index)=>({card,index})).filter(entry=>['transfer','transfer_development'].includes(String(entry.card.category || entry.card.type || '').toLocaleLowerCase('tr-TR')));
@@ -482,7 +560,7 @@ function renderFootballStandingsCompact(){
   const rows=HISTORIC_STANDINGS_2024_25.slice(0,5);
   area.innerHTML=`<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>2024–25 final</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
 }
-function renderFootballHome(){ renderPortalSponsor(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); renderFootballDataViews(); startTransferCountdown(); }
+function renderFootballHome(){ renderPortalSponsor(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballStandingsCompact(); renderClubSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
