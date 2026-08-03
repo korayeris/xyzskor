@@ -186,18 +186,23 @@ async function fetchXClubFeed(token, request, context) {
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
   const clubs = await Promise.all(clubsForLeague.map(async (club) => {
-    const user = users.get(club.handle.toLowerCase());
-    if (!user) return { ...club, post: null, account_found: false, verified: false };
-    const params = new URLSearchParams({
-      max_results: "3",
-      exclude: "replies,retweets",
-      "tweet.fields": "created_at,public_metrics,attachments",
-      expansions: "attachments.media_keys",
-      "media.fields": "media_key,type,url,preview_image_url,width,height,alt_text",
-    });
-    const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
-    const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-    return { ...normalizeXPost(club, timeline.data?.[0] || null, mediaByKey), account_found: true, verified: Boolean(user.verified || user.verified_type), profile_image_url: user.profile_image_url || null };
+    try {
+      const user = users.get(club.handle.toLowerCase());
+      if (!user) return { ...club, post: null, account_found: false, verified: false };
+      const params = new URLSearchParams({
+        max_results: "3",
+        exclude: "replies,retweets",
+        "tweet.fields": "created_at,public_metrics,attachments",
+        expansions: "attachments.media_keys",
+        "media.fields": "media_key,type,url,preview_image_url,width,height,alt_text",
+      });
+      const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
+      const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
+      return { ...normalizeXPost(club, timeline.data?.[0] || null, mediaByKey), account_found: true, verified: Boolean(user.verified || user.verified_type), profile_image_url: user.profile_image_url || null };
+    } catch (error) {
+      if (error?.status === 402) throw error;
+      return { ...club, post: null, account_found: true, verified: false, upstream_error: error?.status || "unavailable" };
+    }
   }));
 
   return {
