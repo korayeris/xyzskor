@@ -196,14 +196,43 @@ function renderLiveFeed(){
   }
   if(providerState) providerState.textContent = LIVE_FEED.stale ? 'Son doğrulanmış veri gösteriliyor' : 'Canlı bağlantı etkin';
 }
+function refreshLiveProviderLabel(){
+  const key = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
+  const label = typeof competitionLabelBySlug === 'function' ? competitionLabelBySlug(key) : 'Seçili lig';
+  const eyebrow = document.getElementById('liveCompetitionLabel');
+  const title = document.querySelector('#page-live .live-head h2');
+  if(eyebrow) eyebrow.textContent = `${label.toLocaleUpperCase('tr-TR')} · GERÇEK ZAMANLI`;
+  if(title) title.textContent = `${label} Maç Merkezi`;
+}
+async function refreshLiveProviderHealth(){
+  const state = document.getElementById('liveProviderState');
+  if(!state) return;
+  try{
+    const response = await fetch('/api/health',{headers:{Accept:'application/json'},cache:'no-store'});
+    const payload = await response.json().catch(()=>null);
+    const status = payload?.checks?.sportmonks_live;
+    state.textContent = status === 'configured' ? 'Sportmonks · canlı bağlantı hazır' : 'Sportmonks · bağlantı anahtarı bekleniyor';
+  }catch(_error){ state.textContent = 'Canlı sağlayıcı durumu kontrol edilemedi'; }
+}
 async function loadLiveFeed(force){
   if(liveFeedLoading) return;
+  refreshLiveProviderLabel();
   liveFeedLoading = true;
   renderLiveFeed();
   try{
     const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
-    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
-    if(error) throw error;
+    let data = null;
+    let error = null;
+    try{
+      const result = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
+      data = result.data; error = result.error;
+    }catch(functionError){ error = functionError; }
+    if(error || !data || !Array.isArray(data.matches)){
+      const response = await fetch(`/api/football/live?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+      const providerData = await response.json().catch(()=>null);
+      if(!response.ok || !providerData || !Array.isArray(providerData.matches)) throw error || new Error(providerData?.error || 'Canlı veri yanıtı geçersiz.');
+      data = providerData;
+    }
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
     LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
     data.matches.forEach(liveMatch=>{
@@ -223,6 +252,8 @@ async function loadLiveFeed(force){
   }
 }
 function startLiveFeed(){
+  refreshLiveProviderLabel();
+  refreshLiveProviderHealth();
   loadLiveFeed(false);
   if(!liveFeedHandle) liveFeedHandle = setInterval(()=>loadLiveFeed(false), LIVE_FEED_CONFIG.refreshMs);
 }

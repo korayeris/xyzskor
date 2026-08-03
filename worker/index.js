@@ -10,6 +10,8 @@ const YOUTUBE_TIMEOUT_MS = 8000;
 const CLUB_CACHE = "public, max-age=600, s-maxage=21600, stale-while-revalidate=86400";
 const CLUB_STALE_CACHE = "public, max-age=60, s-maxage=604800";
 const TRANSFER_CACHE = "public, max-age=600, s-maxage=3600, stale-while-revalidate=21600";
+const SEASON_CACHE = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600";
+const LIVE_API_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
 const SPORTMONKS_TIMEOUT_MS = 12000;
 let xFeedRefreshPromise = null;
 let youtubeFeedRefreshPromise = null;
@@ -519,6 +521,159 @@ async function handleFootballTransfers(request, env, context) {
   return response;
 }
 
+function sportmonksCurrentSeason(row) {
+  const current = row?.currentseason || row?.currentSeason;
+  return Array.isArray(current) ? current[0] : current;
+}
+
+function standingNumber(row, names) {
+  for (const name of names) {
+    if (row?.[name] !== undefined && row?.[name] !== null && Number.isFinite(Number(row[name]))) return Number(row[name]);
+  }
+  const details = relationRows(row?.details);
+  const match = details.find((detail) => {
+    const code = String(detail?.type?.code || detail?.type?.name || detail?.code || detail?.name || "").toLowerCase();
+    return names.some((name) => code === name || code.includes(name));
+  });
+  return Number(match?.value ?? match?.points ?? match?.standing_value ?? 0) || 0;
+}
+
+function normalizeProviderStanding(row, league, seasonId, index) {
+  const participant = row?.participant || row?.team || {};
+  const goalsFor = standingNumber(row, ["goals_for", "overall_goals_for", "scored", "goals_scored"]);
+  const goalsAgainst = standingNumber(row, ["goals_against", "overall_goals_against", "conceded", "goals_conceded"]);
+  return {
+    season: String(seasonId), week: 0,
+    team: String(participant?.name || row?.team_name || `Takım ${index + 1}`),
+    played: standingNumber(row, ["played", "overall_matches_played", "matches_played", "games_played"]),
+    won: standingNumber(row, ["won", "overall_won", "wins"]),
+    drawn: standingNumber(row, ["draw", "drawn", "overall_draw", "draws"]),
+    lost: standingNumber(row, ["lost", "overall_lost", "losses"]),
+    goals_for: goalsFor, goals_against: goalsAgainst,
+    goal_difference: Number(row?.goal_difference ?? row?.goaldifference ?? goalsFor - goalsAgainst) || 0,
+    points: standingNumber(row, ["points", "overall_points"]),
+    form: String(row?.form || "").slice(0, 8),
+    source: "sportmonks", competition: league?.name || null, competition_logo: league?.image_path || null,
+    country: league?.country?.name || null, provider_league_id: String(league?.id || ""), provider_season_id: String(seasonId),
+    provider_team_id: participant?.id ? String(participant.id) : null, verified_at: new Date().toISOString(),
+  };
+}
+
+function normalizeProviderFixture(fixture, league, seasonId, roundNumber) {
+  const participants = relationRows(fixture?.participants);
+  const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
+  const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
+  const kickoff = fixture?.starting_at ? new Date(fixture.starting_at).toISOString() : null;
+  if (!fixture?.id || !kickoff || !home?.name || !away?.name) return null;
+  const stateCode = String(fixture?.state?.short_name || fixture?.state?.state || "").toUpperCase();
+  const status = ["CANC", "CANCL", "CANCELLED"].includes(stateCode) ? "iptal"
+    : ["POSTP", "SUSP", "DELAYED"].includes(stateCode) ? "ertelendi"
+      : normalizedFootballStatus(stateCode, fixture?.state?.minute, fixture?.result_info);
+  const id = `sportmonks:${fixture.id}`;
+  const homeScore = fixture?.home_score ?? sportmonksScore(fixture?.scores, home.id);
+  const awayScore = fixture?.away_score ?? sportmonksScore(fixture?.scores, away.id);
+  return {
+    id, hafta: Number(roundNumber) || 1, ev: String(home.name), konuk: String(away.name), kickoff,
+    stadyum: String(fixture?.venue?.name || "Açıklanacak"), status,
+    verified: true, competition: fixture?.league?.name || league?.name || null,
+    competition_logo: fixture?.league?.image_path || league?.image_path || null,
+    country: fixture?.league?.country?.name || league?.country?.name || null,
+    provider_league_id: String(league?.id || ""), provider_season_id: String(seasonId),
+    result: status === "bitti" && homeScore != null && awayScore != null ? { home: Number(homeScore), away: Number(awayScore) } : null,
+  };
+}
+
+function normalizedFootballStatus(code, minute, resultInfo) {
+  if (["HT", "BT"].includes(code)) return "devre_arasi";
+  if (["1H", "2H", "ET", "P", "INT", "LIVE"].includes(code) || Number(minute) > 0) return "canlı";
+  if (["FT", "AET", "PEN"].includes(code) || resultInfo) return "bitti";
+  return null;
+}
+
+function sportmonksScore(scores, participantId) {
+  const rows = relationRows(scores).filter((score) => String(score?.participant_id) === String(participantId));
+  const current = rows.find((score) => String(score?.description || "").toUpperCase() === "CURRENT") || rows.at(-1);
+  const goals = current?.score?.goals;
+  return goals !== undefined && goals !== null && Number.isFinite(Number(goals)) ? Number(goals) : null;
+}
+
+async function fetchSportmonksSeasonBundle(leagueKey, token) {
+  const leagueId = (SELECTED_LEAGUE_IDS_BY_KEY[leagueKey] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"])[0];
+  const leaguePayload = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason;country`, token);
+  const league = leaguePayload?.data || { id: leagueId };
+  const season = sportmonksCurrentSeason(league);
+  if (!season?.id) throw new Error("Sportmonks aktif sezon bulunamadı");
+  const seasonId = String(season.id);
+  const [standingsResult, scheduleResult] = await Promise.allSettled([
+    sportmonksRequest(`/standings/seasons/${encodeURIComponent(seasonId)}?include=participant;details.type`, token),
+    sportmonksRequest(`/schedules/seasons/${encodeURIComponent(seasonId)}`, token),
+  ]);
+  const standings = standingsResult.status === "fulfilled"
+    ? relationRows(standingsResult.value?.data).map((row, index) => normalizeProviderStanding(row, league, seasonId, index)).filter((row) => row.team)
+    : [];
+  const matches = [];
+  if (scheduleResult.status === "fulfilled") {
+    for (const stage of relationRows(scheduleResult.value?.data)) {
+      const rounds = relationRows(stage?.rounds);
+      rounds.forEach((round, index) => relationRows(round?.fixtures).forEach((fixture) => {
+        const normalized = normalizeProviderFixture(fixture, league, seasonId, Number.parseInt(String(round?.name || ""), 10) || index + 1);
+        if (normalized) matches.push(normalized);
+      }));
+    }
+  }
+  const uniqueMatches = [...new Map(matches.map((row) => [row.id, row])).values()];
+  return {
+    source: "sportmonks-football-api-v3", provider: "sportmonks", league: leagueKey, leagueId: String(leagueId), seasonId,
+    competition: league.name || null, updatedAt: new Date().toISOString(), matches: uniqueMatches,
+    results: uniqueMatches.filter((row) => row.result).map((row) => ({ match_id: row.id, ...row.result, scored_at: new Date().toISOString() })),
+    standings: standings.sort((a, b) => Number(b.points || 0) - Number(a.points || 0)),
+    errors: [standingsResult, scheduleResult].flatMap((result, index) => result.status === "rejected" ? [{ module: index === 0 ? "standings" : "fixtures", message: result.reason?.providerMessage || result.reason?.message || "unavailable" }] : []),
+  };
+}
+
+async function handleFootballSeason(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
+  const url = new URL(request.url);
+  const league = url.searchParams.get("league") || "super-lig";
+  const cacheUrl = new URL(url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
+  const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  try {
+    const payload = await fetchSportmonksSeasonBundle(league, token);
+    const response = jsonResponse(payload, 200, { "Cache-Control": SEASON_CACHE, "X-Data-Stale": "false" });
+    writeEdgeCache(cache, cacheKey, response, context); return response;
+  } catch (error) {
+    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "300" });
+  }
+}
+
+async function handleFootballLive(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
+  const league = new URL(request.url).searchParams.get("league") || "super-lig";
+  const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
+  const cacheUrl = new URL(request.url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
+  const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  try {
+    const payload = await sportmonksRequest(`/livescores/inplay?include=participants;scores;league;state`, token);
+    const matches = relationRows(payload?.data).filter((fixture) => leagueIds.includes(String(fixture?.league_id))).map((fixture) => {
+      const participants = relationRows(fixture?.participants);
+      const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
+      const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
+      const code = String(fixture?.state?.short_name || fixture?.state?.state || "LIVE").toUpperCase();
+      return { id:`sportmonks:${fixture.id}`, competition:fixture?.league?.name || "Seçili lig", competitionLogo:fixture?.league?.image_path || null, country:fixture?.league?.country?.name || null, startedAt:fixture?.starting_at || null, status:code === "HT" ? "halftime" : "live", minute:Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null, home:{ id:String(home.id || ""), name:String(home.name || "Ev sahibi"), logo:home.image_path || null, score:sportmonksScore(fixture?.scores, home.id) }, away:{ id:String(away.id || ""), name:String(away.name || "Deplasman"), logo:away.image_path || null, score:sportmonksScore(fixture?.scores, away.id) } };
+    });
+    const response = jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches }, 200, { "Cache-Control": LIVE_API_CACHE });
+    writeEdgeCache(cache, cacheKey, response, context); return response;
+  } catch (error) {
+    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "30" });
+  }
+}
+
 function fixtureLineupForTeam(fixture, teamId) {
   return relationRows(fixture?.lineups)
     .filter((row) => String(row?.team_id) === String(teamId) && (Number(row?.type_id) === 11 || row?.formation_field != null))
@@ -649,7 +804,7 @@ function handleHealth(request, env) {
     status: "ok",
     service: "xyzskor-web",
     timestamp: new Date().toISOString(),
-    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured", sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured" },
+    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured", sportmonks_live: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_season: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured" },
   };
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: jsonResponse(payload, 200, { "Cache-Control": "no-store" }).headers });
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
@@ -686,6 +841,8 @@ export default {
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (["/api/social/x", "/api/social/x-media-v2"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
+    if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
+    if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
     if (url.pathname === "/api/football/transfers") return handleFootballTransfers(request, env, context);
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;

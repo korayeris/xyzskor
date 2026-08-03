@@ -41,6 +41,8 @@ const LIVE_FEED_CONFIG = {
   seasonScope: 'selected-leagues-season',
   refreshMs: 5000
 };
+const PROVIDER_SEASON_CACHE_MS = 120000;
+const PROVIDER_LIVE_FALLBACK = '/api/football';
 const SELECTED_COMPETITIONS = [
   { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
   { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL', sportmonksId:'2' },
@@ -424,6 +426,25 @@ async function ensureSeasonFixtures(){
   }
 }
 
+async function fetchProviderSeasonBundle(leagueKey){
+  if(!leagueKey || leagueKey==='all') return null;
+  const cacheKey = `xyzskor:provider-season:${leagueKey}`;
+  try{
+    const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
+    if(cached && cached.savedAt && Date.now()-cached.savedAt < PROVIDER_SEASON_CACHE_MS) return cached.payload;
+  }catch(_error){}
+  try{
+    const response = await fetch(`${PROVIDER_LIVE_FALLBACK}/season?league=${encodeURIComponent(leagueKey)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+    const payload = await response.json().catch(()=>null);
+    if(!response.ok || !payload || !Array.isArray(payload.matches)) return null;
+    try{ sessionStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),payload})); }catch(_error){}
+    return payload;
+  }catch(error){
+    DATA_ERRORS.provider = error && error.message ? error.message : 'Sportmonks sağlayıcı yedeği kullanılamıyor.';
+    return null;
+  }
+}
+
 function selectCurrentWeek(matches){
   if(/^#week\/\d+$/.test(location.hash || '')) return;
   const ordered=[...matches].filter(match=>match.hafta && match.kickoff).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
@@ -525,16 +546,20 @@ async function loadAllData(){
     moduleQuery(sb.from('league_standings').select('*').order('points',{ascending:false}), 'league_standings'),
     moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
   ]);
-  MATCHES = matches;
+  const providerBundle = await fetchProviderSeasonBundle(activeFootballLeague);
+  const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
+  const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];
+  const providerResults = providerBundle?.results?.length ? providerBundle.results : [];
+  MATCHES = providerMatches.length ? providerMatches : matches;
   selectCurrentWeek(MATCHES);
   ANALYSIS = {}; analysisRows.forEach(r => ANALYSIS[r.match_id] = r.data || {});
   cacheProfiles(ownProfiles);
   cachePredictions(ownPredictions);
   ALL_RESULTS = {};
-  results.forEach(r=> ALL_RESULTS[r.match_id] = { home:r.home, away:r.away, scoredAt:new Date(r.scored_at).getTime() });
+  [...results, ...providerResults].forEach(r=> ALL_RESULTS[r.match_id] = { home:r.home, away:r.away, scoredAt:new Date(r.scored_at || Date.now()).getTime() });
   REWARDS = {}; TEAMS.forEach(t => REWARDS[t] = [{sira:1,aciklama:'—'},{sira:2,aciklama:'—'},{sira:3,aciklama:'—'}]);
   rewards.forEach(r=>{ if(REWARDS[r.team]) REWARDS[r.team][r.sira-1] = {sira:r.sira, aciklama:r.aciklama}; });
-  STANDINGS = standings;
+  STANDINGS = providerStandings.length ? providerStandings : standings;
   WEEKLY_STORIES = {}; stories.forEach(s => WEEKLY_STORIES[s.week] = s);
   if(session){
     let profile = PROFILES[session.user.id] || null;
