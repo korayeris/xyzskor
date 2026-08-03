@@ -214,14 +214,18 @@ function xMetric(value){
 function xPostCardHTML(club){
   const rankLabel=club.leagueRank?`Süper Lig ${escapeHTML(club.leagueRank)}. · `:'';
   const post=club.post||null;
-  const media=post&&Array.isArray(post.media)?post.media.find(item=>item&&item.image_url):null;
-  const mediaHTML=media?`<a class="club-social-media" href="${escapeHTML(post.url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHTML(media.image_url)}" alt="${escapeHTML(media.alt_text||`${club.team} resmî paylaşım görseli`)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"></a>`:'';
   const metrics=post&&post.metrics?post.metrics:{};
-  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>${mediaHTML}<div class="club-social-meta"><time datetime="${escapeHTML(post.created_at||'')}">${escapeHTML(xPostDate(post.created_at))}</time><span>${escapeHTML(xMetric(metrics.like_count))} beğeni</span><span>${escapeHTML(xMetric(metrics.retweet_count))} repost</span></div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısını açabilirsin.</span></div>`;
+  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>
+    <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
+      <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
+      <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
+      <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
+      <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
+    </div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısı hazır.</span></div>`;
+  const targetURL=post?.url||club.url;
   return `<article class="club-social-card">
-    <header class="club-social-card-head">${crestHTML(club.team,'xs')}<div><strong>${escapeHTML(club.team)}</strong><small>${rankLabel}@${escapeHTML(club.handle)}</small></div></header>
-    <div class="club-social-post">${postBody}</div>
-    <a class="club-social-profile-link" href="${escapeHTML(post?.url||club.url)}" target="_blank" rel="noopener noreferrer">${post?'Paylaşımı':'Hesabı'} X'te aç ↗</a>
+    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong><span class="club-social-verified" aria-label="Resmî hesap">✓</span></span><small>${rankLabel}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">𝕏</span></header>
+    <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;
 }
 async function loadXClubPosts(){
