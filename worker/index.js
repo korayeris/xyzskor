@@ -740,7 +740,20 @@ async function handleFootballTransfers(request, env, context) {
 
 function sportmonksCurrentSeason(row) {
   const current = row?.currentseason || row?.currentSeason;
-  return Array.isArray(current) ? current[0] : current;
+  const currentRows = Array.isArray(current) ? current : current ? [current] : [];
+  if (currentRows[0]?.id) return currentRows[0];
+  const seasons = relationRows(row?.seasons || row?.season).filter((season) => season?.id);
+  if (!seasons.length) return null;
+  const flagged = seasons.find((season) => season?.is_current || season?.current || season?.active);
+  if (flagged?.id) return flagged;
+  return seasons.slice().sort((left, right) => {
+    const leftEnd = Date.parse(left?.finished_at || left?.end_date || left?.ending_at || left?.updated_at || 0) || 0;
+    const rightEnd = Date.parse(right?.finished_at || right?.end_date || right?.ending_at || right?.updated_at || 0) || 0;
+    if (rightEnd !== leftEnd) return rightEnd - leftEnd;
+    const leftStart = Date.parse(left?.starting_at || left?.start_date || left?.created_at || 0) || 0;
+    const rightStart = Date.parse(right?.starting_at || right?.start_date || right?.created_at || 0) || 0;
+    return rightStart - leftStart;
+  })[0];
 }
 
 function standingNumber(row, names) {
@@ -816,7 +829,7 @@ function sportmonksScore(scores, participantId) {
 
 async function fetchSportmonksSeasonBundle(leagueKey, token) {
   const leagueId = (SELECTED_LEAGUE_IDS_BY_KEY[leagueKey] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"])[0];
-  const leaguePayload = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason;country`, token);
+  const leaguePayload = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason;seasons;country`, token);
   const league = leaguePayload?.data || { id: leagueId };
   const season = sportmonksCurrentSeason(league);
   if (!season?.id) throw new Error("Sportmonks aktif sezon bulunamadı");
