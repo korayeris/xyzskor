@@ -340,7 +340,7 @@ async function fetchXClubFeed(token, request, context) {
   return {
     source: "x-api",
     league,
-    cost_profile: "watchlist-polling",
+    cost_profile: "media-rich-daily",
     fetch_mode: "verified-club-and-publisher-watchlist",
     updated_at: new Date().toISOString(),
     cache_ttl_seconds: 300,

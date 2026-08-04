@@ -440,7 +440,7 @@ function normalizeCompetitionText(value){
     .replaceAll('ö','o');
 }
 function competitionName(match){
-  return match?.competition || match?.tournament || match?.league_name || match?.league || match?.competition_name || 'Süper Lig';
+  return match?.competition || match?.tournament || match?.league_name || match?.league || match?.competition_name || competitionLabelBySlug(activeFootballLeague);
 }
 function competitionSlug(value){
   const raw = normalizeCompetitionText(value);

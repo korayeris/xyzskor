@@ -37,7 +37,7 @@
 <div class="football-league-command" id="footballLeagueCommand" aria-label="Veri ligi seçimi">
   <div class="football-league-command-copy">
     <span>Veri ligi</span>
-    <strong id="footballLeagueCommandTitle">Süper Lig</strong>
+    <strong id="footballLeagueCommandTitle">Seçili lig</strong>
   </div>
   <div class="portal-league-list football-top-league-list" id="footballTopLeagueStrip"></div>
 </div>
@@ -103,7 +103,7 @@
         </div>
       </section>
       <section class="football-module transfer-rail" id="footballTransferSection" aria-labelledby="footballTransferTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballTransferKicker">Kaynaklı Akış</div><div class="football-module-title" id="footballTransferTitle">Transfer gelişmeleri</div></div></div><div id="footballTransferStream"></div></section>
-      <section class="football-module standings-rail" id="footballStandingsSummary" aria-labelledby="footballStandingsTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballStandingsKicker">Süper Lig</div><div class="football-module-title" id="footballStandingsTitle">Puan durumu</div></div></div><div id="footballSeasonHonors"></div><div id="footballStandingsCompact"></div></section>
+      <section class="football-module standings-rail" id="footballStandingsSummary" aria-labelledby="footballStandingsTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballStandingsKicker">Lig tablosu</div><div class="football-module-title" id="footballStandingsTitle">Puan durumu</div></div></div><div id="footballSeasonHonors"></div><div id="footballStandingsCompact"></div></section>
       <aside class="portal-sponsor-rail" id="portalSponsorRail" aria-label="Sponsor ve reklam alanı"></aside>
     </div>
   </section>
@@ -159,7 +159,7 @@
 
   <section class="market-dashboard" aria-label="Transfer ve oyuncu performans merkezi">
     <article class="market-card featured">
-      <div class="market-head"><div><div class="market-eyebrow">Açık Transfer Dönemi</div><h2>2026/27 Yazının Öne Çıkan Transferleri</h2><p>Bu transfer döneminde Süper Lig’e gelen, tamamlanmış bonservis işlemleri</p></div><div class="transfer-clock"><b id="transferCountdown">—</b><span>4 Eylül kapanışına</span></div></div>
+      <div class="market-head"><div><div class="market-eyebrow">Açık Transfer Dönemi</div><h2>2026/27 Yazının Öne Çıkan Transferleri</h2><p>Seçili lig için tamamlanmış bonservis işlemleri ve kaynaklı hareketler</p></div><div class="transfer-clock"><b id="transferCountdown">—</b><span>4 Eylül kapanışına</span></div></div>
       <div class="transfer-list" id="topTransfers"></div>
     </article>
     <div class="market-stack">
@@ -276,12 +276,12 @@
       <div class="transfer-window-card"><span>Dönemin kapanmasına</span><strong id="transferCenterCountdown">—</strong><small>4 Eylül 2026 · 23.59</small></div>
     </header>
     <div class="transfer-center-workspace">
-      <aside class="transfer-filter-panel" aria-label="Süper Lig transfer filtreleri">
+      <aside class="transfer-filter-panel" aria-label="Lig transfer filtreleri">
         <h2>Düzenle</h2>
-        <div class="transfer-filter-group"><span>Lig</span><div class="transfer-filter-static" id="transferLeagueStatic">Trendyol Süper Lig <span>TR</span></div></div>
+        <div class="transfer-filter-group"><span>Lig</span><div class="transfer-filter-static" id="transferLeagueStatic">Seçili lig <span>GEN</span></div></div>
         <div class="transfer-filter-group"><label for="transferClubFilter">Kulüp</label><select id="transferClubFilter" onchange="setTransferClubFilter(this.value)"><option value="all">Tüm kulüpler</option></select></div>
         <div class="transfer-filter-group"><span>Veri standardı</span><strong>Kaynak bağlantılı</strong><small>Resmî işlem ve iddia aynı etiketi kullanmaz.</small></div>
-        <div class="transfer-filter-group"><span>Dönem</span><strong>2026 yaz</strong><small id="transferPeriodNote">Yalnız Süper Lig hareketleri</small></div>
+        <div class="transfer-filter-group"><span>Dönem</span><strong>2026 yaz</strong><small id="transferPeriodNote">Seçili lig kayıtları yayınlanır</small></div>
         <button class="transfer-filter-reset" type="button" onclick="setTransferClubFilter('all')">Filtreyi temizle</button>
       </aside>
       <div class="transfer-center-main">
@@ -299,7 +299,7 @@
 
   <section class="football-data-view standings-view" id="footballStandingsView" aria-labelledby="footballStandingsViewTitle" hidden>
     <header class="football-data-hero standings-hero">
-      <div><span class="football-data-eyebrow" id="footballStandingsViewKicker">TAMAMLANAN SEZON · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p id="footballStandingsViewCopy">2024–25 Trendyol Süper Lig Şamil Ekinci Sezonu final sıralaması.</p></div>
+      <div><span class="football-data-eyebrow" id="footballStandingsViewKicker">SEÇİLİ LİG · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p id="footballStandingsViewCopy">Seçilen lig için puan tablosu ve sezon özeti burada güncellenir.</p></div>
       <a class="football-source-link" id="footballStandingsSourceLink" href="https://www.tff.org/default.aspx?2586pg=47&amp;ftxtID=47737&amp;pageID=471" target="_blank" rel="noopener noreferrer">TFF kaynağı ↗</a>
     </header>
     <div class="standings-season-card"><span>Sezon</span><strong>2024–25</strong><small>38. hafta · final</small></div>
