@@ -57,6 +57,9 @@ npm run build
 - `worker/index.js`: Statik yayın, güvenlik başlıkları ve 24 saat önbellekli X API katmanı
 - `docs/XYZSKOR-devir-teslim.md`: Mimari ve operasyon notları
 - `docs/professional-handoff-2026-08-03.md`: Profesyonel yazılımcıya teknik devir, satın alım/env/envanter ve mimari gerçeklik özeti
+- `docs/api-envanteri-ve-satin-alim-notu-2026-08-04.md`: Aktif API yüzeyleri, çekilebilen veri tipleri ve satın alım teyit listesi
+- `docs/ops-secrets-ledger-template.md`: Secret, billing, owner ve recovery kayıt şablonu
+- `docs/advanced-upgrade-roadmap-2026-08-04.md`: Prototipten profesyonel seviyeye geçiş sırası
 - `docs/data-provider-architecture.md`: Değiştirilebilir API-Football/Sportmonks katmanı ve veri sınıflandırma sözleşmesi
 - `docs/provider-comparison-scorecard.csv`: 2–3 haftalık sağlayıcı karşılaştırma kayıt şablonu
 - `docs/supabase-migration-runbook.md`: Yedek, staging, migration ve yük testi yayın akışı
@@ -65,6 +68,7 @@ npm run build
 - `supabase/migrations/20260802180000_platform_core.sql`: Yeniden kurulabilir çekirdek şema, RLS ve tahmin kilidi
 - `supabase/migrations/20260802181000_server_leaderboard.sql`: Sunucu tarafı puanlama/liderlik RPC'si
 - `supabase/migrations/20260802182000_editorial_operations.sql`: Haber operasyonu, kaynak, inceleme ve audit şeması
+- `worker/.dev.vars.example`: Worker tarafı secret değişken adları
 - `scripts/dev.ps1`: Yerel geliştirme sunucusu
 - `scripts/check.mjs`: Ürün, güvenlik ve mimari regresyon kontrolleri
 - `scripts/load-test-predictions.mjs`: Yalnız staging için tahmin yazma yük testi
