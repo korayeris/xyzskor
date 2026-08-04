@@ -473,6 +473,9 @@ function matchInActiveTeam(match){
 function isSuperLigScope(){
   return activeFootballLeague==='all' || activeFootballLeague==='super-lig';
 }
+function isStrictSuperLigScope(){
+  return activeFootballLeague==='super-lig';
+}
 function activeLeagueContext(){
   return LEAGUE_CONTEXT[activeFootballLeague] || LEAGUE_CONTEXT.all;
 }

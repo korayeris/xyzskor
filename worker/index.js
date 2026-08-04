@@ -28,9 +28,30 @@ const X_CLUBS = [
 ];
 const makeXClubList = (pairs) => pairs.map(([team, handle]) => ({ team, handle, url: `https://x.com/${handle}` }));
 const X_PUBLISHERS_BY_LEAGUE = Object.freeze({
+  "super-lig": makeXClubList([
+    ["Fabrizio Romano", "FabrizioRomano"],
+    ["Yağız Sabuncuoğlu", "yagosabuncuoglu"],
+    ["Sercan Hamzaoğlu", "sercanhamzaolu"],
+  ]),
   "champions-league": makeXClubList([
+    ["Fabrizio Romano", "FabrizioRomano"],
     ["UEFA Champions League", "ChampionsLeague"],
     ["UEFA", "UEFAcom"],
+  ]),
+  "europa-league": makeXClubList([
+    ["Fabrizio Romano", "FabrizioRomano"],
+    ["UEFA Europa League", "EuropaLeague"],
+    ["UEFA", "UEFAcom"],
+  ]),
+  "la-liga": makeXClubList([
+    ["Fabrizio Romano", "FabrizioRomano"],
+    ["LALIGA English", "LaLigaEN"],
+    ["ESPN FC", "ESPNFC"],
+  ]),
+  "premier-league": makeXClubList([
+    ["David Ornstein", "David_Ornstein"],
+    ["Premier League", "premierleague"],
+    ["Sky Sports Premier League", "SkySportsPL"],
   ]),
 });
 const X_CLUBS_BY_LEAGUE = Object.freeze({
@@ -319,10 +340,11 @@ async function fetchXClubFeed(token, request, context) {
   return {
     source: "x-api",
     league,
-    cost_profile: "media-rich-daily",
-    fetch_mode: "verified-club-latest-post-daily",
+    cost_profile: "watchlist-polling",
+    fetch_mode: "verified-club-and-publisher-watchlist",
     updated_at: new Date().toISOString(),
-    cache_ttl_seconds: 86400,
+    cache_ttl_seconds: 300,
+    publisher_slots: publishersForLeague.length,
     clubs,
     publishers,
   };
