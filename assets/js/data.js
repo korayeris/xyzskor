@@ -598,6 +598,7 @@ async function loadAllData(){
   DATA_ERRORS = {};
   SERVER_LEADERBOARDS = new Map();
   serverLeaderboardMode = 'unknown';
+  const scopedSuperLig = isSuperLigScope();
   let session = null;
   try{
     const authRes = await sb.auth.getSession();
@@ -620,17 +621,20 @@ async function loadAllData(){
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];
   const providerResults = providerBundle?.results?.length ? providerBundle.results : [];
-  MATCHES = providerMatches.length ? providerMatches : matches;
+  MATCHES = providerMatches.length ? providerMatches : (scopedSuperLig ? matches : []);
   selectCurrentWeek(MATCHES);
   ANALYSIS = {}; analysisRows.forEach(r => ANALYSIS[r.match_id] = r.data || {});
   cacheProfiles(ownProfiles);
   cachePredictions(ownPredictions);
   ALL_RESULTS = {};
-  [...results, ...providerResults].forEach(r=> ALL_RESULTS[r.match_id] = { home:r.home, away:r.away, scoredAt:new Date(r.scored_at || Date.now()).getTime() });
+  [...(scopedSuperLig ? results : []), ...providerResults].forEach(r=> ALL_RESULTS[r.match_id] = { home:r.home, away:r.away, scoredAt:new Date(r.scored_at || Date.now()).getTime() });
   REWARDS = {}; TEAMS.forEach(t => REWARDS[t] = [{sira:1,aciklama:'—'},{sira:2,aciklama:'—'},{sira:3,aciklama:'—'}]);
   rewards.forEach(r=>{ if(REWARDS[r.team]) REWARDS[r.team][r.sira-1] = {sira:r.sira, aciklama:r.aciklama}; });
-  STANDINGS = providerStandings.length ? providerStandings : standings;
-  WEEKLY_STORIES = {}; stories.forEach(s => WEEKLY_STORIES[s.week] = s);
+  STANDINGS = providerStandings.length ? providerStandings : (scopedSuperLig ? standings : []);
+  WEEKLY_STORIES = {};
+  if(scopedSuperLig){
+    stories.forEach(s => WEEKLY_STORIES[s.week] = s);
+  }
   if(session){
     let profile = PROFILES[session.user.id] || null;
     if(!profile){
