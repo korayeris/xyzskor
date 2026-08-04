@@ -180,7 +180,6 @@ let activeFootballSection='home';
 let activeTransferCenterTab='confirmed';
 let activeTransferClub='all';
 let activeMatchHubFilter='all';
-function footballSectionHash(section){ return ({home:'football',matches:'matches',news:'agenda',clubs:'clubs',transfers:'transfers',standings:'standings'})[section] || 'football'; }
 function openFootballSection(section, button, updateUrl){
   const valid=['home','matches','news','clubs','transfers','standings'];
   activeFootballSection=valid.includes(section)?section:'home';
@@ -191,7 +190,7 @@ function openFootballSection(section, button, updateUrl){
   Object.entries(views).forEach(([key,id])=>{ const view=document.getElementById(id); if(view) view.hidden=key!==activeFootballSection; });
   document.querySelectorAll('.football-context-tab').forEach(tab=>tab.classList.toggle('active',tab.dataset.footballRoute===activeFootballSection));
   renderFootballDataViews();
-  if(updateUrl!==false) updateHash(footballSectionHash(activeFootballSection));
+  if(updateUrl!==false && typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
   const target=dedicated ? document.getElementById(views[activeFootballSection]) : document.getElementById('footballOverviewView');
   if(target) requestAnimationFrame(()=>target.scrollIntoView({behavior:'smooth',block:'start'}));
 }
@@ -527,7 +526,9 @@ function setTransferCenterTab(name, button, updateUrl){
   if(!['confirmed','talks','rumours'].includes(name)) return;
   activeTransferCenterTab=name;
   renderTransferCenter();
-  if(updateUrl!==false) updateHash(`transfers/${name}`);
+  if(updateUrl!==false && activeFootballSection==='transfers' && typeof updatePath==='function' && typeof buildFootballPath==='function'){
+    updatePath(buildFootballPath(activeFootballLeague, 'transfers', activeTransferCenterTab));
+  }
 }
 function renderFootballDataViews(){ renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
 let leagueTransitionTimer = null;
@@ -640,6 +641,7 @@ function selectFootballLeague(key){
       if(typeof loadLiveFeed==='function') loadLiveFeed(false);
     });
   }
+  if(typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
 }
 
 /* ===================== RESMÎ KULÜP X AKIŞI ===================== */
@@ -1904,13 +1906,21 @@ async function boot(){
     await loadAllData();
     lastLoadError = null;
     const weeks = getAvailableWeeks();
-    const parsed = parseHash();
+    const parsed = typeof parseAppLocation==='function' ? parseAppLocation() : parseHash();
+    if(parsed && parsed.type==='football-route'){
+      activeFootballLeague = parsed.league || 'super-lig';
+    }
     if(weeks.length){
       if(parsed && parsed.type==='week' && weeks.includes(parsed.value)) activeWeek = parsed.value;
       else activeWeek = weeks[0];
     }
     renderAll();
     if(parsed && parsed.type==='match'){ openMatchCenter(parsed.value, false); }
+    else if(parsed && parsed.type==='football-route'){
+      switchMainTab('football',false);
+      if(parsed.section==='transfers') setTransferCenterTab(parsed.transferTab||'confirmed',null,false);
+      openFootballSection(parsed.section||'home',null,false);
+    }
     else if(parsed && parsed.type==='football-section'){ switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
     else if(parsed && parsed.type==='product'){ switchMainTab(parsed.value, false); }
   }catch(e){
