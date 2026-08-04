@@ -1734,6 +1734,9 @@ body[class*="league-theme-"] #page-story{
 .week-selector-bar,.data-status-line{border-color:rgba(255,255,255,.09)!important;background:#181b1f!important;color:#9299a2!important}
 .week-selector-bar{margin:0 0 12px!important;border-radius:12px!important}
 .data-status-line{margin:0 0 12px!important;text-align:right}
+/* The week picker belongs in the match detail screen. Keeping an empty shell
+   above the overview made the landing page look unfinished. */
+#footballOverviewView>#weekSelector,#footballOverviewView>#dataStatusLine{display:none!important}
 
 /* The top command is the league selector; do not repeat it as a second card. */
 #footballOverviewView .portal-league-strip{display:none!important}
