@@ -20,11 +20,12 @@ const buildVersion = createHash("sha256").update([sourceHtml, ...clientFingerpri
 const productionHtml = sourceHtml
   .replace(/\s*<!-- PRODUCTION_STRIP_LEGACY_HTML_START -->[\s\S]*?<!-- PRODUCTION_STRIP_LEGACY_HTML_END -->\s*/g, "\n");
 const versionedProductionHtml = productionHtml.replace(/\b(href|src)="(assets\/[^"?]+)(?:\?[^"#]*)?"/g, `$1="$2?v=${buildVersion}"`);
+const routeReadyHtml = versionedProductionHtml.replace("<head>", '<head>\n<base href="/">');
 
 if (productionHtml.includes("PRODUCTION_STRIP_LEGACY")) {
   throw new Error("Production HTML temizleme işaretleri eşleşmedi.");
 }
-await writeFile(resolve(dist, "client", "index.html"), versionedProductionHtml);
+await writeFile(resolve(dist, "client", "index.html"), routeReadyHtml);
 await cp(resolve(root, "assets"), resolve(dist, "client", "assets"), { recursive: true });
 await cp(resolve(root, "legal"), resolve(dist, "client", "legal"), { recursive: true });
 
@@ -44,5 +45,22 @@ for (const file of ["data.js", "live.js", "match-center.js", "ui.js"]) {
 
 await cp(resolve(root, "worker", "index.js"), resolve(dist, "server", "index.js"));
 await cp(resolve(root, ".openai", "hosting.json"), resolve(dist, ".openai", "hosting.json"));
+
+// Sites, mevcut olmayan yol isteklerini ana sayfaya yönlendirir. Bu yüzden
+// paylaşılabilir ürün ve lig URL'lerini fiziksel giriş sayfaları olarak üretiriz.
+const leagues = ["super-lig", "champions-league", "europa-league", "la-liga", "premier-league", "all"];
+const leagueSections = ["matches", "agenda", "clubs", "transfers", "standings"];
+const routeDirectories = ["predict", ...leagues.flatMap((league) => [
+  league,
+  ...leagueSections.map((section) => `${league}/${section}`),
+  `${league}/transfers/talks`,
+  `${league}/transfers/rumours`,
+])];
+
+for (const route of routeDirectories) {
+  const target = resolve(dist, "client", ...route.split("/"), "index.html");
+  await mkdir(dirname(target), { recursive: true });
+  await writeFile(target, routeReadyHtml);
+}
 
 console.log("XYZSKOR production build hazır: dist/");
