@@ -6,6 +6,7 @@ const X_USER_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-reva
 const X_PRESEASON_CACHE = "public, max-age=900, s-maxage=21600, stale-while-revalidate=86400";
 const X_PRESEASON_STALE_CACHE = "public, max-age=120, s-maxage=86400";
 const X_TIMEOUT_MS = 8000;
+const TRANSLATE_TIMEOUT_MS = 7000;
 const YOUTUBE_CACHE = "public, max-age=300, s-maxage=5400, stale-while-revalidate=21600";
 const YOUTUBE_STALE_CACHE = "public, max-age=60, s-maxage=86400";
 const YOUTUBE_TIMEOUT_MS = 8000;
@@ -200,6 +201,45 @@ function normalizeLooseText(value) {
     .toLocaleLowerCase("en-US");
 }
 
+function isProbablyTurkishText(value) {
+  const text = String(value || "").trim();
+  if (!text) return true;
+  if (/[çğıöşüÇĞİÖŞÜ]/.test(text)) return true;
+  const lowered = normalizeLooseText(text);
+  const strongSignals = [" ve ", " ile ", " icin ", " bugun ", " resmi ", " galibiyet ", " maca ", " mac ", " bilet ", " kamp ", " hazirlik "];
+  return strongSignals.some((token) => lowered.includes(token));
+}
+
+async function translateTextToTurkish(text) {
+  const source = String(text || "").trim();
+  if (!source || isProbablyTurkishText(source)) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TRANSLATE_TIMEOUT_MS);
+  try {
+    const params = new URLSearchParams({
+      client: "gtx",
+      sl: "auto",
+      tl: "tr",
+      dt: "t",
+      q: source.slice(0, 1800),
+    });
+    const response = await fetch(`https://translate.googleapis.com/translate_a/single?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    const translated = Array.isArray(payload?.[0]) ? payload[0].map((part) => part?.[0] || "").join("").trim() : "";
+    if (!translated) return null;
+    if (normalizeLooseText(translated) === normalizeLooseText(source)) return null;
+    return translated;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function isPreseasonPost(post) {
   const haystack = normalizeLooseText(`${post?.text || ""}`);
   return PRESEASON_KEYWORDS.some((keyword) => haystack.includes(normalizeLooseText(keyword)));
@@ -259,7 +299,15 @@ async function fetchXClubFeed(token, request, context) {
       });
       const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
       const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-      return { ...normalizeXPost({ ...club, publisher }, timeline.data?.[0] || null, mediaByKey), account_found: true, verified: Boolean(user.verified || user.verified_type), profile_image_url: user.profile_image_url || null };
+      const normalized = normalizeXPost({ ...club, publisher }, timeline.data?.[0] || null, mediaByKey);
+      const translatedText = normalized.post?.text ? await translateTextToTurkish(normalized.post.text) : null;
+      return {
+        ...normalized,
+        account_found: true,
+        verified: Boolean(user.verified || user.verified_type),
+        profile_image_url: user.profile_image_url || null,
+        post: normalized.post ? { ...normalized.post, translated_text_tr: translatedText } : null,
+      };
     } catch (error) {
       if (error?.status === 402) throw error;
       return { ...club, publisher, post: null, account_found: true, verified: false, upstream_error: error?.status || "unavailable" };
@@ -301,6 +349,7 @@ async function fetchXPreseasonFeed(token, request, context) {
       const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
       const preseasonPost = (timeline.data || []).find((post) => isPreseasonPost(post)) || null;
       const normalized = normalizeXPost(club, preseasonPost, mediaByKey);
+      const translatedText = normalized.post?.text ? await translateTextToTurkish(normalized.post.text) : null;
       return {
         ...club,
         account_found: true,
@@ -309,6 +358,7 @@ async function fetchXPreseasonFeed(token, request, context) {
         preseason_post: normalized.post
           ? {
               ...normalized.post,
+              translated_text_tr: translatedText,
               scoreline: extractScoreline(normalized.post.text),
               label: preseasonLabel(normalized.post),
             }

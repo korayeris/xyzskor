@@ -52,12 +52,12 @@ const SELECTED_COMPETITIONS = [
   { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
 ];
 const LEAGUE_CONTEXT = {
-  all:{headline:'5 lig futbol merkezi',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League aynı ekranda.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
-  'super-lig':{headline:'Süper Lig futbol merkezi',copy:'Türkiye futbol gündemi, maç akışı, kulüp merkezi ve transfer dosyası.',agenda:'Süper Lig gündemi',standings:'2024–25 Süper Lig final tablosu',transfer:'Süper Lig transfer gelişmeleri'},
-  'champions-league':{headline:'Şampiyonlar Ligi merkezi',copy:'Avrupa’nın en üst seviye kulüp turnuvası için fikstür, canlı skor ve veri panelleri.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
-  'europa-league':{headline:'UEFA Avrupa Ligi merkezi',copy:'UEFA Avrupa Ligi maçları, canlı durumları ve takım bazlı takip alanı.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
-  'la-liga':{headline:'La Liga merkezi',copy:'İspanya ligi için fikstür, canlı skor, puan durumu ve kulüp gündemi.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},
-  'premier-league':{headline:'Premier League merkezi',copy:'İngiltere ligi için fikstür, canlı skor, puan durumu ve kulüp gündemi.',agenda:'Premier League gündemi',standings:'Premier League puan durumu',transfer:'Premier League transfer gelişmeleri'}
+  all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
+  'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'2024–25 Süper Lig final tablosu',transfer:'Süper Lig transfer gelişmeleri'},
+  'champions-league':{headline:'Şampiyonlar Ligi hafta vitrini',copy:'Turnuvanın maç akışı, puan tablosu, kulüp gündemi ve öne çıkan bağlamı aynı alanda sunulur.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
+  'europa-league':{headline:'UEFA Avrupa Ligi hafta vitrini',copy:'UEFA Avrupa Ligi maçları, tablo, kulüp akışı ve sezon bağlamı tek akışta izlenir.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
+  'la-liga':{headline:'La Liga hafta vitrini',copy:'İspanya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},
+  'premier-league':{headline:'Premier League hafta vitrini',copy:'İngiltere ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası tek düzende toplanır.',agenda:'Premier League gündemi',standings:'Premier League puan durumu',transfer:'Premier League transfer gelişmeleri'}
 };
 const OFFICIAL_SEASON_SUMMARIES = Object.freeze({
   'super-lig':{
