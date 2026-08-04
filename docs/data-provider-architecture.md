@@ -1,15 +1,16 @@
 # XYZSKOR Veri Sağlayıcı Mimarisi
 
 **Karar tarihi:** 31 Temmuz 2026  
-**Durum:** Kabul edildi  
-**Bugünkü entegrasyon:** API-Football (ücretsiz başlangıç)  
-**Üretim hedefi:** Sportmonks  
-**Gölge karşılaştırma:** Goalserve, 2–3 hafta  
-**Geçiş yöntemi:** Ortam değişkeni; ön yüz değişmez  
+**Son revizyon:** 4 Ağustos 2026  
+**Durum:** Aktif geçiş  
+**Bugünkü ana entegrasyon:** Sportmonks + Worker/Supabase hibrit katman  
+**Yedek / gölge karşılaştırma:** Goalserve, 2–3 hafta  
+**Eski bootstrap izi:** API-Football yalnız geçiş dönemi fallback referansı  
+**Hedef:** Tek kanonik sağlayıcı adaptörü, tek veri sözleşmesi, ön yüzde doğrudan sağlayıcı bağımlılığı olmaması  
 
 ## 1. Karar
 
-XYZSKOR'un ilk canlı bağlantısı API-Football ücretsiz kotasıyla yapılır. Uygulama sağlayıcının ham alanlarını kullanmaz; `football-live` Edge Function bütün yanıtları ortak XYZSKOR şemasına çevirir. Üretimde Sportmonks'a geçmek için yalnızca `FOOTBALL_DATA_PROVIDER=sportmonks` ayarı ve Sportmonks secret'ları değiştirilir. Ön yüz, canlı kartlar ve puanlama kodu değişmez.
+XYZSKOR artık mimari olarak Sportmonks odaklı düşünülmelidir. Kod tabanında hâlâ API-Football ve hibrit fallback izleri bulunabilir; bunlar üretim stratejisi değil, geçiş güvenlik katmanıdır. Uygulama sağlayıcının ham alanlarını doğrudan kullanmaz; Worker ve/veya `football-live` Edge Function bütün yanıtları ortak XYZSKOR şemasına çevirir. Hedef yapı, sağlayıcı değişse bile ön yüz, tahmin puanlama mantığı ve mobil istemcilerin değişmemesidir.
 
 Uzun vadeli birinci tercih Sportmonks'tur. Goalserve aynı maçlarda kullanıcıya gösterilmeyen bir gölge akış olarak çalıştırılacak; canlı olay gecikmesi, kadro zamanı ve oyuncu uygunluk verisi Sportmonks ile ölçülecektir.
 

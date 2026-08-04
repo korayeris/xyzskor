@@ -110,7 +110,7 @@
 
   <section class="editorial-desk" id="editorialDesk" aria-labelledby="editorialDeskTitle">
     <header class="editorial-desk-head">
-      <div><span class="editorial-desk-kicker">XYZSKOR HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p id="editorialDeskCopy">Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
+      <div><span class="editorial-desk-kicker">HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p id="editorialDeskCopy">Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
       <button class="editorial-desk-action" type="button" onclick="openFootballSection('news')">Tüm gündemi aç <span aria-hidden="true">→</span></button>
     </header>
     <div class="editorial-desk-grid">
@@ -121,8 +121,8 @@
 
   <section class="broadcast-desk" id="broadcastDesk" aria-labelledby="broadcastDeskTitle">
     <header class="broadcast-desk-head">
-      <div><span class="broadcast-live-mark" aria-hidden="true"></span><div><span class="editorial-desk-kicker">YOUTUBE / DOĞRULANMIŞ KANALLAR</span><h2 id="broadcastDeskTitle">Canlı yayınlar ve son programlar</h2><p>Türkiye futbol gündemini takip eden resmî ve doğrulanmış yayın kanalları.</p></div></div>
-      <span class="broadcast-status" id="youtubeMediaStatus">Yayın akışı kontrol ediliyor</span>
+      <div><span class="broadcast-live-mark" aria-hidden="true"></span><div><span class="editorial-desk-kicker">YAYIN MERKEZİ · DOĞRULANMIŞ KANALLAR</span><h2 id="broadcastDeskTitle">Canlı yayınlar ve stüdyo akışı</h2><p>Doğrulanmış yayın kanalları, son programlar ve canlı yayın bağlantıları tek panelde toplanır.</p></div></div>
+      <span class="broadcast-status" id="youtubeMediaStatus">Yayın akışı taranıyor</span>
     </header>
     <div class="youtube-media-grid" id="youtubeMediaGrid" aria-live="polite"></div>
   </section>
@@ -421,14 +421,14 @@
         <p>Skor, maç durumu ve dakika bilgisi doğrudan canlı veri katmanından gelir. Sahte skor veya bahis oranı gösterilmez.</p>
       </div>
       <div class="live-actions">
-        <span class="live-freshness" id="liveFreshness">Bağlantı bekleniyor</span>
+        <span class="live-freshness" id="liveFreshness">Bağlantı doğrulanıyor</span>
         <button class="btn ghost" id="liveRefreshBtn" type="button" onclick="loadLiveFeed(true)">Yenile</button>
       </div>
     </div>
     <div class="live-list" id="liveScoreList" aria-live="polite">
-      <div class="live-notice"><strong>Canlı veri hazırlanıyor</strong><p>Canlı sekmesi açıldığında en güncel Süper Lig karşılaşmaları alınacak.</p></div>
+      <div class="live-notice"><strong>Canlı veri akışı hazırlanıyor</strong><p>Seçili ligde yayınlanan ilk resmî canlı kayıt bu ekrana otomatik olarak düşer.</p></div>
     </div>
-    <div class="live-data-note"><span>Skor, olay ve durum bilgisi güvenli sağlayıcı katmanında normalize edilir.</span><span id="liveProviderState">Sportmonks bağlantısı kontrol ediliyor</span></div>
+    <div class="live-data-note"><span>Skor, olay ve durum bilgisi güvenli sağlayıcı katmanında normalize edilir.</span><span id="liveProviderState">Sağlayıcı bağlantısı doğrulanıyor</span></div>
   </div>
 </section>
 

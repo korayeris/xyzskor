@@ -33,7 +33,7 @@ function weekStatus(w){
   if(withResult.length + cancelled.length === ms.length){
     return { key:'completed', text: cancelled.length ? `Hafta tamamlandı (${cancelled.length} maç iptal).` : 'Hafta tamamlandı.' };
   }
-  if(!playable.length) return { key:'pending', text:'Bu haftadaki maçların yeni programı bekleniyor.' };
+  if(!playable.length) return { key:'pending', text:'Bu haftadaki maçların resmî program güncellemesi bekleniyor.' };
   if(started.length === 0){
     const firstKickoff = Math.min(...playable.map(m=>new Date(m.kickoff).getTime()));
     const days = Math.ceil((firstKickoff-now)/86400000);
@@ -168,7 +168,7 @@ function renderLiveFeed(){
   if(LIVE_FEED.error && !LIVE_FEED.matches.length){
     list.innerHTML = `<div class="live-notice"><strong>Canlı veri şu anda alınamıyor</strong><p>Bağlantı güvenli sunucu katmanında kuruluyor. Biraz sonra yeniden deneyin; eski veya tahmini skor gösterilmeyecek.</p></div>`;
     if(freshness) freshness.textContent='Bağlantı kurulamadı';
-    if(providerState) providerState.textContent='Canlı kaynak bekleniyor';
+    if(providerState) providerState.textContent='Canlı kaynak doğrulanıyor';
     return;
   }
   const visibleMatches = LIVE_FEED.matches.filter(match=>activeFootballLeague==='all' || competitionSlug(match.competition)===activeFootballLeague);
@@ -211,8 +211,8 @@ async function refreshLiveProviderHealth(){
     const response = await fetch('/api/health',{headers:{Accept:'application/json'},cache:'no-store'});
     const payload = await response.json().catch(()=>null);
     const status = payload?.checks?.sportmonks_live;
-    state.textContent = status === 'configured' ? 'Sportmonks · canlı bağlantı hazır' : 'Sportmonks · bağlantı anahtarı bekleniyor';
-  }catch(_error){ state.textContent = 'Canlı sağlayıcı durumu kontrol edilemedi'; }
+    state.textContent = status === 'configured' ? 'Sportmonks · canlı bağlantı hazır' : 'Sportmonks · bağlantı yapılandırması eksik';
+  }catch(_error){ state.textContent = 'Canlı sağlayıcı durumu doğrulanamadı'; }
 }
 async function loadLiveFeed(force){
   if(liveFeedLoading) return;

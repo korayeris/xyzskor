@@ -226,7 +226,7 @@ function leagueTeamSourceRows(){
   return [...rows.values()].map((club,index)=>({
     checkedAt:club.checkedAt||'Sportmonks sezon alanı',
     city:club.city||club.country||label,
-    stadium:club.stadium||club.venue||'Venue verisi yayınlandığında dolacak',
+    stadium:club.stadium||club.venue||'Stadyum bilgisi henüz yayınlanmadı',
     capacity:club.capacity||'—',
     marketValue:club.marketValue||'Sağlayıcı verisi',
     marketSourceUrl:club.marketSourceUrl||null,
@@ -257,7 +257,7 @@ function clubMapTarget(club){ return [club.stadium,club.city].filter(Boolean).jo
 function clubDirectionsURL(club){ return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clubMapTarget(club))}`; }
 function clubMapEmbedURL(club){ return `https://www.google.com/maps?q=${encodeURIComponent(clubMapTarget(club))}&output=embed`; }
 function clubCoachBio(coach,team){
-  if(!coach?.name) return 'Teknik direktör bilgisi doğrulanmış veri kaynağından bekleniyor.';
+  if(!coach?.name) return 'Doğrulanmış teknik direktör kaydı henüz yayınlanmadı.';
   const contract=coach.contract&&coach.contract!=='Açıklanmadı'?` Sözleşme bitişi ${coach.contract} olarak listeleniyor.`:' Sözleşme bitiş tarihi kaynakta açıklanmadı.';
   return `${coach.age?`${coach.age} yaşındaki `:''}${coach.nationality?`${coach.nationality} futbol insanı `:''}${coach.name}, ${team} A takımının teknik sorumlusu. Görev süresi ${coach.tenure||'güncel kaynakta listeleniyor'}.${contract}`;
 }
@@ -288,8 +288,8 @@ function renderClubProfile(team,data,state='ready'){
   const venue=data?.venue?.name||club.stadium;
   const lineupFixture=data?.lineupFixture;
   const lineupMeta=lineupFixture?.name?`${lineupFixture.name}${lineupFixture.startingAt?` · ${new Date(lineupFixture.startingAt).toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}`:''}`:'Son resmî maçın açıklanmış kadrosu';
-  const sourceState=state==='loading'?'Veri yenileniyor':state==='unconfigured'?'Canlı bağlantı bekleniyor':data?.stale?'Son doğrulanmış veri':'Güncel resmî veri';
-  const marketLink=club.marketSourceUrl?`<a href="${escapeHTML(club.marketSourceUrl)}" target="_blank" rel="noopener noreferrer">Transfermarkt kaynağı ↗</a>`:'<small>Sportmonks/transfer kaynağı bekleniyor</small>';
+  const sourceState=state==='loading'?'Veri yenileniyor':state==='unconfigured'?'Veri bağlantısı doğrulanıyor':data?.stale?'Son doğrulanmış veri':'Güncel resmî veri';
+  const marketLink=club.marketSourceUrl?`<a href="${escapeHTML(club.marketSourceUrl)}" target="_blank" rel="noopener noreferrer">Transfermarkt kaynağı ↗</a>`:'<small>Piyasa değeri kaynağı henüz bağlı değil</small>';
   const coachLink=club.coachSourceUrl?`<a href="${escapeHTML(club.coachSourceUrl)}" target="_blank" rel="noopener noreferrer">Teknik direktör kaynağı ↗</a>`:'<small>Teknik direktör verisi sağlayıcıdan gelecek</small>';
   panel.hidden=false;
   panel.innerHTML=`<header class="club-profile-head"><button class="club-profile-close" type="button" onclick="closeClubProfile()" aria-label="Kulüp merkezini kapat">×</button><div class="club-profile-identity">${crestHTML(club.team,'lg')}<div><span class="football-data-eyebrow">KULÜP MERKEZİ · ${escapeHTML(club.checkedAt)}</span><h2>${escapeHTML(club.display||club.team)}</h2><p>${escapeHTML(club.city)} · ${escapeHTML(venue)}</p></div></div><span class="club-source-state">${escapeHTML(sourceState)}</span></header>
@@ -439,7 +439,7 @@ function renderHistoricStandings(){
   const label=competitionLabelBySlug(activeFootballLeague);
   const note=activeFootballLeague==='super-lig'
     ? '2024–25 final tablosu'
-    : rows.some(row=>row.played>0) ? 'Sportmonks fikstür/sonuçlarından hesaplanan tablo' : `${label} sezon verisi yayınlandığında canlı dolacak tablo`;
+    : rows.some(row=>row.played>0) ? 'Sportmonks fikstür ve sonuç akışından hesaplanan tablo' : `${label} sezon verisi yayınlandığında puan tablosu burada görünür`;
   area.innerHTML=`<div class="historic-standings-note">${escapeHTML(note)}</div><div class="historic-standings-head"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AG</span><span>YG</span><span>AV</span><strong>P</strong><span>Son 5</span></div><div class="historic-standings-body">${rows.map((row,index)=>`<div class="historic-standing-row ${row.zone||''}">
     <span class="historic-rank">${index+1}</span><span class="historic-team">${crestHTML(row.team,'xs')}<b>${escapeHTML(row.team)}</b></span><span>${row.played}</span><span>${row.won}</span><span>${row.drawn}</span><span>${row.lost}</span><span>${row.goals_for}</span><span>${row.goals_against}</span><span>${row.goal_difference>0?'+':''}${row.goal_difference}</span><strong>${row.points}</strong>${standingFormHTML(row.form)}
   </div>`).join('')}</div>`;
@@ -618,7 +618,7 @@ function xPostCardHTML(club){
       <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
-    </div>`:club.account_found===false?`<div class="club-social-pending"><strong>Resmî X hesabı doğrulanıyor</strong><span>Hesap kataloğu güncellenirken bu kulüp için bağlantı bekleniyor.</span></div>`:`<div class="club-social-pending"><strong>Güncel paylaşım bekleniyor</strong><span>Resmî hesap bağlantısı hazır.</span></div>`;
+    </div>`:club.account_found===false?`<div class="club-social-pending"><strong>Resmî sosyal hesap doğrulanıyor</strong><span>Hesap kataloğu güncellenirken bu kulüp için akış bağlantısı hazırlanıyor.</span></div>`:`<div class="club-social-pending"><strong>Henüz yeni paylaşım yok</strong><span>Resmî hesap bağlı; yeni gönderi geldiğinde burada yayınlanır.</span></div>`;
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
   const accountLabel=club.publisher?'Genel resmî akış':club.leagueRank?`${competitionShortBySlug(activeFootballLeague)} ${club.leagueRank}.`:'';
   return `<article class="club-social-card ${club.publisher?'publisher-card ':''}${mediaBody?'has-media':''}">
@@ -732,7 +732,7 @@ function renderPortalSponsor(){
   const rewardTitle=reward?escapeHTML(reward.item.aciklama):'Haftalık ödül programı güncelleniyor';
   const rewardNote=reward?`${escapeHTML(reward.team)} · ${escapeHTML(reward.item.sira)}. sıra ödülü`:'Yeni ödül duyurusu yayınlandığında burada görünecek.';
   if(banner) banner.innerHTML=`<div class="portal-sponsor-copy"><div class="portal-sponsor-label">Mythos Cards · Ödül sponsoru</div><div class="portal-sponsor-title">Futbolu takip et. Tahmin et. Yarış.</div><div class="portal-sponsor-note">Ücretsiz Predict yarışması · bahis ve para yatırma yok.</div></div><div class="portal-sponsor-action"><b>${rewardTitle}</b>${rewardNote}</div>`;
-  if(rail) rail.innerHTML=`<div class="portal-rail-label">Ödül sponsoru</div><div class="portal-rail-title">${rewardTitle}</div><div class="portal-rail-note">${rewardNote}<br>Ürün satışı yapılmaz; açıklanan ödüller yarışma kazananlarına verilir.</div><div class="portal-rail-mark">MYTHOS CARDS × XYZSKOR</div>`;
+  if(rail) rail.innerHTML=`<div class="portal-rail-label">Ödül sponsoru</div><div class="portal-rail-title">${rewardTitle}</div><div class="portal-rail-note">${rewardNote}<br>Ürün satışı yapılmaz; açıklanan ödüller yarışma kazananlarına verilir.</div><div class="portal-rail-mark">MYTHOS CARDS · RESMÎ SPONSOR</div>`;
 }
 function fmtEditorialDate(value){
   const date=new Date(value); if(!value || Number.isNaN(date.getTime())) return value ? String(value) : '';
@@ -808,7 +808,7 @@ function renderMatchesHub(){
     const dateKey=String(match.kickoff||'').slice(0,10); const dateHead=dateKey!==lastDate?`<div class="matches-hub-date">${escapeHTML(matchHubDateLabel(match.kickoff))}</div>`:''; lastDate=dateKey;
     const state=explicitMatchState(match); const result=getResult(match.id); const score=result?`<span class="matches-hub-score"><b>${escapeHTML(result.home)}</b><i>–</i><b>${escapeHTML(result.away)}</b></span>`:`<span class="matches-hub-kickoff">${escapeHTML(fmtTime(match.kickoff))}</span>`;
     const competition=competitionName(match);
-    return `${dateHead}<button class="matches-hub-row" type="button" data-match-hub-id="${escapeHTML(match.id)}" aria-label="${escapeHTML(match.ev)} ${escapeHTML(match.konuk)} maç merkezini aç"><span class="matches-hub-week">${escapeHTML(match.hafta||'—')}<small>HAFTA</small></span><span class="matches-hub-team home">${crestHTML(match.ev,'sm')}<strong>${escapeHTML(match.ev)}</strong></span>${score}<span class="matches-hub-team away"><strong>${escapeHTML(match.konuk)}</strong>${crestHTML(match.konuk,'sm')}</span><span class="matches-hub-state ${state.live?'live':''}">${escapeHTML(state.label)}</span><span class="matches-hub-venue"><b>${escapeHTML(competition)}</b><small>${escapeHTML(match.stadyum||'Stadyum bilgisi bekleniyor')}</small></span><span class="matches-hub-open">Maç merkezi <b>→</b></span></button>`;
+    return `${dateHead}<button class="matches-hub-row" type="button" data-match-hub-id="${escapeHTML(match.id)}" aria-label="${escapeHTML(match.ev)} ${escapeHTML(match.konuk)} maç merkezini aç"><span class="matches-hub-week">${escapeHTML(match.hafta||'—')}<small>HAFTA</small></span><span class="matches-hub-team home">${crestHTML(match.ev,'sm')}<strong>${escapeHTML(match.ev)}</strong></span>${score}<span class="matches-hub-team away"><strong>${escapeHTML(match.konuk)}</strong>${crestHTML(match.konuk,'sm')}</span><span class="matches-hub-state ${state.live?'live':''}">${escapeHTML(state.label)}</span><span class="matches-hub-venue"><b>${escapeHTML(competition)}</b><small>${escapeHTML(match.stadyum||'Stadyum bilgisi açıklanmadı')}</small></span><span class="matches-hub-open">Maç merkezi <b>→</b></span></button>`;
   }).join('');
   area.querySelectorAll('[data-match-hub-id]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.matchHubId); });
 }
@@ -881,7 +881,7 @@ function renderFootballNews(){
   const area=document.getElementById('footballNewsStream'); if(!area) return;
   if(!isSuperLigScope()){
     const label=competitionLabelBySlug(activeFootballLeague);
-    area.innerHTML=footballEmpty(`${label} gündemi hazırlanıyor`,'Bu lig için resmî açıklama ve kaynaklı haber akışı bağlandığında burada görünecek.');
+    area.innerHTML=footballEmpty(`${label} yayın masası hazırlanıyor`,'Bu lig için resmî açıklama ve kaynaklı haber akışı bağlandığında burada görünür.');
     return;
   }
   if(DATA_ERRORS.weekly_stories){ area.innerHTML=footballEmpty('Gelişmeler alınamadı','Bu modüldeki hata maç listesini ve puan durumunu etkilemez.'); return; }
@@ -926,7 +926,7 @@ function editorialNewsEntries(){
     const editorialPhoto=safeExternalURL(card.hero_image||card.image_url||card.image||card.thumbnail_url);
     const playerPortrait=safeExternalURL(card.player_image);
     const relatedMatch=editorialRelatedMatch(card);
-    return {kind:'story',index,title:card.title||'Futbol gündemi',text:card.spot||card.summary||card.text||'',source:card.source||'XYZSKOR',label:storyConfidence(card)?.label||'Güncel',time:card.verified_at||card.updated_at||card.published_at||'',image:editorialPhoto||playerPortrait,imageType:editorialPhoto?'photo':playerPortrait?'portrait':'none',relatedMatch};
+    return {kind:'story',index,title:card.title||'Futbol gündemi',text:card.spot||card.summary||card.text||'',source:card.source||'Editoryal kayıt',label:storyConfidence(card)?.label||'Güncel',time:card.verified_at||card.updated_at||card.published_at||'',image:editorialPhoto||playerPortrait,imageType:editorialPhoto?'photo':playerPortrait?'portrait':'none',relatedMatch};
   });
   const seen=new Set();
   return [...storyEntries,...editorialTransferEntries()].filter(item=>{ const key=String(item.title).toLocaleLowerCase('tr-TR'); if(seen.has(key)) return false; seen.add(key); return true; });
@@ -962,20 +962,20 @@ function renderEditorialNews(){
   const lead=document.getElementById('editorialLeadNews'); const list=document.getElementById('editorialHighlights'); if(!lead||!list) return;
   EDITORIAL_NEWS_CACHE=editorialNewsEntries();
   const primary=EDITORIAL_NEWS_CACHE[0];
-  if(!primary){ lead.innerHTML=footballEmpty('Gündem hazırlanıyor','Kaynağı doğrulanmış ilk içerik yayınlandığında burada görünecek.'); list.innerHTML=''; return; }
+  if(!primary){ lead.innerHTML=footballEmpty('Yayın masası hazırlanıyor','Kaynağı doğrulanmış ilk içerik yayınlandığında burada görünür.'); list.innerHTML=''; return; }
   const matchVisual=editorialMatchVisualHTML(primary);
-  const leadMedia=primary.image?`<span class="editorial-portrait-shell"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-portrait-shell').remove()"></span>`:matchVisual||'<div class="editorial-media-fallback"><span>XYZ</span><small>Kaynaklı futbol gündemi</small></div>';
+  const leadMedia=primary.image?`<span class="editorial-portrait-shell"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-portrait-shell').remove()"></span>`:matchVisual||'<div class="editorial-media-fallback"><span>●</span><small>Kaynaklı yayın</small></div>';
   const leadMediaType=primary.imageType==='portrait'?'portrait':matchVisual?'match':'photo';
   lead.innerHTML=`<article class="editorial-lead-card" tabindex="0" role="button" data-editorial-index="0" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="editorial-lead-media ${leadMediaType}">${leadMedia}</div><div class="editorial-lead-copy"><span class="editorial-news-label">${escapeHTML(primary.label)}</span><h3>${escapeHTML(primary.title)}</h3><p>${escapeHTML(primary.text)}</p><footer><strong>${escapeHTML(primary.source)}</strong>${primary.time?`<time>${escapeHTML(fmtEditorialDate(primary.time))}</time>`:''}</footer></div></article>`;
-  list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} haberini aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source)}${item.time?` · ${escapeHTML(fmtEditorialDate(item.time))}`:''}</p></div>${item.image?`<span class="editorial-highlight-image ${item.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">XYZ</span>'}</article>`).join('')}`;
+  list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} haberini aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source)}${item.time?` · ${escapeHTML(fmtEditorialDate(item.time))}`:''}</p></div>${item.image?`<span class="editorial-highlight-image ${item.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">●</span>'}</article>`).join('')}`;
   bindEditorialEntries(lead); bindEditorialEntries(list);
 }
 function renderNewsHub(){
   const area=document.getElementById('footballNewsFullStream'); const sidebar=document.getElementById('footballNewsHubSidebar'); if(!area||!sidebar) return;
   EDITORIAL_NEWS_CACHE=editorialNewsEntries();
   if(DATA_ERRORS.weekly_stories&&!EDITORIAL_NEWS_CACHE.length){ area.innerHTML=footballEmpty('Gündem alınamadı','Kaynaklı içerik akışı şu anda kullanılamıyor.'); sidebar.innerHTML=''; return; }
-  if(!EDITORIAL_NEWS_CACHE.length){ const label=competitionLabelBySlug(activeFootballLeague); area.innerHTML=footballEmpty(`${label} gündemi bekleniyor`,'Kaynağı doğrulanan ilk kayıt burada tam ayrıntısıyla görünecek.'); sidebar.innerHTML=''; return; }
-  area.innerHTML=`<div class="news-hub-list">${EDITORIAL_NEWS_CACHE.map((item,index)=>`<article class="news-hub-card" tabindex="0" role="button" data-editorial-index="${index}" aria-label="${escapeHTML(item.title)} haberini aç"><div class="news-hub-card-media ${item.imageType==='portrait'?'portrait':'photo'}">${item.image?`<img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span>XYZ</span>'}</div><div class="news-hub-card-copy"><div class="news-hub-card-meta"><span>${escapeHTML(item.label||'Güncel')}</span><b>${escapeHTML(item.source||'XYZSKOR')}</b>${item.time?`<time>${escapeHTML(fmtEditorialDate(item.time))}</time>`:''}</div><h3>${escapeHTML(item.title)}</h3>${item.text?`<p>${escapeHTML(item.text)}</p>`:''}<small>Kaydı aç <b aria-hidden="true">→</b></small></div></article>`).join('')}</div>`;
+  if(!EDITORIAL_NEWS_CACHE.length){ const label=competitionLabelBySlug(activeFootballLeague); area.innerHTML=footballEmpty(`${label} yayın akışı hazırlanıyor`,'Kaynağı doğrulanan ilk kayıt burada tam ayrıntısıyla görünür.'); sidebar.innerHTML=''; return; }
+  area.innerHTML=`<div class="news-hub-list">${EDITORIAL_NEWS_CACHE.map((item,index)=>`<article class="news-hub-card" tabindex="0" role="button" data-editorial-index="${index}" aria-label="${escapeHTML(item.title)} haberini aç"><div class="news-hub-card-media ${item.imageType==='portrait'?'portrait':'photo'}">${item.image?`<img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span>●</span>'}</div><div class="news-hub-card-copy"><div class="news-hub-card-meta"><span>${escapeHTML(item.label||'Güncel')}</span><b>${escapeHTML(item.source||'Editoryal kayıt')}</b>${item.time?`<time>${escapeHTML(fmtEditorialDate(item.time))}</time>`:''}</div><h3>${escapeHTML(item.title)}</h3>${item.text?`<p>${escapeHTML(item.text)}</p>`:''}<small>Kaydı aç <b aria-hidden="true">→</b></small></div></article>`).join('')}</div>`;
   const sourced=EDITORIAL_NEWS_CACHE.filter(item=>item.source).length; const official=EDITORIAL_NEWS_CACHE.filter(item=>/resm/i.test(item.label||'')).length;
   sidebar.innerHTML=`<section class="news-hub-count"><span>YAYIN MASASI</span><strong>${escapeHTML(EDITORIAL_NEWS_CACHE.length)}</strong><p>güncel kayıt</p><dl><div><dt>Kaynaklı</dt><dd>${escapeHTML(sourced)}</dd></div><div><dt>Resmî</dt><dd>${escapeHTML(official)}</dd></div></dl></section><section class="news-standard-card"><span>GÜVEN STANDARDI</span><ul><li><b>Resmî</b><small>Kulüp veya kurum açıklaması</small></li><li><b>Güçlü iddia</b><small>Birden fazla güvenilir kayıt</small></li><li><b>Söylenti</b><small>Kesinleşmemiş, açıkça etiketli</small></li><li><b>Veri analizi</b><small>Yayınlanmış futbol verisinden hesaplama</small></li></ul></section><button type="button" onclick="openFootballSection('home')">Anasayfa özetine dön <span aria-hidden="true">→</span></button>`;
   bindEditorialEntries(area);
@@ -988,7 +988,7 @@ function formatYouTubeDuration(value){
 function renderYouTubeFallback(){
   const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
   status.textContent='Doğrulanmış kanal rehberi';
-  grid.innerHTML=`<div class="youtube-channel-intro"><span class="youtube-play-mark">▶</span><div><strong>Canlı yayın bulunduğunda burada otomatik görünür.</strong><p>Şimdilik doğrulanmış yayıncıların resmî YouTube kanallarına doğrudan ulaşabilirsin.</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/live" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(channel.note)}</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
+  grid.innerHTML=`<div class="youtube-channel-intro"><span class="youtube-play-mark">▶</span><div><strong>Canlı yayın bulunduğunda burada otomatik görünür.</strong><p>Şimdilik doğrulanmış yayıncıların resmî YouTube kanallarına doğrudan geçiş yapabilirsin.</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/live" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(channel.note)}</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
 }
 function renderYouTubeItems(payload){
   const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
@@ -1009,9 +1009,9 @@ function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
   if(!isSuperLigScope()){
     const label=competitionLabelBySlug(activeFootballLeague);
-    const rows=leagueTransferRecords('confirmed').slice(0,3);
+      const rows=leagueTransferRecords('confirmed').slice(0,3);
     if(!leagueTransferCache.has(activeFootballLeague)) ensureLeagueTransferFeed().then(()=>renderFootballTransfers());
-    area.innerHTML=rows.length?`<div class="transfer-compact-list">${rows.map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`:`<div class="league-module-waiting"><strong>${escapeHTML(label)} transfer verisi kontrol ediliyor</strong><p>Sportmonks transfer/rumour kapsamı açıksa kayıtlar oyuncu görseliyle otomatik düşer.</p></div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
+    area.innerHTML=rows.length?`<div class="transfer-compact-list">${rows.map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`:`<div class="league-module-waiting"><strong>${escapeHTML(label)} transfer akışı hazırlanıyor</strong><p>Transfer ve söylenti kapsaması bu lig için bağlandığında oyuncu görselleriyle birlikte otomatik yayınlanır.</p></div><button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
     return;
   }
   const transfers=publishedStoryCards().map((card,index)=>({card,index})).filter(entry=>['transfer','transfer_development'].includes(String(entry.card.category || entry.card.type || '').toLocaleLowerCase('tr-TR')));
