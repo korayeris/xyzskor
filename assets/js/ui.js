@@ -627,20 +627,25 @@ function selectFootballLeague(key){
   activeFootballTeam='Tümü';
   playFootballLeagueTransition(previousLeague, activeFootballLeague);
   applyFootballLeagueTheme();
-  const weeks=getAvailableWeeks();
-  if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
-  renderStory();
-  renderFootballDataViews();
-  renderTicker();
-  renderLiveFeed();
-  if(typeof ensureSeasonFixtures==='function'){
-    ensureSeasonFixtures().then(async ready=>{
-      if(!ready) return;
-      await loadAllData();
-      renderAll();
-      if(typeof loadLiveFeed==='function') loadLiveFeed(false);
-    });
-  }
+  // Yeni lig seçildiğinde önceki ligin maçını, tablosunu veya transferini
+  // kısa süreliğine bile göstermeyiz. Sağlayıcı yanıtı gelene kadar temiz
+  // durum görünür; böylece Süper Lig verisi başka bir lige sızamaz.
+  MATCHES=[];
+  STANDINGS=[];
+  ALL_RESULTS={};
+  WEEKLY_STORIES={};
+  DATA_ERRORS={};
+  renderAll();
+  const requestedLeague=activeFootballLeague;
+  loadAllData().then(()=>{
+    if(activeFootballLeague!==requestedLeague) return;
+    renderAll();
+    if(typeof loadLiveFeed==='function') loadLiveFeed(false);
+  }).catch(error=>{
+    if(activeFootballLeague!==requestedLeague) return;
+    DATA_ERRORS.provider=error&&error.message ? error.message : 'Lig verisi yenilenemedi.';
+    renderAll();
+  });
   if(typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
 }
 
