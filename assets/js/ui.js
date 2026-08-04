@@ -753,7 +753,7 @@ function footballQuickMatchRows(){
     .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
   const completed = base.filter(m=>getResult(m.id)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
   const ordered=[...live, ...upcoming, ...completed];
-  return ordered.slice(0,7);
+  return ordered;
 }
 function renderFootballQuickMatches(){
   const area = document.getElementById('footballQuickMatches'); if(!area) return;
