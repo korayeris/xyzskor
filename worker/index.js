@@ -1207,7 +1207,7 @@ async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = nul
   const search = teamId
     ? await sportmonksRequest(`/teams/${encodeURIComponent(teamId)}?${searchParams}`, token)
     : await sportmonksRequest(`/teams/search/${encodeURIComponent(searchName)}?${searchParams}`, token);
-  const team = teamId ? search?.data : chooseSportmonksTeam(relationRows(search?.data), searchName);
+  const team = teamId ? relationRows(search?.data)[0] : chooseSportmonksTeam(relationRows(search?.data), searchName);
   if (!team?.id) {
     const error = new Error("Sportmonks team not found"); error.status = 404; throw error;
   }
