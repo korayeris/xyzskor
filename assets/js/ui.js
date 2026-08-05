@@ -218,9 +218,6 @@ function leagueTeamSourceRows(){
     push(match.ev,{competition,stadium:match.stadyum&&match.stadyum!=='Açıklanacak'?match.stadyum:null,source:'fixture'});
     push(match.konuk,{competition,source:'fixture'});
   });
-  if(!rows.size && activeFootballLeague!=='all'){
-    (LEAGUE_FALLBACK_CLUBS[activeFootballLeague]||[]).forEach(team=>push(team,{source:'league-template'}));
-  }
   const label=competitionLabelBySlug(activeFootballLeague);
   return [...rows.values()].map((club,index)=>({
     checkedAt:club.checkedAt||'Sportmonks sezon alanı',
@@ -348,9 +345,6 @@ function standingRowsForActiveLeague(){
     home.goal_difference=home.goals_for-home.goals_against;
     away.goal_difference=away.goals_for-away.goals_against;
   });
-  if(!table.size && activeFootballLeague!=='all'){
-    (LEAGUE_FALLBACK_CLUBS[activeFootballLeague]||[]).forEach(team=>ensure(team));
-  }
   const computed=[...table.values()].sort((a,b)=>(b.points||0)-(a.points||0)||(b.goal_difference||0)-(a.goal_difference||0)||String(a.team).localeCompare(String(b.team),'tr'));
   if(computed.length) return computed;
   if(activeFootballLeague==='super-lig') return HISTORIC_STANDINGS_2024_25.map(row=>({...row,sourceType:'historic'}));
@@ -395,7 +389,7 @@ function leagueTeamNamesForKey(leagueKey){
     if(liveNames.length) return [...new Set(liveNames)];
   }
   if(leagueKey==='super-lig') return SUPER_LIG_CLUBS_2026_27.map(club=>club.team);
-  return LEAGUE_FALLBACK_CLUBS[leagueKey] || [];
+  return [];
 }
 function transferPlayerPhotoHTML(item){
   const initials=item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join('');
@@ -707,7 +701,7 @@ function fetchLeagueXMediaPayload(){
   if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
     const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
-      if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
+      if(!response.ok||payload?.league!==requestedLeague||!Array.isArray(payload?.clubs)) throw new Error(payload?.error||'X veri katmanı hazır değil.');
       return payload;
     });
     xClubPostsRequest={league:requestedLeague,promise:request};
@@ -723,19 +717,20 @@ async function loadXClubPosts(){
     if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
       const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
-      if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
+      if(!response.ok||payload?.league!==requestedLeague||!Array.isArray(payload?.clubs)) throw new Error(payload?.error||'X veri katmanı hazır değil.');
       return payload;
       });
       xClubPostsRequest={league:requestedLeague,promise:request};
     }
     const payload=await xClubPostsRequest.promise;
+    if(activeFootballLeague!==requestedLeague) return;
     const apiClubs=new Map((payload.clubs||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
     const apiPublishers=new Map((payload.publishers||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
     const publisherCards=(payload.publishers||[]).map(publisher=>xPostCardHTML({...publisher,...(apiPublishers.get(publisher.handle.toLocaleLowerCase('tr-TR'))||{})}));
     stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('')+publisherCards.join('');
   }catch(error){
     xClubPostsRequest=null;
-    stage.innerHTML=clubs.map(xPostCardHTML).join('');
+    stage.innerHTML=`<div class="club-social-unavailable"><span>𝕏</span><strong>${escapeHTML(label)} X akışı şu anda alınamıyor</strong><p>${escapeHTML(/credit/i.test(String(error?.message||''))?'X API kullanım kredisi tükendi. Yeni kredi tanımlandığında gerçek gönderiler otomatik yüklenecek.':'Sağlayıcı gerçek gönderi döndürmedi; boş kulüp kartları gösterilmiyor.')}</p></div>`;
   }
 }
 function renderClubSocial(){
@@ -780,17 +775,18 @@ async function loadPreseasonPosts(){
     if(!preseasonPostsRequest||preseasonPostsRequest.league!==requestedLeague){
       const request=fetch('/api/football/x-preseason'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
         const payload=await response.json().catch(()=>null);
-        if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('Hazırlık maçı akışı hazır değil.');
+        if(!response.ok||payload?.league!==requestedLeague||!Array.isArray(payload?.clubs)) throw new Error(payload?.error||'Hazırlık maçı akışı hazır değil.');
         return payload;
       });
       preseasonPostsRequest={league:requestedLeague,promise:request};
     }
     const payload=await preseasonPostsRequest.promise;
+    if(activeFootballLeague!==requestedLeague) return;
     const apiClubs=new Map((payload.clubs||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
     stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('');
-  }catch(_error){
+  }catch(error){
     preseasonPostsRequest=null;
-    stage.innerHTML=clubs.map(preseasonCardHTML).join('');
+    stage.innerHTML=`<div class="club-social-unavailable"><span>◎</span><strong>${escapeHTML(label)} hazırlık maçı akışı alınamıyor</strong><p>${escapeHTML(/credit/i.test(String(error?.message||''))?'X API kullanım kredisi tükendi. Kredi yenilendiğinde gerçek hazırlık maçı gönderileri otomatik yüklenecek.':'Sağlayıcı gerçek hazırlık maçı gönderisi döndürmedi; sahte boş kartlar gösterilmiyor.')}</p></div>`;
   }
 }
 function renderPreseasonSocial(){
@@ -944,6 +940,9 @@ function publishedStoryCards(){
   const story = WEEKLY_STORIES[activeWeek];
   if(!story || !story.is_published || !Array.isArray(story.cards)) return [];
   return story.cards.filter(card=>card && !/tahmin|kupon|oran|bahis/i.test(`${card.title||''} ${card.text||''}`) && cardMentionsFootballTeam(card,activeFootballTeam));
+}
+function matchesForActiveLeague(){
+  return MATCHES.filter(matchInActiveLeague);
 }
 function storyIdentityHTML(card){
   const name=card.author||card.author_name||card.editor||card.source||''; const entity=card.player||card.related_player||card.team||card.related_team||''; const time=card.updated_at||card.verified_at||card.published_at||'';
@@ -1802,7 +1801,7 @@ function renderRewards(){
     <div style="margin-bottom:12px;">
       <div class="mono" style="font-size:13px;color:var(--ink-dim);margin-bottom:7px;">${t.toUpperCase()}</div>
       <div class="reward-grid">
-        ${REWARDS[t].map((r,i) => rewardCardHTML(t, r, i===0)).join('')}
+        ${(REWARDS[t]||[]).map((r,i) => rewardCardHTML(t, r, i===0)).join('')}
       </div>
     </div>`).join('');
 
@@ -1819,7 +1818,7 @@ function renderRewards(){
   adminPanel.innerHTML = TEAMS.map(t => `
     <div style="margin-bottom:9px;">
       <div class="mono" style="font-size:12.5px;color:var(--ink-dim);margin-bottom:5px;">${t}</div>
-      ${[1,2,3].map(s => `<input style="margin-bottom:5px;" data-team="${t}" data-sira="${s}" class="rewardInput" value="${escapeHTML(REWARDS[t][s-1].aciklama)}" placeholder="${s}. sıra ödülü">`).join('')}
+      ${[1,2,3].map(s => `<input style="margin-bottom:5px;" data-team="${t}" data-sira="${s}" class="rewardInput" value="${escapeHTML(REWARDS[t]?.[s-1]?.aciklama||'—')}" placeholder="${s}. sıra ödülü">`).join('')}
     </div>`).join('') + `<button class="btn" id="saveRewardsBtn">Ödülleri Kaydet</button><div class="status-msg" id="rewardStatus"></div>`;
   document.getElementById('saveRewardsBtn').onclick = async () => {
     const inputs = adminPanel.querySelectorAll('.rewardInput'); const newRewards = JSON.parse(JSON.stringify(REWARDS));
@@ -2024,7 +2023,7 @@ function renderFootballNews(){
   const leagueProviderUnavailable = (leagueKey=activeFootballLeague) => {
     if(leagueKey==='super-lig' || leagueKey==='all') return false;
     const state = leagueProviderHealth(leagueKey);
-    return !state.hasMatches && !state.hasStandings && !state.hasTransfers;
+    return !state.hasMatches && !state.hasStandings;
   };
   const providerUnavailableMessage = (leagueKey=activeFootballLeague) => {
     const label = competitionLabelBySlug(leagueKey);
@@ -2170,8 +2169,8 @@ function renderFootballNews(){
     const rows=standingRowsForActiveLeague().slice(0,6);
     const honors=document.getElementById('footballSeasonHonors');
     if(honors){ honors.innerHTML=''; honors.hidden=true; }
-    setText('footballStandingsKicker',`${competitionShortBySlug(activeFootballLeague)} · CANLI YARIŞ`);
-    setText('footballStandingsTitle','Zirve hattı');
+    const standingsKicker=document.getElementById('footballStandingsKicker'); if(standingsKicker) standingsKicker.textContent=`${competitionShortBySlug(activeFootballLeague)} · CANLI YARIŞ`;
+    const standingsTitle=document.getElementById('footballStandingsTitle'); if(standingsTitle) standingsTitle.textContent='Zirve hattı';
     if(activeFootballLeague!=='super-lig' && !rows.length){
       area.innerHTML=`<div class="league-module-waiting"><strong>${escapeHTML(competitionLabelBySlug(activeFootballLeague))} puan durumu bekleniyor</strong><p>${escapeHTML(providerUnavailableMessage(activeFootballLeague))}</p></div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Puan durumu alanını aç →</button>`;
       return;
@@ -2221,7 +2220,4 @@ function renderFootballNews(){
     </div>`;
   };
 
-  if(typeof renderAll==='function'){
-    try{ requestAnimationFrame(()=>renderAll()); }catch(_error){}
-  }
 })();

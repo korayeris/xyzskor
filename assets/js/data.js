@@ -483,17 +483,11 @@ function activeLeagueContext(){
 async function ensureSeasonFixtures(){
   const leagueKey = footballLeagueRequestKey();
   if(seasonFixturesReady.has(leagueKey)) return true;
-  try{
-    const { data, error } = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.seasonScope, league:leagueKey } });
-    if(error) throw error;
-    if(!data || !Number.isFinite(Number(data.syncedMatches))) throw new Error('Fikstür senkronizasyon yanıtı geçersiz.');
-    seasonFixturesReady.add(leagueKey);
-    return true;
-  }catch(error){
-    DATA_ERRORS.fixture_sync = error && error.message ? error.message : 'Fikstür otomatik güncellenemedi.';
-    console.warn('[XYZSkor fikstür senkronizasyonu]', error);
-    return false;
-  }
+  // The league-scoped Sportmonks worker below is the source of truth. The old
+  // Supabase sync function returns an incompatible payload and can hold the UI
+  // on stale data before the provider request completes.
+  seasonFixturesReady.add(leagueKey);
+  return true;
 }
 
 async function fetchProviderSeasonBundle(leagueKey){

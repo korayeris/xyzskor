@@ -1940,3 +1940,8 @@ body[class*="league-theme-"] #page-story{
   #footballOverviewView .standings-rail{order:3}
   #footballOverviewView .portal-sponsor-rail{order:7;grid-row:auto}
 }
+
+.club-social-unavailable{grid-column:1/-1;display:grid;place-items:center;align-content:center;min-height:220px;padding:34px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;background:#181b1f;color:#8e97a0;text-align:center}
+.club-social-unavailable>span{display:grid;place-items:center;width:46px;height:46px;margin-bottom:14px;border:1px solid rgba(255,255,255,.15);border-radius:50%;color:#eef1f3;font:700 18px/1 var(--font-display)}
+.club-social-unavailable strong{color:#f0f2f3;font:750 15px/1.2 var(--font-display)}
+.club-social-unavailable p{max-width:520px;margin:9px 0 0;color:#828b94;font-size:10px;line-height:1.55}
