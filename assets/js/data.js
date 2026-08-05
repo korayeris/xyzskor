@@ -506,7 +506,7 @@ async function fetchProviderSeasonBundle(leagueKey){
   try{
     const response = await fetch(`${PROVIDER_LIVE_FALLBACK}/season?league=${encodeURIComponent(leagueKey)}`,{headers:{Accept:'application/json'},cache:'no-store'});
     const payload = await response.json().catch(()=>null);
-    if(!response.ok || !payload || !Array.isArray(payload.matches)) return null;
+    if(!response.ok || !payload || payload.league!==leagueKey || !Array.isArray(payload.matches)) return null;
     try{ sessionStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),payload})); }catch(_error){}
     return payload;
   }catch(error){
@@ -598,7 +598,7 @@ async function loadAllData(){
   DATA_ERRORS = {};
   SERVER_LEADERBOARDS = new Map();
   serverLeaderboardMode = 'unknown';
-  const scopedSuperLig = isSuperLigScope();
+  const scopedSuperLig = isStrictSuperLigScope();
   let session = null;
   try{
     const authRes = await sb.auth.getSession();

@@ -390,6 +390,10 @@ const TRANSFER_PLAYER_PHOTOS=Object.freeze({
 const leagueTransferCache=new Map();
 const leagueTransferRequests=new Map();
 function leagueTeamNamesForKey(leagueKey){
+  if(leagueKey===activeFootballLeague){
+    const liveNames=[...MATCHES.filter(matchInActiveLeague).flatMap(match=>[match.ev,match.konuk]),...standingRowsForActiveLeague().map(row=>row.team)].filter(Boolean);
+    if(liveNames.length) return [...new Set(liveNames)];
+  }
   if(leagueKey==='super-lig') return SUPER_LIG_CLUBS_2026_27.map(club=>club.team);
   return LEAGUE_FALLBACK_CLUBS[leagueKey] || [];
 }
@@ -446,7 +450,7 @@ function requestLeagueTransferFeed(leagueKey){
   const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}`,{headers:{Accept:'application/json'}})
     .then(async response=>{
       const payload=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(payload?.error||'transfer_feed_unavailable');
+      if(!response.ok || payload?.league!==leagueKey) throw new Error(payload?.error||'transfer_feed_scope_mismatch');
       leagueTransferCache.set(leagueKey,{
         confirmed:(payload.confirmed||[]).map(normalizeApiTransfer),
         rumours:(payload.rumours||[]).map(normalizeApiTransfer),
@@ -488,14 +492,14 @@ function renderTransferCenter(){
   const summary=document.getElementById('transferCenterSummary');
   if(!area || !summary) return;
   renderTransferCenterFilters();
-  if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>!['super-lig','all'].includes(item.key)).every(item=>leagueTransferCache.has(item.key))){
+  if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>item.key!=='all').every(item=>leagueTransferCache.has(item.key))){
     summary.innerHTML=`<strong>Tüm ligler transfer merkezi</strong><span>Seçili liglerin transfer ve söylenti kayıtları kontrol ediliyor.</span>`;
     area.innerHTML=`<div class="league-scoped-empty transfer-provider-empty is-loading"><span>Tümü</span><strong>Lig bazlı transfer verileri çekiliyor</strong><p>Seçili liglerin resmî işlem, görüşme ve söylenti kayıtları aynı merkezde toplanacak.</p></div><div class="transfer-signal-shell" data-transfer-signals></div>`;
     ensureAllLeagueTransferFeeds().then(()=>{ if(activeFootballLeague==='all') renderTransferCenter(); });
     renderTransferSignals(area.querySelector('[data-transfer-signals]'));
     return;
   }
-  if(activeFootballLeague!=='super-lig' && activeFootballLeague!=='all' && !leagueTransferCache.has(activeFootballLeague)){
+  if(activeFootballLeague!=='all' && !leagueTransferCache.has(activeFootballLeague)){
     const label=competitionLabelBySlug(activeFootballLeague);
     const requestedLeague=activeFootballLeague;
     summary.innerHTML=`<strong>${escapeHTML(label)} transfer merkezi</strong><span>Sportmonks transfer ve söylenti kayıtları kontrol ediliyor.</span>`;
@@ -774,7 +778,7 @@ async function loadPreseasonPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!preseasonPostsRequest||preseasonPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/social/x-preseason-v1'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/social/x-preseason-v2'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
         const payload=await response.json().catch(()=>null);
         if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('Hazırlık maçı akışı hazır değil.');
         return payload;
@@ -1912,13 +1916,11 @@ async function boot(){
   renderSkeletons();
   lastLoadError = null;
   try{
+    const parsed = typeof parseAppLocation==='function' ? parseAppLocation() : parseHash();
+    if(parsed && parsed.type==='football-route') activeFootballLeague = parsed.league || 'super-lig';
     await loadAllData();
     lastLoadError = null;
     const weeks = getAvailableWeeks();
-    const parsed = typeof parseAppLocation==='function' ? parseAppLocation() : parseHash();
-    if(parsed && parsed.type==='football-route'){
-      activeFootballLeague = parsed.league || 'super-lig';
-    }
     if(weeks.length){
       if(parsed && parsed.type==='week' && weeks.includes(parsed.value)) activeWeek = parsed.value;
       else activeWeek = weeks[0];

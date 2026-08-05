@@ -6,6 +6,7 @@ const documentHtml = await readFile(new URL('../index.html', import.meta.url), '
 const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
 const scriptFiles = ['data.js', 'live.js', 'match-center.js', 'ui.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
+const dataSource = scriptSources[0];
 const appSource = scriptSources.join('\n');
 const html = [documentHtml, appCss, appSource].join('\n');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
@@ -139,6 +140,13 @@ assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden 
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
 assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x-media-v3'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
+assert.match(functionSource('loadPreseasonPosts'), /fetch\('\/api\/social\/x-preseason-v2'/, 'Hazırlık maçı akışı güncel lig kapsamlı uçtan alınmalı.');
+assert.match(appCss, /\.preseason-social-stage\{[^}]*grid-template-columns:1fr!important[^}]*overflow-y:auto/, 'Hazırlık maçı gönderileri tek kolon halinde aşağı doğru akmalı.');
+assert.match(appCss, /\.transfer-signal-stream\{[^}]*grid-auto-flow:row[^}]*overflow-y:auto/, 'X sinyal kaynakları okunaklı dikey akış kullanmalı.');
+assert.match(functionSource('boot'), /parseAppLocation[\s\S]*activeFootballLeague[\s\S]*await loadAllData\(\)/, 'Doğrudan lig URL’si veri yüklenmeden önce seçilmeli.');
+assert.match(dataSource, /payload\.league!==leagueKey/, 'Sportmonks sezon cevabı istenen lig anahtarıyla doğrulanmalı.');
+assert.match(dataSource, /const scopedSuperLig = isStrictSuperLigScope\(\)/, 'Süper Lig Supabase fallback verisi diğer liglere ve tüm ligler kapsamına taşınmamalı.');
+assert.match(workerSource, /\/transfers\/latest\?include=/, 'Transfer akışı Sportmonks latest ucundan alınmalı.');
 assert.match(functionSource('renderClubSocial'), /loadXClubPosts\(\)/, 'Dört resmî kulüp akışı ara ekran olmadan otomatik yüklenmeli.');
 assert.match(functionSource('scrollClubSocial'), /getBoundingClientRect\(\)\.width[\s\S]*scrollBy/, 'Büyük X kartları bir kart genişliğinde yatay kaydırılabilmeli.');
 assert.match(html, /aria-label="Kulüp akışını sağa kaydır"/, 'X akışında görünür ve erişilebilir yatay kaydırma kontrolü bulunmalı.');

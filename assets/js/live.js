@@ -149,9 +149,20 @@ function applyParsedLocation(parsed){
     activeFootballLeague = parsed.league;
     if(leagueChanged){
       activeFootballTeam='TÃ¼mÃ¼';
-      const weeks=getAvailableWeeks();
-      if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
+      MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
       if(typeof renderAll==='function') renderAll();
+      const requestedLeague=activeFootballLeague;
+      loadAllData().then(()=>{
+        if(activeFootballLeague!==requestedLeague) return;
+        const weeks=getAvailableWeeks();
+        if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
+        renderAll();
+        if(typeof loadLiveFeed==='function') loadLiveFeed(false);
+      }).catch(error=>{
+        if(activeFootballLeague!==requestedLeague) return;
+        DATA_ERRORS.provider=error&&error.message?error.message:'Lig verisi yenilenemedi.';
+        renderAll();
+      });
     }
     switchMainTab('football',false);
     if(parsed.section==='transfers') setTransferCenterTab(parsed.transferTab || 'confirmed',null,false);

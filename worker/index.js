@@ -768,8 +768,7 @@ async function handleFootballTransfers(request, env, context) {
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
   const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
-  const filters = leagueIds?.length ? `&filters=transferLeagues:${leagueIds.join(",")}` : "";
-  const confirmedPath = `/transfers?include=player;fromTeam;toTeam&per_page=50${filters}`;
+  const confirmedPath = "/transfers/latest?include=player;fromTeam;toTeam;type;position;detailedPosition&per_page=50";
   const rumoursPath = `/transfer-rumours?include=player&per_page=50`;
   const [confirmedResult, rumourResult] = await Promise.allSettled([
     sportmonksRequest(confirmedPath, token),
@@ -781,12 +780,14 @@ async function handleFootballTransfers(request, env, context) {
   const confirmed = confirmedResult.status === "fulfilled" ? relationRows(confirmedResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "confirmed")) : [];
   const rumours = rumourResult.status === "fulfilled" ? relationRows(rumourResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "rumour")) : [];
   const inScope = (row) => {
-    if (!teamSet.size) return true;
+    if (!teamSet.size) return false;
     return teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to));
   };
   const payload = {
     source: "sportmonks-football-api-v3",
     league,
+    leagueIds,
+    scopeTeams: teamNames,
     updatedAt: new Date().toISOString(),
     confirmed: confirmed.filter(inScope).slice(0, 24),
     rumours: rumours.filter(inScope).slice(0, 24),
