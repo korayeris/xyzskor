@@ -2288,6 +2288,12 @@ body[class*="league-theme-"] #page-story{
   border-radius:18px;
   background:rgba(255,255,255,.045);
 }
+#footballOverviewView .club-social-pending.is-credit-warning{
+  border:1px solid rgba(255,193,104,.24);
+  background:linear-gradient(135deg,rgba(255,193,104,.10),rgba(255,255,255,.035));
+}
+#footballOverviewView .club-social-pending.is-credit-warning strong{color:#ffd493!important}
+#footballOverviewView .club-social-pending.is-credit-warning span{color:#c9b89d!important}
 #footballOverviewView .club-social-media,
 #footballOverviewView .club-social-media-item{
   border-radius:18px!important;

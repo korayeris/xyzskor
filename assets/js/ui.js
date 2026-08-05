@@ -697,13 +697,15 @@ function xPostCardHTML(club){
   const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
   const mediaBody=xPostMediaHTML(club,post,targetURL);
+  const pendingTitle=club.upstream_error==='x_credits_depleted'?'X API kredisi gerekiyor':club.account_found===false?'Resmî sosyal hesap doğrulanıyor':'Henüz yeni paylaşım yok';
+  const pendingText=club.upstream_error==='x_credits_depleted'?'Bearer token aktif ama X sağlayıcısı 402 Payment Required döndürüyor. Kredi/plan yenilenince gerçek post otomatik akar.':club.account_found===false?'Hesap kataloğu güncellenirken bu kulüp için akış bağlantısı hazırlanıyor.':'Resmî hesap bağlı; yeni gönderi geldiğinde burada yayınlanır.';
   const postBody=post?`<p class="club-social-copy">${escapeHTML(xPostDisplayText(post))}</p>${mediaBody}
     <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
-    </div>`:club.account_found===false?`<div class="club-social-pending"><strong>Resmî sosyal hesap doğrulanıyor</strong><span>Hesap kataloğu güncellenirken bu kulüp için akış bağlantısı hazırlanıyor.</span></div>`:`<div class="club-social-pending"><strong>Henüz yeni paylaşım yok</strong><span>Resmî hesap bağlı; yeni gönderi geldiğinde burada yayınlanır.</span></div>`;
+    </div>`:`<div class="club-social-pending ${club.upstream_error==='x_credits_depleted'?'is-credit-warning':''}"><strong>${escapeHTML(pendingTitle)}</strong><span>${escapeHTML(pendingText)}</span></div>`;
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
   const accountLabel=club.publisher?'Genel resmî akış':club.leagueRank?`${competitionShortBySlug(activeFootballLeague)} ${club.leagueRank}.`:'';
   return `<article class="club-social-card ${club.publisher?'publisher-card ':''}${mediaBody?'has-media':''}">
@@ -746,7 +748,8 @@ async function loadXClubPosts(){
     stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('')+publisherCards.join('');
   }catch(error){
     xClubPostsRequest=null;
-    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,post:null})).join('');
+    const code=/credit|402|payment/i.test(String(error?.message||''))?'x_credits_depleted':'unavailable';
+    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,post:null,account_found:true,upstream_error:code})).join('');
   }
 }
 function renderClubSocial(){
@@ -769,13 +772,15 @@ function preseasonCardHTML(club){
   const targetURL=post?.url||club.url;
   const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
+  const pendingTitle=club.upstream_error==='x_credits_depleted'?'X API kredisi gerekiyor':'Hazırlık maçı paylaşımı bulunamadı';
+  const pendingText=club.upstream_error==='x_credits_depleted'?'X sağlayıcısı 402 Payment Required döndürüyor. Kredi/plan yenilenince hazırlık postları otomatik akar.':'Resmî hesapta son kamp veya hazırlık maçı gönderisi düştüğünde burada görünür.';
   const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">${escapeHTML(post.label||'Hazırlık')}</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(xPostDisplayText(post))}</p>${mediaBody}
     <div class="club-social-meta preseason-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(post.metrics?.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(post.metrics?.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(post.metrics?.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(post.metrics?.retweet_count))}</span>
       <span aria-label="${escapeHTML(xMetric(post.metrics?.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(post.metrics?.like_count))}</span>
       <span aria-label="${escapeHTML(xMetric(post.metrics?.impression_count))} görüntülenme"><i aria-hidden="true">◔</i>${escapeHTML(xMetric(post.metrics?.impression_count))}</span>
-    </div>`:`<div class="club-social-pending preseason-social-pending"><strong>Hazırlık maçı paylaşımı bulunamadı</strong><span>Resmî hesapta son kamp veya hazırlık maçı gönderisi düştüğünde burada görünür.</span></div>`;
+    </div>`:`<div class="club-social-pending preseason-social-pending ${club.upstream_error==='x_credits_depleted'?'is-credit-warning':''}"><strong>${escapeHTML(pendingTitle)}</strong><span>${escapeHTML(pendingText)}</span></div>`;
   return `<article class="club-social-card preseason-social-card ${mediaBody?'has-media':''}">
     <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · @${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">◎</span></header>
     <div class="club-social-post preseason-social-post">${body}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük taranır'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
@@ -803,7 +808,8 @@ async function loadPreseasonPosts(){
     stage.innerHTML=mergedClubs.map(club=>preseasonCardHTML(club)).join('');
   }catch(error){
     preseasonPostsRequest=null;
-    stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,preseason_post:null})).join('');
+    const code=/credit|402|payment/i.test(String(error?.message||''))?'x_credits_depleted':'unavailable';
+    stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,preseason_post:null,account_found:true,upstream_error:code})).join('');
   }
 }
 function renderPreseasonSocial(){
