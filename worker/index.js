@@ -16,8 +16,8 @@ const TRANSFER_CACHE = "public, max-age=600, s-maxage=3600, stale-while-revalida
 const SEASON_CACHE = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600";
 const LIVE_API_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
 const SPORTMONKS_TIMEOUT_MS = 12000;
-let xFeedRefreshPromise = null;
-let xPreseasonRefreshPromise = null;
+const xFeedRefreshPromises = new Map();
+const xPreseasonRefreshPromises = new Map();
 let youtubeFeedRefreshPromise = null;
 const clubProfileRefreshes = new Map();
 const X_CLUBS = [
@@ -119,6 +119,16 @@ const SELECTED_LEAGUE_IDS_BY_KEY = Object.freeze({
   "premier-league": ["8"],
   all: ["600", "2", "5", "564", "8"],
 });
+const SELECTED_LEAGUE_KEYS = new Set(Object.keys(SELECTED_LEAGUE_IDS_BY_KEY));
+const X_LEAGUE_KEYS = new Set(Object.keys(X_CLUBS_BY_LEAGUE));
+
+function validLeagueKey(value, options = {}) {
+  const key = String(value || "super-lig").trim().toLowerCase();
+  if (!SELECTED_LEAGUE_KEYS.has(key)) return null;
+  if (options.xFeed && !X_LEAGUE_KEYS.has(key)) return null;
+  if (options.single && key === "all") return null;
+  return key;
+}
 
 function jsonResponse(payload, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(payload), {
@@ -290,8 +300,8 @@ async function fetchXUsers(token, request, context) {
   const cached = await readEdgeCache(cache, cacheKey);
   if (cached) return cached.json();
 
-  const league = new URL(request.url).searchParams.get("league") || "super-lig";
-  const clubs = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
+  const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
+  const clubs = X_CLUBS_BY_LEAGUE[league] || [];
   const publishers = X_PUBLISHERS_BY_LEAGUE[league] || [];
   const usernames = [...clubs, ...publishers].map((club) => club.handle).join(",");
   const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}&user.fields=verified,verified_type,profile_image_url`, token);
@@ -301,8 +311,8 @@ async function fetchXUsers(token, request, context) {
 }
 
 async function fetchXClubFeed(token, request, context) {
-  const league = new URL(request.url).searchParams.get("league") || "super-lig";
-  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
+  const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
+  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || [];
   const publishersForLeague = X_PUBLISHERS_BY_LEAGUE[league] || [];
   const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
@@ -351,8 +361,8 @@ async function fetchXClubFeed(token, request, context) {
 }
 
 async function fetchXPreseasonFeed(token, request, context) {
-  const league = new URL(request.url).searchParams.get("league") || "super-lig";
-  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || X_CLUBS;
+  const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
+  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || [];
   const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
@@ -413,7 +423,8 @@ async function handleXClubFeed(request, env, context) {
 
   const cacheUrl = new URL("/api/social/x-media-v2", request.url);
   const requestedLeague = cacheUrl.searchParams.get("league");
-  const league = requestedLeague || "super-lig";
+  const league = validLeagueKey(requestedLeague, { xFeed:true });
+  if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const staleUrl = new URL("/api/social/x-media-stale-v2", request.url);
@@ -425,8 +436,8 @@ async function handleXClubFeed(request, env, context) {
   const stale = await readEdgeCache(cache, staleKey);
 
   try {
-    if (!xFeedRefreshPromise) xFeedRefreshPromise = fetchXClubFeed(env.X_BEARER_TOKEN, request, context);
-    const payload = await xFeedRefreshPromise;
+    if (!xFeedRefreshPromises.has(league)) xFeedRefreshPromises.set(league, fetchXClubFeed(env.X_BEARER_TOKEN, request, context));
+    const payload = await xFeedRefreshPromises.get(league);
     const response = jsonResponse(payload, 200, { "Cache-Control": SOCIAL_CACHE, "X-Data-Stale": "false" });
     const staleResponse = jsonResponse(payload, 200, { "Cache-Control": SOCIAL_STALE_CACHE });
     writeEdgeCache(cache, cacheKey, response, context);
@@ -445,7 +456,7 @@ async function handleXClubFeed(request, env, context) {
     }
     return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "300" });
   } finally {
-    xFeedRefreshPromise = null;
+    xFeedRefreshPromises.delete(league);
   }
 }
 
@@ -455,6 +466,8 @@ async function handleXPreseasonFeed(request, env, context) {
 
   const cacheUrl = new URL("/api/social/x-preseason-v1", request.url);
   const requestedLeague = cacheUrl.searchParams.get("league");
+  const league = validLeagueKey(requestedLeague, { xFeed:true });
+  if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const staleUrl = new URL("/api/social/x-preseason-stale-v1", request.url);
@@ -466,8 +479,8 @@ async function handleXPreseasonFeed(request, env, context) {
   const stale = await readEdgeCache(cache, staleKey);
 
   try {
-    if (!xPreseasonRefreshPromise) xPreseasonRefreshPromise = fetchXPreseasonFeed(env.X_BEARER_TOKEN, request, context);
-    const payload = await xPreseasonRefreshPromise;
+    if (!xPreseasonRefreshPromises.has(league)) xPreseasonRefreshPromises.set(league, fetchXPreseasonFeed(env.X_BEARER_TOKEN, request, context));
+    const payload = await xPreseasonRefreshPromises.get(league);
     const response = jsonResponse(payload, 200, { "Cache-Control": X_PRESEASON_CACHE, "X-Data-Stale": "false" });
     const staleResponse = jsonResponse(payload, 200, { "Cache-Control": X_PRESEASON_STALE_CACHE });
     writeEdgeCache(cache, cacheKey, response, context);
@@ -486,7 +499,7 @@ async function handleXPreseasonFeed(request, env, context) {
     }
     return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "900" });
   } finally {
-    xPreseasonRefreshPromise = null;
+    xPreseasonRefreshPromises.delete(league);
   }
 }
 
@@ -700,7 +713,8 @@ async function handleFootballTransfers(request, env, context) {
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
   const url = new URL(request.url);
-  const league = url.searchParams.get("league") || "super-lig";
+  const league = validLeagueKey(url.searchParams.get("league"), { single:true });
+  if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   const teamNames = (url.searchParams.get("teams") || "").split("|").map((name) => name.trim()).filter(Boolean);
   const teamSet = new Set(teamNames.map((name) => normalizedFootballName(name)));
   const cacheUrl = new URL(url);
@@ -866,7 +880,8 @@ async function handleFootballSeason(request, env, context) {
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
   const url = new URL(request.url);
-  const league = url.searchParams.get("league") || "super-lig";
+  const league = validLeagueKey(url.searchParams.get("league"), { single:true });
+  if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   const cacheUrl = new URL(url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
@@ -883,7 +898,8 @@ async function handleFootballLive(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
-  const league = new URL(request.url).searchParams.get("league") || "super-lig";
+  const league = validLeagueKey(new URL(request.url).searchParams.get("league"));
+  if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
   const cacheUrl = new URL(request.url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });

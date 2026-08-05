@@ -651,7 +651,7 @@ function selectFootballLeague(key){
 
 /* ===================== RESMÎ KULÜP X AKIŞI ===================== */
 function rankedXClubs(){
-  const sourceClubs=X_CLUBS_BY_LEAGUE?.[activeFootballLeague]||X_CLUBS;
+  const sourceClubs=X_CLUBS_BY_LEAGUE?.[activeFootballLeague]||[];
   const orderedStandings=standingRowsForActiveLeague().sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity) || (b.goal_difference??-Infinity)-(a.goal_difference??-Infinity) || (b.goals_for??-Infinity)-(a.goals_for??-Infinity));
   const rankByTeam=new Map(orderedStandings.map((row,index)=>[row.team,index+1]));
   return sourceClubs.map((club,index)=>({ ...club, leagueRank:rankByTeam.get(club.team)??null, fallbackOrder:index }))
