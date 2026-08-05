@@ -1,0 +1,29 @@
+:root,[data-theme=default]{--bg-main:#0E1017;--bg-card:#161922;--bg-card-hover:#1E222F;--border-color:rgba(255,255,255,.08);--accent-primary:#FF9500;--accent-glow:rgba(255,149,0,.2);--badge-bg:rgba(255,149,0,.15);--text-primary:#F3F4F6;--text-secondary:#9CA3AF;--font-main:'Inter',-apple-system,sans-serif;--radius-md:12px;--shadow-soft:0 10px 30px -10px rgba(0,0,0,.5)}
+[data-league=ucl]{--bg-main:#070B19;--bg-card:#0F162B;--bg-card-hover:#17203B;--border-color:rgba(0,229,255,.18);--accent-primary:#00E5FF;--accent-glow:rgba(0,229,255,.25);--badge-bg:rgba(0,229,255,.12);--text-primary:#FFF;--text-secondary:#8DA0C4}
+[data-league=uel]{--bg-main:#0D0E12;--bg-card:#171A24;--bg-card-hover:#202433;--border-color:rgba(255,120,0,.2);--accent-primary:#FF7800;--accent-glow:rgba(255,120,0,.25);--badge-bg:rgba(255,120,0,.15);--text-primary:#F5F6F8;--text-secondary:#A0A7B5}
+[data-league=laliga]{--bg-main:#0F0A0D;--bg-card:#1C1217;--bg-card-hover:#281B21;--border-color:rgba(255,0,75,.2);--accent-primary:#FF004B;--accent-glow:rgba(255,0,75,.3);--badge-bg:rgba(255,0,75,.15);--text-primary:#FFF;--text-secondary:#B8A2AC}
+[data-league=epl]{--bg-main:#0C0617;--bg-card:#180D2E;--bg-card-hover:#251545;--border-color:rgba(0,255,133,.2);--accent-primary:#00FF85;--accent-glow:rgba(0,255,133,.25);--badge-bg:rgba(0,255,133,.12);--text-primary:#FFF;--text-secondary:#B3A0D1}
+[data-league=superlig]{--bg-main:#12080A;--bg-card:#1E1013;--bg-card-hover:#2B181C;--border-color:rgba(229,9,20,.25);--accent-primary:#E50914;--accent-glow:rgba(229,9,20,.3);--badge-bg:rgba(229,9,20,.15);--text-primary:#FFF;--text-secondary:#C8B0B4}
+[data-page=predict]{--bg-main:#060D14;--bg-card:#0D1926;--bg-card-hover:#142538;--border-color:rgba(0,242,254,.25);--accent-primary:#00F2FE;--accent-glow:rgba(0,242,254,.35);--badge-bg:rgba(0,242,254,.15);--text-primary:#E6F8FF;--text-secondary:#7FA8BE}
+
+body{
+  background-color:var(--bg-main);
+  color:var(--text-primary);
+  font-family:var(--font-main);
+  line-height:1.6;
+  min-height:100vh;
+  position:relative;
+  overflow-x:hidden;
+  transition:background-color .4s ease,color .4s ease
+}
+body::before{content:"";position:absolute;top:-100px;right:-50px;width:700px;height:700px;background:radial-gradient(circle,var(--accent-glow) 0%,rgba(0,0,0,0) 70%);pointer-events:none;z-index:0;transition:all .4s ease}
+.app-container{max-width:1280px;margin:0 auto;padding:24px 16px;position:relative;z-index:1}
+.card-panel{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;box-shadow:var(--shadow-soft);transition:all .3s ease;margin-bottom:20px}
+.card-panel:hover{border-color:var(--accent-primary);box-shadow:0 0 25px var(--accent-glow)}
+.league-tag{display:inline-block;background:var(--badge-bg);color:var(--accent-primary);border:1px solid var(--border-color);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px}
+.data-table{width:100%;border-collapse:collapse;margin-top:12px}
+.data-table th{text-align:left;padding:10px 14px;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--border-color);text-transform:uppercase}
+.data-table td{padding:12px 14px;font-size:14px;color:var(--text-primary);border-bottom:1px solid rgba(255,255,255,0.04)}
+.data-table tr:hover td{background:var(--bg-card-hover)}
+.btn-league{background:var(--accent-primary);color:#000;font-weight:800;font-size:14px;padding:10px 22px;border-radius:8px;border:none;cursor:pointer;transition:all .2s ease;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.btn-league:hover{filter:brightness(1.15);box-shadow:0 0 20px var(--accent-glow)}

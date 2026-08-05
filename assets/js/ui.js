@@ -200,7 +200,12 @@ function scrollFootballSection(id, button){
   const target=document.getElementById(id); if(target) target.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-function leagueTeamSourceRows(){
+function leagueTeamSourceRows(scopeLeague){
+  const targetLeague = normalizeLeagueKey(scopeLeague || activeFootballLeague, 'super-lig');
+  const sourceLeagues = targetLeague === 'all'
+    ? SELECTED_COMPETITIONS.filter(item => item.key !== 'all').map(item => item.key)
+    : [targetLeague];
+
   const rows=new Map();
   const push=(team,patch={})=>{
     if(!team) return;
@@ -208,15 +213,27 @@ function leagueTeamSourceRows(){
     const current=rows.get(key)||{team,display:team};
     rows.set(key,{...current,...patch,team:current.team||team,display:patch.display||current.display||team});
   };
-  if(activeFootballLeague==='all' || activeFootballLeague==='super-lig'){
+  if(sourceLeagues.includes('super-lig')){
     SUPER_LIG_CLUBS_2026_27.forEach(club=>push(club.team,club));
   }
-  STANDINGS.filter(row=>activeFootballLeague==='all' || competitionSlug(row.competition||row.league||row.tournament||row.source)===activeFootballLeague)
+  const standingsRows = STANDINGS.filter(row=>{
+    const rowLeague = competitionSlug(row.competition||row.league||row.tournament||row.source);
+    return sourceLeagues.includes(rowLeague);
+  });
+  standingsRows
     .forEach(row=>push(row.team,{source:'standing',providerTeamId:row.provider_team_id||null,providerSeasonId:row.provider_season_id||null,logo:row.team_logo||null,country:row.country||null}));
-  MATCHES.filter(matchInActiveLeague).forEach(match=>{
+  const matchRows = MATCHES.filter(match=>{
+    const matchLeague = competitionSlug(match.competition || match.tournament || match.league || match.source);
+    return matchLeague && sourceLeagues.includes(matchLeague);
+  });
+  matchRows.forEach(match=>{
     const competition=competitionName(match);
     push(match.ev,{competition,providerTeamId:match.home_team_id||null,logo:match.home_logo||null,stadium:match.stadyum&&match.stadyum!=='Açıklanacak'?match.stadyum:null,source:'fixture'});
     push(match.konuk,{competition,providerTeamId:match.away_team_id||null,logo:match.away_logo||null,source:'fixture'});
+  });
+  sourceLeagues.forEach(league=>{
+    const fallbackClubs = LEAGUE_FALLBACK_CLUBS[league] || [];
+    fallbackClubs.forEach(team=>push(team));
   });
   const label=competitionLabelBySlug(activeFootballLeague);
   return [...rows.values()].map((club,index)=>({
@@ -256,7 +273,7 @@ function clubRecord(team){
   }
   return null;
 }
-function clubMapTarget(club){ return [club.stadium,club.city].filter(Boolean).join(', '); }
+function clubMapTarget(club){ return [club.address, club.stadium, club.city].filter(Boolean).join(', '); }
 function clubDirectionsURL(club){ return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clubMapTarget(club))}`; }
 function clubMapEmbedURL(club){ return `https://www.google.com/maps?q=${encodeURIComponent(clubMapTarget(club))}&output=embed`; }
 function clubCoachBio(coach,team){
@@ -388,12 +405,12 @@ const TRANSFER_PLAYER_PHOTOS=Object.freeze({
 const leagueTransferCache=new Map();
 const leagueTransferRequests=new Map();
 function leagueTeamNamesForKey(leagueKey){
-  if(leagueKey===activeFootballLeague){
-    const liveNames=[...MATCHES.filter(matchInActiveLeague).flatMap(match=>[match.ev,match.konuk]),...standingRowsForActiveLeague().map(row=>row.team)].filter(Boolean);
-    if(liveNames.length) return [...new Set(liveNames)];
-  }
-  if(leagueKey==='super-lig') return SUPER_LIG_CLUBS_2026_27.map(club=>club.team);
-  return [];
+  const sourceLeague = normalizeLeagueKey(leagueKey || activeFootballLeague, 'super-lig');
+  const sourceRows = leagueTeamSourceRows(sourceLeague);
+  const fromProvider = sourceRows.map(club=>club.team).filter(Boolean);
+  if(fromProvider.length) return fromProvider;
+  const fallbackClubs = sourceLeague==='all' ? Object.values(LEAGUE_FALLBACK_CLUBS).flat() : LEAGUE_FALLBACK_CLUBS[sourceLeague] || [];
+  return [...new Set(fallbackClubs)];
 }
 function transferPlayerPhotoHTML(item){
   const initials=item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join('');
@@ -550,9 +567,17 @@ function applyFootballLeagueTheme(){
   if(!document.body) return;
   const classes = SELECTED_COMPETITIONS.map(item=>`league-theme-${item.key}`);
   document.body.classList.remove(...classes);
+  document.body.removeAttribute('data-league');
+  document.body.removeAttribute('data-page');
+  const isPredict = document.getElementById('page-league')?.classList.contains('active');
+  if(isPredict){
+    document.body.dataset.page = 'predict';
+    document.body.classList.add('league-theme-super-lig');
+    return;
+  }
   const key = SELECTED_COMPETITIONS.some(item=>item.key===activeFootballLeague) ? activeFootballLeague : 'all';
   document.body.classList.add(`league-theme-${key}`);
-  document.body.dataset.footballLeague = key;
+  document.body.dataset.league = leagueRouteSegment(key, true);
 }
 function renderFootballLeaguePickerInto(area){
   if(!area) return;

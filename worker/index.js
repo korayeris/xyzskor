@@ -54,6 +54,29 @@ const X_PUBLISHERS_BY_LEAGUE = Object.freeze({
     ["Sky Sports Premier League", "SkySportsPL"],
   ]),
 });
+
+const LEAGUE_KEY_CANONICAL = Object.freeze({
+  "ucl": "champions-league",
+  "uel": "europa-league",
+  "laliga": "la-liga",
+  "epl": "premier-league",
+  "superlig": "super-lig",
+  "super-lig": "super-lig",
+  "premier-league": "premier-league",
+  "la-liga": "la-liga",
+  "champions-league": "champions-league",
+  "europa-league": "europa-league",
+  "all": "all",
+});
+
+const LEAGUE_FALLBACK_TEAMS_FOR_TRANSFERS = Object.freeze({
+  "super-lig": ["Galatasaray","Fenerbahçe","Beşiktaş","Trabzonspor","Bursaspor","Adana Demirspor","Alanyaspor","Kasımpaşa","Konyaspor","Sivasspor"],
+  "premier-league": ["Liverpool","Arsenal","Manchester City","Chelsea","Tottenham Hotspur","Manchester United","Newcastle United","Aston Villa","Brighton","Bournemouth","Crystal Palace","Everton","Fulham","West Ham United","Brentford","Wolverhampton Wanderers","Leeds United","Sunderland","Burnley","Hull City"],
+  "la-liga": ["Barcelona","Real Madrid","Atlético Madrid","Athletic Club","Villarreal","Real Betis","Real Sociedad","Sevilla","Valencia","Celta Vigo","Osasuna","Getafe","Rayo Vallecano","Mallorca","Girona","Espanyol","Levante","Elche"],
+  "champions-league": ["Arsenal","Bayern München","Liverpool","Tottenham Hotspur","Barcelona","Chelsea","Sporting CP","Manchester City","Real Madrid","Inter","Paris Saint-Germain","Newcastle United","Juventus","Atlético Madrid","Atalanta","Bayer Leverkusen"],
+  "europa-league": ["Roma","Porto","Rangers","Fenerbahçe","Galatasaray","Real Betis","Lazio","Feyenoord","Lyon","Ajax","Braga","Villarreal","Freiburg","Olympiacos","Trabzonspor","Beşiktaş"],
+});
+
 const X_CLUBS_BY_LEAGUE = Object.freeze({
   "super-lig": X_CLUBS,
   "champions-league": makeXClubList([
@@ -139,8 +162,16 @@ const SELECTED_LEAGUE_NAMES_BY_KEY = Object.freeze({
 const SELECTED_LEAGUE_KEYS = new Set(Object.keys(SELECTED_LEAGUE_IDS_BY_KEY));
 const X_LEAGUE_KEYS = new Set(Object.keys(X_CLUBS_BY_LEAGUE));
 
+function resolveLeagueKey(value, fallback = "super-lig") {
+  const key = String(value || "").trim().toLocaleLowerCase("tr-TR");
+  if (!key) return fallback || "super-lig";
+  const normalized = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const compact = normalized.replace(/[^a-z0-9]+/g, "");
+  return LEAGUE_KEY_CANONICAL[key] || LEAGUE_KEY_CANONICAL[normalized] || LEAGUE_KEY_CANONICAL[compact] || fallback || "super-lig";
+}
+
 function validLeagueKey(value, options = {}) {
-  const key = String(value || "super-lig").trim().toLowerCase();
+  const key = resolveLeagueKey(value, options.defaultLeague || "super-lig");
   if (!SELECTED_LEAGUE_KEYS.has(key)) return null;
   if (options.xFeed && !X_LEAGUE_KEYS.has(key)) return null;
   if (options.single && key === "all") return null;
@@ -751,7 +782,30 @@ function normalizeSportmonksCoach(team) {
     image: coach.image_path || null,
     nationality: nationality.name || coach.nationality_name || null,
     dateOfBirth: coach.date_of_birth || null,
+    age: coach.dob ? calculateAge(coach.dob) : coach.age || null,
+    contract: coach.meta?.end || row?.meta?.end || row?.meta?.contractEnd || coach.contract_end || row?.contract?.end || null,
+    tenure: coach.meta?.start || row?.meta?.start || coach.started_at || row?.contract?.start || coach.contract_start || null,
     source: "sportmonks",
+    profile: coach.profile || null,
+    role: coach.role?.name || row?.role?.name || coach.role || row?.role || null,
+    status: coach.status || row?.status || null,
+  };
+}
+
+function normalizeSportmonksVenue(row) {
+  const venue = relationRows(row?.venue)[0] || row?.venue || null;
+  if (!venue) return null;
+  const city = venue.city_name || venue.city?.name || venue.city || null;
+  const country = venue.country_name || venue.country?.name || venue.country || null;
+  const addressParts = [venue.address, venue.location, venue.city, venue.zip_code || venue.zipcode, city, country].filter(Boolean);
+  return {
+    id: venue.id || null,
+    name: venue.name || null,
+    city,
+    country: typeof country === "string" ? country : null,
+    capacity: venue.capacity || null,
+    image: venue.image_path || null,
+    address: addressParts.length ? addressParts.join(", ") : null,
   };
 }
 
@@ -824,7 +878,9 @@ async function handleFootballTransfers(request, env, context) {
   const url = new URL(request.url);
   const league = validLeagueKey(url.searchParams.get("league"), { single:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
-  const teamNames = (url.searchParams.get("teams") || "").split("|").map((name) => name.trim()).filter(Boolean);
+  const queryTeamNames = (url.searchParams.get("teams") || "").split("|").map((name) => name.trim()).filter(Boolean);
+  const fallbackTeamNames = LEAGUE_FALLBACK_TEAMS_FOR_TRANSFERS[league] || [];
+  const teamNames = [...new Set([...queryTeamNames, ...fallbackTeamNames])].slice(0, 80);
   const teamSet = new Set(teamNames.map((name) => normalizedFootballName(name)));
   const cacheUrl = new URL(url);
   cacheUrl.search = `?league=${encodeURIComponent(league)}&teams=${encodeURIComponent(teamNames.slice(0, 80).join("|"))}`;
@@ -843,9 +899,14 @@ async function handleFootballTransfers(request, env, context) {
   if (rumourResult.status === "rejected") errors.push({ source: "transfer-rumours", status: rumourResult.reason?.status || 502, message: rumourResult.reason?.providerMessage || rumourResult.reason?.message || "unavailable" });
   const confirmed = confirmedResult.status === "fulfilled" ? relationRows(confirmedResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "confirmed")) : [];
   const rumours = rumourResult.status === "fulfilled" ? relationRows(rumourResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "rumour")) : [];
+  const leagueIdSet = new Set((SELECTED_LEAGUE_IDS_BY_KEY[league] || []).map(String));
   const inScope = (row) => {
-    if (!teamSet.size) return false;
-    return teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to));
+    if (teamSet.size && (teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to)))) return true;
+    const fromTeam = row.fromTeam || row.fromteam || row.from_team || {};
+    const toTeam = row.toTeam || row.toteam || row.to_team || {};
+    const fromLeagueId = String(fromTeam?.league_id || fromTeam?.league?.id || fromTeam?.competition_id || "");
+    const toLeagueId = String(toTeam?.league_id || toTeam?.league?.id || toTeam?.competition_id || "");
+    return (fromLeagueId && leagueIdSet.has(fromLeagueId)) || (toLeagueId && leagueIdSet.has(toLeagueId));
   };
   const payload = {
     source: "sportmonks-football-api-v3",
@@ -1201,7 +1262,7 @@ async function latestAvailableLineup(teamId, token) {
 
 async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = null, requestedSeasonId = null, requestedTeamImage = null) {
   const searchName = SPORTMONKS_TEAM_SEARCH[teamName] || teamName;
-  const searchParams = new URLSearchParams({ include: "venue;coaches.nationality" });
+  const searchParams = new URLSearchParams({ include: "venue;coaches.nationality;venue.country" });
   const teamId = requestedTeamId && /^\d+$/.test(String(requestedTeamId)) ? String(requestedTeamId) : null;
   const seasonId = requestedSeasonId && /^\d+$/.test(String(requestedSeasonId)) ? String(requestedSeasonId) : null;
   let search = null;
@@ -1244,12 +1305,13 @@ async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = nul
     if ([401, 429].includes(error?.status)) throw error;
   }
   if (!squad.length && lastMatch.lineup.length) squad = lastMatch.lineup;
-  const venue = relationRows(team.venue)[0] || team.venue || null;
+  const venue = normalizeSportmonksVenue(team);
   return {
     source: "sportmonks-football-api-v3",
     updatedAt: new Date().toISOString(),
-    team: { id: team.id, name: team.name || teamName, image: team.image_path || null, founded: team.founded || null },
-    venue: venue ? { id: venue.id || null, name: venue.name || null, city: venue.city_name || venue.city?.name || null, capacity: venue.capacity || null, image: venue.image_path || null } : null,
+    team: { id: team.id, name: team.name || teamName, image: team.image_path || null, founded: team.founded || null, country: team.country?.name || team.country || null },
+    venue,
+    address: venue?.address || null,
     coach: normalizeSportmonksCoach(team),
     squad,
     lineup: lastMatch.lineup,
