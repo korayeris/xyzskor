@@ -36,7 +36,7 @@ Tarayıcı hiçbir sağlayıcı tokenını görmez. Sportmonks, X ve YouTube ça
 | `/api/football/club?league=...&team=...` | Sportmonks | Kulüp, kadro, teknik direktör ve stat |
 | `/api/football/transfers?league=...` | Sportmonks | Transfer kayıtları; paket yetkisine bağlı |
 | `/api/social/x-media-v2?league=...` | X API v2 | Lig kulüpleri ve o lige özel transfer kaynakları |
-| `/api/social/x-preseason-v2?league=...` | X API v2 | Resmî hesaplardan hazırlık maçı/sonuç taraması |
+| `/api/social/x-preseason-v1?league=...` | X API v2 | Resmî hesaplardan hazırlık maçı/sonuç taraması; sunucu cache/sınıflandırıcı sürümü v2 |
 | `/api/media/youtube` | YouTube | Yayın masası video akışı |
 | `/api/health` | Worker | Sağlayıcıların yapılandırma durumu |
 
@@ -69,4 +69,3 @@ Token değerlerini `.js`, `.md`, `.openai/hosting.json` veya Git geçmişine ekl
 2. `http://127.0.0.1:4173` adresinden önizleyin.
 3. Değişiklikten sonra **XYZSKOR: Kontroller** ve **XYZSKOR: Production Build** görevlerini çalıştırın.
 4. `dist/` üretilen çıktıdır; kaynak düzenlemeyi `index.html`, `assets/`, `worker/` ve `supabase/` içinde yapın.
-

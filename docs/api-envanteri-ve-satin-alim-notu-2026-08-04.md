@@ -50,7 +50,7 @@ Bu belge iki şeyi ayırır:
 - `/api/football/club`
 - `/api/football/transfers`
 - `/api/social/x-media-v2`
-- `/api/social/x-preseason-v2`
+- `/api/social/x-preseason-v1` (sunucu sınıflandırıcısı/cache sürümü: v2)
 - `/api/media/youtube`
 
 ### 2.2 Supabase application layer

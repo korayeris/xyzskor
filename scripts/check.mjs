@@ -163,7 +163,7 @@ assert.match(workerSource, /max_results:\s*"50"/, 'Hazırlık maçı taraması s
 assert.match(workerSource, /findBestPreseasonPost/, 'X hazırlık akışı skor ve sonuç sinyalini önceliklendirmeli.');
 assert.match(workerSource, /MATCH_RESULT_KEYWORDS/, 'Hazırlık maçı sonuç ifadeleri ayrı sınıflandırılmalı.');
 assert.doesNotMatch(workerSource.match(/const PRESEASON_KEYWORDS = \[[\s\S]*?\];/)?.[0] || '', /play-?off|matchday/i, 'Resmî play-off ve genel maç günü paylaşımları hazırlık maçı sayılmamalı.');
-assert.match(appSource, /\/api\/social\/x-preseason-v2/, 'Yeni X hazırlık sonucu sınıflandırıcısı ayrı cache sürümü kullanmalı.');
+assert.match(workerSource, /new URL\("\/api\/social\/x-preseason-v2"/, 'Yeni X hazırlık sonucu sınıflandırıcısı ayrı cache sürümü kullanmalı.');
 assert.match(devServerSource, /startsWith\('\/api\/'\)[\s\S]*proxyApi/, 'Yerel önizleme X ve Sportmonks API rotalarını yayın katmanına iletmeli.');
 assert.match(workerSource, /X_TIMEOUT_MS/, 'X sağlayıcı isteği sınırsız süre açık kalmamalı.');
 assert.match(workerSource, /\/api\/health/, 'Üretim sağlık kontrolü bulunmalı.');
