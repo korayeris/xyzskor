@@ -1,20 +1,221 @@
-:root,[data-theme=default]{--bg-main:#0E1017;--bg-card:#161922;--bg-card-hover:#1E222F;--border-color:rgba(255,255,255,.08);--accent-primary:#FF9500;--accent-glow:rgba(255,149,0,.2);--badge-bg:rgba(255,149,0,.15);--text-primary:#F3F4F6;--text-secondary:#9CA3AF;--font-main:'Inter',-apple-system,sans-serif;--radius-md:12px;--shadow-soft:0 10px 30px -10px rgba(0,0,0,.5)}
-[data-league=ucl]{--bg-main:#070B19;--bg-card:#0F162B;--bg-card-hover:#17203B;--border-color:rgba(0,229,255,.18);--accent-primary:#00E5FF;--accent-glow:rgba(0,229,255,.25);--badge-bg:rgba(0,229,255,.12);--text-primary:#FFF;--text-secondary:#8DA0C4}
-[data-league=uel]{--bg-main:#0D0E12;--bg-card:#171A24;--bg-card-hover:#202433;--border-color:rgba(255,120,0,.2);--accent-primary:#FF7800;--accent-glow:rgba(255,120,0,.25);--badge-bg:rgba(255,120,0,.15);--text-primary:#F5F6F8;--text-secondary:#A0A7B5}
-[data-league=laliga]{--bg-main:#0F0A0D;--bg-card:#1C1217;--bg-card-hover:#281B21;--border-color:rgba(255,0,75,.2);--accent-primary:#FF004B;--accent-glow:rgba(255,0,75,.3);--badge-bg:rgba(255,0,75,.15);--text-primary:#FFF;--text-secondary:#B8A2AC}
-[data-league=epl]{--bg-main:#0C0617;--bg-card:#180D2E;--bg-card-hover:#251545;--border-color:rgba(0,255,133,.2);--accent-primary:#00FF85;--accent-glow:rgba(0,255,133,.25);--badge-bg:rgba(0,255,133,.12);--text-primary:#FFF;--text-secondary:#B3A0D1}
-[data-league=superlig]{--bg-main:#12080A;--bg-card:#1E1013;--bg-card-hover:#2B181C;--border-color:rgba(229,9,20,.25);--accent-primary:#E50914;--accent-glow:rgba(229,9,20,.3);--badge-bg:rgba(229,9,20,.15);--text-primary:#FFF;--text-secondary:#C8B0B4}
-[data-page=predict]{--bg-main:#060D14;--bg-card:#0D1926;--bg-card-hover:#142538;--border-color:rgba(0,242,254,.25);--accent-primary:#00F2FE;--accent-glow:rgba(0,242,254,.35);--badge-bg:rgba(0,242,254,.15);--text-primary:#E6F8FF;--text-secondary:#7FA8BE}
+ :root,
+:root[data-theme='default'] {
+  --bg-main:#0B1310;
+  --bg-card:#111C17;
+  --bg-card-hover:#182620;
+  --border-color:rgba(255,255,255,.08);
+  --text-primary:#F2F6F1;
+  --text-secondary:#8FA79A;
+  --accent-primary:#D9A94E;
+  --accent-glow:rgba(217,169,78,.20);
+  --badge-bg:rgba(217,169,78,.15);
+  --font-main:'Inter',-apple-system,sans-serif;
+  --radius-md:12px;
+  --shadow-soft:0 10px 30px -10px rgba(0,0,0,.28);
+  --league-bg-1:#0b1310;
+  --league-bg-2:#0f1612;
+  --league-bg-3:#111814;
+  --league-nav:#131c19;
+  --league-nav-2:#17211b;
+  --league-accent:#D9A94E;
+  --league-accent-2:#f2c56f;
+}
+
+body.league-theme-super-lig,
+body[data-league='superlig'],
+body[data-league='super-lig'],
+body.league-theme-super-lig[data-league='superlig'],
+body.league-theme-super-lig[data-league='super-lig']{
+  --bg:#443b40;
+  --bg-elev:#352f34;
+  --bg-elev-2:#29262a;
+  --bg-elev-3:#1f1f26;
+  --line:#4b5661;
+  --line-soft:#5a6977;
+  --ink:#f4f6f8;
+  --ink-dim:#aab4bf;
+  --ink-faint:#7f8b96;
+  --gold:#e17e86;
+  --gold-dim:#e5cf89;
+  --gold-ink:#231215;
+  --verify:#e17e86;
+  --verifybg:color-mix(in srgb, #e17e86 18%, transparent 88%);
+  --league-accent:#e17e86;
+  --league-accent-2:#f1b1ba;
+  --league-bg-1:#443b40;
+  --league-bg-2:#352f34;
+  --league-bg-3:#29262a;
+  --league-nav:#282226;
+  --league-nav-2:#403038;
+}
+
+body.league-theme-premier-league,
+body[data-league='epl'],
+body[data-league='premier-league'],
+body.league-theme-premier-league[data-league='epl'],
+body.league-theme-premier-league[data-league='premier-league']{
+  --bg:#3b384d;
+  --bg-elev:#302e40;
+  --bg-elev-2:#262533;
+  --bg-elev-3:#20202e;
+  --line:#4c596f;
+  --line-soft:#5e6d84;
+  --ink:#f4f6f8;
+  --ink-dim:#aab4bf;
+  --ink-faint:#8c96a7;
+  --gold:#7fd4b0;
+  --gold-dim:#c2a4d8;
+  --gold-ink:#0d1319;
+  --verify:#7fd4b0;
+  --verifybg:color-mix(in srgb, #7fd4b0 18%, transparent 88%);
+  --league-accent:#7fd4b0;
+  --league-accent-2:#c2a4d8;
+  --league-bg-1:#3b384d;
+  --league-bg-2:#302e40;
+  --league-bg-3:#262533;
+  --league-nav:#242330;
+  --league-nav-2:#373349;
+}
+
+body.league-theme-la-liga,
+body[data-league='laliga'],
+body[data-league='la-liga'],
+body.league-theme-la-liga[data-league='laliga'],
+body.league-theme-la-liga[data-league='la-liga']{
+  --bg:#473942;
+  --bg-elev:#383038;
+  --bg-elev-2:#2b272e;
+  --bg-elev-3:#27222a;
+  --line:#5b4f56;
+  --line-soft:#6d5f67;
+  --ink:#f4f6f8;
+  --ink-dim:#aab4bf;
+  --ink-faint:#8d95a0;
+  --gold:#e28a9a;
+  --gold-dim:#e8cc78;
+  --gold-ink:#191317;
+  --verify:#e28a9a;
+  --verifybg:color-mix(in srgb, #e28a9a 18%, transparent 88%);
+  --league-accent:#e28a9a;
+  --league-accent-2:#e8cc78;
+  --league-bg-1:#473942;
+  --league-bg-2:#383038;
+  --league-bg-3:#2b272e;
+  --league-nav:#29242b;
+  --league-nav-2:#40333d;
+}
+
+body.league-theme-champions-league,
+body[data-league='ucl'],
+body[data-league='champions-league'],
+body.league-theme-champions-league[data-league='ucl'],
+body.league-theme-champions-league[data-league='champions-league']{
+  --bg:#2c405b;
+  --bg-elev:#25364c;
+  --bg-elev-2:#1f2d40;
+  --bg-elev-3:#182231;
+  --line:#47607a;
+  --line-soft:#5c6f86;
+  --ink:#f4f6f8;
+  --ink-dim:#a9b2bc;
+  --ink-faint:#8290a1;
+  --gold:#78b9e9;
+  --gold-dim:#a8c9e6;
+  --gold-ink:#101a24;
+  --verify:#78b9e9;
+  --verifybg:color-mix(in srgb, #78b9e9 18%, transparent 88%);
+  --league-accent:#78b9e9;
+  --league-accent-2:#a8c9e6;
+  --league-bg-1:#2c405b;
+  --league-bg-2:#25364c;
+  --league-bg-3:#1f2d40;
+  --league-nav:#1d2c40;
+  --league-nav-2:#2a3d55;
+}
+
+body.league-theme-europa-league,
+body[data-league='uel'],
+body[data-league='europa-league'],
+body.league-theme-europa-league[data-league='uel'],
+body.league-theme-europa-league[data-league='europa-league']{
+  --bg:#443b32;
+  --bg-elev:#352f29;
+  --bg-elev-2:#29251f;
+  --bg-elev-3:#241f1a;
+  --line:#63554f;
+  --line-soft:#78685f;
+  --ink:#f4f6f8;
+  --ink-dim:#aab4bf;
+  --ink-faint:#9aa3af;
+  --gold:#d89b64;
+  --gold-dim:#edc28d;
+  --gold-ink:#221a12;
+  --verify:#d89b64;
+  --verifybg:color-mix(in srgb, #d89b64 18%, transparent 88%);
+  --league-accent:#d89b64;
+  --league-accent-2:#edc28d;
+  --league-bg-1:#443b32;
+  --league-bg-2:#352f29;
+  --league-bg-3:#29251f;
+  --league-nav:#27231f;
+  --league-nav-2:#3d352d;
+}
+
+body.league-theme-all,
+body[data-league='all'],
+body.league-theme-all[data-league='all']{
+  --bg:#0B1310;
+  --bg-elev:#111C17;
+  --bg-elev-2:#182620;
+  --bg-elev-3:#1F2F27;
+  --line:#233029;
+  --line-soft:#1A2621;
+  --ink:#F2F6F1;
+  --ink-dim:#8FA79A;
+  --ink-faint:#5E7568;
+  --gold:#D9A94E;
+  --gold-dim:#9C7A34;
+  --gold-ink:#171208;
+  --verify:#4F9BD9;
+  --verifybg:#122430;
+  --league-accent:#D9A94E;
+  --league-accent-2:#f2d47a;
+  --league-bg-1:#111a1f;
+  --league-bg-2:#181f24;
+  --league-bg-3:#0f161b;
+  --league-nav:#121a22;
+  --league-nav-2:#1a242d;
+}
+
+body[data-page='predict']{
+  --bg:#060D14;
+  --bg-elev:#0D1926;
+  --bg-elev-2:#142538;
+  --bg-elev-3:#1a2b45;
+  --line:#244663;
+  --line-soft:#1b374f;
+  --ink:#E6F8FF;
+  --ink-dim:#7FA8BE;
+  --ink-faint:#6a89a0;
+  --gold:#00F2FE;
+  --gold-dim:#8ad3df;
+  --gold-ink:#041016;
+  --league-bg-1:#0f1f2e;
+  --league-bg-2:#12283c;
+  --league-bg-3:#0e2137;
+  --league-accent:#00F2FE;
+  --league-accent-2:#8ad3df;
+}
 
 body{
-  background-color:var(--bg-main);
-  color:var(--text-primary);
+  background-color:color-mix(in srgb, var(--bg) 86%, black 14%);
+  color:var(--ink);
   font-family:var(--font-main);
   line-height:1.6;
   min-height:100vh;
   position:relative;
   overflow-x:hidden;
-  transition:background-color .4s ease,color .4s ease
+  transition:background-color .4s ease,color .4s ease;
 }
 body::before{content:"";position:absolute;top:-100px;right:-50px;width:700px;height:700px;background:radial-gradient(circle,var(--accent-glow) 0%,rgba(0,0,0,0) 70%);pointer-events:none;z-index:0;transition:all .4s ease}
 .app-container{max-width:1280px;margin:0 auto;padding:24px 16px;position:relative;z-index:1}

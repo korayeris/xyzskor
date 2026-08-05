@@ -577,7 +577,7 @@ function applyFootballLeagueTheme(){
   }
   const key = SELECTED_COMPETITIONS.some(item=>item.key===activeFootballLeague) ? activeFootballLeague : 'all';
   document.body.classList.add(`league-theme-${key}`);
-  document.body.dataset.league = leagueRouteSegment(key, true);
+  document.body.dataset.league = key;
 }
 function renderFootballLeaguePickerInto(area){
   if(!area) return;
