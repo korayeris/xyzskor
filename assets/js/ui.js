@@ -212,11 +212,11 @@ function leagueTeamSourceRows(){
     SUPER_LIG_CLUBS_2026_27.forEach(club=>push(club.team,club));
   }
   STANDINGS.filter(row=>activeFootballLeague==='all' || competitionSlug(row.competition||row.league||row.tournament||row.source)===activeFootballLeague)
-    .forEach(row=>push(row.team,{source:'standing'}));
+    .forEach(row=>push(row.team,{source:'standing',providerTeamId:row.provider_team_id||null,logo:row.team_logo||null,country:row.country||null}));
   MATCHES.filter(matchInActiveLeague).forEach(match=>{
     const competition=competitionName(match);
-    push(match.ev,{competition,stadium:match.stadyum&&match.stadyum!=='Açıklanacak'?match.stadyum:null,source:'fixture'});
-    push(match.konuk,{competition,source:'fixture'});
+    push(match.ev,{competition,providerTeamId:match.home_team_id||null,logo:match.home_logo||null,stadium:match.stadyum&&match.stadyum!=='Açıklanacak'?match.stadyum:null,source:'fixture'});
+    push(match.konuk,{competition,providerTeamId:match.away_team_id||null,logo:match.away_logo||null,source:'fixture'});
   });
   const label=competitionLabelBySlug(activeFootballLeague);
   return [...rows.values()].map((club,index)=>({
@@ -279,7 +279,7 @@ function clubLineupHTML(data,state){
 function clubSquadHTML(data){
   const squad=Array.isArray(data?.squad)?data.squad:[];
   if(!squad.length) return '';
-  return `<details class="club-squad-drawer"><summary>Güncel kadronun tamamı <span>${squad.length} oyuncu</span></summary><div class="club-squad-grid">${squad.map(player=>`<span><b>${escapeHTML(player.number||'—')}</b>${escapeHTML(player.name||'Oyuncu')}<small>${escapeHTML(player.position||'')}</small></span>`).join('')}</div></details>`;
+  return `<details class="club-squad-drawer"><summary>Güncel kadronun tamamı <span>${squad.length} oyuncu</span></summary><div class="club-squad-grid">${squad.map(player=>{ const photo=safeExternalURL(player.image); return `<span><span class="club-squad-photo">${photo?`<img src="${escapeHTML(photo)}" alt="${escapeHTML(player.name||'Oyuncu')}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><b>${escapeHTML(player.number||'—')}</b><span class="club-squad-name">${escapeHTML(player.name||'Oyuncu')}<small>${escapeHTML(player.position||'')}</small></span></span>`; }).join('')}</div></details>`;
 }
 function renderClubProfile(team,data,state='ready'){
   const panel=document.getElementById('clubProfilePanel'); const club=clubRecord(team); if(!panel||!club) return;
@@ -305,10 +305,12 @@ async function loadClubProfile(team){
   if(clubProfileCache.has(team)){ renderClubProfile(team,clubProfileCache.get(team),'ready'); return; }
   renderClubProfile(team,null,'loading');
   try{
-    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}`,{headers:{Accept:'application/json'}});
+    const providerTeamId=clubRecord(team)?.providerTeamId||'';
+    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}&teamId=${encodeURIComponent(providerTeamId)}`,{headers:{Accept:'application/json'},cache:'no-store'});
     const payload=await response.json().catch(()=>({}));
     if(response.status===503){ renderClubProfile(team,null,'unconfigured'); return; }
     if(!response.ok||!payload?.team) throw new Error(payload?.error||'club_data_unavailable');
+    if(payload?.team?.image && safeExternalURL(payload.team.image)) TEAM_CRESTS[team]=payload.team.image;
     clubProfileCache.set(team,payload); renderClubProfile(team,payload,'ready');
   }catch(_){ renderClubProfile(team,null,'unavailable'); }
 }

@@ -45,10 +45,10 @@ const PROVIDER_SEASON_CACHE_MS = 120000;
 const PROVIDER_LIVE_FALLBACK = '/api/football';
 const SELECTED_COMPETITIONS = [
   { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
+  { key:'premier-league', label:'Premier League', short:'EPL', sportmonksId:'8' },
+  { key:'la-liga', label:'La Liga', short:'La Liga', sportmonksId:'564' },
   { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL', sportmonksId:'2' },
   { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL', sportmonksId:'5' },
-  { key:'la-liga', label:'La Liga', short:'La Liga', sportmonksId:'564' },
-  { key:'premier-league', label:'Premier League', short:'EPL', sportmonksId:'8' },
   { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
 ];
 const LEAGUE_CONTEXT = {
@@ -615,6 +615,11 @@ async function loadAllData(){
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];
   const providerResults = providerBundle?.results?.length ? providerBundle.results : [];
+  providerStandings.forEach(row=>{ if(row?.team && safeExternalURL(row.team_logo)) TEAM_CRESTS[row.team]=row.team_logo; });
+  providerMatches.forEach(match=>{
+    if(match?.ev && safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo;
+    if(match?.konuk && safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo;
+  });
   MATCHES = providerMatches.length ? providerMatches : (scopedSuperLig ? matches : []);
   selectCurrentWeek(MATCHES);
   ANALYSIS = {}; analysisRows.forEach(r => ANALYSIS[r.match_id] = r.data || {});

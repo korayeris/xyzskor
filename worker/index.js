@@ -909,7 +909,7 @@ function normalizeProviderStanding(row, league, seasonId, index) {
     form: String(row?.form || "").slice(0, 8),
     source: "sportmonks", competition: league?.name || null, competition_logo: league?.image_path || null,
     country: league?.country?.name || null, provider_league_id: String(league?.id || ""), provider_season_id: String(seasonId),
-    provider_team_id: participant?.id ? String(participant.id) : null, verified_at: new Date().toISOString(),
+    provider_team_id: participant?.id ? String(participant.id) : null, team_logo: participant?.image_path || null, verified_at: new Date().toISOString(),
   };
 }
 
@@ -933,6 +933,8 @@ function normalizeProviderFixture(fixture, league, seasonId, roundNumber) {
     competition_logo: fixture?.league?.image_path || league?.image_path || null,
     country: fixture?.league?.country?.name || league?.country?.name || null,
     provider_league_id: String(league?.id || ""), provider_season_id: String(seasonId),
+    home_team_id: home?.id ? String(home.id) : null, away_team_id: away?.id ? String(away.id) : null,
+    home_logo: home?.image_path || null, away_logo: away?.image_path || null,
     result: status === "bitti" && homeScore != null && awayScore != null ? { home: Number(homeScore), away: Number(awayScore) } : null,
   };
 }
@@ -1197,11 +1199,14 @@ async function latestAvailableLineup(teamId, token) {
   return { lineup: [], formation: null, fixture: null };
 }
 
-async function fetchSportmonksClubProfile(teamName, token) {
+async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = null) {
   const searchName = SPORTMONKS_TEAM_SEARCH[teamName] || teamName;
   const searchParams = new URLSearchParams({ include: "venue;coaches.nationality" });
-  const search = await sportmonksRequest(`/teams/search/${encodeURIComponent(searchName)}?${searchParams}`, token);
-  const team = chooseSportmonksTeam(relationRows(search?.data), searchName);
+  const teamId = requestedTeamId && /^\d+$/.test(String(requestedTeamId)) ? String(requestedTeamId) : null;
+  const search = teamId
+    ? await sportmonksRequest(`/teams/${encodeURIComponent(teamId)}?${searchParams}`, token)
+    : await sportmonksRequest(`/teams/search/${encodeURIComponent(searchName)}?${searchParams}`, token);
+  const team = teamId ? search?.data : chooseSportmonksTeam(relationRows(search?.data), searchName);
   if (!team?.id) {
     const error = new Error("Sportmonks team not found"); error.status = 404; throw error;
   }
@@ -1238,8 +1243,9 @@ async function handleClubProfile(request, env, context) {
   if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
   const url = new URL(request.url);
   const team = url.searchParams.get("team") || "";
+  const teamId = url.searchParams.get("teamId") || "";
   if (!team.trim()) return jsonResponse({ error: "unknown_team" }, 400, { "Cache-Control": "no-store" });
-  const cacheUrl = new URL(url); cacheUrl.search = `?team=${encodeURIComponent(team)}`;
+  const cacheUrl = new URL(url); cacheUrl.search = `?team=${encodeURIComponent(team)}&teamId=${encodeURIComponent(teamId)}`;
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const staleUrl = new URL(`/api/football/club-stale-v1/${encodeURIComponent(team)}`, request.url);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
@@ -1247,8 +1253,9 @@ async function handleClubProfile(request, env, context) {
   const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
   const stale = await readEdgeCache(cache, staleKey);
   try {
-    if (!clubProfileRefreshes.has(team)) clubProfileRefreshes.set(team, fetchSportmonksClubProfile(team, token));
-    const payload = await clubProfileRefreshes.get(team);
+    const refreshKey = `${team}:${teamId}`;
+    if (!clubProfileRefreshes.has(refreshKey)) clubProfileRefreshes.set(refreshKey, fetchSportmonksClubProfile(team, token, teamId));
+    const payload = await clubProfileRefreshes.get(refreshKey);
     const response = jsonResponse(payload, 200, { "Cache-Control": CLUB_CACHE, "X-Data-Stale": "false" });
     writeEdgeCache(cache, cacheKey, response, context);
     writeEdgeCache(cache, staleKey, jsonResponse(payload, 200, { "Cache-Control": CLUB_STALE_CACHE }), context);
@@ -1262,7 +1269,7 @@ async function handleClubProfile(request, env, context) {
     const errorCode = status === 401 ? "sportmonks_token_invalid" : status === 403 ? "sportmonks_plan_restricted" : status === 429 ? "sportmonks_rate_limited" : status === 404 ? "sportmonks_team_not_found" : "sportmonks_upstream_unavailable";
     return jsonResponse({ error: errorCode }, status, { "Cache-Control": "no-store", "Retry-After": status === 429 ? "3600" : "300" });
   } finally {
-    clubProfileRefreshes.delete(team);
+    clubProfileRefreshes.delete(`${team}:${teamId}`);
   }
 }
 
