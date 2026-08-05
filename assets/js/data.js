@@ -41,41 +41,6 @@ const LIVE_FEED_CONFIG = {
   seasonScope: 'selected-leagues-season',
   refreshMs: 5000
 };
-const LEAGUE_KEY_CANONICAL = Object.freeze({
-  'ucl': 'champions-league',
-  'uel': 'europa-league',
-  'laliga': 'la-liga',
-  'epl': 'premier-league',
-  'superlig': 'super-lig',
-  'sl': 'super-lig',
-  'super-lig': 'super-lig',
-  'premier-league': 'premier-league',
-  'la-liga': 'la-liga',
-  'champions-league': 'champions-league',
-  'europa-league': 'europa-league',
-  'all': 'all'
-});
-const LEAGUE_KEY_SHORT = Object.freeze({
-  'super-lig': 'superlig',
-  'premier-league': 'epl',
-  'la-liga': 'laliga',
-  'champions-league': 'ucl',
-  'europa-league': 'uel',
-  'all': 'all'
-});
-function normalizeLeagueKey(value, fallback = 'super-lig') {
-  const key = String(value || '').trim().toLocaleLowerCase('tr-TR');
-  if (!key) return fallback || 'super-lig';
-  if (key === 'all') return 'all';
-  return LEAGUE_KEY_CANONICAL[key] || LEAGUE_KEY_CANONICAL[normalizeLooseText(key)] || key || fallback || 'super-lig';
-}
-function leagueRouteSegment(key = 'super-lig', useShort = true) {
-  const canonical = normalizeLeagueKey(key) || 'super-lig';
-  return useShort ? (LEAGUE_KEY_SHORT[canonical] || canonical) : canonical;
-}
-function leagueShortCode(key = 'super-lig') {
-  return LEAGUE_KEY_SHORT[key] || key;
-}
 const PROVIDER_SEASON_CACHE_MS = 120000;
 const PROVIDER_LIVE_FALLBACK = '/api/football';
 const SELECTED_COMPETITIONS = [
