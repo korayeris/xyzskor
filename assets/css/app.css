@@ -2044,6 +2044,21 @@ body[class*="league-theme-"] #page-story{
   border-radius:14px!important;
   background:#1d2126!important;
 }
+.transfer-signal-card:first-child{
+  border-color:rgba(255,210,118,.32)!important;
+  background:linear-gradient(145deg,rgba(255,210,118,.10),#1d2126 42%)!important;
+  box-shadow:0 18px 38px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,210,118,.18)!important;
+}
+.transfer-signal-card:first-child .transfer-signal-card-head::after{
+  content:"SABİT";
+  margin-left:auto;
+  border-radius:999px;
+  padding:5px 8px;
+  background:rgba(255,210,118,.13);
+  color:#ffd985;
+  font:850 8px/1 var(--font-mono);
+  letter-spacing:.08em;
+}
 .transfer-signal-card-body>p{
   color:#f0f3f5!important;
   font-size:12px!important;

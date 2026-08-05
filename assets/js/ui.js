@@ -1182,6 +1182,24 @@ function transferSignalCardHTML(entry){
   const avatar=account.profile_image_url?`<img src="${escapeHTML(account.profile_image_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:'𝕏';
   return `<article class="transfer-signal-card ${media?'has-media':''}"><header class="transfer-signal-card-head"><span class="transfer-signal-avatar">${avatar}</span><span><strong>${escapeHTML(account.team||account.handle||'Kaynak')}</strong><small>@${escapeHTML(account.handle||'source')}</small></span><b aria-label="X">𝕏</b></header><div class="transfer-signal-card-body"><p>${text}</p>${media}</div><footer class="transfer-signal-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?.created_at?escapeHTML(xPostDate(post.created_at)):'Polling aktif'}</time><a href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">Gönderiyi aç ↗</a></footer></article>`;
 }
+function salahPinnedSignalPost(){
+  const record=(leagueTransferRecords('rumours')||[]).find(item=>normalizeLoose(item.name).includes('salah')) || TRANSFER_CENTER_DATA.rumours.find(item=>normalizeLoose(item.name).includes('salah'));
+  if(!record) return null;
+  const photo=record.photo||TRANSFER_PLAYER_PHOTOS[record.name]||'';
+  return {
+    account:{team:'XYZSKOR Transfer',handle:'xyzskor',url:record.sourceUrl||'#',profile_image_url:null,publisher:true},
+    post:{
+      id:'xyzskor-pinned-salah',
+      text:`Mohamed Salah dosyası yeniden gündemde: ${record.detail||`${record.to} hattı için ${record.status||'son durum'} notu.`} Kaynak: ${record.source||'XYZSKOR editoryal kayıt'}`,
+      translated_text_tr:null,
+      created_at:'2026-07-28T12:00:00+03:00',
+      url:record.sourceUrl||'#',
+      metrics:{reply_count:0,retweet_count:0,like_count:0,impression_count:0},
+      media:photo?[{media_key:'salah-cover',type:'photo',url:photo,width:900,height:900,alt_text:'Mohamed Salah transfer haberi'}]:[]
+    },
+    pinned:true
+  };
+}
 function renderTransferSignals(shell){
   if(!shell) return;
   const requestedLeague=activeFootballLeague;
@@ -1189,7 +1207,8 @@ function renderTransferSignals(shell){
   fetchLeagueXMediaPayload().then(payload=>{
     if(activeFootballLeague!==requestedLeague) return;
     const accounts=(payload?.publishers||[]).slice(0,3);
-    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,6);
+    const pinned=salahPinnedSignalPost();
+    const posts=[...(pinned?[pinned]:[]),...accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,5)];
     if(!posts.length){
       const fallback=(accounts.length?accounts:rankedXClubs().slice(0,4)).map(account=>({account,post:null}));
       shell.innerHTML=`<div class="transfer-signal-head"><span>X kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · canlı polling bekleniyor</small></div><div class="transfer-signal-stream">${fallback.map(transferSignalCardHTML).join('')}</div>`;
