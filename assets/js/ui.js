@@ -746,7 +746,7 @@ async function loadXClubPosts(){
     stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('')+publisherCards.join('');
   }catch(error){
     xClubPostsRequest=null;
-    stage.innerHTML=`<div class="club-social-unavailable"><span>𝕏</span><strong>${escapeHTML(label)} X akışı şu anda alınamıyor</strong><p>${escapeHTML(/credit/i.test(String(error?.message||''))?'X API kullanım kredisi tükendi. Yeni kredi tanımlandığında gerçek gönderiler otomatik yüklenecek.':'Sağlayıcı gerçek gönderi döndürmedi; boş kulüp kartları gösterilmiyor.')}</p></div>`;
+    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,post:null})).join('');
   }
 }
 function renderClubSocial(){
@@ -799,15 +799,11 @@ async function loadPreseasonPosts(){
     const payload=await preseasonPostsRequest.promise;
     if(activeFootballLeague!==requestedLeague) return;
     const apiClubs=new Map((payload.clubs||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
-    const mediaClubs=clubs.map(club=>({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).filter(club=>xPostHasMedia(club.preseason_post));
-    if(!mediaClubs.length){
-      stage.innerHTML=`<div class="club-social-unavailable"><span>◎</span><strong>${escapeHTML(label)} görselli hazırlık postu bekleniyor</strong><p>Fotoğraf veya video kapağı olmayan hazırlık gönderileri bu alanda gösterilmiyor.</p></div>`;
-      return;
-    }
-    stage.innerHTML=mediaClubs.map(club=>preseasonCardHTML(club)).join('');
+    const mergedClubs=clubs.map(club=>({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})}));
+    stage.innerHTML=mergedClubs.map(club=>preseasonCardHTML(club)).join('');
   }catch(error){
     preseasonPostsRequest=null;
-    stage.innerHTML=`<div class="club-social-unavailable"><span>◎</span><strong>${escapeHTML(label)} hazırlık maçı akışı alınamıyor</strong><p>${escapeHTML(/credit/i.test(String(error?.message||''))?'X API kullanım kredisi tükendi. Kredi yenilendiğinde gerçek hazırlık maçı gönderileri otomatik yüklenecek.':'Sağlayıcı gerçek hazırlık maçı gönderisi döndürmedi; sahte boş kartlar gösterilmiyor.')}</p></div>`;
+    stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,preseason_post:null})).join('');
   }
 }
 function renderPreseasonSocial(){
@@ -1187,15 +1183,17 @@ function renderTransferSignals(shell){
   fetchLeagueXMediaPayload().then(payload=>{
     if(activeFootballLeague!==requestedLeague) return;
     const accounts=(payload?.publishers||[]).slice(0,3);
-    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).filter(entry=>xPostHasMedia(entry.post)).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,4);
+    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,6);
     if(!posts.length){
-      shell.innerHTML=`<div class="transfer-signal-empty"><strong>Kaynak havuzu hazırlanıyor</strong><p>Bu lig için sinyal hesapları bağlandığında burada otomatik akar.</p></div>`;
+      const fallback=(accounts.length?accounts:rankedXClubs().slice(0,4)).map(account=>({account,post:null}));
+      shell.innerHTML=`<div class="transfer-signal-head"><span>X kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · canlı polling bekleniyor</small></div><div class="transfer-signal-stream">${fallback.map(transferSignalCardHTML).join('')}</div>`;
       return;
     }
     shell.innerHTML=`<div class="transfer-signal-head"><span>Son transfer sinyalleri</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · ${posts.length} gönderi · ${accounts.length} kaynak</small></div><div class="transfer-signal-stream">${posts.map(transferSignalCardHTML).join('')}</div>`;
   }).catch(()=>{
     if(activeFootballLeague!==requestedLeague) return;
-    shell.innerHTML=`<div class="transfer-signal-empty"><strong>Kaynak sinyalleri geçici olarak alınamadı</strong><p>X watchlist polling katmanı tekrar denendiğinde burada güncellenecek.</p></div>`;
+    const fallback=rankedXClubs().slice(0,4).map(account=>({account,post:null}));
+    shell.innerHTML=`<div class="transfer-signal-head"><span>X kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · bağlantı tekrar denenecek</small></div><div class="transfer-signal-stream">${fallback.map(transferSignalCardHTML).join('')}</div>`;
   });
 }
 /* ===================== HABER + YOUTUBE YAYIN MASASI ===================== */

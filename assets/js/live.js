@@ -245,11 +245,13 @@ function liveStatusView(match){
 }
 function renderLiveFeed(){
   const list = document.getElementById('liveScoreList');
+  const shell = document.getElementById('page-live');
   const freshness = document.getElementById('liveFreshness');
   const providerState = document.getElementById('liveProviderState');
   const refreshBtn = document.getElementById('liveRefreshBtn');
   if(!list) return;
   if(refreshBtn) refreshBtn.disabled = liveFeedLoading;
+  if(shell) shell.classList.remove('has-live','live-empty');
   if(liveFeedLoading && !LIVE_FEED.loaded){
     list.innerHTML = `<div class="live-notice"><strong>Canlı maçlar kontrol ediliyor</strong><p>Seçili liglerdeki en güncel maç verisi alınıyor…</p></div>`;
     if(freshness) freshness.textContent='Güncelleniyor…';
@@ -257,13 +259,16 @@ function renderLiveFeed(){
   }
   if(LIVE_FEED.error && !LIVE_FEED.matches.length){
     list.innerHTML = `<div class="live-notice"><strong>Canlı veri şu anda alınamıyor</strong><p>Bağlantı güvenli sunucu katmanında kuruluyor. Biraz sonra yeniden deneyin; eski veya tahmini skor gösterilmeyecek.</p></div>`;
+    if(shell) shell.classList.add('live-empty');
     if(freshness) freshness.textContent='Bağlantı kurulamadı';
     if(providerState) providerState.textContent='Canlı kaynak doğrulanıyor';
     return;
   }
   const visibleMatches = LIVE_FEED.matches.filter(match=>activeFootballLeague==='all' || competitionSlug(match.competition)===activeFootballLeague);
+  if(shell) shell.classList.toggle('has-live', visibleMatches.length>0);
   if(!visibleMatches.length){
     list.innerHTML = `<div class="live-notice"><strong>Şu anda seçili liglerde canlı maç yok</strong><p>Canlı karşılaşma başladığında skor, dakika ve maç durumu bu ekrana otomatik olarak düşecek.</p></div>`;
+    if(shell) shell.classList.add('live-empty');
   }else{
     list.innerHTML = visibleMatches.map(match=>{
       const view = liveStatusView(match);
