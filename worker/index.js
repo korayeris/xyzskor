@@ -199,6 +199,10 @@ async function readEdgeCache(cache, key) {
   }
 }
 
+function isUsableJsonCache(response) {
+  return Boolean(response?.ok && String(response.headers.get("Content-Type") || "").toLowerCase().includes("application/json"));
+}
+
 function writeEdgeCache(cache, key, response, context) {
   if (!cache || !context?.waitUntil) return;
   try {
@@ -337,7 +341,7 @@ async function fetchXUsers(token, request, context) {
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey);
-  if (cached) return cached.json();
+  if (isUsableJsonCache(cached)) return cached.json();
 
   const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
   const clubs = X_CLUBS_BY_LEAGUE[league] || [];
@@ -477,7 +481,7 @@ async function handleXClubFeed(request, env, context) {
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey);
-  if (cached) return cached;
+  if (isUsableJsonCache(cached)) return cached;
   const stale = await readEdgeCache(cache, staleKey);
 
   try {
@@ -520,7 +524,7 @@ async function handleXPreseasonFeed(request, env, context) {
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey);
-  if (cached) return cached;
+  if (isUsableJsonCache(cached)) return cached;
   const stale = await readEdgeCache(cache, staleKey);
 
   try {
@@ -614,7 +618,7 @@ async function handleYouTubeMedia(request, env, context) {
   const staleUrl = new URL("/api/media/youtube-stale-v1", request.url);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
-  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   const stale = await readEdgeCache(cache, staleKey);
   try {
     if (!youtubeFeedRefreshPromise) youtubeFeedRefreshPromise = fetchYouTubeMedia(env.YOUTUBE_API_KEY);
@@ -1016,7 +1020,7 @@ async function handleFootballSeason(request, env, context) {
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   const cacheUrl = new URL(url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   try {
     const payload = await fetchSportmonksSeasonBundle(league, token);
     const response = jsonResponse(payload, 200, { "Cache-Control": SEASON_CACHE, "X-Data-Stale": "false" });
