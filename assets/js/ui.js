@@ -2167,16 +2167,58 @@ function renderFootballNews(){
 
   renderFootballStandingsCompact = function(){
     const area=document.getElementById('footballStandingsCompact'); if(!area) return;
-    const rows=standingRowsForActiveLeague().slice(0,5);
+    const rows=standingRowsForActiveLeague().slice(0,6);
+    const honors=document.getElementById('footballSeasonHonors');
+    if(honors){ honors.innerHTML=''; honors.hidden=true; }
+    setText('footballStandingsKicker',`${competitionShortBySlug(activeFootballLeague)} · CANLI YARIŞ`);
+    setText('footballStandingsTitle','Zirve hattı');
     if(activeFootballLeague!=='super-lig' && !rows.length){
       area.innerHTML=`<div class="league-module-waiting"><strong>${escapeHTML(competitionLabelBySlug(activeFootballLeague))} puan durumu bekleniyor</strong><p>${escapeHTML(providerUnavailableMessage(activeFootballLeague))}</p></div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Puan durumu alanını aç →</button>`;
       return;
     }
-    const summary=officialSeasonSummaryForLeague(activeFootballLeague);
-    const hasProviderRows=rows.some(row=>row.sourceType==='provider');
-    const label=summary?.season ? `${summary.season} tablo` : hasProviderRows ? `${competitionShortBySlug(activeFootballLeague)} tablo` : (activeFootballLeague==='super-lig'?'2024–25 final':competitionShortBySlug(activeFootballLeague));
-    const note=summary ? `<div class="standing-compact-note">Üstte son tamamlanan sezonun resmî özeti, altta bu lig için tabloda görünen son kayıt yer alır.</div>` : '';
-    area.innerHTML=`${note}<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
+    if(!rows.length){
+      area.innerHTML=`<div class="league-module-waiting"><strong>Puan durumu hazırlanıyor</strong><p>Sportmonks sezon tablosu geldiğinde lig yarışı burada görünecek.</p></div>`;
+      return;
+    }
+    const leader=rows[0];
+    const chasers=rows.slice(1);
+    const goalDiff=Number(leader.goal_difference||0);
+    const form=String(leader.form||'').slice(-5);
+    area.innerHTML=`<div class="league-race-board">
+      <article class="league-race-leader">
+        <div class="league-race-rank"><span>01</span><small>LİDER</small></div>
+        <div class="league-race-club">${crestHTML(leader.team,'md')}<div><strong>${escapeHTML(leader.team)}</strong><small>${Number(leader.played||0)} maç · ${goalDiff>0?'+':''}${goalDiff} averaj</small></div></div>
+        <div class="league-race-points"><strong>${Number(leader.points||0)}</strong><span>PUAN</span></div>
+      </article>
+      <div class="league-race-status"><span>Zirve takibi</span><small>${form?`Liderin son 5 formu: ${escapeHTML(form)}`:'Güncel lig sıralaması'}</small></div>
+      <div class="league-race-chasers">${chasers.map((row,index)=>{
+        const gap=Math.max(0,Number(leader.points||0)-Number(row.points||0));
+        const diff=Number(row.goal_difference||0);
+        return `<button class="league-race-row" type="button" onclick="openFootballSection('standings')" aria-label="${escapeHTML(row.team)} puan durumu">
+          <span class="league-race-position">${String(index+2).padStart(2,'0')}</span>
+          <span class="league-race-team">${crestHTML(row.team,'xs')}<b>${escapeHTML(row.team)}</b></span>
+          <span class="league-race-gap">${gap?`-${gap}`:'EŞİT'}<small>FARK</small></span>
+          <span class="league-race-score">${Number(row.points||0)}<small>P</small></span>
+          <span class="league-race-diff">${diff>0?'+':''}${diff}<small>AV</small></span>
+        </button>`;
+      }).join('')}</div>
+    </div><button class="football-module-full-link league-race-full" type="button" onclick="openFootballSection('standings')"><span>Tüm tablo ve form grafiği</span><b>Tabloyu aç →</b></button>`;
+  };
+
+  const renderPortalSponsorBase=renderPortalSponsor;
+  renderPortalSponsor = function(){
+    renderPortalSponsorBase();
+    const rail=document.getElementById('portalSponsorRail'); if(!rail) return;
+    const reward=Object.entries(REWARDS).flatMap(([team,items])=>(items||[]).map(item=>({team,item}))).find(entry=>entry.item&&entry.item.aciklama&&entry.item.aciklama!=='—');
+    const title=reward?escapeHTML(reward.item.aciklama):'Yeni haftanın ödülü yakında';
+    const meta=reward?`${escapeHTML(reward.team)} · ${escapeHTML(reward.item.sira)}. sıra`:'Predict sezonu';
+    rail.innerHTML=`<div class="prize-spotlight">
+      <div class="prize-spotlight-top"><span>HAFTANIN ÖDÜLÜ</span><b>MYTHOS</b></div>
+      <div class="prize-spotlight-number">01</div>
+      <div class="prize-spotlight-copy"><small>${meta}</small><strong>${title}</strong><p>Maçları tahmin et, haftalık sıralamaya gir.</p></div>
+      <button type="button" class="prize-spotlight-action" onclick="switchMainTab('predict')"><span>Ücretsiz katıl</span><b>Predict'e geç →</b></button>
+      <small class="prize-spotlight-legal">Bahis ve para yatırma yoktur.</small>
+    </div>`;
   };
 
   if(typeof renderAll==='function'){
