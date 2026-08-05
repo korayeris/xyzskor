@@ -212,7 +212,7 @@ function leagueTeamSourceRows(){
     SUPER_LIG_CLUBS_2026_27.forEach(club=>push(club.team,club));
   }
   STANDINGS.filter(row=>activeFootballLeague==='all' || competitionSlug(row.competition||row.league||row.tournament||row.source)===activeFootballLeague)
-    .forEach(row=>push(row.team,{source:'standing',providerTeamId:row.provider_team_id||null,logo:row.team_logo||null,country:row.country||null}));
+    .forEach(row=>push(row.team,{source:'standing',providerTeamId:row.provider_team_id||null,providerSeasonId:row.provider_season_id||null,logo:row.team_logo||null,country:row.country||null}));
   MATCHES.filter(matchInActiveLeague).forEach(match=>{
     const competition=competitionName(match);
     push(match.ev,{competition,providerTeamId:match.home_team_id||null,logo:match.home_logo||null,stadium:match.stadyum&&match.stadyum!=='Açıklanacak'?match.stadyum:null,source:'fixture'});
@@ -306,7 +306,8 @@ async function loadClubProfile(team){
   renderClubProfile(team,null,'loading');
   try{
     const providerTeamId=clubRecord(team)?.providerTeamId||'';
-    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}&teamId=${encodeURIComponent(providerTeamId)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+    const providerSeasonId=clubRecord(team)?.providerSeasonId||'';
+    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}&teamId=${encodeURIComponent(providerTeamId)}&seasonId=${encodeURIComponent(providerSeasonId)}`,{headers:{Accept:'application/json'},cache:'no-store'});
     const payload=await response.json().catch(()=>({}));
     if(response.status===503){ renderClubProfile(team,null,'unconfigured'); return; }
     if(!response.ok||!payload?.team) throw new Error(payload?.error||'club_data_unavailable');
