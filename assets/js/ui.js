@@ -671,6 +671,14 @@ function xMediaPreviewURL(media){
   const candidate=media?.type==='photo'?media?.url:(media?.preview_image_url||media?.url);
   return safeExternalURL(candidate);
 }
+function xPostDisplayText(post){
+  if(!post) return '';
+  const translated=post.translated_text_tr && normalizeLoose(post.translated_text_tr)!==normalizeLoose(post.text) ? post.translated_text_tr : '';
+  return translated || post.text || '';
+}
+function xPostHasMedia(post){
+  return Array.isArray(post?.media) && post.media.some(item=>xMediaPreviewURL(item));
+}
 function xPostMediaHTML(club,post,targetURL){
   const media=(Array.isArray(post?.media)?post.media:[]).map(item=>({item,url:xMediaPreviewURL(item)})).filter(entry=>entry.url).slice(0,4);
   if(!media.length) return '';
@@ -678,7 +686,9 @@ function xPostMediaHTML(club,post,targetURL){
   return `<div class="club-social-media ${countClass}" aria-label="${escapeHTML(club.team)} paylaşım medyası">${media.map(({item,url})=>{
     const label=item.alt_text||`${club.team} resmî paylaşım görseli`;
     const kind=item.type==='video'?'Video':item.type==='animated_gif'?'GIF':'';
-    return `<a class="club-social-media-item" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(label)}"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">${kind?`<span class="club-social-media-kind"><b aria-hidden="true">${item.type==='video'?'▶':'GIF'}</b>${escapeHTML(kind)}</span>`:''}</a>`;
+    const ratio=Number(item.width)&&Number(item.height)?Number(item.width)/Number(item.height):1.6;
+    const shape=ratio<.86?'is-portrait':ratio>1.45?'is-wide':'is-balanced';
+    return `<a class="club-social-media-item ${shape}" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(label)}"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">${kind?`<span class="club-social-media-kind"><b aria-hidden="true">${item.type==='video'?'▶':'GIF'}</b>${escapeHTML(kind)}</span>`:''}</a>`;
   }).join('')}</div>`;
 }
 function xPostCardHTML(club){
@@ -687,7 +697,7 @@ function xPostCardHTML(club){
   const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
   const mediaBody=xPostMediaHTML(club,post,targetURL);
-  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>${mediaBody}
+  const postBody=post?`<p class="club-social-copy">${escapeHTML(xPostDisplayText(post))}</p>${mediaBody}
     <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
@@ -759,7 +769,7 @@ function preseasonCardHTML(club){
   const targetURL=post?.url||club.url;
   const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
-  const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">${escapeHTML(post.label||'Hazırlık')}</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(post.text)}</p>${mediaBody}
+  const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">${escapeHTML(post.label||'Hazırlık')}</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(xPostDisplayText(post))}</p>${mediaBody}
     <div class="club-social-meta preseason-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(post.metrics?.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(post.metrics?.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(post.metrics?.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(post.metrics?.retweet_count))}</span>
@@ -789,7 +799,12 @@ async function loadPreseasonPosts(){
     const payload=await preseasonPostsRequest.promise;
     if(activeFootballLeague!==requestedLeague) return;
     const apiClubs=new Map((payload.clubs||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
-    stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('');
+    const mediaClubs=clubs.map(club=>({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).filter(club=>xPostHasMedia(club.preseason_post));
+    if(!mediaClubs.length){
+      stage.innerHTML=`<div class="club-social-unavailable"><span>◎</span><strong>${escapeHTML(label)} görselli hazırlık postu bekleniyor</strong><p>Fotoğraf veya video kapağı olmayan hazırlık gönderileri bu alanda gösterilmiyor.</p></div>`;
+      return;
+    }
+    stage.innerHTML=mediaClubs.map(club=>preseasonCardHTML(club)).join('');
   }catch(error){
     preseasonPostsRequest=null;
     stage.innerHTML=`<div class="club-social-unavailable"><span>◎</span><strong>${escapeHTML(label)} hazırlık maçı akışı alınamıyor</strong><p>${escapeHTML(/credit/i.test(String(error?.message||''))?'X API kullanım kredisi tükendi. Kredi yenilendiğinde gerçek hazırlık maçı gönderileri otomatik yüklenecek.':'Sağlayıcı gerçek hazırlık maçı gönderisi döndürmedi; sahte boş kartlar gösterilmiyor.')}</p></div>`;
@@ -850,7 +865,7 @@ function renderFootballQuickMatches(){
   const rows = footballQuickMatchRows();
   if(!rows.length){ area.innerHTML=footballEmpty('Maç bulunmuyor','Yayınlanmış fikstür veya doğrulanmış canlı maç kaydı henüz yok.'); return; }
   const user = getCurrentUser();
-  const overviewRows=rows.slice(0,5);
+  const overviewRows=rows.slice(0,12);
   area.innerHTML = overviewRows.map(m=>{
     const state = explicitMatchState(m); const result = getResult(m.id);
     const prediction = user && ALL_PREDICTIONS[m.id] && ALL_PREDICTIONS[m.id][user.id];
@@ -1023,7 +1038,7 @@ function leagueEditorialBaseEntries(){
       routeTarget:'transfers'
     });
   });
-  rumours.forEach(item=>{
+  rumours.filter(item=>item.photo||TRANSFER_PLAYER_PHOTOS[item.name]).forEach(item=>{
     entries.push({
       kind:'rumour',
       title:`${item.name} için ${item.to} hattı`,
@@ -1031,7 +1046,7 @@ function leagueEditorialBaseEntries(){
       source:item.source||`${label} söylenti hattı`,
       label:'Söylenti',
       time:'',
-      image:TRANSFER_PLAYER_PHOTOS[item.name]||null,
+      image:item.photo||TRANSFER_PLAYER_PHOTOS[item.name]||null,
       imageType:(TRANSFER_PLAYER_PHOTOS[item.name]?'portrait':'none'),
       sourceUrl:item.sourceUrl||null,
       routeTarget:'transfers'
@@ -1159,12 +1174,11 @@ function renderPreseasonSocial(){
 function transferSignalCardHTML(entry){
   const account=entry?.account||entry||{};
   const post=entry?.post||account?.post||null;
-  const translated=post?.translated_text_tr && normalizeLoose(post.translated_text_tr)!==normalizeLoose(post.text) ? `<p class="transfer-signal-translation">${escapeHTML(post.translated_text_tr)}</p>` : '';
-  const text=post?.text ? escapeHTML(post.text) : 'Yeni sinyal postu bekleniyor.';
+  const text=post ? escapeHTML(xPostDisplayText(post)) : 'Yeni sinyal postu bekleniyor.';
   const targetURL=post?.url||account?.url||'#';
   const media=post?xPostMediaHTML(account,post,targetURL):'';
   const avatar=account.profile_image_url?`<img src="${escapeHTML(account.profile_image_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:'𝕏';
-  return `<article class="transfer-signal-card ${media?'has-media':''}"><header class="transfer-signal-card-head"><span class="transfer-signal-avatar">${avatar}</span><span><strong>${escapeHTML(account.team||account.handle||'Kaynak')}</strong><small>@${escapeHTML(account.handle||'source')}</small></span><b aria-label="X">𝕏</b></header><div class="transfer-signal-card-body"><p>${text}</p>${translated}${media}</div><footer class="transfer-signal-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?.created_at?escapeHTML(xPostDate(post.created_at)):'Polling aktif'}</time><a href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">Gönderiyi aç ↗</a></footer></article>`;
+  return `<article class="transfer-signal-card ${media?'has-media':''}"><header class="transfer-signal-card-head"><span class="transfer-signal-avatar">${avatar}</span><span><strong>${escapeHTML(account.team||account.handle||'Kaynak')}</strong><small>@${escapeHTML(account.handle||'source')}</small></span><b aria-label="X">𝕏</b></header><div class="transfer-signal-card-body"><p>${text}</p>${media}</div><footer class="transfer-signal-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?.created_at?escapeHTML(xPostDate(post.created_at)):'Polling aktif'}</time><a href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">Gönderiyi aç ↗</a></footer></article>`;
 }
 function renderTransferSignals(shell){
   if(!shell) return;
@@ -1173,7 +1187,7 @@ function renderTransferSignals(shell){
   fetchLeagueXMediaPayload().then(payload=>{
     if(activeFootballLeague!==requestedLeague) return;
     const accounts=(payload?.publishers||[]).slice(0,3);
-    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,4);
+    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).filter(entry=>xPostHasMedia(entry.post)).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,4);
     if(!posts.length){
       shell.innerHTML=`<div class="transfer-signal-empty"><strong>Kaynak havuzu hazırlanıyor</strong><p>Bu lig için sinyal hesapları bağlandığında burada otomatik akar.</p></div>`;
       return;
@@ -1198,14 +1212,16 @@ function editorialTransferEntries(){
     ...(leagueTransferRecords('confirmed')||[]).map(item=>({...item,editorialTone:item.status||'Resmî işlem',editorialKind:'confirmed'})),
     ...(leagueTransferRecords('rumours')||[]).map(item=>({...item,editorialTone:item.status||'Söylenti',editorialKind:'rumour'}))
   ];
-  return rows.filter(item=>activeFootballTeam==='Tümü'||item.to===activeFootballTeam||item.from===activeFootballTeam).map(item=>({
+  return rows
+    .filter(item=>item.editorialKind!=='rumour' || item.photo || TRANSFER_PLAYER_PHOTOS[item.name])
+    .filter(item=>activeFootballTeam==='Tümü'||item.to===activeFootballTeam||item.from===activeFootballTeam).map(item=>({
     kind:'source',
     title:item.editorialKind==='confirmed'?`${item.name}: ${item.from} → ${item.to}`:`${item.name} için ${item.to} gündeminde son durum`,
     text:item.detail||`${item.fee} · ${item.status}`,
     source:item.source,
     sourceUrl:safeExternalURL(item.sourceUrl),
     label:item.editorialTone,
-    image:TRANSFER_PLAYER_PHOTOS[item.name]||null,
+    image:item.photo||TRANSFER_PLAYER_PHOTOS[item.name]||null,
     imageType:'portrait'
   }));
 }
@@ -1305,7 +1321,7 @@ function renderFootballTransfers(){
   }
   if(activeFootballLeague!=='all'){
     const label=competitionLabelBySlug(activeFootballLeague);
-    const rows=leagueTransferRecords('confirmed').slice(0,4);
+    const rows=leagueTransferRecords('confirmed').slice(0,6);
     area.innerHTML=rows.length
       ? `<div class="transfer-compact-list">${rows.map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`
       : `<div class="league-module-waiting"><strong>${escapeHTML(label)} transfer akışı hazırlanıyor</strong><p>Transfer ve söylenti kapsaması bağlandığında ana liste dolar; o sırada canlı kaynak sinyalleri aşağıda akmaya devam eder.</p></div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
