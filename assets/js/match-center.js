@@ -32,17 +32,32 @@ async function mcQuery(promise, label){
 }
 async function ensureMcData(matchId){
   if(mcCache[matchId] && mcCache[matchId].loaded) return mcCache[matchId];
-  const entry = { lineups:[], absences:[], modelPred:null, consensus:null, errors:{}, loaded:false };
-  const [lineupsRes, absencesRes, modelRes, consensusRes] = await Promise.all([
+  const entry = { lineups:[], absences:[], events:[], statistics:[], provider:null, modelPred:null, consensus:null, errors:{}, loaded:false };
+  const providerPromise=String(matchId).startsWith('sportmonks:')?fetch(`/api/football/fixture?id=${encodeURIComponent(matchId)}`,{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>({})); if(!response.ok) throw new Error(payload.error||'fixture_unavailable'); return payload; }).catch(error=>({error:error.message||'fixture_unavailable'})):Promise.resolve(null);
+  const [lineupsRes, absencesRes, modelRes, consensusRes, providerRes] = await Promise.all([
     mcQuery(sb.from('match_lineups').select('*').eq('match_id', matchId), 'match_lineups'),
     mcQuery(sb.from('match_absences').select('*').eq('match_id', matchId), 'match_absences'),
     mcQuery(sb.from('model_predictions').select('*').eq('match_id', matchId).maybeSingle(), 'model_predictions'),
-    mcQuery(sb.rpc('get_match_prediction_consensus', { p_match_id: matchId }), 'prediction_consensus')
+    mcQuery(sb.rpc('get_match_prediction_consensus', { p_match_id: matchId }), 'prediction_consensus'),
+    providerPromise
   ]);
   entry.lineups = Array.isArray(lineupsRes.data) ? lineupsRes.data : [];
   entry.absences = Array.isArray(absencesRes.data) ? absencesRes.data : [];
   entry.modelPred = modelRes.data || null;
   entry.consensus = Array.isArray(consensusRes.data) ? (consensusRes.data[0] || null) : null;
+  if(providerRes?.details){
+    const details=providerRes.details; entry.provider=providerRes;
+    if(!entry.lineups.length) entry.lineups=Array.isArray(details.lineups)?details.lineups:[];
+    if(!entry.absences.length) entry.absences=Array.isArray(details.absences)?details.absences:[];
+    entry.events=Array.isArray(details.events)?details.events:[];
+    entry.statistics=Array.isArray(details.statistics)?details.statistics:[];
+    const match=MATCHES.find(item=>item.id===matchId);
+    if(match){
+      if(details.venue?.name) match.stadyum=details.venue.name;
+      if(details.referee?.name) match.referee_name=details.referee.name;
+      if(details.weather) match.weather={sicaklik:details.weather.temperature??details.weather.temp??details.weather.temperature_celsius??null,yagis_ihtimali:details.weather.chance_of_rain??details.weather.rain_chance??null};
+    }
+  }else if(providerRes?.error) entry.errors.provider=providerRes.error;
   if(lineupsRes.error) entry.errors.lineups=lineupsRes.error;
   if(absencesRes.error) entry.errors.absences=absencesRes.error;
   if(modelRes.error) entry.errors.model=modelRes.error;
@@ -204,6 +219,14 @@ function absencePresentation(a){
   return { label:raw ? String(a.availability_status || a.status) : 'Durum belirtilmedi', tone:'neutral' };
 }
 function renderMcStats(m){
+  const cached=mcCache[m.id];
+  if(cached?.statistics?.length){
+    const labels=[...new Set(cached.statistics.map(row=>row.label))].slice(0,14);
+    const value=(team,label)=>cached.statistics.find(row=>row.team===team&&row.label===label)?.value ?? '—';
+    const compare=(label,home,away)=>`<div class="mc-vs-grid"><div class="val">${escapeHTML(home)}</div><div class="lbl">${escapeHTML(label)}</div><div class="val">${escapeHTML(away)}</div></div>`;
+    document.getElementById('mcBody').innerHTML=`<section class="mc-section"><div class="mc-section-title">Canlı maç istatistikleri</div>${labels.map(label=>compare(label,value(m.ev,label),value(m.konuk,label))).join('')}</section><div class="source-line">Kaynak: Sportmonks Football API · Maç sağlayıcı kaydı</div>`;
+    return;
+  }
   const evRow=STANDINGS.find(row=>row.team===m.ev), awayRow=STANDINGS.find(row=>row.team===m.konuk);
   if(!evRow || !awayRow){ document.getElementById('mcBody').innerHTML='<div class="mc-empty">Maç istatistikleri henüz oluşmadı. Puan durumu karşılaştırması için sağlayıcı güncellemesi bekleniyor.</div>'; return; }
   const sorted=[...STANDINGS].sort((a,b)=>(b.points??-Infinity)-(a.points??-Infinity));
@@ -232,7 +255,13 @@ function renderMcAbsences(m){
   });
 }
 function renderMcFlow(m){
-  document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Bu maç için doğrulanmış olay akışı bulunmuyor. Gol, kart veya oyuncu değişikliği tahmin edilerek gösterilmeyecek.</div>`;
+  ensureMcData(m.id).then(data=>{
+    if(mcMatchId!==m.id || mcTab!=='flow') return;
+    if(!data.events.length){ document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Maç henüz başlamadıysa olay akışı doğal olarak boştur. Başladıktan sonra gol, kart ve değişiklikler Sportmonks üzerinden burada akar.</div>`; return; }
+    const events=[...data.events].sort((a,b)=>Number(a.minute||0)-Number(b.minute||0));
+    document.getElementById('mcBody').innerHTML=`<section class="mc-section"><div class="mc-section-title">Maç akışı</div>${events.map(event=>`<div class="mc-lineup-row"><span><b>${escapeHTML(event.minute!=null?event.minute+"'":'—')}</b> · ${escapeHTML(event.type||'Olay')} · ${escapeHTML(event.player||event.team||'')}</span><span class="mono">${escapeHTML(event.result||event.team||'')}</span></div>`).join('')}</section><div class="source-line">Kaynak: Sportmonks Football API</div>`;
+  });
+  document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Sportmonks maç akışı yükleniyor…</div>`;
 }
 function mcModelHTML(m){
   const mm=matchMathMetrics(m);

@@ -799,13 +799,14 @@ linear-gradient(140deg,rgba(16,24,34,.96) 0%,rgba(10,15,24,.98) 54%,rgba(18,33,5
 .transfer-signal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
 .transfer-signal-head span{color:#f5f7fa;font:700 8px/1 var(--font-mono);letter-spacing:.18em;text-transform:uppercase}
 .transfer-signal-head small{color:#7f8792;font:650 8px/1.4 var(--font-mono);text-transform:uppercase}
-.transfer-signal-stream{display:grid;max-height:320px;overflow-y:auto}
-.transfer-signal-card{display:grid;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,.06);background:#171b22}
-.transfer-signal-card:first-child{border-top:0}
+.transfer-signal-stream{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(285px,340px);gap:10px;padding:12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:thin}
+.transfer-signal-card{display:grid;grid-template-rows:auto 1fr auto;gap:10px;min-height:250px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:linear-gradient(155deg,#202630,#15191f);scroll-snap-align:start}
+.transfer-signal-card.has-media{min-height:390px}
 .transfer-signal-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.transfer-signal-card-head strong{color:#f4f6f8;font:720 11px/1.2 var(--font-display)}
-.transfer-signal-card-head small{color:#8c95a1;font:650 8px/1.2 var(--font-mono)}
-.transfer-signal-card-body p{margin:0;color:#d9dee5;font-size:10px;line-height:1.55}
+.transfer-signal-card-head>span:nth-child(2){display:grid;gap:3px;min-width:0;margin-right:auto}.transfer-signal-card-head>b{color:#f5f7fa;font-size:17px}.transfer-signal-avatar{display:grid;place-items:center;width:38px;height:38px;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:#0f1115;color:#fff}.transfer-signal-avatar img{width:100%;height:100%;object-fit:cover}
+.transfer-signal-card-head strong{color:#f4f6f8;font:720 12px/1.2 var(--font-display)}
+.transfer-signal-card-head small{color:#8c95a1;font:650 9px/1.2 var(--font-mono)}
+.transfer-signal-card-body{min-width:0}.transfer-signal-card-body>p{margin:0;color:#d9dee5;font-size:11px;line-height:1.55}.transfer-signal-card-body .club-social-media{margin-top:12px;border-radius:9px;overflow:hidden}
 .transfer-signal-translation{margin-top:8px!important;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);color:#9ec7f1!important}
 .transfer-signal-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .transfer-signal-card-foot time{color:#7f8792;font:650 8px/1.2 var(--font-mono)}

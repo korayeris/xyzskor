@@ -129,6 +129,13 @@ const SELECTED_LEAGUE_IDS_BY_KEY = Object.freeze({
   "premier-league": ["8"],
   all: ["600", "2", "5", "564", "8"],
 });
+const SELECTED_LEAGUE_NAMES_BY_KEY = Object.freeze({
+  "super-lig": "Süper Lig",
+  "champions-league": "UEFA Champions League",
+  "europa-league": "UEFA Europa League",
+  "la-liga": "LaLiga",
+  "premier-league": "Premier League",
+});
 const SELECTED_LEAGUE_KEYS = new Set(Object.keys(SELECTED_LEAGUE_IDS_BY_KEY));
 const X_LEAGUE_KEYS = new Set(Object.keys(X_CLUBS_BY_LEAGUE));
 
@@ -362,14 +369,20 @@ async function fetchXClubFeed(token, request, context) {
       });
       const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
       const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-      const normalized = normalizeXPost({ ...club, publisher }, timeline.data?.[0] || null, mediaByKey);
-      const translatedText = normalized.post?.text ? await translateTextToTurkish(normalized.post.text) : null;
+      const posts = await Promise.all((timeline.data || []).slice(0, publisher ? 2 : 1).map(async (row) => {
+        const normalized = normalizeXPost({ ...club, publisher }, row, mediaByKey).post;
+        const translatedText = normalized?.text ? await translateTextToTurkish(normalized.text) : null;
+        return normalized ? { ...normalized, translated_text_tr: translatedText } : null;
+      }));
+      const normalizedPosts = posts.filter(Boolean);
       return {
-        ...normalized,
+        ...club,
+        publisher,
         account_found: true,
         verified: Boolean(user.verified || user.verified_type),
         profile_image_url: user.profile_image_url || null,
-        post: normalized.post ? { ...normalized.post, translated_text_tr: translatedText } : null,
+        post: normalizedPosts[0] || null,
+        posts: normalizedPosts,
       };
     } catch (error) {
       if (error?.status === 402) throw error;
@@ -453,13 +466,13 @@ async function handleXClubFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/social/x-media-v2", request.url);
+  const cacheUrl = new URL("/api/social/x-media-v3", request.url);
   const requestedLeague = cacheUrl.searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-media-stale-v2", request.url);
+  const staleUrl = new URL("/api/social/x-media-stale-v3", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
@@ -873,11 +886,65 @@ function sportmonksScore(scores, participantId) {
   return goals !== undefined && goals !== null && Number.isFinite(Number(goals)) ? Number(goals) : null;
 }
 
+function normalizeSportmonksFixtureDetails(fixture) {
+  const participants = relationRows(fixture?.participants);
+  const teamById = new Map(participants.map((team) => [String(team?.id), team]));
+  const lineups = relationRows(fixture?.lineups).map((row) => {
+    const player = row?.player || {};
+    const team = teamById.get(String(row?.team_id || row?.participant_id)) || {};
+    const position = row?.position || row?.detailedposition || row?.detailedPosition || {};
+    return { team:team.name || null, player_name:row?.player_name || player.display_name || player.common_name || player.name || null, number:row?.jersey_number ?? null, position:position.name || position.code || null, is_official:true, is_captain:Boolean(row?.captain), is_keeper:/goal|keeper|kaleci/i.test(position.name || position.code || ""), type_id:row?.type_id ?? null };
+  }).filter((row) => row.team && row.player_name);
+  const absences = relationRows(fixture?.sidelined).map((row) => {
+    const player = row?.player || {};
+    const team = teamById.get(String(row?.participant_id || row?.team_id)) || {};
+    return { team:team.name || null, player_name:player.display_name || player.common_name || player.name || row?.player_name || null, reason:row?.reason || row?.description || row?.category || null, availability_status:row?.type?.name || row?.type || "other", verification_status:"provider", source:"Sportmonks" };
+  }).filter((row) => row.team && row.player_name);
+  const events = relationRows(fixture?.events).map((row) => ({ id:row?.id || null, minute:row?.minute ?? row?.sort_order ?? null, team:teamById.get(String(row?.participant_id))?.name || null, player:row?.player_name || row?.player?.display_name || row?.player?.name || null, relatedPlayer:row?.related_player_name || row?.relatedplayer?.display_name || null, type:row?.type?.name || row?.type?.code || row?.type || row?.addition || "Olay", result:row?.result || null })).filter((row) => row.team || row.player);
+  const statistics = relationRows(fixture?.statistics).map((row) => ({ team:teamById.get(String(row?.participant_id))?.name || null, label:row?.type?.name || row?.type?.code || row?.name || null, value:row?.data?.value ?? row?.value ?? null })).filter((row) => row.team && row.label && row.value !== null);
+  const refereeRow = relationRows(fixture?.referees)[0];
+  const referee = refereeRow?.referee || refereeRow || null;
+  return { lineups, absences, events, statistics, formations:relationRows(fixture?.formations), periods:relationRows(fixture?.periods), venue:fixture?.venue || null, referee:referee ? { name:referee.display_name || referee.common_name || referee.name || null, image:referee.image_path || null } : null, weather:fixture?.weatherreport || fixture?.weatherReport || null };
+}
+
+async function sportmonksFixtureRequest(path, token) {
+  const includeSets = [
+    "participants;scores;league.country;state;events.type;lineups.player;lineups.position;statistics.type;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
+    "participants;scores;league;state;events;lineups.player;statistics.type;venue;periods;formations",
+    "participants;scores;league;state",
+  ];
+  const errors = [];
+  for (const includes of includeSets) {
+    try {
+      const payload = await sportmonksRequest(`${path}${path.includes("?") ? "&" : "?"}include=${encodeURIComponent(includes)}`, token);
+      return { payload, includes, degraded:errors.length > 0 };
+    } catch (error) {
+      errors.push(error);
+      if (![400, 403, 404, 422].includes(error?.status)) throw error;
+    }
+  }
+  throw errors.at(-1) || new Error("Sportmonks fixture request unavailable");
+}
+
 async function fetchSportmonksSeasonBundle(leagueKey, token) {
   const leagueId = (SELECTED_LEAGUE_IDS_BY_KEY[leagueKey] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"])[0];
-  const leaguePayload = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason;seasons;country`, token);
-  const league = leaguePayload?.data || { id: leagueId };
-  const season = sportmonksCurrentSeason(league);
+  let league = { id: leagueId, name: SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || null };
+  let season = null;
+  let leagueLookupError = null;
+  try {
+    const leaguePayload = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason;seasons;country`, token);
+    league = { ...league, ...(leaguePayload?.data || {}) };
+    season = sportmonksCurrentSeason(league);
+  } catch (error) {
+    leagueLookupError = error;
+  }
+  if (!season?.id) {
+    const seasonsPayload = await sportmonksRequest(`/seasons?include=league.country&filters=seasonLeagues:${encodeURIComponent(leagueId)}&order=desc&per_page=25`, token);
+    const seasons = relationRows(seasonsPayload?.data).filter((row) => row?.id);
+    season = sportmonksCurrentSeason({ seasons });
+    const seasonLeague = season?.league || seasons[0]?.league;
+    if (seasonLeague) league = { ...league, ...seasonLeague };
+  }
   if (!season?.id) throw new Error("Sportmonks aktif sezon bulunamadı");
   const seasonId = String(season.id);
   const [standingsResult, scheduleResult] = await Promise.allSettled([
@@ -903,7 +970,8 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
     competition: league.name || null, updatedAt: new Date().toISOString(), matches: uniqueMatches,
     results: uniqueMatches.filter((row) => row.result).map((row) => ({ match_id: row.id, ...row.result, scored_at: new Date().toISOString() })),
     standings: standings.sort((a, b) => Number(b.points || 0) - Number(a.points || 0)),
-    errors: [standingsResult, scheduleResult].flatMap((result, index) => result.status === "rejected" ? [{ module: index === 0 ? "standings" : "fixtures", message: result.reason?.providerMessage || result.reason?.message || "unavailable" }] : []),
+    coverage: { fixtures: uniqueMatches.length, results: uniqueMatches.filter((row) => row.result).length, standings: standings.length },
+    errors: [standingsResult, scheduleResult].flatMap((result, index) => result.status === "rejected" ? [{ module: index === 0 ? "standings" : "fixtures", message: result.reason?.providerMessage || result.reason?.message || "unavailable" }] : []).concat(leagueLookupError ? [{ module:"league", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "fallback_used" }] : []),
   };
 }
 
@@ -937,18 +1005,33 @@ async function handleFootballLive(request, env, context) {
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
   try {
-    const payload = await sportmonksRequest(`/livescores/inplay?include=participants;scores;league;state`, token);
+    const liveResult = await sportmonksFixtureRequest("/livescores/inplay", token);
+    const payload = liveResult.payload;
     const matches = relationRows(payload?.data).filter((fixture) => leagueIds.includes(String(fixture?.league_id))).map((fixture) => {
       const participants = relationRows(fixture?.participants);
       const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
       const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
       const code = String(fixture?.state?.short_name || fixture?.state?.state || "LIVE").toUpperCase();
-      return { id:`sportmonks:${fixture.id}`, competition:fixture?.league?.name || "Seçili lig", competitionLogo:fixture?.league?.image_path || null, country:fixture?.league?.country?.name || null, startedAt:fixture?.starting_at || null, status:code === "HT" ? "halftime" : "live", minute:Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null, home:{ id:String(home.id || ""), name:String(home.name || "Ev sahibi"), logo:home.image_path || null, score:sportmonksScore(fixture?.scores, home.id) }, away:{ id:String(away.id || ""), name:String(away.name || "Deplasman"), logo:away.image_path || null, score:sportmonksScore(fixture?.scores, away.id) } };
+      return { id:`sportmonks:${fixture.id}`, competition:fixture?.league?.name || "Seçili lig", competitionLogo:fixture?.league?.image_path || null, country:fixture?.league?.country?.name || null, startedAt:fixture?.starting_at || null, status:code === "HT" ? "halftime" : "live", minute:Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null, home:{ id:String(home.id || ""), name:String(home.name || "Ev sahibi"), logo:home.image_path || null, score:sportmonksScore(fixture?.scores, home.id) }, away:{ id:String(away.id || ""), name:String(away.name || "Deplasman"), logo:away.image_path || null, score:sportmonksScore(fixture?.scores, away.id) }, details:normalizeSportmonksFixtureDetails(fixture) };
     });
-    const response = jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches }, 200, { "Cache-Control": LIVE_API_CACHE });
+    const response = jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches, coverage:{ matches:matches.length, includes:liveResult.includes.split(";") }, degraded:liveResult.degraded }, 200, { "Cache-Control": LIVE_API_CACHE });
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
     return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "30" });
+  }
+}
+
+async function handleFootballFixture(request, env) {
+  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error:"sportmonks_not_configured" }, 503, { "Cache-Control":"no-store" });
+  const id = String(new URL(request.url).searchParams.get("id") || "").replace(/^sportmonks:/, "");
+  if (!/^\d+$/.test(id)) return jsonResponse({ error:"invalid_fixture_id" }, 400, { "Cache-Control":"no-store" });
+  try {
+    const result = await sportmonksFixtureRequest(`/fixtures/${encodeURIComponent(id)}`, token);
+    return jsonResponse({ source:"sportmonks-football-api-v3", id:`sportmonks:${id}`, updatedAt:new Date().toISOString(), details:normalizeSportmonksFixtureDetails(result.payload?.data || {}), coverage:{ includes:result.includes.split(";") }, degraded:result.degraded }, 200, { "Cache-Control":SEASON_CACHE });
+  } catch (error) {
+    return jsonResponse({ error:error?.status===403?"sportmonks_plan_restricted":"sportmonks_fixture_unavailable" }, error?.status===403?403:502, { "Cache-Control":"no-store", "Retry-After":"60" });
   }
 }
 
@@ -1117,10 +1200,11 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
-    if (["/api/social/x", "/api/social/x-media-v2"].includes(url.pathname)) return handleXClubFeed(request, env, context);
+    if (["/api/social/x", "/api/social/x-media-v2", "/api/social/x-media-v3"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
+    if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
     if (url.pathname === "/api/football/transfers") return handleFootballTransfers(request, env, context);

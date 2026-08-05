@@ -399,9 +399,8 @@ function transferPlayerPhotoHTML(item){
   return `<span class="transfer-player-photo" aria-hidden="true"><span>${escapeHTML(initials)}</span>${photo?`<img src="${photo}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>`;
 }
 function transferRowsFromCache(leagueKey,tab){
-  if(leagueKey==='super-lig') return TRANSFER_CENTER_DATA[tab]||[];
   const cached=leagueTransferCache.get(leagueKey);
-  if(!cached) return [];
+  if(!cached) return leagueKey==='super-lig' ? (TRANSFER_CENTER_DATA[tab]||[]) : [];
   if(tab==='confirmed') return cached.confirmed||[];
   if(tab==='rumours') return cached.rumours||[];
   if(tab==='talks') return [...(cached.confirmed||[]),...(cached.rumours||[])].filter(item=>/görüş|talk|negotiation|süreç/i.test(`${item.status||''} ${item.detail||''}`));
@@ -440,7 +439,7 @@ function normalizeApiTransfer(item){
   };
 }
 function requestLeagueTransferFeed(leagueKey){
-  if(!leagueKey || leagueKey==='super-lig' || leagueKey==='all') return Promise.resolve(true);
+  if(!leagueKey || leagueKey==='all') return Promise.resolve(true);
   if(leagueTransferCache.has(leagueKey)) return Promise.resolve(true);
   if(leagueTransferRequests.has(leagueKey)) return leagueTransferRequests.get(leagueKey);
   const teams=leagueTeamNamesForKey(leagueKey).slice(0,80).join('|');
@@ -466,7 +465,7 @@ function requestLeagueTransferFeed(leagueKey){
 }
 function ensureLeagueTransferFeed(){ return requestLeagueTransferFeed(activeFootballLeague); }
 function ensureAllLeagueTransferFeeds(){
-  return Promise.all(SELECTED_COMPETITIONS.filter(item=>!['super-lig','all'].includes(item.key)).map(item=>requestLeagueTransferFeed(item.key)));
+  return Promise.all(SELECTED_COMPETITIONS.filter(item=>item.key!=='all').map(item=>requestLeagueTransferFeed(item.key)));
 }
 function renderHistoricStandings(){
   const area=document.getElementById('historicStandingsTable'); if(!area) return;
@@ -702,7 +701,7 @@ let xClubPostsRequest=null;
 function fetchLeagueXMediaPayload(){
   const requestedLeague=activeFootballLeague;
   if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
-    const request=fetch('/api/social/x-media-v2'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+    const request=fetch('/api/social/x-media-v3'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
       return payload;
@@ -718,7 +717,7 @@ async function loadXClubPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/social/x-media-v2'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/social/x-media-v3'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
       return payload;
@@ -1148,12 +1147,15 @@ function renderPreseasonSocial(){
   loadPreseasonPosts();
 }
 
-function transferSignalCardHTML(account){
-  const post=account?.post||null;
+function transferSignalCardHTML(entry){
+  const account=entry?.account||entry||{};
+  const post=entry?.post||account?.post||null;
   const translated=post?.translated_text_tr && normalizeLoose(post.translated_text_tr)!==normalizeLoose(post.text) ? `<p class="transfer-signal-translation">${escapeHTML(post.translated_text_tr)}</p>` : '';
   const text=post?.text ? escapeHTML(post.text) : 'Yeni sinyal postu bekleniyor.';
   const targetURL=post?.url||account?.url||'#';
-  return `<article class="transfer-signal-card"><header class="transfer-signal-card-head"><strong>${escapeHTML(account.team||account.handle||'Kaynak')}</strong><small>@${escapeHTML(account.handle||'source')}</small></header><div class="transfer-signal-card-body"><p>${text}</p>${translated}</div><footer class="transfer-signal-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?.created_at?escapeHTML(xPostDate(post.created_at)):'Polling aktif'}</time><a href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">Kaynağı aç ↗</a></footer></article>`;
+  const media=post?xPostMediaHTML(account,post,targetURL):'';
+  const avatar=account.profile_image_url?`<img src="${escapeHTML(account.profile_image_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:'𝕏';
+  return `<article class="transfer-signal-card ${media?'has-media':''}"><header class="transfer-signal-card-head"><span class="transfer-signal-avatar">${avatar}</span><span><strong>${escapeHTML(account.team||account.handle||'Kaynak')}</strong><small>@${escapeHTML(account.handle||'source')}</small></span><b aria-label="X">𝕏</b></header><div class="transfer-signal-card-body"><p>${text}</p>${translated}${media}</div><footer class="transfer-signal-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?.created_at?escapeHTML(xPostDate(post.created_at)):'Polling aktif'}</time><a href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">Gönderiyi aç ↗</a></footer></article>`;
 }
 function renderTransferSignals(shell){
   if(!shell) return;
@@ -1162,11 +1164,12 @@ function renderTransferSignals(shell){
   fetchLeagueXMediaPayload().then(payload=>{
     if(activeFootballLeague!==requestedLeague) return;
     const accounts=(payload?.publishers||[]).slice(0,3);
-    if(!accounts.length){
+    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,4);
+    if(!posts.length){
       shell.innerHTML=`<div class="transfer-signal-empty"><strong>Kaynak havuzu hazırlanıyor</strong><p>Bu lig için sinyal hesapları bağlandığında burada otomatik akar.</p></div>`;
       return;
     }
-    shell.innerHTML=`<div class="transfer-signal-head"><span>Sinyal kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · ${accounts.length} hesap · polling</small></div><div class="transfer-signal-stream">${accounts.map(transferSignalCardHTML).join('')}</div>`;
+    shell.innerHTML=`<div class="transfer-signal-head"><span>Son transfer sinyalleri</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · ${posts.length} gönderi · ${accounts.length} kaynak</small></div><div class="transfer-signal-stream">${posts.map(transferSignalCardHTML).join('')}</div>`;
   }).catch(()=>{
     if(activeFootballLeague!==requestedLeague) return;
     shell.innerHTML=`<div class="transfer-signal-empty"><strong>Kaynak sinyalleri geçici olarak alınamadı</strong><p>X watchlist polling katmanı tekrar denendiğinde burada güncellenecek.</p></div>`;
@@ -2133,12 +2136,12 @@ function renderFootballNews(){
   renderFootballTransfers = function(){
     const area=document.getElementById('footballTransferStream'); if(!area) return;
     const signalShellMarkup=`<div class="transfer-signal-shell" data-transfer-signals></div>`;
-    if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>!['super-lig','all'].includes(item.key)).every(item=>leagueTransferCache.has(item.key))){
+    if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>item.key!=='all').every(item=>leagueTransferCache.has(item.key))){
       ensureAllLeagueTransferFeeds().then(()=>renderFootballTransfers());
-    }else if(activeFootballLeague!=='super-lig' && !leagueTransferCache.has(activeFootballLeague)){
+    }else if(activeFootballLeague!=='all' && !leagueTransferCache.has(activeFootballLeague)){
       ensureLeagueTransferFeed().then(()=>renderFootballTransfers());
     }
-    if(activeFootballLeague!=='super-lig'){
+    if(activeFootballLeague!=='all'){
       const label=competitionLabelBySlug(activeFootballLeague);
       const rows=leagueTransferRecords('confirmed').slice(0,4);
       const errors=(leagueTransferCache.get(activeFootballLeague)?.errors)||[];
