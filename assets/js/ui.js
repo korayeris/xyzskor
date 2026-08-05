@@ -307,7 +307,8 @@ async function loadClubProfile(team){
   try{
     const providerTeamId=clubRecord(team)?.providerTeamId||'';
     const providerSeasonId=clubRecord(team)?.providerSeasonId||'';
-    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}&teamId=${encodeURIComponent(providerTeamId)}&seasonId=${encodeURIComponent(providerSeasonId)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+    const providerTeamImage=clubRecord(team)?.logo||TEAM_CRESTS[team]||'';
+    const response=await fetch(`/api/football/club?team=${encodeURIComponent(team)}&teamId=${encodeURIComponent(providerTeamId)}&seasonId=${encodeURIComponent(providerSeasonId)}&teamImage=${encodeURIComponent(providerTeamImage)}`,{headers:{Accept:'application/json'},cache:'no-store'});
     const payload=await response.json().catch(()=>({}));
     if(response.status===503){ renderClubProfile(team,null,'unconfigured'); return; }
     if(!response.ok||!payload?.team) throw new Error(payload?.error||'club_data_unavailable');
