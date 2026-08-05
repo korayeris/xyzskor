@@ -1,11 +1,16 @@
 const STATIC_CACHE = "public, max-age=31536000, immutable";
 const HTML_CACHE = "public, max-age=0, must-revalidate";
-const SOCIAL_CACHE = "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400";
-const SOCIAL_STALE_CACHE = "public, max-age=60, s-maxage=604800";
+const SOCIAL_CACHE = "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800";
+const SOCIAL_STALE_CACHE = "public, max-age=3600, s-maxage=604800";
 const X_USER_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
-const X_PRESEASON_CACHE = "public, max-age=900, s-maxage=21600, stale-while-revalidate=86400";
-const X_PRESEASON_STALE_CACHE = "public, max-age=120, s-maxage=86400";
+const X_PRESEASON_CACHE = "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800";
+const X_PRESEASON_STALE_CACHE = "public, max-age=3600, s-maxage=604800";
 const X_TIMEOUT_MS = 8000;
+const X_CLUB_DAILY_LIMIT = 5;
+const X_PUBLISHER_DAILY_LIMIT = 2;
+const X_PRESEASON_DAILY_LIMIT = 4;
+const X_RECENT_TWEET_LIMIT = "5";
+const X_PRESEASON_TWEET_LIMIT = "10";
 const TRANSLATE_TIMEOUT_MS = 7000;
 const YOUTUBE_CACHE = "public, max-age=300, s-maxage=5400, stale-while-revalidate=21600";
 const YOUTUBE_STALE_CACHE = "public, max-age=60, s-maxage=86400";
@@ -212,6 +217,37 @@ function writeEdgeCache(cache, key, response, context) {
   }
 }
 
+function xDailyClubScope(league) {
+  return (X_CLUBS_BY_LEAGUE[league] || []).slice(0, X_CLUB_DAILY_LIMIT);
+}
+
+function xDailyPublisherScope(league) {
+  return (X_PUBLISHERS_BY_LEAGUE[league] || []).slice(0, X_PUBLISHER_DAILY_LIMIT);
+}
+
+function xDailyPreseasonScope(league) {
+  return (X_CLUBS_BY_LEAGUE[league] || []).slice(0, X_PRESEASON_DAILY_LIMIT);
+}
+
+function xCreditsPayload(league, type = "media") {
+  const clubs = type === "preseason"
+    ? xDailyPreseasonScope(league).map((club) => ({ ...club, preseason_post: null, account_found: true, upstream_error: "x_credits_depleted" }))
+    : xDailyClubScope(league).map((club) => ({ ...club, post: null, account_found: true, upstream_error: "x_credits_depleted" }));
+  const publishers = type === "preseason"
+    ? []
+    : xDailyPublisherScope(league).map((club) => ({ ...club, publisher: true, post: null, posts: [], account_found: true, upstream_error: "x_credits_depleted" }));
+  return {
+    source: "x-api",
+    league,
+    status: "x_credits_depleted",
+    cost_profile: "daily-capped-safe-mode",
+    updated_at: new Date().toISOString(),
+    cache_ttl_seconds: 86400,
+    clubs,
+    publishers,
+  };
+}
+
 function normalizeXMedia(media) {
   if (!media?.media_key) return null;
   const previewUrl = media.type === "photo" ? media.url : (media.preview_image_url || media.url);
@@ -344,8 +380,8 @@ async function fetchXUsers(token, request, context) {
   if (isUsableJsonCache(cached)) return cached.json();
 
   const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
-  const clubs = X_CLUBS_BY_LEAGUE[league] || [];
-  const publishers = X_PUBLISHERS_BY_LEAGUE[league] || [];
+  const clubs = xDailyClubScope(league);
+  const publishers = xDailyPublisherScope(league);
   const usernames = [...clubs, ...publishers].map((club) => club.handle).join(",");
   const lookup = await xRequest(`/2/users/by?usernames=${encodeURIComponent(usernames)}&user.fields=verified,verified_type,profile_image_url`, token);
   const response = jsonResponse(lookup, 200, { "Cache-Control": X_USER_CACHE });
@@ -355,8 +391,8 @@ async function fetchXUsers(token, request, context) {
 
 async function fetchXClubFeed(token, request, context) {
   const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
-  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || [];
-  const publishersForLeague = X_PUBLISHERS_BY_LEAGUE[league] || [];
+  const clubsForLeague = xDailyClubScope(league);
+  const publishersForLeague = xDailyPublisherScope(league);
   const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
@@ -365,7 +401,7 @@ async function fetchXClubFeed(token, request, context) {
       const user = users.get(club.handle.toLowerCase());
       if (!user) return { ...club, publisher, post: null, account_found: false, verified: false };
       const params = new URLSearchParams({
-        max_results: "5",
+        max_results: X_RECENT_TWEET_LIMIT,
         exclude: "replies,retweets",
         "tweet.fields": "created_at,public_metrics,attachments",
         expansions: "attachments.media_keys",
@@ -399,10 +435,10 @@ async function fetchXClubFeed(token, request, context) {
   return {
     source: "x-api",
     league,
-    cost_profile: "media-rich-daily",
-    fetch_mode: "verified-club-and-publisher-watchlist",
+    cost_profile: "daily-capped-safe-mode",
+    fetch_mode: "limited-club-and-publisher-watchlist",
     updated_at: new Date().toISOString(),
-    cache_ttl_seconds: 300,
+    cache_ttl_seconds: 86400,
     publisher_slots: publishersForLeague.length,
     clubs,
     publishers,
@@ -411,7 +447,7 @@ async function fetchXClubFeed(token, request, context) {
 
 async function fetchXPreseasonFeed(token, request, context) {
   const league = validLeagueKey(new URL(request.url).searchParams.get("league"), { xFeed:true }) || "super-lig";
-  const clubsForLeague = X_CLUBS_BY_LEAGUE[league] || [];
+  const clubsForLeague = xDailyPreseasonScope(league);
   const lookup = await fetchXUsers(token, request, context);
   const users = new Map((lookup.data || []).map((user) => [String(user.username).toLowerCase(), user]));
 
@@ -420,7 +456,7 @@ async function fetchXPreseasonFeed(token, request, context) {
       const user = users.get(club.handle.toLowerCase());
       if (!user) return { ...club, preseason_post: null, account_found: false, verified: false };
       const params = new URLSearchParams({
-        max_results: "50",
+        max_results: X_PRESEASON_TWEET_LIMIT,
         exclude: "replies,retweets",
         "tweet.fields": "created_at,public_metrics,attachments",
         expansions: "attachments.media_keys",
@@ -460,8 +496,9 @@ async function fetchXPreseasonFeed(token, request, context) {
   return {
     source: "x-api",
     league,
+    cost_profile: "daily-capped-safe-mode",
     updated_at: new Date().toISOString(),
-    cache_ttl_seconds: 21600,
+    cache_ttl_seconds: 86400,
     clubs,
   };
 }
@@ -501,7 +538,12 @@ async function handleXClubFeed(request, env, context) {
       return new Response(stale.body, { status: 200, headers });
     }
     if (error?.status === 402) {
-      return jsonResponse({ error: "x_credits_depleted" }, 402, { "Cache-Control": "no-store" });
+      const payload = xCreditsPayload(league, "media");
+      const response = jsonResponse(payload, 200, { "Cache-Control": SOCIAL_CACHE, "X-Data-Stale": "true", "X-Data-Status": "x_credits_depleted" });
+      const staleResponse = jsonResponse(payload, 200, { "Cache-Control": SOCIAL_STALE_CACHE, "X-Data-Stale": "true", "X-Data-Status": "x_credits_depleted" });
+      writeEdgeCache(cache, cacheKey, response, context);
+      writeEdgeCache(cache, staleKey, staleResponse, context);
+      return response;
     }
     return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "300" });
   } finally {
@@ -544,7 +586,12 @@ async function handleXPreseasonFeed(request, env, context) {
       return new Response(stale.body, { status: 200, headers });
     }
     if (error?.status === 402) {
-      return jsonResponse({ error: "x_credits_depleted" }, 402, { "Cache-Control": "no-store" });
+      const payload = xCreditsPayload(league, "preseason");
+      const response = jsonResponse(payload, 200, { "Cache-Control": X_PRESEASON_CACHE, "X-Data-Stale": "true", "X-Data-Status": "x_credits_depleted" });
+      const staleResponse = jsonResponse(payload, 200, { "Cache-Control": X_PRESEASON_STALE_CACHE, "X-Data-Stale": "true", "X-Data-Status": "x_credits_depleted" });
+      writeEdgeCache(cache, cacheKey, response, context);
+      writeEdgeCache(cache, staleKey, staleResponse, context);
+      return response;
     }
     return jsonResponse({ error: "x_upstream_unavailable" }, 502, { "Cache-Control": "no-store", "Retry-After": "900" });
   } finally {

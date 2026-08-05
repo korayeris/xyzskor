@@ -155,7 +155,7 @@ assert.match(workerSource, /env\.X_BEARER_TOKEN/, 'X Bearer Token yalnız sunucu
 assert.match(workerSource, /s-maxage=86400/, 'X akışı 24 saat sunucu önbelleğinde tutulmalı.');
 assert.match(workerSource, /s-maxage=31536000/, 'X kulüp kimlikleri tekrar ücret oluşturmamak için uzun süre önbellekte tutulmalı.');
 assert.match(workerSource, /\/2\/users\/by\?usernames=/, 'Dört resmî kulüp tek kullanıcı sorgusuyla çözülmeli.');
-assert.match(workerSource, /cost_profile:\s*"media-rich-daily"/, 'X akışı medya destekli günlük maliyet profilini yanıtta belirtmeli.');
+assert.match(workerSource, /cost_profile:\s*"daily-capped-safe-mode"/, 'X akışı günlük maliyet kontrollü profili yanıtta belirtmeli.');
 assert.match(workerSource, /expansions:\s*"attachments\.media_keys"/, 'X akışı gönderiye bağlı gerçek medyayı expansion ile istemeli.');
 assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image_url,width,height,alt_text"/, 'X medya görselleri, video kapakları ve erişilebilir açıklamaları istemeli.');
 assert.match(functionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
@@ -166,8 +166,9 @@ assert.match(workerSource, /function readEdgeCache/, 'X akışı çalışma zama
 assert.match(workerSource, /SOCIAL_STALE_CACHE/, 'X kesintisinde son doğrulanmış akış için uzun süreli yedek önbellek bulunmalı.');
 assert.match(workerSource, /xFeedRefreshPromises = new Map/, 'X yenilemeleri lig bazında ayrı istek havuzları kullanmalı.');
 assert.match(workerSource, /validLeagueKey\(requestedLeague, \{ xFeed:true \}\)/, 'X akışı yalnız açıkça desteklenen lig anahtarlarını kabul etmeli.');
-assert.match(workerSource, /X_CLUBS_BY_LEAGUE\[league\] \|\| \[\]/, 'Bilinmeyen lig X akışında Süper Lig kulüplerine düşmemeli.');
-assert.match(workerSource, /max_results:\s*"50"/, 'Hazırlık maçı taraması son on gönderiyle sınırlı kalmamalı.');
+assert.match(workerSource, /xDailyClubScope\(league\)/, 'X akışı bilinmeyen veya pahalı liglerde güvenli kulüp kapsamı helperını kullanmalı.');
+assert.match(workerSource, /max_results:\s*X_PRESEASON_TWEET_LIMIT/, 'Hazırlık maçı taraması sabit güvenli limit üzerinden yapılmalı.');
+assert.match(workerSource, /const X_PRESEASON_TWEET_LIMIT = "10"/, 'Hazırlık maçı taraması kredi dostu son 10 gönderiyle sınırlı kalmalı.');
 assert.match(workerSource, /findBestPreseasonPost/, 'X hazırlık akışı skor ve sonuç sinyalini önceliklendirmeli.');
 assert.match(workerSource, /MATCH_RESULT_KEYWORDS/, 'Hazırlık maçı sonuç ifadeleri ayrı sınıflandırılmalı.');
 assert.doesNotMatch(workerSource.match(/const PRESEASON_KEYWORDS = \[[\s\S]*?\];/)?.[0] || '', /play-?off|matchday/i, 'Resmî play-off ve genel maç günü paylaşımları hazırlık maçı sayılmamalı.');
@@ -328,7 +329,7 @@ try {
   await Promise.all(pendingCacheWrites);
   assert.equal(firstFeed.status, 200, 'X sunucu adaptörü başarılı JSON dönmeli.');
   assert.equal(firstPayload.clubs.length, 4, 'X sunucu adaptörü dört kulübü birlikte dönmeli.');
-  assert.equal(firstPayload.cost_profile, 'media-rich-daily', 'X sunucu adaptörü etkin medya maliyet profilini dönmeli.');
+  assert.equal(firstPayload.cost_profile, 'daily-capped-safe-mode', 'X sunucu adaptörü güvenli günlük maliyet profilini dönmeli.');
   assert.equal(firstPayload.clubs[0].post.media[0].url, 'https://pbs.twimg.com/media/club-1.jpg', 'X gönderisinin gerçek görseli istemciye güvenli veri olarak dönmeli.');
   const xCallsAfterFirst = upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length;
   assert.equal(xCallsAfterFirst, 5, 'Günlük X yenilemesi bir kullanıcı ve dört paylaşım sorgusu yapmalı.');
