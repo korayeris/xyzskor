@@ -50,7 +50,7 @@ Bu belge iki şeyi ayırır:
 - `/api/football/club`
 - `/api/football/transfers`
 - `/api/social/x-media-v2`
-- `/api/social/x-preseason-v1`
+- `/api/social/x-preseason-v2`
 - `/api/media/youtube`
 
 ### 2.2 Supabase application layer
@@ -168,4 +168,3 @@ Kaydedilecek alanlar:
 ## 7. Sahiplik kuralı
 
 Bu dosya operasyon ledger yerine geçmez. Gerçek token, secret, recovery code ve ödeme kartı bilgileri Git dışında tutulmalıdır.
-

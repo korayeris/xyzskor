@@ -159,6 +159,11 @@ assert.match(workerSource, /SOCIAL_STALE_CACHE/, 'X kesintisinde son doğrulanm�
 assert.match(workerSource, /xFeedRefreshPromises = new Map/, 'X yenilemeleri lig bazında ayrı istek havuzları kullanmalı.');
 assert.match(workerSource, /validLeagueKey\(requestedLeague, \{ xFeed:true \}\)/, 'X akışı yalnız açıkça desteklenen lig anahtarlarını kabul etmeli.');
 assert.match(workerSource, /X_CLUBS_BY_LEAGUE\[league\] \|\| \[\]/, 'Bilinmeyen lig X akışında Süper Lig kulüplerine düşmemeli.');
+assert.match(workerSource, /max_results:\s*"50"/, 'Hazırlık maçı taraması son on gönderiyle sınırlı kalmamalı.');
+assert.match(workerSource, /findBestPreseasonPost/, 'X hazırlık akışı skor ve sonuç sinyalini önceliklendirmeli.');
+assert.match(workerSource, /MATCH_RESULT_KEYWORDS/, 'Hazırlık maçı sonuç ifadeleri ayrı sınıflandırılmalı.');
+assert.doesNotMatch(workerSource.match(/const PRESEASON_KEYWORDS = \[[\s\S]*?\];/)?.[0] || '', /play-?off|matchday/i, 'Resmî play-off ve genel maç günü paylaşımları hazırlık maçı sayılmamalı.');
+assert.match(appSource, /\/api\/social\/x-preseason-v2/, 'Yeni X hazırlık sonucu sınıflandırıcısı ayrı cache sürümü kullanmalı.');
 assert.match(devServerSource, /startsWith\('\/api\/'\)[\s\S]*proxyApi/, 'Yerel önizleme X ve Sportmonks API rotalarını yayın katmanına iletmeli.');
 assert.match(workerSource, /X_TIMEOUT_MS/, 'X sağlayıcı isteği sınırsız süre açık kalmamalı.');
 assert.match(workerSource, /\/api\/health/, 'Üretim sağlık kontrolü bulunmalı.');

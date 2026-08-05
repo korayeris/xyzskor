@@ -1,0 +1,21 @@
+{
+  "folders": [
+    { "name": "XYZSKOR", "path": "." }
+  ],
+  "settings": {
+    "files.exclude": {
+      "dist": true,
+      ".dev-server.*.log": true,
+      ".preview-server.*.log": true
+    },
+    "explorer.compactFolders": false
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      { "label": "XYZSKOR: Önizlemeyi Başlat", "type": "npm", "script": "dev", "isBackground": true, "problemMatcher": [] },
+      { "label": "XYZSKOR: Kontroller", "type": "npm", "script": "check", "problemMatcher": [] },
+      { "label": "XYZSKOR: Production Build", "type": "npm", "script": "build", "problemMatcher": [], "group": "build" }
+    ]
+  }
+}

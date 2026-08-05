@@ -96,11 +96,21 @@ const PRESEASON_KEYWORDS = [
   "test match",
   "hazirlik maci",
   "hazırlık maçı",
-  "kamp kadrosu",
-  "camp squad",
-  "matchday",
-  "play-off",
-  "playoff",
+  "club friendly",
+  "training match",
+  "closed-door friendly",
+];
+const MATCH_RESULT_KEYWORDS = [
+  "mac sonucu",
+  "maç sonucu",
+  "full time",
+  "full-time",
+  "final score",
+  "final whistle",
+  "match result",
+  "resultado final",
+  "risultato finale",
+  "score final",
 ];
 const YOUTUBE_CHANNELS = [
   { name: "Sports Digitale", handle: "@sportsdigitale", id: "UCmEgRY1A2263UXrQhjDuU0Q", url: "https://www.youtube.com/@sportsdigitale" },
@@ -271,15 +281,37 @@ async function translateTextToTurkish(text) {
   }
 }
 
-function isPreseasonPost(post) {
-  const haystack = normalizeLooseText(`${post?.text || ""}`);
+function xPostSearchText(post, mediaByKey = new Map()) {
+  const altText = (post?.attachments?.media_keys || [])
+    .map((key) => mediaByKey.get(key)?.alt_text || "")
+    .filter(Boolean)
+    .join(" ");
+  return `${post?.text || ""} ${altText}`.trim();
+}
+
+function isPreseasonPost(post, mediaByKey = new Map()) {
+  const haystack = normalizeLooseText(xPostSearchText(post, mediaByKey));
   return PRESEASON_KEYWORDS.some((keyword) => haystack.includes(normalizeLooseText(keyword)));
 }
 
 function extractScoreline(text) {
   const match = String(text || "").match(/(^|[^\d])(\d{1,2})\s*[-:–]\s*(\d{1,2})([^\d]|$)/);
   if (!match) return null;
+  if (Number(match[2]) > 15 || Number(match[3]) > 15) return null;
   return `${match[2]}-${match[3]}`;
+}
+
+function findBestPreseasonPost(posts, mediaByKey) {
+  return (posts || [])
+    .filter((post) => isPreseasonPost(post, mediaByKey))
+    .map((post) => {
+      const searchText = xPostSearchText(post, mediaByKey);
+      const normalized = normalizeLooseText(searchText);
+      const scoreline = extractScoreline(searchText);
+      const resultSignal = MATCH_RESULT_KEYWORDS.some((keyword) => normalized.includes(normalizeLooseText(keyword)));
+      return { post, searchText, scoreline, rank: (scoreline ? 100 : 0) + (resultSignal ? 25 : 0) };
+    })
+    .sort((a, b) => b.rank - a.rank || new Date(b.post.created_at || 0) - new Date(a.post.created_at || 0))[0] || null;
 }
 
 function preseasonLabel(post) {
@@ -371,7 +403,7 @@ async function fetchXPreseasonFeed(token, request, context) {
       const user = users.get(club.handle.toLowerCase());
       if (!user) return { ...club, preseason_post: null, account_found: false, verified: false };
       const params = new URLSearchParams({
-        max_results: "10",
+        max_results: "50",
         exclude: "replies,retweets",
         "tweet.fields": "created_at,public_metrics,attachments",
         expansions: "attachments.media_keys",
@@ -379,8 +411,8 @@ async function fetchXPreseasonFeed(token, request, context) {
       });
       const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
       const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-      const preseasonPost = (timeline.data || []).find((post) => isPreseasonPost(post)) || null;
-      const normalized = normalizeXPost(club, preseasonPost, mediaByKey);
+      const preseasonMatch = findBestPreseasonPost(timeline.data || [], mediaByKey);
+      const normalized = normalizeXPost(club, preseasonMatch?.post || null, mediaByKey);
       const translatedText = normalized.post?.text ? await translateTextToTurkish(normalized.post.text) : null;
       return {
         ...club,
@@ -391,8 +423,8 @@ async function fetchXPreseasonFeed(token, request, context) {
           ? {
               ...normalized.post,
               translated_text_tr: translatedText,
-              scoreline: extractScoreline(normalized.post.text),
-              label: preseasonLabel(normalized.post),
+              scoreline: preseasonMatch?.scoreline || extractScoreline(normalized.post.text),
+              label: preseasonMatch?.scoreline ? "Son sonuc" : preseasonLabel(normalized.post),
             }
           : null,
       };
@@ -464,13 +496,13 @@ async function handleXPreseasonFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/social/x-preseason-v1", request.url);
+  const cacheUrl = new URL("/api/social/x-preseason-v2", request.url);
   const requestedLeague = cacheUrl.searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-preseason-stale-v1", request.url);
+  const staleUrl = new URL("/api/social/x-preseason-stale-v2", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
@@ -1086,7 +1118,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (["/api/social/x", "/api/social/x-media-v2"].includes(url.pathname)) return handleXClubFeed(request, env, context);
-    if (url.pathname === "/api/social/x-preseason-v1") return handleXPreseasonFeed(request, env, context);
+    if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);

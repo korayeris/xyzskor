@@ -775,7 +775,7 @@ async function loadPreseasonPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!preseasonPostsRequest||preseasonPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/social/x-preseason-v1'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/social/x-preseason-v2'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
         const payload=await response.json().catch(()=>null);
         if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('Hazırlık maçı akışı hazır değil.');
         return payload;
