@@ -1,0 +1,489 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+<base href="/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XYZSkor — Bilinmeyen Skoru Verilerle Çöz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/xyzskor/assets/css/app.css">
+
+</head>
+<body>
+
+<nav class="global-header" aria-label="Ana navigasyon">
+  <div class="brand-lockup">
+    <div class="brand-mark" aria-hidden="true"><span></span></div>
+    <div class="brand-copy"><div class="logo">XYZ<span>SKOR</span></div><div class="brand-kicker">Football Intelligence</div></div>
+  </div>
+  <div class="primary-nav" role="navigation" aria-label="Ürün alanları">
+    <button class="maintab active" id="tabBtnFootball" type="button" onclick="switchMainTab('football')">Futbol</button>
+    <button class="maintab" id="tabBtnPredict" type="button" onclick="switchMainTab('predict')">Predict</button>
+  </div>
+  <div class="navright" id="navRight"></div>
+</nav>
+
+<div class="live-ticker"><div class="ticker-inner" id="liveTicker"></div></div>
+
+<nav class="football-context-nav" id="footballContextNav" aria-label="Futbol bölümleri">
+  <button class="football-context-tab active" data-football-route="home" type="button" onclick="openFootballSection('home',this)">Anasayfa</button>
+  <button class="football-context-tab" data-football-route="matches" type="button" onclick="openFootballSection('matches',this)">Maçlar</button>
+  <button class="football-context-tab" data-football-route="news" type="button" onclick="openFootballSection('news',this)">Gündem</button>
+  <button class="football-context-tab" data-football-route="clubs" type="button" onclick="openFootballSection('clubs',this)">Kulüpler</button>
+  <button class="football-context-tab" data-football-route="transfers" type="button" onclick="openFootballSection('transfers',this)">Transfer</button>
+  <button class="football-context-tab" data-football-route="standings" type="button" onclick="openFootballSection('standings',this)">Puan Durumu</button>
+</nav>
+
+<div class="football-league-command" id="footballLeagueCommand" aria-label="Veri ligi seçimi">
+  <div class="football-league-command-copy">
+    <span>Veri ligi</span>
+    <strong id="footballLeagueCommandTitle">Seçili lig</strong>
+  </div>
+  <div class="portal-league-list football-top-league-list" id="footballTopLeagueStrip"></div>
+</div>
+
+<div class="predict-leaderboard-slot" aria-label="Predict çekiliş duyurusu">
+  <a class="predict-ad predict-ad-leaderboard" href="https://xyzskor-tr.korayeris2002.chatgpt.site/predict/" target="_self">
+    <span class="predict-ad-brand"><b>X</b><strong>XYZSKOR</strong><small>PREDICT</small></span>
+    <span class="predict-ad-copy"><strong>🏆 UEFA Avrupa Ligi skor tahmin çekilişi</strong><small>Skorunu tahmin et, orijinal forma ve VIP maç bileti kazan.</small></span>
+    <span class="predict-ad-cta">Katıl →</span>
+  </a>
+</div>
+
+<div class="wrap">
+
+<!-- ===================== TAB 1: HAFTANIN HİKAYESİ ===================== -->
+<div class="tabpage active" id="page-story">
+  <div id="footballOverviewView">
+  <section class="portal-sponsor-banner predict-billboard-slot" id="portalSponsorBanner" aria-label="Predict çekiliş banner alanı"></section>
+  <div id="weekSelector" class="week-selector-bar"></div>
+  <div class="data-status-line" id="dataStatusLine"></div>
+  <section class="portal-league-strip" aria-labelledby="portalLeagueStripTitle">
+    <div class="portal-team-strip-copy"><strong id="portalLeagueStripTitle">Lig seçimi</strong><span>Tüm sayfa seçtiğin lige göre yenilenir.</span></div>
+    <div class="portal-league-list" id="footballLeagueStrip"></div>
+  </section>
+  <section class="portal-team-strip" aria-labelledby="portalTeamStripTitle">
+    <div class="portal-team-strip-copy"><strong id="portalTeamStripTitle">Takım gündemi</strong><span id="portalTeamStripNote">Maç ve haber akışını kulübüne göre daralt.</span></div>
+    <div class="portal-team-list" id="footballTeamStrip"></div>
+  </section>
+  <section class="football-home" aria-label="Futbol gündemi">
+    <div class="football-left-column">
+      <section class="football-module match-rail" id="footballMatchesSection" aria-labelledby="footballMatchesTitle">
+        <div class="football-module-head"><div><div class="football-module-kicker" id="footballMatchesKicker">Maç Merkezi</div><div class="football-module-title" id="footballMatchesTitle">Canlı ve yaklaşan maçlar</div><div class="football-module-note" id="footballMatchesNote">Durum ve skor yalnız doğrulanmış kayıtlardan gösterilir.</div></div><button class="football-module-action" type="button" onclick="openFootballSection('matches')">Tüm maçlar →</button></div>
+        <div class="football-quick-list" id="footballQuickMatches"></div>
+      </section>
+    </div>
+    <div class="football-middle-column">
+      <article class="football-module featured-development headline-stage" id="footballFeaturedDevelopment" aria-live="polite"></article>
+      <section class="club-social-section" id="clubSocialSection" aria-labelledby="clubSocialTitle">
+        <header class="club-social-head">
+          <div>
+            <div class="football-module-kicker" id="clubSocialKicker">RESMÎ KULÜP AKIŞI · GÜNCEL</div>
+            <h2 id="clubSocialTitle">Kulüp Gündemi</h2>
+            <p id="clubSocialDescription">Seçili ligin doğrulanmış kulüp hesaplarından son paylaşımlar, görseller ve videolar.</p>
+          </div>
+          <div class="club-social-actions" aria-label="Kulüp akışı kontrolleri">
+            <button class="club-social-scroll-button" type="button" onclick="scrollClubSocial(-1)" aria-label="Kulüp akışını sola kaydır">←</button>
+            <button class="club-social-scroll-button" type="button" onclick="scrollClubSocial(1)" aria-label="Kulüp akışını sağa kaydır">→</button>
+            <span class="club-social-badge" aria-label="X platformu">𝕏</span>
+          </div>
+        </header>
+        <div class="club-social-body">
+          <div class="club-social-stage" id="clubSocialStage" aria-live="polite"></div>
+        </div>
+      </section>
+      <section class="club-social-section preseason-social-section" id="preseasonSocialSection" aria-labelledby="preseasonSocialTitle">
+        <header class="club-social-head preseason-social-head">
+          <div>
+            <div class="football-module-kicker" id="preseasonSocialKicker">HAZIRLIK MAÇLARI · RESMÎ AKIŞ</div>
+            <h2 id="preseasonSocialTitle">Hazırlık maçı gündemi</h2>
+            <p id="preseasonSocialDescription">Seçili ligin resmî kulüp hesaplarından son hazırlık maçı, skor ve kamp paylaşımları.</p>
+          </div>
+          <div class="club-social-actions" aria-label="Hazırlık maçı akışı kontrolleri">
+            <button class="club-social-scroll-button" type="button" onclick="scrollPreseasonSocial(-1)" aria-label="Hazırlık maçı akışını sola kaydır">←</button>
+            <button class="club-social-scroll-button" type="button" onclick="scrollPreseasonSocial(1)" aria-label="Hazırlık maçı akışını sağa kaydır">→</button>
+            <span class="club-social-badge" aria-label="Resmî maç akışı">◎</span>
+          </div>
+        </header>
+        <div class="club-social-body preseason-social-body">
+          <div class="club-social-stage preseason-social-stage" id="preseasonSocialStage" aria-live="polite"></div>
+        </div>
+      </section>
+    </div>
+    <aside class="football-right-column">
+      <section class="football-module transfer-rail" id="footballTransferSection" aria-labelledby="footballTransferTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballTransferKicker">Kaynaklı Akış</div><div class="football-module-title" id="footballTransferTitle">Transfer gelişmeleri</div></div></div><div id="footballTransferStream"></div></section>
+      <section class="football-module standings-rail" id="footballStandingsSummary" aria-labelledby="footballStandingsTitle"><div class="football-module-head"><div><div class="football-module-kicker" id="footballStandingsKicker">Lig tablosu</div><div class="football-module-title" id="footballStandingsTitle">Puan durumu</div></div></div><div id="footballSeasonHonors"></div><div id="footballStandingsCompact"></div></section>
+      <aside class="portal-sponsor-rail" id="portalSponsorRail" aria-label="Sponsor ve reklam alanı"></aside>
+    </aside>
+  </section>
+
+  <section class="editorial-desk" id="editorialDesk" aria-labelledby="editorialDeskTitle">
+    <header class="editorial-desk-head">
+      <div><span class="editorial-desk-kicker">HABER MERKEZİ</span><h2 id="editorialDeskTitle">Gündemin öne çıkanları</h2><p id="editorialDeskCopy">Resmî açıklamalar, kaynaklı transfer gelişmeleri ve veri destekli futbol gündemi.</p></div>
+      <button class="editorial-desk-action" type="button" onclick="openFootballSection('news')">Tüm gündemi aç <span aria-hidden="true">→</span></button>
+    </header>
+    <div class="editorial-desk-grid">
+      <div class="editorial-lead" id="editorialLeadNews"></div>
+      <div class="editorial-highlights" id="editorialHighlights" aria-label="Öne çıkan haberler"></div>
+    </div>
+  </section>
+
+  <section class="broadcast-desk" id="broadcastDesk" aria-labelledby="broadcastDeskTitle">
+    <header class="broadcast-desk-head">
+      <div><span class="broadcast-live-mark" aria-hidden="true"></span><div><span class="editorial-desk-kicker">YAYIN MERKEZİ · DOĞRULANMIŞ KANALLAR</span><h2 id="broadcastDeskTitle">Canlı yayınlar ve stüdyo akışı</h2><p>Doğrulanmış yayın kanalları, son programlar ve canlı yayın bağlantıları tek panelde toplanır.</p></div></div>
+      <span class="broadcast-status" id="youtubeMediaStatus">Yayın akışı taranıyor</span>
+    </header>
+    <div class="youtube-media-grid" id="youtubeMediaGrid" aria-live="polite"></div>
+  </section>
+
+  <div id="weeklyStoryArea" class="football-legacy-story"></div>
+<div class="story-layout">
+    <div class="story-main">
+
+      <div id="storyFeaturedArea"></div>
+
+      <div class="panel">
+        <div class="section-title">Bu Haftanın Tüm Maçları</div>
+        <div class="section-desc">Fikstürü incele; güç endeksi, beklenen gol ve form verileri için Matematik Merkezi’ne geç.</div>
+        <div id="storyMatchList"></div>
+      </div>
+
+      <div id="videoSection"></div>
+
+      <div class="panel">
+        <div class="section-title">Haftanın Öne Çıkan Verileri</div>
+        <div class="section-desc">Bu hafta hakkında gerçek, o anki verilerden hesaplanan kısa bilgiler.</div>
+        <div class="profile-stats" id="storyStatsArea"></div>
+      </div>
+
+      <div class="intro-card">
+        <div class="t" style="font-size:13px;">XYZSkor Model Performansı</div>
+        <div class="d">İlk tamamlanan maçlardan sonra bu alanda gerçek isabet oranları yayınlanacak. Sahte yüzde gösterilmez.</div>
+      </div>
+
+      <div id="prevWeekSection"></div>
+
+    </div>
+    <aside class="story-aside">
+      <div class="aside-card" id="asideNextMatch"></div>
+      <div class="aside-card" id="asideStandings"></div>
+      <div class="aside-card">
+        <div class="aside-title">Tahmin Ligi</div>
+        <p style="font-size:14px;color:var(--ink-dim);margin:0 0 12px;">Veriyi incele, ücretsiz tahminini yap ve taraftarlarınla yarış.</p>
+        <button class="btn gold" style="width:100%;" onclick="switchMainTab('league')">Haftaya Katıl</button>
+      </div>
+      <div class="sidebar-campaign" aria-label="Mythos Cards sponsor ödülü">
+        <div class="sidebar-campaign-copy"><div class="campaign-label">Ödül Sponsoru · Mythos</div><b>Veriyi kullan.<br>Ödülü kazan.</b><span>Satış yok · Kazanana ücretsiz hediye</span></div>
+      </div>
+    </aside>
+  </div>
+  </div>
+
+  <section class="football-data-view matches-hub-view" id="footballMatchesView" aria-labelledby="footballMatchesViewTitle" hidden>
+    <header class="football-data-hero matches-data-hero">
+      <div><span class="football-data-eyebrow" id="footballMatchesViewKicker">5 LİG · MAÇ MERKEZİ</span><h1 id="footballMatchesViewTitle">Maçlar</h1><p id="footballMatchesViewCopy">Canlı durum, yaklaşan fikstür ve tamamlanan karşılaşmalar aynı doğrulanmış veri akışında.</p></div>
+      <div class="matches-live-status"><span aria-hidden="true"></span><strong>Veri bağlantısı</strong><small>Skor tahmin edilmez; sağlayıcı kaydı beklenir.</small></div>
+    </header>
+    <div class="matches-hub-metrics" id="footballMatchesStats" aria-label="Maç merkezi özeti"></div>
+    <div class="matches-hub-workspace">
+      <main class="matches-hub-feed">
+        <header class="matches-hub-toolbar">
+          <div><span>FİKSTÜR AKIŞI</span><h2>Tüm karşılaşmalar</h2></div>
+          <div class="matches-league-filters" id="matchesLeagueFilters" role="group" aria-label="Lig filtresi"></div>
+          <div class="matches-hub-filters" role="group" aria-label="Maç durumu filtresi">
+            <button class="active" type="button" data-match-hub-filter="all" onclick="setMatchHubFilter('all',this)">Tümü</button>
+            <button type="button" data-match-hub-filter="live" onclick="setMatchHubFilter('live',this)">Canlı</button>
+            <button type="button" data-match-hub-filter="upcoming" onclick="setMatchHubFilter('upcoming',this)">Yaklaşan</button>
+            <button type="button" data-match-hub-filter="results" onclick="setMatchHubFilter('results',this)">Sonuçlar</button>
+          </div>
+        </header>
+        <div class="matches-hub-list" id="footballMatchesFullList" aria-live="polite"></div>
+      </main>
+      <aside class="matches-hub-sidebar" aria-label="Maç merkezi bilgileri">
+        <section><span class="matches-side-index">01</span><strong>Canlı etiketi yalnız resmî durum kaydından gelir.</strong><p>Saate bakarak maç başlamış kabul edilmez. Sağlayıcı gecikirse ekranda “durum bekleniyor” görünür.</p></section>
+        <section><span class="matches-side-index">02</span><strong>Her karşılaşmanın ayrı merkezi var.</strong><p>Kadro, eksikler, matematik, topluluk dağılımı ve ilgili haberler maç kartından açılır.</p></section>
+        <button type="button" onclick="switchMainTab('predict')">Ücretsiz Predict’e geç <span aria-hidden="true">→</span></button>
+      </aside>
+    </div>
+  </section>
+
+  <section class="football-data-view news-hub-view" id="footballNewsView" aria-labelledby="footballNewsViewTitle" hidden>
+    <header class="football-data-hero news-data-hero">
+      <div><span class="football-data-eyebrow">XYZSKOR HABER MERKEZİ</span><h1 id="footballNewsViewTitle">Gündem</h1><p>Resmî açıklama, güçlü iddia, söylenti ve veri analizi birbirine karıştırılmadan tam akışta gösterilir.</p></div>
+      <div class="news-desk-seal"><strong>Kaynaklı</strong><small>Her kaydın türü ve kaynağı görünür.</small></div>
+    </header>
+    <div class="news-hub-workspace">
+      <main class="news-hub-feed">
+        <div class="news-hub-title"><span>GÜNCEL AKIŞ</span><h2>Son gelişmeler</h2><p>Bir kayda basarak kaynaklarını, kronolojisini ve ilgili maçını aç.</p></div>
+        <div id="footballNewsFullStream" aria-live="polite"></div>
+      </main>
+      <aside class="news-hub-sidebar" id="footballNewsHubSidebar" aria-label="Haber merkezi standardı"></aside>
+    </div>
+  </section>
+
+  <section class="football-data-view" id="footballClubsView" aria-labelledby="footballClubsViewTitle" hidden>
+    <header class="football-data-hero clubs-hero">
+      <div><span class="football-data-eyebrow" id="footballClubsViewKicker">2026–27 · KULÜP MERKEZİ</span><h1 id="footballClubsViewTitle">Kulüpler</h1><p id="footballClubsViewCopy">Kadro değeri, güncel takım bilgisi, stadyum erişimi ve teknik direktör profili tek ekranda.</p></div>
+      <a class="football-source-link" id="footballClubsSourceLink" href="https://tr.wikipedia.org/wiki/2026-27_S%C3%BCper_Lig" target="_blank" rel="noopener noreferrer">Sezon kaynağı ↗</a>
+    </header>
+    <section class="club-profile-shell" id="clubProfilePanel" aria-live="polite" hidden></section>
+    <div class="league-clubs-grid" id="leagueClubsGrid"></div>
+  </section>
+
+  <section class="football-data-view" id="footballTransfersView" aria-labelledby="footballTransfersViewTitle" hidden>
+    <header class="football-data-hero transfer-center-hero">
+      <div><span class="football-data-eyebrow">2026 YAZ TRANSFER MERKEZİ</span><h1 id="footballTransfersViewTitle">Transfer dosyası</h1><p>Resmî işlemler, devam eden görüşmeler ve kaynaklı söylentiler birbirine karıştırılmadan gösterilir.</p></div>
+      <div class="transfer-window-card"><span>Dönemin kapanmasına</span><strong id="transferCenterCountdown">—</strong><small>4 Eylül 2026 · 23.59</small></div>
+    </header>
+    <div class="transfer-center-workspace">
+      <aside class="transfer-filter-panel" aria-label="Lig transfer filtreleri">
+        <h2>Düzenle</h2>
+        <div class="transfer-filter-group"><span>Lig</span><div class="transfer-filter-static" id="transferLeagueStatic">Seçili lig <span>GEN</span></div></div>
+        <div class="transfer-filter-group"><label for="transferClubFilter">Kulüp</label><select id="transferClubFilter" onchange="setTransferClubFilter(this.value)"><option value="all">Tüm kulüpler</option></select></div>
+        <div class="transfer-filter-group"><span>Veri standardı</span><strong>Kaynak bağlantılı</strong><small>Resmî işlem ve iddia aynı etiketi kullanmaz.</small></div>
+        <div class="transfer-filter-group"><span>Dönem</span><strong>2026 yaz</strong><small id="transferPeriodNote">Seçili lig kayıtları yayınlanır</small></div>
+        <button class="transfer-filter-reset" type="button" onclick="setTransferClubFilter('all')">Filtreyi temizle</button>
+      </aside>
+      <div class="transfer-center-main">
+        <div class="transfer-center-tabs" role="tablist" aria-label="Transfer durumları">
+          <button class="transfer-center-tab active" type="button" role="tab" aria-selected="true" data-transfer-view="confirmed" onclick="setTransferCenterTab('confirmed',this)">Gerçekleşenler</button>
+          <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="talks" onclick="setTransferCenterTab('talks',this)">Görüşmeler</button>
+          <button class="transfer-center-tab" type="button" role="tab" aria-selected="false" data-transfer-view="rumours" onclick="setTransferCenterTab('rumours',this)">Söylentiler</button>
+        </div>
+        <div class="transfer-center-summary" id="transferCenterSummary"></div>
+        <div class="transfer-center-columns" aria-hidden="true"><span>#</span><span>Oyuncu</span><span>Nereden → Nereye</span><span>Bedel / Durum</span><span>Kaynak</span></div>
+        <div class="transfer-center-list" id="transferCenterList" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="football-data-view standings-view" id="footballStandingsView" aria-labelledby="footballStandingsViewTitle" hidden>
+    <header class="football-data-hero standings-hero">
+      <div><span class="football-data-eyebrow" id="footballStandingsViewKicker">SEÇİLİ LİG · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p id="footballStandingsViewCopy">Seçilen lig için puan tablosu ve sezon özeti burada güncellenir.</p></div>
+      <a class="football-source-link" id="footballStandingsSourceLink" href="https://www.tff.org/default.aspx?2586pg=47&amp;ftxtID=47737&amp;pageID=471" target="_blank" rel="noopener noreferrer">TFF kaynağı ↗</a>
+    </header>
+    <div class="standings-season-card"><span>Sezon</span><strong>2024–25</strong><small>38. hafta · final</small></div>
+    <div class="historic-standings-shell" id="historicStandingsTable"></div>
+    <div class="standings-legend" aria-label="Puan durumu renk açıklamaları"><span class="champion">Şampiyon</span><span class="europe">Avrupa kupaları</span><span class="relegated">Küme düşenler</span></div>
+  </section>
+</div>
+
+<!-- ===================== TAB 2: TAHMİN LİGİ ===================== -->
+<div class="tabpage" id="page-league">
+  <div id="teamBannerArea"></div>
+
+  <div class="leaguesubtabs" id="leagueSubtabs">
+    <button class="leaguesubtab active" id="lst-predict" onclick="switchLeagueSection('predict')">Tahminler</button>
+    <button class="leaguesubtab" id="lst-leader" onclick="switchLeagueSection('leader')">Sıralama</button>
+    <button class="leaguesubtab" id="lst-rewards" onclick="switchLeagueSection('rewards')">Ödüller</button>
+  </div>
+
+  <div class="league-section active" id="lsec-predict">
+    <div class="predict-app-shell">
+      <main class="predict-feed-column">
+        <div class="panel predict-list-panel">
+          <div class="predict-list-head"><div><span class="predict-feed-kicker">SÜPER LİG · HAFTALIK OYUN</span><h2>Maç akışı</h2><p>Sonucu seç, istersen kesin skoru ekle. Tahminler maçtan 15 dakika önce kapanır.</p></div><span class="predict-free-label">Ücretsiz</span></div>
+          <div id="leagueMatchList"></div>
+        </div>
+      </main>
+      <aside class="predict-competition-rail" aria-label="Predict yarışma merkezi">
+        <section class="predict-overview" id="progressPanel" aria-label="Haftalık Predict özeti"></section>
+        <section class="predict-side-card predict-league-card">
+          <span class="predict-side-kicker">TARAFTAR LİGLERİ</span>
+          <h3>Kulübünle aynı tabloda yarış.</h3>
+          <p>Haftalık ve sezonluk sıralamanı gör; kendi takımının taraftarları arasındaki yerini takip et.</p>
+          <button class="predict-side-action" type="button" onclick="switchLeagueSection('leader')">Sıralamayı aç <span aria-hidden="true">→</span></button>
+        </section>
+        <details class="predict-side-card predict-rules-card">
+          <summary>Nasıl oynanır?</summary>
+          <ol><li>Maç sonucunu 1, X veya 2 olarak seç.</li><li>İstersen kesin skorunu ekle.</li><li>Doğru seçimlerle haftalık puanını yükselt.</li></ol>
+          <p>Katılım ücretsizdir; para yatırma ve bahis bulunmaz.</p>
+        </details>
+      </aside>
+    </div>
+  </div>
+
+  <div class="league-section" id="lsec-standings">
+    <div class="panel">
+      <div class="section-title">Süper Lig Puan Durumu</div>
+      <div class="section-desc" id="standingsStorySummary"></div>
+      <div class="tabbar" id="standingsFilterTabs"></div>
+      <div class="table-hint">→ Kaydırarak diğer sütunları gör</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Sıra</th><th>Takım</th><th class="num">O</th><th class="num">G</th><th class="num">B</th><th class="num">M</th><th class="num">AV</th><th class="num">P</th></tr></thead>
+          <tbody id="standingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="league-section" id="lsec-leader">
+    <div class="panel">
+      <div class="section-title">Liderlik Tabloları</div>
+      <div class="subtabbar">
+        <div class="subtab active" id="subtabWeek" role="button" tabindex="0" onclick="setPeriod('week')">Haftalık</div>
+        <div class="subtab" id="subtabSeason" role="button" tabindex="0" onclick="setPeriod('season')">Sezonluk</div>
+      </div>
+      <div class="tabbar" id="leaderTabs"></div>
+      <div class="table-hint">→ Kaydırarak diğer sütunları gör</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Sıra</th><th>Kullanıcı</th><th class="num" id="colWeekHeader">Bu Hafta</th><th class="num">Toplam</th></tr></thead>
+          <tbody id="leaderBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="league-section" id="lsec-rewards">
+    <div class="panel">
+      <div class="section-title">Haftanın Ödülleri</div>
+      <div class="section-desc">Her takımın haftalık ilk 3'ü kazanır. Bir takım seçerek sadece onun ödüllerini görebilirsin.</div>
+      <div class="tabbar" id="rewardTeamTabs"></div>
+      <div id="rewardsArea"></div>
+    </div>
+  </div>
+
+  <div class="league-section" id="lsec-profile">
+    <div class="panel" id="profilePanel" style="display:none;"></div>
+  </div>
+
+  <div class="league-section" id="lsec-admin">
+    <div class="panel">
+      <div class="admin-toggle" id="adminRewardToggle">Ödülleri Düzenle</div>
+      <div id="adminRewardPanel"></div>
+    </div>
+    <div class="panel">
+      <div class="admin-toggle" id="adminToggle">Gerçek maç sonucu gir</div>
+      <div id="adminPanel">
+        <div class="section-title" style="margin-top:12px;">Sonuç Gir ve Puanla</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select id="adminMatchSelect" style="flex:1;min-width:180px;" aria-label="Maç seç"></select>
+          <input type="number" id="adminHome" placeholder="Ev gol" style="width:64px;" min="0" aria-label="Ev sahibi gol sayısı">
+          <span class="mono">—</span>
+          <input type="number" id="adminAway" placeholder="Dep gol" style="width:64px;" min="0" aria-label="Deplasman gol sayısı">
+          <button class="btn" id="adminSaveBtn">Kaydet ve Puanla</button>
+        </div>
+        <div class="status-msg" id="adminStatus"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TAB 3: CANLI ===================== -->
+<section class="football-live-module active" id="page-live" aria-label="Canlı maçlar">
+  <div class="live-shell">
+    <div class="live-head">
+      <div>
+        <div class="live-eyebrow"><span class="live-dot"></span><span id="liveCompetitionLabel">SEÇİLİ LİG · GERÇEK ZAMANLI</span></div>
+        <h2>Süper Lig Maç Merkezi</h2>
+        <p>Skor, maç durumu ve dakika bilgisi doğrudan canlı veri katmanından gelir. Sahte skor veya bahis oranı gösterilmez.</p>
+      </div>
+      <div class="live-actions">
+        <span class="live-freshness" id="liveFreshness">Bağlantı doğrulanıyor</span>
+        <button class="btn ghost" id="liveRefreshBtn" type="button" onclick="loadLiveFeed(true)">Yenile</button>
+      </div>
+    </div>
+    <div class="live-list" id="liveScoreList" aria-live="polite">
+      <div class="live-notice"><strong>Canlı veri akışı hazırlanıyor</strong><p>Seçili ligde yayınlanan ilk resmî canlı kayıt bu ekrana otomatik olarak düşer.</p></div>
+    </div>
+    <div class="live-data-note"><span>Skor, olay ve durum bilgisi güvenli sağlayıcı katmanında normalize edilir.</span><span id="liveProviderState">Sağlayıcı bağlantısı doğrulanıyor</span></div>
+  </div>
+</section>
+
+</div>
+
+<div class="account-overlay" id="accountOverlay" aria-hidden="true">
+  <aside class="account-drawer" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+    <div class="account-head"><div><div class="mono" style="color:var(--ink-faint);font-size:11px;">HESAP</div><div class="section-title" id="accountTitle">XYZSKOR hesabı</div></div><button class="account-close" id="accountClose" type="button" aria-label="Hesap panelini kapat">×</button></div>
+    <div id="accountContent"></div>
+  </aside>
+</div>
+
+<div class="news-overlay" id="newsOverlay" aria-hidden="true">
+  <article class="news-detail" role="dialog" aria-modal="true" aria-labelledby="newsDetailTitle">
+    <div class="news-detail-head"><div class="mono" style="color:var(--ink-faint);font-size:10px;">HABER DETAYI</div><button class="news-detail-close" id="newsDetailClose" type="button" aria-label="Haber detayını kapat">×</button></div>
+    <div class="news-detail-body" id="newsDetailBody"></div>
+  </article>
+</div>
+
+<footer class="legal-footer-links" aria-label="Yasal bağlantılar">
+  <a href="legal/kunye.html">Künye</a>
+  <a href="legal/kullanim-kosullari.html">Kullanım Koşulları</a>
+  <a href="legal/kvkk-aydinlatma.html">KVKK Aydınlatma</a>
+  <a href="legal/gizlilik-politikasi.html">Gizlilik</a>
+  <a href="legal/cerez-politikasi.html">Çerezler</a>
+</footer>
+
+<div class="mc-overlay" id="mcOverlay" aria-hidden="true">
+  <div class="mc-panel" role="dialog" aria-modal="true" aria-labelledby="mcCompetition">
+    <div class="mc-header">
+      <button class="mc-close" onclick="closeMatchCenter()" aria-label="Maç Merkezini kapat">✕</button>
+      <div class="mc-competition" id="mcCompetition"></div>
+      <div class="mc-teams-row" id="mcTeamsRow"></div>
+      <div class="mc-meta-row" id="mcMetaRow"></div>
+      <div style="text-align:center;"><span class="mc-status-badge" id="mcStatusBadge"></span></div>
+      <div class="mc-prediction-strip" id="mcPredictionStrip"></div>
+    </div>
+    <div class="mc-tabs" id="mcTabs" role="tablist" aria-label="Maç detayı bölümleri">
+      <button class="mc-tab active" id="mc-tab-overview" role="tab" aria-selected="true" aria-controls="mcBody" tabindex="0" data-mc-tab="overview" onclick="switchMcTab('overview')">Genel Bakış</button>
+      <button class="mc-tab" id="mc-tab-flow" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="flow" onclick="switchMcTab('flow')">Maç Akışı</button>
+      <button class="mc-tab" id="mc-tab-lineups" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="lineups" onclick="switchMcTab('lineups')">Kadrolar</button>
+      <button class="mc-tab" id="mc-tab-stats" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="stats" onclick="switchMcTab('stats')">İstatistikler</button>
+      <button class="mc-tab" id="mc-tab-absences" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="absences" onclick="switchMcTab('absences')">Eksikler</button>
+      <button class="mc-tab" id="mc-tab-prematch" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="prematch" onclick="switchMcTab('prematch')">Maç Önü</button>
+      <button class="mc-tab" id="mc-tab-news" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="news" onclick="switchMcTab('news')">İlgili Haberler</button>
+      <button class="mc-tab" id="mc-tab-community" role="tab" aria-selected="false" aria-controls="mcBody" tabindex="-1" data-mc-tab="community" onclick="switchMcTab('community')">Topluluk</button>
+    </div>
+    <div class="mc-body" id="mcBody" role="tabpanel" aria-labelledby="mc-tab-overview" tabindex="0" aria-live="polite"></div>
+  </div>
+</div>
+
+<div class="overlay" id="authOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <button class="auth-close" id="authClose" type="button" aria-label="Üyelik penceresini kapat">×</button>
+    <h3 id="authTitle">Üye Ol</h3>
+    <div id="registerFields">
+      <div class="field"><label>Kullanıcı adı</label><input id="regUsername" placeholder="Kullanıcı adı"></div>
+      <div class="field"><label>Tuttuğun takım</label>
+        <select id="regTeam">
+          <option value="">Seç</option>
+          <option value="Galatasaray">Galatasaray</option>
+          <option value="Fenerbahçe">Fenerbahçe</option>
+          <option value="Beşiktaş">Beşiktaş</option>
+          <option value="Trabzonspor">Trabzonspor</option>
+          <option value="Diğer">Diğer</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>E-posta</label><input id="authEmail" type="email" placeholder="ornek@mail.com"></div>
+    <div class="field"><label>Şifre</label><input id="authPass" type="password" placeholder="••••••••"></div>
+    <div class="err-msg" id="authErr"></div>
+    <div class="modal-foot">
+      <span class="switch-link" id="authSwitch">Zaten üye misin? Giriş yap</span>
+      <button class="btn" id="authSubmit">Üye Ol</button>
+    </div>
+  </div>
+</div>
+
+<nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Alt gezinme" hidden>
+  <button class="mbn-item active" id="mbn-football" onclick="mbnGo('football')" aria-label="Futbol">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h11a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4Z"/><path d="M17 8h3v12"/><path d="M8 9h6M8 13h6"/></svg>
+    <span>Futbol</span>
+  </button>
+  <button class="mbn-item" id="mbn-predict" onclick="mbnGo('predict')" aria-label="Tahmin">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg>
+    <span>Predict</span>
+  </button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/xyzskor/assets/js/data.js"></script>
+<script src="/xyzskor/assets/js/live.js"></script>
+<script src="/xyzskor/assets/js/match-center.js"></script>
+<script src="/xyzskor/assets/js/ui.js"></script>
+
+</body>
+</html>
