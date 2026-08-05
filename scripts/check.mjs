@@ -120,9 +120,12 @@ assert.doesNotMatch(html, /id="tabBtn(?:Story|League|Stories|Live)"/i, 'Eski ana
 assert.match(html, /id="accountOverlay"/i, 'Profil ve hesap işlemleri hesap panelinde bulunmalı.');
 assert.doesNotMatch(html, /<section class="campaign-hero"/i, 'Büyük sponsor hero ilk görünümde bulunmamalı.');
 assert.match(html, /id="footballQuickMatches"/i, 'Futbol alanında kompakt maç merkezi bulunmalı.');
-assert.match(html, /id="footballNewsStream"/i, 'Futbol alanında gerçek içerik akışı bulunmalı.');
+assert.doesNotMatch(html, /id="footballNewsSection"/i, 'Ana sayfadaki Gündem akışı modülü kaldırılmış kalmalı.');
 assert.match(html, /id="footballTransferStream"/i, 'Futbol alanında kaynaklı transfer modülü bulunmalı.');
 assert.match(html, /id="footballStandingsCompact"/i, 'Futbol alanında puan durumu özeti bulunmalı.');
+assert.match(appCss, /#footballOverviewView \.standings-rail\{grid-column:2;grid-row:2\/4\}/i, 'Puan durumu ana sayfada kaldırılan gündem alanının yerini kullanmalı.');
+assert.match(appSource, /\{ key:'champions-league'[\s\S]*\{ key:'europa-league'[\s\S]*\{ key:'la-liga'[\s\S]*\{ key:'premier-league'/i, 'Sportmonks lig seçimi hedeflenen dört uluslararası ligi içermeli.');
+assert.match(functionSource('loadLiveFeed'), /fetch\(`\/api\/football\/live\?league=\$\{encodeURIComponent\(league\)\}`[\s\S]*sb\.functions\.invoke/s, 'Lig bazlı Sportmonks canlı Worker akışı birincil, Supabase fonksiyonu yedek olmalı.');
 assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/i, 'Futbol içinde maç, gündem, transfer ve puan durumu erişimi bulunmalı.');
 assert.match(html, /data-football-route="home"[^>]*>Anasayfa</i, 'Futbol portalının ayrı bir Anasayfa rotası bulunmalı.');
 assert.match(html, /id="footballMatchesView"[^>]*hidden/i, 'Maçlar için ana sayfadan ayrı tam detay görünümü bulunmalı.');

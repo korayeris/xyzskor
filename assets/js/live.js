@@ -303,14 +303,15 @@ async function loadLiveFeed(force){
     let data = null;
     let error = null;
     try{
-      const result = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
-      data = result.data; error = result.error;
-    }catch(functionError){ error = functionError; }
-    if(error || !data || !Array.isArray(data.matches)){
       const response = await fetch(`/api/football/live?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'},cache:'no-store'});
       const providerData = await response.json().catch(()=>null);
-      if(!response.ok || !providerData || !Array.isArray(providerData.matches)) throw error || new Error(providerData?.error || 'Canlı veri yanıtı geçersiz.');
+      if(!response.ok || !providerData || !Array.isArray(providerData.matches)) throw new Error(providerData?.error || 'Sportmonks canlı veri yanıtı geçersiz.');
       data = providerData;
+    }catch(providerError){ error = providerError; }
+    if(error || !data || !Array.isArray(data.matches)){
+      const result = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
+      if(result.error || !result.data || !Array.isArray(result.data.matches)) throw error || result.error || new Error('Canlı veri yanıtı geçersiz.');
+      data = result.data;
     }
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
     LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };

@@ -733,7 +733,7 @@ body{background:var(--portal-night);background-image:none}
 .football-module-head{min-height:69px;margin:0;padding:14px 15px 11px;border-bottom:3px solid var(--portal-night)}
 .football-module-kicker{margin-bottom:5px;color:var(--portal-red);font-size:8px}.football-module-title{color:var(--portal-ink);font-size:16px}.football-module-note{margin-top:4px;color:var(--portal-muted);font-size:9px}
 .football-module-action{color:var(--portal-red);font-size:9px}.portal-section-index{align-self:center;color:#b7b8b9;font:800 20px/1 var(--font-display);letter-spacing:1px}
-.match-rail{grid-column:1;grid-row:1/4}.headline-stage{grid-column:2;grid-row:1}.news-feed{grid-column:2;grid-row:2/4}.transfer-rail{grid-column:3;grid-row:1}.standings-rail{grid-column:3;grid-row:2}.portal-sponsor-rail{grid-column:3;grid-row:3}.preseason-social-section{grid-column:2;grid-row:5}
+.match-rail{grid-column:1;grid-row:1/4}.headline-stage{grid-column:2;grid-row:1}.standings-rail{grid-column:2;grid-row:2/4}.transfer-rail{grid-column:3;grid-row:1}.portal-sponsor-rail{grid-column:3;grid-row:3}.preseason-social-section{grid-column:2;grid-row:5}
 .preseason-social-section{border:1px solid rgba(181,143,84,.16);background:linear-gradient(180deg,#090b0d,#050607 46%,#08090b);box-shadow:0 24px 60px rgba(8,9,11,.22)}
 .preseason-social-head{background:radial-gradient(circle at 84% 0,rgba(194,150,87,.16),transparent 32%),linear-gradient(135deg,#111418,#08090c 72%);border-bottom-color:#2f271d}
 .preseason-social-head::after{background:linear-gradient(90deg,#b98a4c,#e2bf86)}
@@ -831,7 +831,7 @@ linear-gradient(140deg,rgba(16,24,34,.96) 0%,rgba(10,15,24,.98) 54%,rgba(18,33,5
   .predict-match{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(420px,1.2fr)}.predict-fixture{border-right:1px solid #343a45}.predict-action{align-self:center;padding:14px 22px}.predict-match-footer,.predict-data-details{grid-column:1/-1}
 }
 @media(max-width:1100px){
-  .football-home{grid-template-columns:310px minmax(0,1fr)}.match-rail{grid-column:1;grid-row:1/4}.headline-stage{grid-column:2;grid-row:1}.news-feed{grid-column:2;grid-row:2/5}.transfer-rail{grid-column:1;grid-row:4}.standings-rail{grid-column:1;grid-row:5}.club-social-section{grid-column:2;grid-row:5}.preseason-social-section{grid-column:2;grid-row:6}.portal-sponsor-rail{grid-column:1/-1;grid-row:7}
+  .football-home{grid-template-columns:310px minmax(0,1fr)}.match-rail{grid-column:1;grid-row:1/4}.headline-stage{grid-column:2;grid-row:1}.standings-rail{grid-column:2;grid-row:2/5}.transfer-rail{grid-column:1;grid-row:4}.club-social-section{grid-column:2;grid-row:5}.preseason-social-section{grid-column:2;grid-row:6}.portal-sponsor-rail{grid-column:1/-1;grid-row:7}
   .league-clubs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.transfer-center-workspace{grid-template-columns:210px minmax(0,1fr)}.transfer-center-row{grid-template-columns:28px 40px minmax(150px,1fr) minmax(220px,1.4fr) 112px}.transfer-center-columns{display:none}.transfer-record-source{grid-column:3/-1;padding-top:7px;border-top:1px solid #30343c}
 }
 @media(max-width:767px){
@@ -843,7 +843,7 @@ linear-gradient(140deg,rgba(16,24,34,.96) 0%,rgba(10,15,24,.98) 54%,rgba(18,33,5
   .week-selector-bar{margin:0 10px!important;overflow-x:auto}.data-status-line{margin:5px 12px 8px}.portal-league-strip,.portal-team-strip{display:block;margin:0 10px 10px;padding:12px 10px;border-left:1px solid #3a3e45;border-right:1px solid #3a3e45;border-radius:14px}.portal-team-strip-copy{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}.portal-team-strip-copy span{margin:0}.portal-team-list,.portal-league-list{margin:0 -2px;padding-bottom:2px}.portal-league-list button{min-width:108px}
   .week-selector-bar .week-picker{flex:1;width:auto;min-width:0}.week-selector-bar .week-nav{min-width:0}.week-selector-bar .week-status{text-align:center}
   .club-social-section,.preseason-social-section{margin:0 10px;border-radius:18px}.club-social-head{min-height:96px;padding:19px 17px}.club-social-head::after{right:71px;width:54px}.club-social-head h2{font-size:20px}.club-social-head p{max-width:250px;font-size:9px;line-height:1.45}.club-social-badge{width:40px;height:40px;font-size:18px}.club-social-body{min-height:0}.club-social-stage{grid-template-columns:1fr}.club-social-card{min-height:0}.club-social-card:nth-child(even){border-left:0}.club-social-card-head{min-height:66px;padding:15px 16px 6px}.club-social-avatar{width:38px;height:38px}.club-social-loading{min-height:280px}.club-social-post{min-height:175px;padding:6px 17px 15px 65px}.club-social-copy{font-size:12px;-webkit-line-clamp:6}.club-social-meta{gap:7px;padding-top:15px}.club-social-card-foot{margin-top:12px;padding-top:11px}
-  .football-home{display:flex;flex-direction:column;gap:10px}.football-primary-grid,.football-secondary-grid{display:contents}.football-module,.portal-sponsor-rail{width:100%;grid-column:auto;grid-row:auto}.club-social-section,.preseason-social-section{width:auto;align-self:stretch;grid-column:auto;grid-row:auto}.match-rail{order:1}.headline-stage{order:2}.news-feed{order:3}.club-social-section{order:4}.preseason-social-section{order:5}.transfer-rail{order:6}.standings-rail{order:7}.portal-sponsor-rail{order:8}
+  .football-home{display:flex;flex-direction:column;gap:10px}.football-primary-grid,.football-secondary-grid{display:contents}.football-module,.portal-sponsor-rail{width:100%;grid-column:auto;grid-row:auto}.club-social-section,.preseason-social-section{width:auto;align-self:stretch;grid-column:auto;grid-row:auto}.match-rail{order:1}.headline-stage{order:2}.standings-rail{order:3}.club-social-section{order:4}.preseason-social-section{order:5}.transfer-rail{order:6}.portal-sponsor-rail{order:7}
   .football-module-head{padding:12px}.match-rail .football-module-note{display:none}.football-match-row{grid-template-columns:46px minmax(0,1fr) auto;padding:9px 12px}.headline-stage{min-height:236px;padding:24px 18px}.headline-stage h2{font-size:30px}.headline-stage p{font-size:12px}.football-news-card{padding:15px 13px}.football-news-card h3{font-size:16px}.portal-sponsor-rail{margin-top:0}.portal-section-index{font-size:16px}
   .football-data-view{min-height:calc(100dvh - 102px);margin:-10px 0 -40px;padding:12px 10px 58px;scroll-margin-top:104px}.football-data-hero{display:grid;gap:17px;margin-bottom:10px;padding:21px 17px}.football-data-hero h1{font-size:29px}.football-data-hero p{font-size:10px}.football-source-link{width:max-content;min-height:34px}.league-clubs-grid{grid-template-columns:1fr}.league-club-card{min-height:138px;padding:16px}.league-club-card .shield.lg{width:52px;height:52px}.transfer-window-card{min-width:0;width:100%}.transfer-center-workspace{grid-template-columns:1fr;gap:9px}.transfer-filter-panel{position:static;display:grid;grid-template-columns:1fr 1fr}.transfer-filter-panel h2{grid-column:1/-1;padding:14px 15px;font-size:15px}.transfer-filter-group{padding:13px 12px}.transfer-filter-group:nth-of-type(n+3){display:none}.transfer-filter-reset{grid-column:1/-1;width:auto;margin:10px 12px}.transfer-center-tabs{overflow-x:auto}.transfer-center-tab{min-width:max-content;min-height:46px;padding:0 16px;font-size:9px}.transfer-center-summary{display:grid;padding:11px 13px;line-height:1.45}.transfer-center-row{grid-template-columns:25px 38px minmax(0,1fr) auto;gap:9px;min-height:0;padding:15px 12px}.transfer-center-index{grid-column:1;grid-row:1}.transfer-player-monogram{grid-column:2;grid-row:1;width:36px;height:36px}.transfer-center-player{grid-column:3;grid-row:1}.transfer-center-fee{grid-column:4;grid-row:1}.transfer-route-block{grid-column:2/-1;grid-row:2;flex-wrap:wrap;padding-top:10px;border-top:1px solid #30343c}.transfer-record-source{grid-column:2/-1;grid-row:3;padding-top:9px;border-top:0}.transfer-center-player>span{white-space:normal}.transfer-status-chip{max-width:92px;text-align:center}.standings-season-card{margin-bottom:8px}.historic-standings-head,.historic-standing-row{grid-template-columns:32px minmax(170px,1fr) repeat(8,38px) 128px;min-width:810px}.historic-standing-row{min-height:44px}.standings-legend{padding:0 3px}
   #page-league{margin:0;padding:14px 10px 50px}#page-league .predict-overview{padding:20px 16px;border-left-width:4px}.predict-overview-title{font-size:25px}.predict-overview-copy{font-size:11px}.predict-summary-grid{margin-top:15px}.predict-summary-item{padding:11px 9px}.predict-summary-item b{font-size:16px}#page-league .leaguesubtabs{padding:0 10px!important;gap:20px!important}.predict-list-head{padding:14px}.predict-list-head h2{font-size:17px}.predict-fixture{padding:13px 14px}.predict-action{padding:0 14px 13px}.predict-date-group{padding:9px 14px}
@@ -1124,7 +1124,7 @@ body{background:#101114}
 }
 
 @media(max-width:767px){
-  .portal-league-strip{order:1}.portal-team-strip{order:2}.match-rail{order:3}.headline-stage{order:4}.news-feed{order:5}.club-social-section{order:6}.preseason-social-section{order:7}.transfer-rail{order:8}.standings-rail{order:9}.portal-sponsor-rail{order:10}
+  .portal-league-strip{order:1}.portal-team-strip{order:2}.match-rail{order:3}.headline-stage{order:4}.standings-rail{order:5}.club-social-section{order:6}.preseason-social-section{order:7}.transfer-rail{order:8}.portal-sponsor-rail{order:9}
 }
 
 /* ===================== LEAGUE IDENTITY THEMES ===================== */
@@ -1789,9 +1789,8 @@ body[class*="league-theme-"] #page-story{
 #footballOverviewView .headline-stage{grid-column:2;grid-row:1;min-height:298px;padding:30px!important;border-color:rgba(255,255,255,.1)!important;background:radial-gradient(circle at 83% 17%,color-mix(in srgb,var(--league-accent,#6ba5d8) 15%,transparent),transparent 32%),linear-gradient(135deg,#24292e,#191c20 65%)!important}
 #footballOverviewView .headline-stage h2{max-width:620px;color:#f7f8f8!important;font-size:clamp(28px,3.2vw,44px)!important;letter-spacing:-.052em}
 #footballOverviewView .headline-stage p{max-width:620px;color:#abb2b9!important;font-size:13px!important;line-height:1.6!important}
-#footballOverviewView .news-feed{grid-column:2;grid-row:2/4}
+#footballOverviewView .standings-rail{grid-column:2;grid-row:2/4}
 #footballOverviewView .transfer-rail{grid-column:3;grid-row:1}
-#footballOverviewView .standings-rail{grid-column:3;grid-row:2}
 #footballOverviewView .portal-sponsor-rail{grid-column:3;grid-row:3}
 #footballOverviewView .club-social-section{grid-column:1/-1;grid-row:4;border:1px solid rgba(255,255,255,.09)!important;border-radius:16px!important;background:#17191c!important;box-shadow:0 16px 38px rgba(0,0,0,.14)!important}
 #footballOverviewView .preseason-social-section{grid-column:1/-1;grid-row:5}
@@ -1819,10 +1818,9 @@ body[class*="league-theme-"] #page-story{
   #footballOverviewView .football-home{grid-template-columns:300px minmax(0,1fr)!important}
   #footballOverviewView .match-rail{grid-column:1;grid-row:1/4}
   #footballOverviewView .headline-stage{grid-column:2;grid-row:1}
-  #footballOverviewView .news-feed{grid-column:2;grid-row:2/4}
+  #footballOverviewView .standings-rail{grid-column:2;grid-row:2/4}
   #footballOverviewView .transfer-rail{grid-column:1;grid-row:4}
-  #footballOverviewView .standings-rail{grid-column:1;grid-row:5}
-  #footballOverviewView .portal-sponsor-rail{grid-column:1/-1;grid-row:6}
+  #footballOverviewView .portal-sponsor-rail{grid-column:1/-1;grid-row:5}
 }
 @media(max-width:767px){
   .global-header,.global-header[class]{min-height:58px;padding:0 14px!important}.brand-lockup{height:58px!important}.global-header .brand-mark{width:31px;height:31px;flex-basis:31px}.brand-copy .logo{font-size:17px}.primary-nav{gap:14px}.primary-nav .maintab{min-height:58px!important;font-size:10px!important}
@@ -1833,7 +1831,7 @@ body[class*="league-theme-"] #page-story{
   #footballOverviewView .portal-team-strip{display:block!important;margin-bottom:10px;padding:12px 0}.portal-team-strip-copy{padding:0 14px}.portal-team-list{padding:8px 14px 0}
   #footballOverviewView .football-home{display:flex!important;flex-direction:column;gap:10px}.football-primary-grid,.football-secondary-grid{display:contents!important}
   #footballOverviewView .football-module,#footballOverviewView .portal-sponsor-rail{width:100%!important;border-radius:14px!important}
-  #footballOverviewView .match-rail{order:1}#footballOverviewView .headline-stage{order:2;min-height:252px;padding:24px 18px!important}#footballOverviewView .news-feed{order:3}#footballOverviewView .club-social-section{order:4}#footballOverviewView .preseason-social-section{order:5}#footballOverviewView .transfer-rail{order:6}#footballOverviewView .standings-rail{order:7}#footballOverviewView .portal-sponsor-rail{order:8}
+  #footballOverviewView .match-rail{order:1}#footballOverviewView .headline-stage{order:2;min-height:252px;padding:24px 18px!important}#footballOverviewView .standings-rail{order:3}#footballOverviewView .club-social-section{order:4}#footballOverviewView .preseason-social-section{order:5}#footballOverviewView .transfer-rail{order:6}#footballOverviewView .portal-sponsor-rail{order:7}
   #footballOverviewView .football-module-head{min-height:66px;padding:14px}#footballOverviewView .headline-stage h2{font-size:30px!important}#footballOverviewView .headline-stage p{font-size:12px!important}
   #footballOverviewView .football-match-row{min-height:70px;padding:12px 14px}#footballOverviewView .club-social-head{padding:17px 15px!important}#footballOverviewView .club-social-head h2{font-size:21px!important}
 }
