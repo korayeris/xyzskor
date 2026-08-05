@@ -703,8 +703,16 @@ async function handleFootballCoverage(request, env, context) {
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   try {
     const payload = await sportmonksCoreRequest("/my/leagues", token);
-    const availableRows = relationRows(payload?.data);
-    const availableIds = new Set(availableRows.map((row) => String(row?.id || row?.league_id || row?.league?.id || "")).filter(Boolean));
+    const availableIds = new Set();
+    const visit = (value, depth = 0) => {
+      if (!value || depth > 6) return;
+      if (Array.isArray(value)) { value.forEach((row) => visit(row, depth + 1)); return; }
+      if (typeof value !== "object") return;
+      const leagueId = value.league_id || value.league?.id || ((value.name || value.short_code || value.image_path) ? value.id : null);
+      if (leagueId !== null && leagueId !== undefined && String(leagueId)) availableIds.add(String(leagueId));
+      Object.values(value).forEach((row) => visit(row, depth + 1));
+    };
+    visit(payload?.data);
     const selected = Object.entries(SELECTED_LEAGUE_IDS_BY_KEY).filter(([key]) => key !== "all").map(([league, ids]) => ({
       league,
       leagueId: String(ids[0]),
