@@ -1041,6 +1041,9 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
     const seasonLeague = season?.league || seasons[0]?.league;
     if (seasonLeague) league = { ...league, ...seasonLeague };
   }
+  // Lig seçimine erişim yoksa bunu genel bir "fikstür bulunamadı" hatasına
+  // dönüştürme; istemci gerçek plan/yetki durumunu gösterebilsin.
+  if (!season?.id && [401, 403].includes(leagueLookupError?.status)) throw leagueLookupError;
   if (!season?.id) return fetchSportmonksLeagueWindow(leagueKey, leagueId, token, [{ module:"season", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "active_season_unavailable" }]);
   const seasonId = String(season.id);
   const [standingsResult, scheduleResult] = await Promise.allSettled([

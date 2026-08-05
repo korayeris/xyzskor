@@ -398,7 +398,9 @@ function transferPlayerPhotoHTML(item){
 }
 function transferRowsFromCache(leagueKey,tab){
   const cached=leagueTransferCache.get(leagueKey);
-  if(!cached) return leagueKey==='super-lig' ? (TRANSFER_CENTER_DATA[tab]||[]) : [];
+  // Transfer ekranında yerel/demo kayıt kullanma. Her lig yalnızca kendi
+  // Sportmonks yanıtı geldikten sonra dolar.
+  if(!cached) return [];
   if(tab==='confirmed') return cached.confirmed||[];
   if(tab==='rumours') return cached.rumours||[];
   if(tab==='talks') return [...(cached.confirmed||[]),...(cached.rumours||[])].filter(item=>/görüş|talk|negotiation|süreç/i.test(`${item.status||''} ${item.detail||''}`));
@@ -441,7 +443,7 @@ function requestLeagueTransferFeed(leagueKey){
   if(leagueTransferCache.has(leagueKey)) return Promise.resolve(true);
   if(leagueTransferRequests.has(leagueKey)) return leagueTransferRequests.get(leagueKey);
   const teams=leagueTeamNamesForKey(leagueKey).slice(0,80).join('|');
-  const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}`,{headers:{Accept:'application/json'}})
+  const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}`,{headers:{Accept:'application/json'},cache:'no-store'})
     .then(async response=>{
       const payload=await response.json().catch(()=>({}));
       if(!response.ok || payload?.league!==leagueKey) throw new Error(payload?.error||'transfer_feed_scope_mismatch');
@@ -1182,7 +1184,7 @@ function renderTransferSignals(shell){
 const YOUTUBE_CHANNEL_FALLBACK=[
   {name:'Sports Digitale',handle:'@sportsdigitale',url:'https://www.youtube.com/@sportsdigitale',note:'Futbol gündemi, yorum ve canlı programlar'},
   {name:'HT Spor',handle:'@htspor',url:'https://www.youtube.com/@htspor',note:'Güncel spor haberleri ve stüdyo yayınları'},
-  {name:'beIN SPORTS Türkiye',handle:'@beINSPORTSTurkiye',url:'https://www.youtube.com/@beINSPORTSTurkiye',note:'Süper Lig röportajları, özetler ve programlar'},
+  {name:'beIN SPORTS Türkiye',handle:'@beINSPORTSTurkiye',url:'https://www.youtube.com/@beINSPORTSTurkiye',note:'Futbol röportajları, özetler ve stüdyo programları'},
   {name:'TRT Spor',handle:'@trtspor',url:'https://www.youtube.com/@trtspor',note:'Resmî spor yayınları ve gündem programları'}
 ];
 let EDITORIAL_NEWS_CACHE=[];
@@ -1292,12 +1294,12 @@ async function renderYouTubeMedia(){
 function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
   const signalShellMarkup=`<div class="transfer-signal-shell" data-transfer-signals></div>`;
-  if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>!['super-lig','all'].includes(item.key)).every(item=>leagueTransferCache.has(item.key))){
+  if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>item.key!=='all').every(item=>leagueTransferCache.has(item.key))){
     ensureAllLeagueTransferFeeds().then(()=>renderFootballTransfers());
-  }else if(activeFootballLeague!=='super-lig' && !leagueTransferCache.has(activeFootballLeague)){
+  }else if(activeFootballLeague!=='all' && !leagueTransferCache.has(activeFootballLeague)){
     ensureLeagueTransferFeed().then(()=>renderFootballTransfers());
   }
-  if(activeFootballLeague!=='super-lig'){
+  if(activeFootballLeague!=='all'){
     const label=competitionLabelBySlug(activeFootballLeague);
     const rows=leagueTransferRecords('confirmed').slice(0,4);
     area.innerHTML=rows.length
@@ -1308,7 +1310,7 @@ function renderFootballTransfers(){
   }
   const transfers=publishedStoryCards().map((card,index)=>({card,index})).filter(entry=>['transfer','transfer_development'].includes(String(entry.card.category || entry.card.type || '').toLocaleLowerCase('tr-TR')));
   if(!transfers.length){
-    area.innerHTML=`<div class="transfer-compact-list">${TRANSFER_CENTER_DATA.confirmed.slice(0,3).map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
+    area.innerHTML=`<div class="league-module-waiting"><strong>Seçili liglerin transfer akışı hazırlanıyor</strong><p>Yalnızca sağlayıcıdan doğrulanan ve lig kapsamı eşleşen kayıtlar burada yayınlanır.</p></div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
     renderTransferSignals(area.querySelector('[data-transfer-signals]'));
     return;
   }
@@ -2208,7 +2210,9 @@ function renderFootballNews(){
   renderPortalSponsor = function(){
     renderPortalSponsorBase();
     const rail=document.getElementById('portalSponsorRail'); if(!rail) return;
-    const reward=Object.entries(REWARDS).flatMap(([team,items])=>(items||[]).map(item=>({team,item}))).find(entry=>entry.item&&entry.item.aciklama&&entry.item.aciklama!=='—');
+    const reward=activeFootballLeague==='super-lig'
+      ? Object.entries(REWARDS).flatMap(([team,items])=>(items||[]).map(item=>({team,item}))).find(entry=>entry.item&&entry.item.aciklama&&entry.item.aciklama!=='—')
+      : null;
     const title=reward?escapeHTML(reward.item.aciklama):'Yeni haftanın ödülü yakında';
     const meta=reward?`${escapeHTML(reward.team)} · ${escapeHTML(reward.item.sira)}. sıra`:'Predict sezonu';
     rail.innerHTML=`<div class="prize-spotlight">
