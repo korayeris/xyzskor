@@ -705,7 +705,7 @@ let xClubPostsRequest=null;
 function fetchLeagueXMediaPayload(){
   const requestedLeague=activeFootballLeague;
   if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
-    const request=fetch('/api/social/x-media-v4'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+    const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
       return payload;
@@ -721,7 +721,7 @@ async function loadXClubPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/social/x-media-v4'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('X veri katmanı hazır değil.');
       return payload;
@@ -778,7 +778,7 @@ async function loadPreseasonPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!preseasonPostsRequest||preseasonPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/social/x-preseason-v3'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/football/x-preseason'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
         const payload=await response.json().catch(()=>null);
         if(!response.ok||!Array.isArray(payload?.clubs)) throw new Error('Hazırlık maçı akışı hazır değil.');
         return payload;

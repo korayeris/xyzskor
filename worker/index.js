@@ -466,13 +466,13 @@ async function handleXClubFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/social/x-media-v4", request.url);
+  const cacheUrl = new URL("/api/football/x-media-v1", request.url);
   const requestedLeague = new URL(request.url).searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-media-stale-v4", request.url);
+  const staleUrl = new URL("/api/football/x-media-stale-v1", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
@@ -509,13 +509,13 @@ async function handleXPreseasonFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/social/x-preseason-v3", request.url);
+  const cacheUrl = new URL("/api/football/x-preseason-v1", request.url);
   const requestedLeague = new URL(request.url).searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-preseason-stale-v3", request.url);
+  const staleUrl = new URL("/api/football/x-preseason-stale-v1", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
@@ -1022,7 +1022,7 @@ async function handleFootballSeason(request, env, context) {
     const response = jsonResponse(payload, 200, { "Cache-Control": SEASON_CACHE, "X-Data-Stale": "false" });
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
-    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "300" });
+    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "300" });
   }
 }
 
@@ -1234,6 +1234,8 @@ export default {
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (["/api/social/x", "/api/social/x-media-v2", "/api/social/x-media-v3", "/api/social/x-media-v4"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2", "/api/social/x-preseason-v3"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
+    if (url.pathname === "/api/football/x-media") return handleXClubFeed(request, env, context);
+    if (url.pathname === "/api/football/x-preseason") return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
