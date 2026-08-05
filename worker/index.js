@@ -1214,7 +1214,7 @@ async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = nul
   }
   const providerTeam = teamId ? relationRows(search?.data)[0] : chooseSportmonksTeam(relationRows(search?.data), searchName);
   const safeTeamImage = /^https:\/\/cdn\.sportmonks\.com\//i.test(String(requestedTeamImage || "")) ? requestedTeamImage : null;
-  const team = providerTeam || (teamId ? { id: teamId, name: teamName, image_path: safeTeamImage } : null);
+  const team = providerTeam?.id ? providerTeam : (teamId ? { id: teamId, name: teamName, image_path: safeTeamImage } : null);
   if (!team?.id) {
     const error = new Error("Sportmonks team not found"); error.status = 404; throw error;
   }
