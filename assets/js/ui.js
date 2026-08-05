@@ -845,7 +845,8 @@ function renderFootballQuickMatches(){
   const rows = footballQuickMatchRows();
   if(!rows.length){ area.innerHTML=footballEmpty('Maç bulunmuyor','Yayınlanmış fikstür veya doğrulanmış canlı maç kaydı henüz yok.'); return; }
   const user = getCurrentUser();
-  area.innerHTML = rows.map(m=>{
+  const overviewRows=rows.slice(0,5);
+  area.innerHTML = overviewRows.map(m=>{
     const state = explicitMatchState(m); const result = getResult(m.id);
     const prediction = user && ALL_PREDICTIONS[m.id] && ALL_PREDICTIONS[m.id][user.id];
     return `<button class="football-match-row" type="button" data-football-match="${escapeHTML(m.id)}" aria-label="${escapeHTML(m.ev)} ${escapeHTML(m.konuk)} maç merkezini aç">
@@ -853,7 +854,7 @@ function renderFootballQuickMatches(){
       <span class="football-match-teams"><span>${escapeHTML(m.ev)}</span><span>${escapeHTML(m.konuk)}</span></span>
       <span class="football-match-meta">${result ? `<span class="football-score">${escapeHTML(result.home)}–${escapeHTML(result.away)}</span>` : ''}<span class="football-state ${state.live?'live':''}">${escapeHTML(state.label)}</span>${prediction?'<span class="prediction-indicator">Tahminin var</span>':''}</span>
     </button>`;
-  }).join('');
+  }).join('')+`<button class="football-quick-more" type="button" onclick="openFootballSection('matches')"><span>${escapeHTML(rows.length)} maçın tamamı</span><b>Maç merkezini aç →</b></button>`;
   area.querySelectorAll('[data-football-match]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.footballMatch); });
 }
 function matchHubScopedRows(){
