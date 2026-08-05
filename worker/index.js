@@ -1022,9 +1022,12 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
   let league = { id: leagueId, name: SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || null };
   let season = null;
   let leagueLookupError = null;
+  let leagueResolved = false;
   try {
     const leaguePayload = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason;seasons;country`, token);
-    league = { ...league, ...(leaguePayload?.data || {}) };
+    const leagueRow = leaguePayload?.data || null;
+    leagueResolved = Boolean(leagueRow?.id);
+    league = { ...league, ...(leagueRow || {}) };
     season = sportmonksCurrentSeason(league);
   } catch (error) {
     leagueLookupError = error;
@@ -1034,6 +1037,7 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
     try {
       const seasonsPayload = await sportmonksRequest(`/seasons?include=league&filters=seasonLeagues:${encodeURIComponent(leagueId)}&order=desc&per_page=50`, token);
       seasons = relationRows(seasonsPayload?.data).filter((row) => row?.id && String(row?.league_id || row?.league?.id || leagueId) === String(leagueId));
+      if (seasons.length) leagueResolved = true;
     } catch (error) {
       leagueLookupError = leagueLookupError || error;
     }
@@ -1044,6 +1048,12 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
   // Lig seçimine erişim yoksa bunu genel bir "fikstür bulunamadı" hatasına
   // dönüştürme; istemci gerçek plan/yetki durumunu gösterebilsin.
   if (!season?.id && [401, 403].includes(leagueLookupError?.status)) throw leagueLookupError;
+  if (!season?.id && !leagueResolved) {
+    const accessError = new Error(`${SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || leagueKey} mevcut Sportmonks aboneliğine dahil değil`);
+    accessError.status = 403;
+    accessError.providerMessage = accessError.message;
+    throw accessError;
+  }
   if (!season?.id) return fetchSportmonksLeagueWindow(leagueKey, leagueId, token, [{ module:"season", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "active_season_unavailable" }]);
   const seasonId = String(season.id);
   const [standingsResult, scheduleResult] = await Promise.allSettled([
