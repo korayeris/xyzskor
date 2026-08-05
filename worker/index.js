@@ -671,6 +671,53 @@ async function sportmonksRequest(pathname, token) {
   }
 }
 
+async function sportmonksCoreRequest(pathname, token) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SPORTMONKS_TIMEOUT_MS);
+  try {
+    const requestUrl = new URL(`https://api.sportmonks.com/v3${pathname}`);
+    if (!requestUrl.searchParams.has("api_token")) requestUrl.searchParams.set("api_token", token);
+    const response = await fetch(requestUrl.toString(), {
+      headers: { Authorization: token, Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(`Sportmonks API ${response.status}`);
+      error.status = response.status;
+      error.providerMessage = payload?.message || null;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function handleFootballCoverage(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
+  const cacheUrl = new URL(request.url); cacheUrl.search = "";
+  const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
+  const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
+  try {
+    const payload = await sportmonksCoreRequest("/my/leagues", token);
+    const availableRows = relationRows(payload?.data);
+    const availableIds = new Set(availableRows.map((row) => String(row?.id || row?.league_id || row?.league?.id || "")).filter(Boolean));
+    const selected = Object.entries(SELECTED_LEAGUE_IDS_BY_KEY).filter(([key]) => key !== "all").map(([league, ids]) => ({
+      league,
+      leagueId: String(ids[0]),
+      name: SELECTED_LEAGUE_NAMES_BY_KEY[league] || null,
+      available: ids.some((id) => availableIds.has(String(id))),
+    }));
+    const response = jsonResponse({ source:"sportmonks-my-leagues", updatedAt:new Date().toISOString(), availableLeagueCount:availableIds.size, selected }, 200, { "Cache-Control":"public, max-age=300, s-maxage=3600" });
+    writeEdgeCache(cache, cacheKey, response, context); return response;
+  } catch (error) {
+    return jsonResponse({ error:error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider:"sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control":"no-store", "Retry-After":"300" });
+  }
+}
+
 function chooseSportmonksTeam(rows, searchName) {
   const target = normalizedFootballName(searchName);
   return rows.find((team) => normalizedFootballName(team?.name) === target)
@@ -1240,6 +1287,7 @@ export default {
     if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2", "/api/social/x-preseason-v3"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/football/x-media") return handleXClubFeed(request, env, context);
     if (url.pathname === "/api/football/x-preseason") return handleXPreseasonFeed(request, env, context);
+    if (url.pathname === "/api/football/coverage") return handleFootballCoverage(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
