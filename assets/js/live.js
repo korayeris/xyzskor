@@ -148,7 +148,7 @@ function applyParsedLocation(parsed){
     const leagueChanged = activeFootballLeague !== parsed.league;
     activeFootballLeague = parsed.league;
     if(leagueChanged){
-      activeFootballTeam='TÃ¼mÃ¼';
+      activeFootballTeam='Tümü';
       MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
       if(typeof renderAll==='function') renderAll();
       const requestedLeague=activeFootballLeague;
