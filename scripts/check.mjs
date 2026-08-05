@@ -139,8 +139,8 @@ assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
-assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x-media-v3'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
-assert.match(functionSource('loadPreseasonPosts'), /fetch\('\/api\/social\/x-preseason-v2'/, 'Hazırlık maçı akışı güncel lig kapsamlı uçtan alınmalı.');
+assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/social\/x-media-v4'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
+assert.match(functionSource('loadPreseasonPosts'), /fetch\('\/api\/social\/x-preseason-v3'/, 'Hazırlık maçı akışı güncel lig kapsamlı uçtan alınmalı.');
 assert.match(appCss, /\.preseason-social-stage\{[^}]*grid-template-columns:1fr!important[^}]*overflow-y:auto/, 'Hazırlık maçı gönderileri tek kolon halinde aşağı doğru akmalı.');
 assert.match(appCss, /\.transfer-signal-stream\{[^}]*grid-auto-flow:row[^}]*overflow-y:auto/, 'X sinyal kaynakları okunaklı dikey akış kullanmalı.');
 assert.match(functionSource('boot'), /parseAppLocation[\s\S]*activeFootballLeague[\s\S]*await loadAllData\(\)/, 'Doğrudan lig URL’si veri yüklenmeden önce seçilmeli.');
@@ -171,7 +171,7 @@ assert.match(workerSource, /max_results:\s*"50"/, 'Hazırlık maçı taraması s
 assert.match(workerSource, /findBestPreseasonPost/, 'X hazırlık akışı skor ve sonuç sinyalini önceliklendirmeli.');
 assert.match(workerSource, /MATCH_RESULT_KEYWORDS/, 'Hazırlık maçı sonuç ifadeleri ayrı sınıflandırılmalı.');
 assert.doesNotMatch(workerSource.match(/const PRESEASON_KEYWORDS = \[[\s\S]*?\];/)?.[0] || '', /play-?off|matchday/i, 'Resmî play-off ve genel maç günü paylaşımları hazırlık maçı sayılmamalı.');
-assert.match(workerSource, /new URL\("\/api\/social\/x-preseason-v2"/, 'Yeni X hazırlık sonucu sınıflandırıcısı ayrı cache sürümü kullanmalı.');
+assert.match(workerSource, /new URL\("\/api\/social\/x-preseason-v3"/, 'Yeni X hazırlık sonucu sınıflandırıcısı ayrı cache sürümü kullanmalı.');
 assert.match(devServerSource, /startsWith\('\/api\/'\)[\s\S]*proxyApi/, 'Yerel önizleme X ve Sportmonks API rotalarını yayın katmanına iletmeli.');
 assert.match(workerSource, /X_TIMEOUT_MS/, 'X sağlayıcı isteği sınırsız süre açık kalmamalı.');
 assert.match(workerSource, /\/api\/health/, 'Üretim sağlık kontrolü bulunmalı.');
@@ -335,12 +335,12 @@ try {
   const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(cachedFeed.status, 200, 'Önbellekteki X akışı kullanılabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, xCallsAfterFirst, 'İkinci istek 24 saatlik önbelleği aşmamalı.');
-  socialCache.delete('https://xyzskor.test/api/social/x-media-v3');
+  socialCache.delete('https://xyzskor.test/api/social/x-media-v4');
   const nextDayFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   await Promise.all(pendingCacheWrites);
   assert.equal(nextDayFeed.status, 200, 'Sonraki gün X akışı yeniden oluşturulabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, 9, 'Sonraki gün yalnız dört paylaşım sorgusu yapılmalı; kulüp kimlikleri tekrar okunmamalı.');
-  socialCache.delete('https://xyzskor.test/api/social/x-media-v3');
+  socialCache.delete('https://xyzskor.test/api/social/x-media-v4');
   xCreditsDepleted = true;
   const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(staleFeed.status, 200, 'X kesintisinde son doğrulanmış akış kullanılmalı.');

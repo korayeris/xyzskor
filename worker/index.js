@@ -466,13 +466,13 @@ async function handleXClubFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/social/x-media-v3", request.url);
-  const requestedLeague = cacheUrl.searchParams.get("league");
+  const cacheUrl = new URL("/api/social/x-media-v4", request.url);
+  const requestedLeague = new URL(request.url).searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-media-stale-v3", request.url);
+  const staleUrl = new URL("/api/social/x-media-stale-v4", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
@@ -509,13 +509,13 @@ async function handleXPreseasonFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/social/x-preseason-v2", request.url);
-  const requestedLeague = cacheUrl.searchParams.get("league");
+  const cacheUrl = new URL("/api/social/x-preseason-v3", request.url);
+  const requestedLeague = new URL(request.url).searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   if (requestedLeague) cacheUrl.searchParams.set("league", requestedLeague);
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/social/x-preseason-stale-v2", request.url);
+  const staleUrl = new URL("/api/social/x-preseason-stale-v3", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
@@ -927,6 +927,32 @@ async function sportmonksFixtureRequest(path, token) {
   throw errors.at(-1) || new Error("Sportmonks fixture request unavailable");
 }
 
+function utcDateWithOffset(days) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function fetchSportmonksLeagueWindow(leagueKey, leagueId, token, priorErrors = []) {
+  const windows = [[-150,-61],[-60,29],[30,119],[120,209],[210,299]];
+  const requests = windows.map(([from,to]) => sportmonksRequest(`/fixtures/between/${utcDateWithOffset(from)}/${utcDateWithOffset(to)}?include=participants;scores;league.country;state;venue&filters=fixtureLeagues:${encodeURIComponent(leagueId)}&per_page=50`, token));
+  const settled = await Promise.allSettled(requests);
+  const fixtures = settled.flatMap((result) => result.status === "fulfilled" ? relationRows(result.value?.data) : []);
+  const strictlyScoped = fixtures.filter((fixture) => String(fixture?.league_id || fixture?.league?.id || "") === String(leagueId));
+  if (!strictlyScoped.length) {
+    const error = settled.find((result) => result.status === "rejected")?.reason || new Error("Sportmonks lig fikstürü bulunamadı");
+    throw error;
+  }
+  const league = strictlyScoped.find((fixture) => fixture?.league)?.league || { id:leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || null };
+  const matches = strictlyScoped.map((fixture, index) => normalizeProviderFixture(fixture, league, fixture?.season_id || "league-window", fixture?.round_id || index + 1)).filter(Boolean);
+  const uniqueMatches = [...new Map(matches.map((row) => [row.id, row])).values()].sort((a,b) => new Date(a.kickoff) - new Date(b.kickoff));
+  return {
+    source:"sportmonks-football-api-v3", provider:"sportmonks", league:leagueKey, leagueId:String(leagueId), seasonId:String(strictlyScoped[0]?.season_id || "league-window"), competition:league.name || SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || null, updatedAt:new Date().toISOString(), matches:uniqueMatches,
+    results:uniqueMatches.filter((row) => row.result).map((row) => ({ match_id:row.id, ...row.result, scored_at:new Date().toISOString() })), standings:[], coverage:{ fixtures:uniqueMatches.length, results:uniqueMatches.filter((row) => row.result).length, standings:0, mode:"league-date-window" },
+    errors:priorErrors.concat(settled.flatMap((result,index) => result.status === "rejected" ? [{ module:`fixtures-window-${index + 1}`, message:result.reason?.providerMessage || result.reason?.message || "unavailable" }] : [])),
+  };
+}
+
 async function fetchSportmonksSeasonBundle(leagueKey, token) {
   const leagueId = (SELECTED_LEAGUE_IDS_BY_KEY[leagueKey] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"])[0];
   let league = { id: leagueId, name: SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || null };
@@ -940,13 +966,18 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
     leagueLookupError = error;
   }
   if (!season?.id) {
-    const seasonsPayload = await sportmonksRequest(`/seasons?include=league.country&filters=seasonLeagues:${encodeURIComponent(leagueId)}&order=desc&per_page=25`, token);
-    const seasons = relationRows(seasonsPayload?.data).filter((row) => row?.id);
+    let seasons = [];
+    try {
+      const seasonsPayload = await sportmonksRequest(`/seasons?include=league&filters=seasonLeagues:${encodeURIComponent(leagueId)}&order=desc&per_page=50`, token);
+      seasons = relationRows(seasonsPayload?.data).filter((row) => row?.id && String(row?.league_id || row?.league?.id || leagueId) === String(leagueId));
+    } catch (error) {
+      leagueLookupError = leagueLookupError || error;
+    }
     season = sportmonksCurrentSeason({ seasons });
     const seasonLeague = season?.league || seasons[0]?.league;
     if (seasonLeague) league = { ...league, ...seasonLeague };
   }
-  if (!season?.id) throw new Error("Sportmonks aktif sezon bulunamadı");
+  if (!season?.id) return fetchSportmonksLeagueWindow(leagueKey, leagueId, token, [{ module:"season", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "active_season_unavailable" }]);
   const seasonId = String(season.id);
   const [standingsResult, scheduleResult] = await Promise.allSettled([
     sportmonksRequest(`/standings/seasons/${encodeURIComponent(seasonId)}?include=participant;details.type`, token),
@@ -1201,8 +1232,8 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
-    if (["/api/social/x", "/api/social/x-media-v2", "/api/social/x-media-v3"].includes(url.pathname)) return handleXClubFeed(request, env, context);
-    if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
+    if (["/api/social/x", "/api/social/x-media-v2", "/api/social/x-media-v3", "/api/social/x-media-v4"].includes(url.pathname)) return handleXClubFeed(request, env, context);
+    if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2", "/api/social/x-preseason-v3"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
