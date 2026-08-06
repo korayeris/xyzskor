@@ -411,6 +411,18 @@ grant select on public.chat_rooms, public.chat_messages to anon, authenticated;
 grant insert on public.chat_messages to authenticated;
 grant select on public.chat_mutes, public.chat_reports to authenticated;
 
+-- PostgreSQL yeni fonksiyonlara VARSAYILAN olarak PUBLIC execute yetkisi verir.
+-- security definer fonksiyonlarda bu, yetkisiz rollerin fonksiyonu çağırabilmesi
+-- anlamına gelir. Fonksiyonların içinde auth.uid()/rol kontrolü olsa da
+-- defense-in-depth gereği önce PUBLIC yetkisi geri alınır, sonra yalnızca
+-- gereken role verilir (20260802181000_server_leaderboard.sql ile aynı desen).
+revoke all on function public.is_verified_user() from public;
+revoke all on function public.is_chat_muted(uuid) from public;
+revoke all on function public.report_chat_message(uuid, text, text) from public;
+revoke all on function public.moderate_chat_message(uuid, text, text) from public;
+revoke all on function public.set_chat_mute(uuid, integer, text) from public;
+revoke all on function public.enforce_chat_message_rules() from public;
+
 grant execute on function public.is_verified_user() to anon, authenticated;
 grant execute on function public.is_chat_muted(uuid) to authenticated;
 grant execute on function public.report_chat_message(uuid, text, text) to authenticated;
