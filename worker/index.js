@@ -69,6 +69,20 @@ const TRANSFER_CACHE = "public, max-age=600, s-maxage=3600, stale-while-revalida
 const SEASON_CACHE = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600";
 const LIVE_API_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
 const SPORTMONKS_TIMEOUT_MS = 12000;
+const INSTAGRAM_TIMEOUT_MS = 9000;
+const INSTAGRAM_CACHE = "public, max-age=900, s-maxage=3600, stale-while-revalidate=21600";
+const INSTAGRAM_STALE_CACHE = "public, max-age=300, s-maxage=604800";
+const INSTAGRAM_GRAPH_VERSION = "v21.0";
+// Graph API hashtag arama kotasi: 7 gunluk pencerede 30 benzersiz hashtag.
+// Bu yuzden lig basina az sayida, sabit hashtag kullanilir.
+const INSTAGRAM_HASHTAGS_BY_LEAGUE = Object.freeze({
+  "super-lig": ["superlig", "galatasaray", "fenerbahce"],
+  "champions-league": ["championsleague", "uefachampionsleague"],
+  "europa-league": ["uefaeuropaleague"],
+  "la-liga": ["laliga"],
+  "premier-league": ["premierleague"],
+});
+const INSTAGRAM_HASHTAG_MEDIA_LIMIT = 12;
 const xFeedRefreshPromises = new Map();
 const xPreseasonRefreshPromises = new Map();
 let youtubeFeedRefreshPromise = null;
@@ -1429,6 +1443,181 @@ async function handleClubProfile(request, env, context) {
   }
 }
 
+/* ===================== INSTAGRAM GÜNDEM GÖNDERİLERİ =====================
+   ÖNEMLİ KISIT: Instagram Graph API, üçüncü tarafın (örn. bir kulübün)
+   hesabından doğrudan gönderi çekmeye izin vermez. Yalnızca şunlar mümkündür:
+     a) Sizin yönettiğiniz Business/Creator hesabının kendi gönderileri
+        (/{ig-user-id}/media)
+     b) Hashtag araması ile o hashtag'i kullanan HERKESE AÇIK gönderiler
+        (/ig_hashtag_search + /{hashtag-id}/recent_media) — takımlarla ilgili
+        gündem gönderilerine ulaşmanın desteklenen yolu budur. Kota: 7 günlük
+        pencerede en fazla 30 benzersiz hashtag.
+   Bu endpoint (b) yolunu kullanır, (a)'yı da destekler ve her ikisi de
+   yapılandırılmamışsa net bir hata kodu döndürür (sahte veri üretmez). */
+
+async function instagramGraphRequest(path, params, token) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), INSTAGRAM_TIMEOUT_MS);
+  try {
+    const url = new URL(`https://graph.facebook.com/${INSTAGRAM_GRAPH_VERSION}${path}`);
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+    });
+    url.searchParams.set("access_token", token);
+    const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: controller.signal });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(`Instagram Graph API ${response.status}`);
+      error.status = response.status;
+      // Meta hata kodlarını yukarı taşı; kota/izin ayrımı için gerekli.
+      error.providerMessage = payload?.error?.message || null;
+      error.providerCode = payload?.error?.code ?? null;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeInstagramMedia(row, source) {
+  if (!row?.id) return null;
+  const isVideo = String(row.media_type || "").toUpperCase() === "VIDEO";
+  // Video için thumbnail_url, foto/carousel için media_url kullanılır.
+  const preview = isVideo ? (row.thumbnail_url || row.media_url || null) : (row.media_url || row.thumbnail_url || null);
+  if (!preview && !row.caption) return null;
+  const caption = String(row.caption || "").trim();
+  return {
+    id: String(row.id),
+    source,
+    permalink: row.permalink || null,
+    caption: caption.length > 400 ? `${caption.slice(0, 400)}…` : caption,
+    mediaType: row.media_type || "IMAGE",
+    preview,
+    isVideo,
+    username: row.username || null,
+    timestamp: row.timestamp || null,
+    likeCount: Number.isFinite(Number(row.like_count)) ? Number(row.like_count) : null,
+    commentsCount: Number.isFinite(Number(row.comments_count)) ? Number(row.comments_count) : null,
+  };
+}
+
+async function fetchInstagramHashtagMedia(hashtag, igUserId, token) {
+  // 1) Hashtag adını id'ye çevir.
+  const search = await instagramGraphRequest("/ig_hashtag_search", { user_id: igUserId, q: hashtag }, token);
+  const hashtagId = relationRows(search?.data)[0]?.id;
+  if (!hashtagId) return [];
+  // 2) O hashtag'in son herkese açık gönderilerini al.
+  const media = await instagramGraphRequest(`/${encodeURIComponent(hashtagId)}/recent_media`, {
+    user_id: igUserId,
+    fields: "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count",
+    limit: String(INSTAGRAM_HASHTAG_MEDIA_LIMIT),
+  }, token);
+  return relationRows(media?.data)
+    .map((row) => normalizeInstagramMedia(row, { kind: "hashtag", value: hashtag }))
+    .filter(Boolean);
+}
+
+async function fetchInstagramOwnMedia(igUserId, token) {
+  const media = await instagramGraphRequest(`/${encodeURIComponent(igUserId)}/media`, {
+    fields: "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count,username",
+    limit: "12",
+  }, token);
+  return relationRows(media?.data)
+    .map((row) => normalizeInstagramMedia(row, { kind: "account", value: row.username || "own" }))
+    .filter(Boolean);
+}
+
+async function handleInstagramFeed(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+
+  const token = env.INSTAGRAM_ACCESS_TOKEN;
+  const igUserId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  if (!token || !igUserId) {
+    return jsonResponse({
+      error: "instagram_not_configured",
+      provider: "instagram-graph-api",
+      // Kurulum için gereken iki secret açıkça bildirilir (değerleri değil).
+      required: ["INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_BUSINESS_ACCOUNT_ID"],
+      note: "Instagram Graph API yalnızca kendi Business hesabınızın gönderilerine ve hashtag aramasına izin verir; başka bir hesabın gönderileri doğrudan çekilemez.",
+    }, 503, { "Cache-Control": "no-store" });
+  }
+
+  const url = new URL(request.url);
+  const league = validLeagueKey(url.searchParams.get("league"), { single: true });
+  if (!league) return jsonResponse({ error: "invalid_league" }, 400, { "Cache-Control": "no-store" });
+
+  const cacheUrl = new URL("/api/social/instagram-v1", request.url);
+  cacheUrl.searchParams.set("league", league);
+  const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
+  const staleUrl = new URL("/api/social/instagram-stale-v1", request.url);
+  staleUrl.searchParams.set("league", league);
+  const staleKey = new Request(staleUrl.toString(), { method: "GET" });
+  const cache = edgeCache();
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+  const stale = await readEdgeCache(cache, staleKey);
+
+  const hashtags = INSTAGRAM_HASHTAGS_BY_LEAGUE[league] || [];
+  const errors = [];
+  try {
+    const settled = await Promise.allSettled([
+      ...hashtags.map((tag) => fetchInstagramHashtagMedia(tag, igUserId, token)),
+      fetchInstagramOwnMedia(igUserId, token),
+    ]);
+
+    const items = [];
+    settled.forEach((result, index) => {
+      const label = index < hashtags.length ? `hashtag:${hashtags[index]}` : "own-media";
+      if (result.status === "fulfilled") items.push(...result.value);
+      else errors.push({ source: label, status: result.reason?.status || 502, code: result.reason?.providerCode ?? null, message: result.reason?.providerMessage || result.reason?.message || "unavailable" });
+    });
+
+    // Her gönderi tek kez; en yeni önce.
+    const unique = [...new Map(items.map((item) => [item.id, item])).values()]
+      .sort((left, right) => new Date(right.timestamp || 0) - new Date(left.timestamp || 0))
+      .slice(0, 18);
+
+    // Hiç veri yoksa ve tüm kaynaklar hata verdiyse bunu hata olarak bildir;
+    // boş listeyi "içerik yok" gibi göstermek yanıltıcı olurdu.
+    if (!unique.length && errors.length && errors.length >= hashtags.length + 1) {
+      const first = errors[0];
+      const status = [401, 403].includes(first.status) ? first.status : 502;
+      return jsonResponse({
+        error: status === 401 ? "instagram_token_invalid" : status === 403 ? "instagram_permission_denied" : "instagram_upstream_unavailable",
+        provider: "instagram-graph-api", league, errors,
+      }, status, { "Cache-Control": "no-store", "Retry-After": "600" });
+    }
+
+    const payload = {
+      source: "instagram-graph-api",
+      league,
+      hashtags,
+      updatedAt: new Date().toISOString(),
+      items: unique,
+      errors,
+    };
+    const response = jsonResponse(payload, 200, { "Cache-Control": INSTAGRAM_CACHE, "X-Data-Stale": "false" });
+    writeEdgeCache(cache, cacheKey, response, context);
+    writeEdgeCache(cache, staleKey, jsonResponse(payload, 200, { "Cache-Control": INSTAGRAM_STALE_CACHE }), context);
+    return response;
+  } catch (error) {
+    if (stale) {
+      const headers = new Headers(stale.headers);
+      headers.set("Cache-Control", "public, max-age=120, s-maxage=900");
+      headers.set("X-Data-Stale", "true");
+      headers.set("Warning", '110 - "Response is stale"');
+      return new Response(stale.body, { status: 200, headers });
+    }
+    const status = error?.status === 401 ? 401 : error?.status === 403 ? 403 : 502;
+    return jsonResponse({
+      error: status === 401 ? "instagram_token_invalid" : status === 403 ? "instagram_permission_denied" : "instagram_upstream_unavailable",
+      provider: "instagram-graph-api",
+      detail: error?.providerMessage || error?.message || "unavailable",
+    }, status, { "Cache-Control": "no-store", "Retry-After": "600" });
+  }
+}
+
 function handleHealth(request, env) {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
@@ -1437,7 +1626,7 @@ function handleHealth(request, env) {
     status: "ok",
     service: "xyzskor-web",
     timestamp: new Date().toISOString(),
-    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured", sportmonks_live: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_season: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured" },
+    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured", sportmonks_live: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_season: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", instagram: env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_BUSINESS_ACCOUNT_ID ? "configured" : "not_configured" },
   };
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: jsonResponse(payload, 200, { "Cache-Control": "no-store" }).headers });
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
@@ -1479,6 +1668,7 @@ export default {
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
     if (url.pathname === "/api/football/transfers") return handleFootballTransfers(request, env, context);
+    if (url.pathname === "/api/social/instagram") return handleInstagramFeed(request, env, context);
     const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
     let response = await fetchAsset(request, env, pathname);
 

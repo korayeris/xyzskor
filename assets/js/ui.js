@@ -1531,7 +1531,92 @@ function renderFootballStandingsCompact(){
   const note=summary ? `<div class="standing-compact-note">Üstte son tamamlanan sezonun resmî özeti, altta bu lig için tabloda görünen son kayıt yer alır.</div>` : '';
   area.innerHTML=`${standingsArchiveBannerHTML(rows)}${note}<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
 }
-function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
+
+/* ===================== INSTAGRAM GÜNDEM GÖNDERİLERİ =====================
+   Worker /api/social/instagram uzerinden gelir. Graph API kisiti geregi
+   icerik ya hashtag aramasindan ya da kendi Business hesabimizdan gelir;
+   bu ayrim her kartta "kaynak" rozetiyle kullaniciya gosterilir.
+   Sahte veri uretilmez: yapilandirilmamis / hata / bos durumlari ayridir. */
+let instagramFeedRequest = null;
+let instagramFeedLeague = null;
+
+const INSTAGRAM_STATE_COPY = {
+  unconfigured: { status:'Bağlantı bekleniyor', title:'Instagram akışı henüz bağlanmadı.', body:'Instagram Business hesabı ve erişim anahtarı tanımlandığında gündemdeki gönderiler burada otomatik listelenir.' },
+  error: { status:'Akış geçici olarak alınamıyor', title:'Instagram gönderileri şu anda yüklenemedi.', body:'Bağlantı yeniden kurulduğunda gündem akışı otomatik güncellenecek.' },
+  empty: { status:'Yeni gönderi bekleniyor', title:'Bu lig için güncel Instagram gönderisi bulunamadı.', body:'Takip edilen etiketlerde yeni bir paylaşım yapıldığında burada görünecek.' },
+};
+
+function instagramStateHTML(reason){
+  const copy = INSTAGRAM_STATE_COPY[reason] || INSTAGRAM_STATE_COPY.empty;
+  const status = document.getElementById('instagramFeedStatus');
+  if(status){ status.textContent = copy.status; status.dataset.state = reason; }
+  return `<div class="instagram-state" data-state="${escapeHTML(reason)}">
+    <span class="instagram-state-mark" aria-hidden="true">◎</span>
+    <div><strong>${escapeHTML(copy.title)}</strong><p>${escapeHTML(copy.body)}</p></div>
+  </div>`;
+}
+
+function instagramCardHTML(item){
+  const sourceLabel = item?.source?.kind === 'hashtag' ? `#${item.source.value}` : '@' + (item.username || 'xyzskor');
+  const metrics = [];
+  if(Number.isFinite(item.likeCount)) metrics.push(`♥ ${escapeHTML(String(item.likeCount))}`);
+  if(Number.isFinite(item.commentsCount)) metrics.push(`💬 ${escapeHTML(String(item.commentsCount))}`);
+  const link = safeExternalURL(item.permalink);
+  const media = item.preview
+    ? `<img src="${escapeHTML(item.preview)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+    : '<div class="instagram-card-nomedia" aria-hidden="true">◎</div>';
+  const inner = `<div class="instagram-card-media">${media}${item.isVideo?'<span class="instagram-card-video" aria-hidden="true">▶</span>':''}<span class="instagram-card-source">${escapeHTML(sourceLabel)}</span></div>
+    <div class="instagram-card-copy">
+      ${item.caption?`<p>${escapeHTML(item.caption)}</p>`:''}
+      <div class="instagram-card-foot">
+        <time datetime="${escapeHTML(item.timestamp||'')}">${escapeHTML(fmtEditorialDate(item.timestamp))}</time>
+        ${metrics.length?`<span class="instagram-card-metrics">${metrics.join(' · ')}</span>`:''}
+      </div>
+    </div>`;
+  return link
+    ? `<a class="instagram-card" href="${escapeHTML(link)}" target="_blank" rel="noopener noreferrer">${inner}</a>`
+    : `<article class="instagram-card">${inner}</article>`;
+}
+
+function renderInstagramItems(payload){
+  const grid = document.getElementById('instagramFeedGrid');
+  const status = document.getElementById('instagramFeedStatus');
+  if(!grid) return;
+  const items = Array.isArray(payload?.items) ? payload.items.slice(0,12) : [];
+  if(!items.length){ grid.innerHTML = instagramStateHTML('empty'); return; }
+  if(status){
+    status.textContent = `${items.length} güncel gönderi`;
+    status.dataset.state = 'live';
+  }
+  grid.innerHTML = items.map(instagramCardHTML).join('');
+}
+
+async function renderInstagramFeed(){
+  const grid = document.getElementById('instagramFeedGrid');
+  if(!grid) return;
+  const league = activeFootballLeague === 'all' ? 'super-lig' : activeFootballLeague;
+  // Lig degistiyse onbellegi tazele.
+  if(instagramFeedLeague !== league){ instagramFeedRequest = null; instagramFeedLeague = league; }
+  const status = document.getElementById('instagramFeedStatus');
+  if(status){ status.textContent = 'Gündem akışı kontrol ediliyor'; status.dataset.state = 'loading'; }
+  grid.innerHTML = skeletonCardsHTML(3,'instagram-skeleton-card');
+  try{
+    if(!instagramFeedRequest){
+      instagramFeedRequest = fetch(`/api/social/instagram?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'}})
+        .then(async (response)=>{
+          const payload = await response.json().catch(()=>null);
+          if(!response.ok){ const error = new Error(payload?.error||'instagram_unavailable'); error.code = payload?.error; throw error; }
+          return payload;
+        });
+    }
+    renderInstagramItems(await instagramFeedRequest);
+  }catch(error){
+    instagramFeedRequest = null;
+    grid.innerHTML = instagramStateHTML(error?.code === 'instagram_not_configured' ? 'unconfigured' : 'error');
+  }
+}
+
+function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderInstagramFeed(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
@@ -2083,6 +2168,7 @@ function renderSkeletons(){
   fillSkeleton('clubSocialStage',skeletonCardsHTML(3,'club-social-skeleton'));
   fillSkeleton('preseasonSocialStage',skeletonCardsHTML(3,'club-social-skeleton'));
   fillSkeleton('youtubeMediaGrid',skeletonCardsHTML(3,'youtube-skeleton-card'));
+  fillSkeleton('instagramFeedGrid',skeletonCardsHTML(3,'instagram-skeleton-card'));
   fillSkeleton('editorialLeadNews',skeletonRowsHTML(2));
   fillSkeleton('footballNewsFullStream',skeletonRowsHTML(4));
   fillSkeleton('standingsBody',skeletonRowsHTML(5));

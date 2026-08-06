@@ -4,3 +4,12 @@ SPORTMONKS_API_TOKEN=
 # Alternatif isim. Tek token yeterlidir; iki değişkeni birden doldurmayın.
 SPORTMONKS_TOKEN=
 
+
+# Instagram Graph API (gündem gönderileri).
+# ÖNEMLİ: Graph API başka bir hesabın (örn. bir kulübün) gönderilerini
+# doğrudan çekmeye izin vermez. Bu entegrasyon iki desteklenen yolu kullanır:
+#  1) Hashtag arama — herkese açık gönderiler (7 günde en fazla 30 hashtag)
+#  2) Kendi Business/Creator hesabınızın gönderileri
+# Her ikisi de bir Instagram Business hesabı ve bağlı Facebook sayfası ister.
+INSTAGRAM_ACCESS_TOKEN=
+INSTAGRAM_BUSINESS_ACCOUNT_ID=
