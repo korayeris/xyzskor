@@ -28,6 +28,115 @@ function accountHistoryHTML(uid){
     return `<div class="account-history-row"><div class="account-history-match">${escapeHTML(match.home)} – ${escapeHTML(match.away)}<span>${escapeHTML(fmtKickoff(match.kickoff))} · ${escapeHTML(String(match.hafta))}. hafta</span></div><div class="account-history-pick">${escapeHTML(prediction.pick)}${escapeHTML(score)}<span>${points==null?'Sonuç bekleniyor':escapeHTML(String(points))+' puan'}</span></div></div>`;
   }).join('')}</div>`;
 }
+const ADMIN_ROLE_OPTIONS = [
+  ['','Editoryal yetki yok'],
+  ['owner','Owner'],
+  ['editor','Editör'],
+  ['reviewer','Reviewer'],
+  ['source_manager','Kaynak yöneticisi'],
+  ['football_data','Futbol veri sorumlusu']
+];
+let memberAdminRows = [];
+function adminRoleLabel(role){
+  const found = ADMIN_ROLE_OPTIONS.find(item=>item[0]===role);
+  return found ? found[1] : 'Yetki yok';
+}
+function memberAdminRowHTML(row){
+  const current = getCurrentUser();
+  const isSelf = current && current.id === row.id;
+  const safeId = escapeHTML(row.id);
+  const role = row.editorial_active ? row.editorial_role : '';
+  return `<article class="account-member-card" data-member-admin="${safeId}">
+    <div class="account-member-head">
+      <div>
+        <div class="account-member-name">${escapeHTML(row.username || row.email || 'İsimsiz üye')}</div>
+        <div class="account-member-meta">${escapeHTML(row.email || 'E-posta yok')} · ${escapeHTML(row.team || 'Takım yok')}</div>
+      </div>
+      <span class="account-admin-chip ${row.is_admin?'is-on':'is-off'}">${row.is_admin?'Admin':'Üye'}</span>
+    </div>
+    <div class="account-member-stats" aria-label="Üye aktivitesi">
+      <span><b>${Number(row.prediction_count || 0)}</b> tahmin</span>
+      <span><b>${Number(row.weekly_game_count || 0)}</b> oyun</span>
+      <span><b>${Number(row.reward_claim_count || 0)}</b> ödül talebi</span>
+    </div>
+    <div class="account-member-actions">
+      <label class="account-admin-toggle"><input type="checkbox" data-admin-toggle ${row.is_admin?'checked':''} ${isSelf?'disabled':''}> Admin</label>
+      <select class="account-role-select" data-role-select aria-label="Editoryal rol seç">
+        ${ADMIN_ROLE_OPTIONS.map(([value,label])=>`<option value="${escapeHTML(value)}" ${value===role?'selected':''}>${escapeHTML(label)}</option>`).join('')}
+      </select>
+      <button class="btn ghost" type="button" data-member-save>${isSelf?'Rolü kaydet':'Yetkiyi kaydet'}</button>
+    </div>
+    <div class="account-member-foot">${role ? escapeHTML(adminRoleLabel(role)) : 'Editoryal rol pasif'}${isSelf?' · kendi admin yetkini buradan kapatamazsın':''}</div>
+  </article>`;
+}
+function renderMemberAdminRows(rows){
+  const list = document.getElementById('memberAdminList');
+  const status = document.getElementById('memberAdminStatus');
+  if(!list || !status) return;
+  if(!rows.length){
+    status.textContent = 'Bu aramaya uygun üye bulunamadı.';
+    status.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  status.style.display = 'none';
+  list.innerHTML = rows.map(memberAdminRowHTML).join('');
+  bindMemberAdminActions();
+}
+async function loadMemberAdminConsole(search=''){
+  const list = document.getElementById('memberAdminList');
+  const status = document.getElementById('memberAdminStatus');
+  if(!list || !status) return;
+  status.textContent = 'Üyeler yükleniyor…';
+  status.style.display = 'block';
+  const result = await fetchMemberAdminConsole(search);
+  if(!result.ok){
+    status.textContent = result.err || 'Üye listesi alınamadı.';
+    list.innerHTML = '';
+    return;
+  }
+  memberAdminRows = result.rows || [];
+  renderMemberAdminRows(memberAdminRows);
+}
+function bindMemberAdminActions(){
+  document.querySelectorAll('[data-member-admin]').forEach(card=>{
+    const save = card.querySelector('[data-member-save]');
+    const adminToggle = card.querySelector('[data-admin-toggle]');
+    const roleSelect = card.querySelector('[data-role-select]');
+    if(!save || !adminToggle || !roleSelect) return;
+    save.onclick = async () => {
+      const userId = card.getAttribute('data-member-admin');
+      save.disabled = true;
+      save.textContent = 'Kaydediliyor…';
+      const result = await setMemberAdminRole(userId, adminToggle.checked, roleSelect.value || null, !!roleSelect.value);
+      save.disabled = false;
+      save.textContent = 'Yetkiyi kaydet';
+      if(!result.ok){
+        const status = document.getElementById('memberAdminStatus');
+        if(status){ status.textContent = result.err || 'Yetki güncellenemedi.'; status.style.display = 'block'; }
+        return;
+      }
+      if(result.row){
+        memberAdminRows = memberAdminRows.map(row=>row.id===userId ? result.row : row);
+        renderMemberAdminRows(memberAdminRows);
+      } else {
+        await loadMemberAdminConsole(document.getElementById('memberAdminSearch')?.value || '');
+      }
+    };
+  });
+}
+function initMemberAdminConsole(){
+  const search = document.getElementById('memberAdminSearch');
+  const refresh = document.getElementById('memberAdminRefresh');
+  if(!search || !refresh) return;
+  let timer = null;
+  search.oninput = () => {
+    clearTimeout(timer);
+    timer = setTimeout(()=>loadMemberAdminConsole(search.value), 250);
+  };
+  refresh.onclick = () => loadMemberAdminConsole(search.value);
+  loadMemberAdminConsole('');
+}
 function renderAccountContent(){
   const area = document.getElementById('accountContent'); const u = getCurrentUser();
   if(!u){
@@ -44,13 +153,29 @@ function renderAccountContent(){
     <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><p class="account-empty">Takip edilen takım ve futbolcu verisi için bağlı bir profil kaydı bulunmuyor.</p></section>
     <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><p class="account-empty">Bildirim tercihleri henüz kullanıcı hesabına bağlı değil. Varsayılan tercih uydurulmadı.</p></section>
     <section class="account-section" aria-labelledby="accountSettingsTitle"><h3 class="account-section-title" id="accountSettingsTitle">Hesap ayarları</h3><div class="account-settings"><div class="account-settings-row"><label for="accountTeamSelect">Tuttuğun takım</label><select id="accountTeamSelect" ${u.team_changed?'disabled':''}>${TEAMS.map(team=>`<option ${team===u.team?'selected':''}>${escapeHTML(team)}</option>`).join('')}</select></div><button class="btn ghost" id="accountTeamSave" type="button" disabled>Takımı değiştir</button>${u.team_changed?'<p class="account-note">Bu sezon için tek takım değişikliği hakkını kullandın.</p>':'<p class="account-note">Takım sezonda yalnız bir kez değiştirilebilir.</p>'}</div></section>
-    <div class="account-actions">${u.is_admin?'<button class="btn ghost" id="accountAdmin" type="button">Yönetim Paneli</button>':''}<button class="btn ghost account-danger" id="accountLogout" type="button">Çıkış yap</button></div>`;
+    ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="memberAdminTitle">
+      <div class="account-admin-title-row">
+        <div>
+          <h3 class="account-section-title" id="memberAdminTitle">Üye Yetkilendirme</h3>
+          <p class="account-admin-desc">Kayıtlı üyeleri kontrol et, admin ve editoryal rollerini ver. E-posta bilgisi yalnız admin oturumunda DB RPC üzerinden gelir.</p>
+        </div>
+        <span class="account-admin-secure">DB bağlı</span>
+      </div>
+      <div class="account-admin-toolbar">
+        <input id="memberAdminSearch" class="account-admin-search" type="search" placeholder="E-posta, kullanıcı adı veya takım ara">
+        <button class="btn ghost" id="memberAdminRefresh" type="button">Yenile</button>
+      </div>
+      <p class="account-empty" id="memberAdminStatus">Üye listesi yükleniyor…</p>
+      <div class="account-admin-list" id="memberAdminList"></div>
+    </section>`:''}
+    <div class="account-actions">${u.is_admin?'<button class="btn ghost" id="accountAdmin" type="button">Predict admin paneline git</button>':''}<button class="btn ghost account-danger" id="accountLogout" type="button">Çıkış yap</button></div>`;
   const teamSelect=document.getElementById('accountTeamSelect'); const teamSave=document.getElementById('accountTeamSave');
   if(teamSelect && teamSave && !u.team_changed){
     teamSelect.onchange=()=>{ teamSave.disabled=teamSelect.value===u.team; };
     teamSave.onclick=async()=>{ if(await changeTeam(teamSelect.value)){ await loadAllData(); renderAll(); renderAccountContent(); } };
   }
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
+  if(u.is_admin) initMemberAdminConsole();
   document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
 }
 function openAccount(){

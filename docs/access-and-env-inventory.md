@@ -94,3 +94,24 @@ Bu dosya gizli değer saklamaz. Şifre, API key, bearer token, service-role key 
   1. Supabase CLI veya SQL Editor ile migration'ı uygula.
   2. Tabloların oluştuğunu doğrula.
   3. Auth ekranını bu RPC'lere bağla.
+
+Not: Yukaridaki DB temelinin durumu bolumunde kalan "henuz uygulanmadi" ifadesi eski nottur; 20260806165000 temel migration'i daha once canli Supabase SQL Editor'da uygulanip dogrulanmistir.
+
+## Uye ve admin yetkilendirme
+
+- Migration:
+  - `supabase/migrations/20260806173000_member_admin_console.sql`
+- Canli Supabase durum:
+  - `admin_role` tipi yoksa olusturulur.
+  - `admin_memberships` yoksa olusturulur.
+  - `audit_logs` yoksa olusturulur.
+  - `list_member_admin_console` RPC olusturuldu ve dogrulandi.
+  - `set_member_admin_role` RPC olusturuldu ve dogrulandi.
+- Frontend baglanti:
+  - `assets/js/data.js`: admin RPC cagri katmani.
+  - `assets/js/ui.js`: hesap paneli icinde uye yetkilendirme arayuzu.
+  - `assets/css/app.css`: hesap paneliyle uyumlu admin liste stili.
+- Kural:
+  - Uye e-postalari dogrudan frontend table select ile okunmaz; yalniz admin RPC uzerinden gelir.
+  - Admin kendi admin yetkisini panelden kaldiramaz.
+  - Yetki degisimleri `audit_logs` tablosuna kaydedilir.

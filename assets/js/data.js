@@ -732,6 +732,30 @@ async function changeTeam(newTeam){
   const fallback = await sb.from('profiles').update({ team:newTeam, team_changed:true }).eq('id', u.id);
   return !fallback.error;
 }
+async function fetchMemberAdminConsole(search=''){
+  if(!SUPABASE_READY) return { ok:false, rows:[], err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const u = getCurrentUser();
+  if(!u || !u.is_admin) return { ok:false, rows:[], err:'Bu alan için admin girişi gerekli.' };
+  const { data, error } = await sb.rpc('list_member_admin_console', {
+    p_search: search ? String(search).trim() : null,
+    p_limit: 80
+  });
+  if(error) return { ok:false, rows:[], err:error.message || 'Üye listesi alınamadı.' };
+  return { ok:true, rows:data || [] };
+}
+async function setMemberAdminRole(userId, isAdmin, editorialRole, active=true){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const u = getCurrentUser();
+  if(!u || !u.is_admin) return { ok:false, err:'Bu işlem için admin girişi gerekli.' };
+  const { data, error } = await sb.rpc('set_member_admin_role', {
+    p_user_id: userId,
+    p_is_admin: !!isAdmin,
+    p_editorial_role: editorialRole || null,
+    p_active: !!active
+  });
+  if(error) return { ok:false, err:error.message || 'Yetki güncellenemedi.' };
+  return { ok:true, row:Array.isArray(data) ? data[0] : data };
+}
 
 /* ===================== TAHMİN OKU/YAZ ===================== */
 function getPrediction(matchId, uid){ return (ALL_PREDICTIONS[matchId] && ALL_PREDICTIONS[matchId][uid]) || null; }

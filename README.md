@@ -1,5 +1,25 @@
 # XYZSkor
 
+## Son surum: uye ve admin yetkilendirme
+
+Hesap paneline site tasarimiyla uyumlu admin konsolu eklendi. Admin kullanici sag ustteki hesap panelinden kayitli uyeleri arayabilir, uye e-postasi/kullanici adi/takim bilgisini gorebilir, tahmin/haftalik oyun/odul talebi sayilarini kontrol edebilir, admin yetkisi verebilir veya kaldirabilir ve editoryal rol atayabilir.
+
+Bu arayuz dogrudan tablo okumaz. Frontend `assets/js/data.js` uzerinden Supabase RPC cagirir:
+
+- `list_member_admin_console`
+- `set_member_admin_role`
+
+Canli Supabase DB'ye uygulanan migration:
+
+- `supabase/migrations/20260806173000_member_admin_console.sql`
+
+Guvenlik notlari:
+
+- Uye e-postalari sadece admin RPC uzerinden doner.
+- Admin kendi admin yetkisini panelden kaldiramaz.
+- Yetki degisimleri `audit_logs` tablosuna yazilir.
+- Secret, service-role key, bearer token veya sifre README'ye ve repoya yazilmaz.
+
 Süper Lig için matematiksel performans ve veri analiz platformu. Uygulama modüler vanilla JavaScript/CSS, Supabase ve Cloudflare uyumlu production build ile çalışır.
 
 Mythos Cards yalnızca ödül sponsorudur. XYZSKOR üzerinde ürün satışı, sepet veya ödeme akışı bulunmaz; sponsor ürünleri yarışma kazananlarına ücretsiz hediye edilir.
