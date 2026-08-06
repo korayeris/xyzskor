@@ -1,0 +1,3 @@
+match_id,competition,kickoff_utc,provider,fixture_external_id,observation_type,provider_event_time_utc,received_at_utc,latency_ms,is_complete,is_correct,lineup_status,availability_status,verification_status,source_reference,notes
+örnek-001,Süper Lig,2026-08-15T17:00:00Z,sportmonks,,score,,,,,,,,,,
+örnek-001,Süper Lig,2026-08-15T17:00:00Z,goalserve,,score,,,,,,,,,,

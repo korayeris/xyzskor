@@ -1,0 +1,14 @@
+{
+  "name": "xyzskor",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Süper Lig matematiksel performans ve veri analiz platformu",
+  "scripts": {
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build.mjs",
+    "check:legal": "node scripts/check-legal.mjs",
+    "load:test": "node scripts/load-test-predictions.mjs"
+  }
+}
