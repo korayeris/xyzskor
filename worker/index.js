@@ -1,5 +1,20 @@
 const STATIC_CACHE = "public, max-age=31536000, immutable";
 const HTML_CACHE = "public, max-age=0, must-revalidate";
+// assets/js/data.js içindeki SELECTED_COMPETITIONS lig anahtarlarıyla (super-lig,
+// champions-league, europa-league, la-liga, premier-league) ve README'de listelenen
+// ana sayfalarla senkron tutulmalıdır. "" kök path (/) için, "predict"/"football"
+// ürün alanları için, "legal" statik hukuki sayfalar için kullanılıyor.
+const KNOWN_APP_ROUTE_PREFIXES = new Set([
+  "",
+  "predict",
+  "football",
+  "legal",
+  "super-lig",
+  "champions-league",
+  "europa-league",
+  "la-liga",
+  "premier-league",
+]);
 // index.html barındırdığı mevcut inline onclick/style kullanımı nedeniyle
 // script-src/style-src şu an 'unsafe-inline' içeriyor. Bu, sayfayı bozmadan
 // eklenebilecek ilk CSP katmanıdır; inline handler'ların addEventListener'a
@@ -1469,6 +1484,19 @@ export default {
 
     if (response.status === 404 && !pathname.split("/").pop()?.includes(".")) {
       response = await fetchAsset(request, env, "/index.html");
+      // SPA fallback: bilinmeyen/uzantısız path'ler için de her zaman index.html
+      // gövdesi döndürülür (client-side router her yolu değerlendirebilsin diye),
+      // ama gerçek uygulama rotası olmayan path'lerde artık HTTP durumu 200 değil
+      // 404 olarak işaretleniyor (arama motorları/izleme araçları için doğru
+      // "soft 404" sinyali). Bilinen rotalar (KNOWN_APP_ROUTE_PREFIXES) 200 kalır.
+      const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
+      if (!KNOWN_APP_ROUTE_PREFIXES.has(firstSegment)) {
+        response = new Response(response.body, {
+          status: 404,
+          statusText: "Not Found",
+          headers: response.headers,
+        });
+      }
     }
 
     return withHeaders(response, pathname);
