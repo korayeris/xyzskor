@@ -9,9 +9,18 @@
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",
     "check:legal": "node scripts/check-legal.mjs",
-    "load:test": "node scripts/load-test-predictions.mjs"
+    "load:test": "node scripts/load-test-predictions.mjs",
+    "qa:api": "node scripts/test-tools/api_test_harness.mjs",
+    "qa:visual": "node scripts/test-tools/visual_check.mjs",
+    "qa:visual:data": "node scripts/test-tools/visual_check.mjs withdata",
+    "qa:dist": "node scripts/test-tools/dist_check.mjs",
+    "qa:chat": "node scripts/test-tools/chat_ui_check.mjs",
+    "qa:instagram": "node scripts/test-tools/ig_ui_check.mjs",
+    "qa:match-center": "node scripts/test-tools/mc_refresh_check.mjs",
+    "qa:perf": "node scripts/test-tools/perf_check.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "playwright": "^1.62.0"
   }
 }
