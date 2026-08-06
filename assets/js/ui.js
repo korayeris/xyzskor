@@ -1981,6 +1981,12 @@ function renderProfile(){
 /* ===================== ADMIN: SONUÇ GİR ===================== */
 document.getElementById('adminToggle').onclick = () => document.getElementById('adminPanel').classList.toggle('show');
 document.getElementById('adminSaveBtn').onclick = async () => {
+  // Defense-in-depth: gerçek yetki kontrolü sunucu tarafında (RLS) yapılıyor,
+  // bu sadece admin olmayan bir kullanıcı panele client tarafından erişirse
+  // gereksiz bir Supabase çağrısı yapılmasını ve yanıltıcı hata mesajını önler.
+  const currentUser = getCurrentUser();
+  const statusElEarly = document.getElementById('adminStatus');
+  if(!currentUser?.is_admin){ if(statusElEarly){ statusElEarly.textContent='Bu işlem için yetkin yok.'; statusElEarly.classList.add('show'); } return; }
   const matchId = document.getElementById('adminMatchSelect').value;
   const homeRaw = document.getElementById('adminHome').value; const awayRaw = document.getElementById('adminAway').value;
   const home = Number(homeRaw); const away = Number(awayRaw);

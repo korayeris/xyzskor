@@ -383,6 +383,10 @@ function openStories(){
 /* ===================== LİG İÇİ SEKMELER ===================== */
 let activeLeagueSection = 'predict';
 function switchLeagueSection(name){
+  // Defense-in-depth: nihai yetki kontrolü Supabase RLS'te (results_admin_all,
+  // rewards_admin_all) yapılıyor, ama admin olmayan bir kullanıcı devtools'tan
+  // veya doğrudan çağrıyla buraya gelirse bölümü client tarafında da açmayalım.
+  if(name === 'admin' && !getCurrentUser()?.is_admin) return;
   activeLeagueSection = name;
   ['predict','standings','leader','rewards','profile','admin'].forEach(n=>{
     const section = document.getElementById('lsec-'+n); if(section) section.classList.toggle('active', n===name);
