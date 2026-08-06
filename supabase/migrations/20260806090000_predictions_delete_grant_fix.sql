@@ -1,0 +1,21 @@
+-- predictions tablosunda grant/policy tutarsızlığını düzeltir.
+--
+-- 20260802180000_platform_core.sql içinde şu satır bulunuyordu:
+--   grant select, insert, update, delete on public.predictions to authenticated;
+-- Ancak public.predictions için tanımlı RLS policy'leri arasında normal
+-- kullanıcılara (authenticated) delete izni veren bir policy hiç yoktu:
+--   - predictions_own_read   (select)
+--   - predictions_own_insert (insert)
+--   - predictions_own_update (update)
+--   - predictions_admin_all  (all, sadece public.is_admin() true olan admin'ler için)
+--
+-- Sonuç olarak normal kullanıcılar için delete zaten RLS tarafından
+-- engelleniyordu (grant var ama karşılık gelen policy yok); davranışta bir
+-- değişiklik yok, sadece yanıltıcı/gereksiz grant kaldırılıyor.
+--
+-- Eğer ileride kullanıcıların kendi tahminlerini (kickoff'tan 15 dk öncesine
+-- kadar) silebilmesi isteniyorsa, bu ayrı bir karar olarak
+-- "predictions_own_delete" policy'si ile birlikte ele alınmalı; bu migration
+-- kapsamına dahil edilmedi.
+
+revoke delete on public.predictions from authenticated;
