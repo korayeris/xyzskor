@@ -3812,3 +3812,393 @@ html{ scroll-behavior:smooth; }
   .historic-standing-row:hover,
   .standing-compact-row:hover{ transform:none; }
 }
+
+/* =====================================================================
+   v110 · GÜNDEM SOHBETİ (chat)
+   Masaüstünde sağ kenardan açılan panel, mobilde tam ekran sayfa.
+   Tüm hareketler transform/opacity üzerinden; panel kapalıyken
+   içerik render edilmez (content-visibility) — boşta maliyet sıfıra yakın.
+   ===================================================================== */
+
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+
+/* ---- Açma düğmesi ---- */
+.chat-launcher{
+  position:fixed;
+  right:20px;
+  bottom:20px;
+  z-index:9990;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  padding:13px 19px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:999px;
+  background:linear-gradient(135deg,#1c2029,#12151b);
+  color:#eef2f7;
+  font:700 12.5px/1 var(--font-display);
+  cursor:pointer;
+  box-shadow:0 14px 34px rgba(0,0,0,.42);
+  transition:transform var(--dur-fast) var(--ease-out),
+             box-shadow var(--dur-fast) var(--ease-out),
+             border-color var(--dur-fast) var(--ease-out);
+}
+.chat-launcher:hover{
+  transform:var(--lift-sm);
+  border-color:var(--league-accent,#5eb9ff);
+  box-shadow:0 18px 44px rgba(0,0,0,.5);
+}
+.chat-launcher:active{ transform:scale(.97); }
+.chat-launcher-icon{ font-size:15px; line-height:1; }
+.chat-launcher-badge{
+  display:grid;
+  place-items:center;
+  min-width:19px;
+  height:19px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#e5484d;
+  color:#fff;
+  font:800 9px/1 var(--font-mono);
+}
+.chat-launcher.has-unread{ border-color:#e5484d; }
+body.chat-open .chat-launcher{ opacity:0; pointer-events:none; transform:translateY(8px); }
+
+/* ---- Panel ---- */
+.chat-panel{
+  position:fixed;
+  right:0;
+  top:0;
+  bottom:0;
+  z-index:9995;
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  width:min(420px,100vw);
+  border-left:1px solid rgba(255,255,255,.1);
+  background:linear-gradient(180deg,#101318,#0b0d11);
+  box-shadow:-24px 0 60px rgba(0,0,0,.5);
+  transform:translate3d(100%,0,0);
+  opacity:0;
+  visibility:hidden;
+  content-visibility:hidden;
+  transition:transform var(--dur-base) var(--ease-out),
+             opacity var(--dur-fast) var(--ease-out),
+             visibility 0s linear var(--dur-base);
+}
+.chat-panel.open{
+  transform:none;
+  opacity:1;
+  visibility:visible;
+  content-visibility:visible;
+  transition:transform var(--dur-base) var(--ease-out),
+             opacity var(--dur-fast) var(--ease-out),
+             visibility 0s;
+}
+
+.chat-panel-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding:18px 18px 14px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.chat-panel-kicker{
+  color:var(--league-accent,#5eb9ff);
+  font:700 8px/1 var(--font-mono);
+  letter-spacing:.1em;
+}
+.chat-panel-head h2{
+  margin:7px 0 0;
+  color:#f1f4f8;
+  font:750 17px/1.2 var(--font-display);
+}
+.chat-panel-head p{
+  margin:5px 0 0;
+  color:#8b939d;
+  font-size:10.5px;
+  line-height:1.5;
+}
+.chat-close{
+  flex:0 0 auto;
+  width:32px;
+  height:32px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:9px;
+  background:transparent;
+  color:#aeb6c0;
+  font-size:13px;
+  cursor:pointer;
+  transition:background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.chat-close:hover{ background:rgba(255,255,255,.08); color:#fff; }
+
+/* ---- Oda şeritleri ---- */
+.chat-room-list{
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  padding:12px 18px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+}
+.chat-room-list::-webkit-scrollbar{ display:none; }
+.chat-room-chip{
+  flex:0 0 auto;
+  padding:8px 13px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;
+  background:rgba(255,255,255,.03);
+  color:#9aa3ad;
+  font:650 10.5px/1 var(--font-body);
+  white-space:nowrap;
+  cursor:pointer;
+  scroll-snap-align:start;
+  transition:color var(--dur-fast) var(--ease-out),
+             background-color var(--dur-fast) var(--ease-out),
+             border-color var(--dur-fast) var(--ease-out),
+             transform var(--dur-instant) var(--ease-out);
+}
+.chat-room-chip:hover{ color:#e7ebf0; border-color:rgba(255,255,255,.24); }
+.chat-room-chip.active{
+  background:var(--league-accent,#5eb9ff);
+  border-color:var(--league-accent,#5eb9ff);
+  color:#08121c;
+  font-weight:750;
+}
+.chat-room-chip:active{ transform:scale(.96); }
+.chat-room-lock{ margin-left:5px; font-size:9px; }
+.chat-rooms-empty{ color:#767d86; font-size:10.5px; padding:4px 0; }
+
+/* ---- Mesaj akışı ---- */
+.chat-message-list{
+  overflow-y:auto;
+  padding:16px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  scroll-behavior:smooth;
+  overscroll-behavior:contain;
+}
+.chat-message{
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  gap:10px;
+  animation:xyzFadeUp var(--dur-base) var(--ease-out) both;
+}
+.chat-message.is-own .chat-message-body{
+  background:color-mix(in srgb, var(--league-accent,#5eb9ff) 12%, transparent);
+  border-color:color-mix(in srgb, var(--league-accent,#5eb9ff) 26%, transparent);
+}
+.chat-avatar{
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#242832;
+  color:#e6eaf0;
+  font:750 10px/1 var(--font-mono);
+}
+.chat-avatar.team-gs{ background:linear-gradient(135deg,#a4212b,#f0a500); color:#fff; }
+.chat-avatar.team-fb{ background:linear-gradient(135deg,#0a3b6b,#f5d000); color:#0a1a2b; }
+.chat-avatar.team-bjk{ background:linear-gradient(135deg,#1a1a1a,#4a4a4a); color:#fff; }
+.chat-avatar.team-ts{ background:linear-gradient(135deg,#7a1128,#1a4fa0); color:#fff; }
+
+.chat-message-body{
+  min-width:0;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  background:rgba(255,255,255,.026);
+}
+.chat-message-head{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-bottom:5px;
+}
+.chat-message-head strong{
+  color:#eef2f7;
+  font:700 11.5px/1.2 var(--font-display);
+}
+.chat-verified{
+  display:grid;
+  place-items:center;
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  background:#1d9bf0;
+  color:#fff;
+  font:800 8px/1 var(--font-body);
+}
+.chat-team-tag{
+  padding:3px 6px;
+  border-radius:5px;
+  background:rgba(255,255,255,.06);
+  color:#8f97a1;
+  font:650 8px/1 var(--font-mono);
+}
+.chat-team-tag.team-gs{ color:#f0a500; }
+.chat-team-tag.team-fb{ color:#f5d000; }
+.chat-team-tag.team-bjk{ color:#c8cdd4; }
+.chat-team-tag.team-ts{ color:#7fa8e8; }
+.chat-message-head time{
+  color:#6d747d;
+  font:550 8.5px/1 var(--font-mono);
+}
+.chat-message-actions{
+  margin-left:auto;
+  display:flex;
+  gap:4px;
+  opacity:0;
+  transition:opacity var(--dur-fast) var(--ease-out);
+}
+.chat-message:hover .chat-message-actions,
+.chat-message:focus-within .chat-message-actions{ opacity:1; }
+.chat-msg-action,
+.chat-mod-action{
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:6px;
+  background:transparent;
+  color:#8b939d;
+  font-size:9px;
+  padding:3px 6px;
+  cursor:pointer;
+  transition:background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.chat-msg-action:hover{ background:rgba(255,255,255,.1); color:#fff; }
+.chat-msg-action.danger:hover{ background:rgba(229,72,77,.2); color:#ff9ba0; border-color:rgba(229,72,77,.5); }
+.chat-message-text{
+  margin:0;
+  color:#d9dfe6;
+  font-size:12.5px;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+  white-space:pre-wrap;
+}
+.chat-message.is-deleted .chat-message-deleted{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  grid-column:1/-1;
+  padding:9px 12px;
+  border:1px dashed rgba(255,255,255,.13);
+  border-radius:10px;
+  color:#767d86;
+  font-size:10.5px;
+  font-style:italic;
+}
+
+/* ---- Durum kartları ---- */
+.chat-state-card{
+  display:grid;
+  gap:7px;
+  justify-items:center;
+  margin:auto 0;
+  padding:26px 20px;
+  border:1px dashed rgba(255,255,255,.13);
+  border-radius:13px;
+  text-align:center;
+}
+.chat-state-card strong{ color:#e7ebf0; font:720 13px/1.3 var(--font-display); }
+.chat-state-card p{ margin:0; color:#828a94; font-size:11px; line-height:1.55; }
+.chat-state-card.is-error strong{ color:#ff9ba0; }
+.chat-loading{ display:grid; gap:12px; }
+.chat-skeleton{ height:54px; }
+
+/* ---- Yazma alanı ---- */
+.chat-composer{
+  padding:13px 18px 16px;
+  border-top:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.015);
+}
+.chat-composer-form{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:end;
+  gap:10px;
+}
+.chat-composer-form textarea{
+  width:100%;
+  min-height:40px;
+  max-height:120px;
+  padding:11px 13px;
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:11px;
+  background:rgba(255,255,255,.035);
+  color:#e9eef3;
+  font:400 12.5px/1.5 var(--font-body);
+  resize:none;
+  transition:border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.chat-composer-form textarea:focus{
+  border-color:var(--league-accent,#5eb9ff);
+  background:rgba(255,255,255,.055);
+  outline:none;
+}
+.chat-composer-form textarea::placeholder{ color:#6b7280; }
+.chat-composer-side{ display:grid; gap:5px; justify-items:end; }
+.chat-char-count{ color:#6d747d; font:550 8.5px/1 var(--font-mono); }
+.btn.chat-send{ padding:10px 16px; font-size:11.5px; }
+.chat-composer-notice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:12px 14px;
+  border:1px dashed rgba(255,255,255,.14);
+  border-radius:11px;
+  color:#98a0aa;
+  font-size:11px;
+  line-height:1.5;
+}
+.chat-composer-notice.is-muted{
+  border-color:rgba(229,72,77,.4);
+  background:rgba(229,72,77,.08);
+  color:#f0a7ab;
+}
+.chat-composer-error{
+  margin-top:9px;
+  padding:9px 12px;
+  border:1px solid rgba(229,72,77,.4);
+  border-radius:9px;
+  background:rgba(229,72,77,.1);
+  color:#ffb3b7;
+  font-size:10.5px;
+  animation:xyzFadeIn var(--dur-fast) var(--ease-out) both;
+}
+
+/* ---- Mobil: tam ekran ---- */
+@media (max-width:767px){
+  .chat-panel{
+    width:100vw;
+    border-left:0;
+    transform:translate3d(0,100%,0);
+  }
+  .chat-panel.open{ transform:none; }
+  .chat-launcher{
+    right:14px;
+    bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    padding:12px 16px;
+    font-size:11.5px;
+  }
+  .chat-launcher-label{ display:none; }
+  .chat-launcher-icon{ font-size:17px; }
+  .chat-composer{ padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); }
+  /* Panel açıkken arka planın kaymasını engelle */
+  body.chat-open{ overflow:hidden; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .chat-panel{ transition:opacity 1ms linear, visibility 0s; }
+  .chat-message{ animation:none!important; }
+  .chat-message-list{ scroll-behavior:auto; }
+  .chat-launcher:hover{ transform:none; }
+}

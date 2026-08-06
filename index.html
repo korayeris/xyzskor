@@ -550,5 +550,25 @@
 <script defer src="/assets/js/match-center.js"></script>
 <script defer src="/assets/js/ui.js"></script>
 
+<!-- ===================== GÜNDEM SOHBETİ ===================== -->
+<button class="chat-launcher" id="chatLauncher" type="button" aria-controls="chatPanel" aria-expanded="false">
+  <span class="chat-launcher-icon" aria-hidden="true">💬</span><span class="chat-launcher-label">Gündem Sohbeti</span>
+</button>
+
+<aside class="chat-panel" id="chatPanel" aria-hidden="true" aria-labelledby="chatPanelTitle">
+  <header class="chat-panel-head">
+    <div class="chat-panel-copy">
+      <span class="chat-panel-kicker">DOĞRULANMIŞ ÜYE SOHBETİ</span>
+      <h2 id="chatPanelTitle">Gündem Sohbeti</h2>
+      <p id="chatPanelTopic">Doğrulanmış üyelerin gündem sohbeti</p>
+    </div>
+    <button class="chat-close" id="chatCloseBtn" type="button" aria-label="Sohbeti kapat">✕</button>
+  </header>
+  <nav class="chat-room-list" id="chatRoomList" aria-label="Sohbet odaları"></nav>
+  <div class="chat-message-list" id="chatMessageList" aria-live="polite" aria-atomic="false"></div>
+  <div class="chat-composer" id="chatComposer"></div>
+</aside>
+
+<script defer src="/assets/js/chat.js"></script>
 </body>
 </html>

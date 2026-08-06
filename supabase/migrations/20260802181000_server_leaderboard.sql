@@ -14,7 +14,11 @@ returns table (
   exact_scores bigint,
   correct_results bigint,
   completed_at timestamptz,
-  position bigint
+  -- "position" PostgreSQL'de rezerve bir anahtar kelimedir ve RETURNS TABLE
+  -- listesinde tirnaksiz kullanilamaz; bu yuzden fonksiyonun tamami sozdizimi
+  -- hatasi veriyor ve migration hic uygulanamiyordu. Tirnakli yazim disariya
+  -- ayni alan adini ("position") sunar, istemci tarafinda degisiklik gerekmez.
+  "position" bigint
 )
 language sql
 stable
