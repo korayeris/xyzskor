@@ -3496,3 +3496,319 @@ body.predict-page .predict-ad-billboard,
     min-height:270px!important;
   }
 }
+
+/* =====================================================================
+   v109 · MOTION & SURFACE LAYER (2026-08-06)
+   Amaç: tüm siteye tek merkezden yönetilen, tutarlı ve akıcı bir geçiş
+   sistemi kurmak; boş modülleri anlamlı iskelet/boş duruma çevirmek;
+   mevcut kuralları DEĞİŞTİRMEDEN üzerine yazmak.
+   Kural: yalnızca compositor dostu özellikler (transform/opacity) anime
+   edilir; layout/paint tetikleyen (width/height/box-shadow/filter)
+   animasyonlardan kaçınılır.
+   ===================================================================== */
+
+:root{
+  --dur-instant:90ms;
+  --dur-fast:160ms;
+  --dur-base:240ms;
+  --dur-slow:380ms;
+  /* Standart easing seti: giriş için yumuşak çıkış, çıkış için hızlı giriş */
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-in-out:cubic-bezier(.45,.05,.55,.95);
+  --ease-spring:cubic-bezier(.34,1.32,.64,1);
+  --lift-sm:translateY(-2px);
+  --lift-md:translateY(-4px);
+}
+
+/* ---- Eksik keyframe onarımı ----
+   `pulse` üç ayrı yükleme göstergesinde çağrılıyordu ama hiçbir yerde
+   tanımlı değildi (sessiz kırık animasyon). box-shadow yerine transform
+   kullanan, repaint tetiklemeyen bir sürümle tanımlanıyor. */
+@keyframes pulse{
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%{ opacity:.45; transform:scale(.82); }
+}
+
+@keyframes xyzFadeUp{
+  from{ opacity:0; transform:translate3d(0,10px,0); }
+  to{ opacity:1; transform:none; }
+}
+@keyframes xyzFadeIn{
+  from{ opacity:0; }
+  to{ opacity:1; }
+}
+@keyframes xyzPopIn{
+  from{ opacity:0; transform:scale(.97); }
+  to{ opacity:1; transform:none; }
+}
+@keyframes xyzSlideInRight{
+  from{ opacity:0; transform:translate3d(14px,0,0); }
+  to{ opacity:1; transform:none; }
+}
+
+/* ---- Sayfa / sekme geçişleri ----
+   Bu konteynerler display:none ↔ block ile değişiyor; display animate
+   edilemediği için `animation` kullanılıyor: eleman görünür olduğu anda
+   giriş animasyonu bir kez çalışır. JS değişikliği gerekmez. */
+.tabpage.active,
+.league-section.active,
+.football-live-module.active,
+#footballOverviewView:not([hidden]),
+.football-section-view.active{
+  animation:xyzFadeUp var(--dur-base) var(--ease-out) both;
+}
+
+/* Alt modüllerin kademeli girişi (staggered) — sadece ilk boyamada */
+.tabpage.active > *,
+.league-section.active > *{
+  animation:xyzFadeIn var(--dur-base) var(--ease-out) both;
+}
+.tabpage.active > *:nth-child(1){ animation-delay:0ms; }
+.tabpage.active > *:nth-child(2){ animation-delay:40ms; }
+.tabpage.active > *:nth-child(3){ animation-delay:80ms; }
+.tabpage.active > *:nth-child(4){ animation-delay:120ms; }
+.tabpage.active > *:nth-child(n+5){ animation-delay:150ms; }
+
+/* ---- Etkileşim geçişleri ----
+   Daha önce transition'ı olmayan ana yüzeyler. `all` yerine adı geçen
+   özellikler; hepsi ucuz (transform + renk). */
+.panel,
+.aside-card,
+.football-module,
+.market-card,
+.club-social-card,
+.matches-hub-row,
+.historic-standing-row,
+.standing-compact-row{
+  transition:transform var(--dur-fast) var(--ease-out),
+             background-color var(--dur-fast) var(--ease-out),
+             border-color var(--dur-fast) var(--ease-out);
+}
+.matches-hub-row:hover,
+.historic-standing-row:hover,
+.standing-compact-row:hover{ transform:var(--lift-sm); }
+
+.maintab,
+.football-context-tab,
+.leaguesubtab,
+.tab,
+.portal-league-list button,
+.portal-team-list button{
+  transition:color var(--dur-fast) var(--ease-out),
+             background-color var(--dur-fast) var(--ease-out),
+             border-color var(--dur-fast) var(--ease-out),
+             transform var(--dur-instant) var(--ease-out);
+}
+.maintab:active,
+.football-context-tab:active,
+.leaguesubtab:active,
+.tab:active{ transform:scale(.97); }
+
+/* Butonlarda basma geri bildirimi (mevcut .btn transition'ı korunur) */
+.btn:active:not(:disabled){ transform:scale(.975); }
+
+/* Görsellerin yumuşak girişi — layout shift olmadan */
+.youtube-video-thumb img,
+.club-social-media-item img{
+  transition:opacity var(--dur-base) var(--ease-out),
+             transform var(--dur-base) var(--ease-out);
+}
+
+/* Odak halkası: klavye kullanıcıları için tutarlı ve görünür */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible{
+  outline:2px solid var(--league-accent,#5eb9ff);
+  outline-offset:3px;
+  border-radius:6px;
+}
+
+/* ---- Skeleton sistemi ----
+   Mevcut .skeleton korunur; kart ölçüsünde varyant ve lig temasına
+   duyarlı renk eklenir (açık "kağıt" yüzeylerde eski gri yanlış
+   kontrast veriyordu). */
+.skeleton-card{
+  min-height:150px;
+  border-radius:12px;
+}
+.youtube-skeleton-card{ min-height:190px; }
+.club-social-skeleton{ min-height:250px; }
+
+body[class*="league-theme-"] .skeleton{
+  background:linear-gradient(90deg,
+    color-mix(in srgb, var(--league-panel,#151719) 92%, #fff 8%) 25%,
+    color-mix(in srgb, var(--league-panel,#151719) 78%, #fff 22%) 37%,
+    color-mix(in srgb, var(--league-panel,#151719) 92%, #fff 8%) 63%);
+  background-size:400% 100%;
+}
+
+/* ---- Ortak boş durum dili ----
+   Sitede 8 ayrı boş durum class'ı vardı; hepsi tek görsel dile bağlanıyor
+   böylece "boş modül" değil "bilinçli bilgi kartı" gibi görünüyorlar. */
+.empty-state,
+.football-empty,
+.league-scoped-empty,
+.league-module-waiting,
+.mc-empty,
+.video-empty,
+.account-empty,
+.transfer-signal-empty,
+.live-notice{
+  animation:xyzFadeIn var(--dur-base) var(--ease-out) both;
+}
+.league-module-waiting,
+.live-notice{
+  display:grid;
+  gap:6px;
+  padding:22px 20px;
+  border:1px dashed var(--league-line,rgba(255,255,255,.14));
+  border-radius:12px;
+  background:color-mix(in srgb, var(--league-panel,#141618) 88%, transparent);
+  text-align:left;
+}
+.league-module-waiting strong,
+.live-notice strong{
+  color:var(--league-copy,#e9edf2);
+  font:700 13px/1.3 var(--font-display);
+}
+.league-module-waiting p,
+.live-notice p{
+  margin:0;
+  color:var(--league-muted,#8b939d);
+  font-size:11px;
+  line-height:1.55;
+}
+
+/* Yayın merkezi durum rozetinin duruma göre renklenmesi */
+.broadcast-status[data-state="loading"]{ opacity:.7; }
+.broadcast-status[data-state="live"]{
+  border-color:rgba(240,68,79,.55);
+  color:#ff8f96;
+}
+.broadcast-status[data-state="error"]{
+  border-color:rgba(240,180,80,.45);
+  color:#f0c078;
+}
+.youtube-channel-intro[data-state="error"] strong{ color:#f0c078; }
+
+/* ---- Puan durumu arşiv bandı ----
+   Site güncel sezon dilini kullanırken tabloda geçmiş sezon verisi
+   gösteriliyorsa bu bant her görünümde uyarır. */
+.standings-archive-banner{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin:0 0 12px;
+  padding:13px 15px;
+  border:1px solid rgba(240,180,80,.34);
+  border-left:3px solid #f0b450;
+  border-radius:10px;
+  background:linear-gradient(180deg,rgba(240,180,80,.12),rgba(240,180,80,.05));
+  animation:xyzFadeIn var(--dur-base) var(--ease-out) both;
+}
+.standings-archive-tag{
+  flex:0 0 auto;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#f0b450;
+  color:#1b1408;
+  font:800 8px/1 var(--font-mono);
+  letter-spacing:.08em;
+}
+.standings-archive-copy strong{
+  display:block;
+  color:#f3d59a;
+  font:730 12.5px/1.3 var(--font-display);
+}
+.standings-archive-copy p{
+  margin:5px 0 0;
+  color:#bda478;
+  font-size:10.5px;
+  line-height:1.55;
+}
+.standings-season-card.is-archive strong{ color:#f0b450; }
+.standings-season-card.is-archive small{ color:#bda478; }
+
+/* ---- Performans onarımları ---- */
+
+/* filter:blur + hue-rotate animasyonları mobilde jank üretiyordu.
+   Küçük ekranlarda lig sweep efektleri kapatılır; masaüstünde korunur. */
+@media (max-width:900px){
+  .league-sweep,
+  [class*="league-sweep"],
+  .league-stage-effect{
+    animation:none!important;
+    filter:none!important;
+  }
+}
+
+/* backdrop-filter mobilde en pahalı efektlerden biri; düşük güçlü
+   cihazlarda opak arka planla değiştirilir. */
+@media (max-width:767px) and (max-resolution:1.5dppx){
+  .global-header,
+  .football-league-command{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+}
+
+/* Uzun listelerde ekran dışı kartların layout/paint maliyetini düşürür.
+   contain-intrinsic-size, scrollbar zıplamasını önlemek için verilir. */
+.youtube-video-card,
+.club-social-card,
+.matches-hub-row,
+.news-hub-card,
+.transfer-signal-card{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 240px;
+}
+
+/* Scroll konteynerlerinde daha akıcı, momentumlu kaydırma */
+.club-social-stage,
+.portal-league-list,
+.portal-team-list,
+.football-top-league-list,
+.matches-league-filters{
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;
+}
+.club-social-card{ scroll-snap-align:start; }
+
+/* Ankraj kaydırmalarında sabit başlığın altında kalmayı önler */
+html{ scroll-behavior:smooth; }
+:target{ scroll-margin-top:96px; }
+
+/* ---- Hareket duyarlılığı ----
+   Sistemde "hareketi azalt" açıksa tüm giriş animasyonları ve
+   yumuşak kaydırma kapatılır (mevcut reduced-motion blokları korunur). */
+@media (prefers-reduced-motion:reduce){
+  :root{
+    --dur-instant:1ms;
+    --dur-fast:1ms;
+    --dur-base:1ms;
+    --dur-slow:1ms;
+  }
+  .tabpage.active,
+  .league-section.active,
+  .football-live-module.active,
+  .tabpage.active > *,
+  .league-section.active > *,
+  .standings-archive-banner,
+  .empty-state,
+  .league-module-waiting,
+  .live-notice{
+    animation:none!important;
+  }
+  html,
+  .club-social-stage,
+  .portal-league-list,
+  .portal-team-list{ scroll-behavior:auto; }
+  .matches-hub-row:hover,
+  .historic-standing-row:hover,
+  .standing-compact-row:hover{ transform:none; }
+}

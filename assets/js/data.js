@@ -1,7 +1,67 @@
 /* ===================== SUPABASE BAĞLANTISI ===================== */
 const SUPABASE_URL = 'https://swhwmqbamzczztpfxctg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Wufys3KETZb610JDyaf9WA_gD76ysAg';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* Supabase istemcisi CDN'den yüklenen supabase-js'e bağlıdır. CDN kesintisi,
+   ağ filtresi veya reklam engelleyici bu script'i düşürürse `window.supabase`
+   tanımsız kalır. Daha önce bu durumda dosyanın ilk satırı hata fırlatıyor,
+   data.js'in TAMAMI çalışmadan kesiliyor ve site tamamen ölüyordu
+   (ardından live.js'te "Cannot access 'lastLoadError' before initialization"
+   gibi ikincil TDZ hataları geliyordu).
+
+   Artık bu durumda gerçek istemci yerine, aynı çağrı yüzeyini taklit eden ve
+   her isteğe tek tip hata yanıtı veren bir yedek istemci kurulur. Böylece
+   Supabase'e bağlı özellikler (giriş, tahmin, liderlik) zarifçe devre dışı
+   kalırken Worker API'den beslenen futbol içeriği çalışmaya devam eder. */
+const SUPABASE_UNAVAILABLE_MESSAGE = 'Hesap servisine şu anda ulaşılamıyor.';
+function createSupabaseFallbackClient(reason){
+  const error = { message: reason || SUPABASE_UNAVAILABLE_MESSAGE, code: 'supabase_unavailable' };
+  const queryPayload = { data: null, error, count: null, status: 503, statusText: 'Service Unavailable' };
+  /* Zincirlenebilir sorgu kurucusu: .select().eq().order()... her adımda
+     kendini döndürür, await edildiğinde tek tip hata yanıtı verir. */
+  const builder = new Proxy(function(){}, {
+    get(_target, prop){
+      if(prop === 'then') return (onFulfilled) => Promise.resolve(queryPayload).then(onFulfilled);
+      if(prop === 'catch') return () => builder;
+      if(prop === 'finally') return (callback) => { try{ if(callback) callback(); }catch(_error){} return builder; };
+      return builder;
+    },
+    apply(){ return builder; },
+  });
+  const authPayload = { data: { session: null, user: null }, error };
+  const channelStub = { on(){ return channelStub; }, subscribe(){ return channelStub; }, unsubscribe(){ return Promise.resolve('ok'); }, send(){ return Promise.resolve('ok'); } };
+  return {
+    __fallback: true,
+    __reason: error.message,
+    from(){ return builder; },
+    rpc(){ return builder; },
+    channel(){ return channelStub; },
+    removeChannel(){ return Promise.resolve('ok'); },
+    functions: { invoke: async () => ({ data: null, error }) },
+    auth: {
+      async getSession(){ return authPayload; },
+      async getUser(){ return authPayload; },
+      async signUp(){ return authPayload; },
+      async signInWithPassword(){ return authPayload; },
+      async signOut(){ return { error: null }; },
+      onAuthStateChange(){ return { data: { subscription: { unsubscribe(){} } } } ; },
+    },
+  };
+}
+const sb = (() => {
+  try{
+    if(window.supabase && typeof window.supabase.createClient === 'function'){
+      return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+    console.warn('[XYZSkor] supabase-js yüklenemedi; hesap özellikleri devre dışı, futbol içeriği çalışmaya devam edecek.');
+    return createSupabaseFallbackClient('Hesap servisi kütüphanesi yüklenemedi.');
+  }catch(error){
+    console.warn('[XYZSkor] Supabase istemcisi kurulamadı:', error?.message || error);
+    return createSupabaseFallbackClient('Hesap servisi başlatılamadı.');
+  }
+})();
+/* Diğer katmanlar bu bayrakla Supabase'e bağlı UI'yi gizleyebilir. */
+const SUPABASE_READY = !sb.__fallback;
 
 /* ===================== SABİTLER ===================== */
 const TEAMS = ['Beşiktaş','Diğer','Fenerbahçe','Galatasaray','Trabzonspor'];
@@ -53,7 +113,7 @@ const SELECTED_COMPETITIONS = [
 ];
 const LEAGUE_CONTEXT = {
   all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
-  'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'2024–25 Süper Lig final tablosu',transfer:'Süper Lig transfer gelişmeleri'},
+  'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'Süper Lig puan durumu',transfer:'Süper Lig transfer gelişmeleri'},
   'champions-league':{headline:'Şampiyonlar Ligi hafta vitrini',copy:'Turnuvanın maç akışı, puan tablosu, kulüp gündemi ve öne çıkan bağlamı aynı alanda sunulur.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'europa-league':{headline:'UEFA Avrupa Ligi hafta vitrini',copy:'UEFA Avrupa Ligi maçları, tablo, kulüp akışı ve sezon bağlamı tek akışta izlenir.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'la-liga':{headline:'La Liga hafta vitrini',copy:'İspanya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},

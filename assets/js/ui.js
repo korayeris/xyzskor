@@ -354,6 +354,41 @@ function standingRowsForActiveLeague(){
   if(activeFootballLeague==='super-lig') return HISTORIC_STANDINGS_2024_25.map(row=>({...row,sourceType:'historic'}));
   return computed;
 }
+
+/* ---- Puan durumu kaynak etiketleme ----
+   standingRowsForActiveLeague() üç kademeli fallback döndürür:
+   provider (sağlayıcı canlı tablosu) → computed (maç sonuçlarından hesaplanan)
+   → historic (yalnız Süper Lig, 2024-25 final tablosu arşivi).
+   Site dili güncel sezonu anlattığı için arşiv tablosunun geçici/geçmiş
+   olduğu kullanıcıya HER görünümde açıkça belirtilir. */
+const STANDINGS_ARCHIVE_SEASON = '2024–25';
+function standingsSourceType(rows){
+  const list = rows || standingRowsForActiveLeague();
+  if(!list.length) return 'empty';
+  if(list.some(row=>row.sourceType==='provider')) return 'provider';
+  if(list.some(row=>row.sourceType==='historic')) return 'historic';
+  return 'computed';
+}
+function isArchiveStandings(rows){ return standingsSourceType(rows)==='historic'; }
+/* Arşiv tablosunun üstüne konan uyarı bandı. Boş string = arşiv değil. */
+function standingsArchiveBannerHTML(rows){
+  if(!isArchiveStandings(rows)) return '';
+  return `<div class="standings-archive-banner" role="note">
+    <span class="standings-archive-tag">ARŞİV</span>
+    <div class="standings-archive-copy">
+      <strong>${escapeHTML(STANDINGS_ARCHIVE_SEASON)} final tablosu gösteriliyor</strong>
+      <p>Bu güncel sezon tablosu değildir. Güncel sezonun resmî puan durumu sağlayıcıdan geldiği anda bu alan otomatik olarak güncel tabloyla değişir.</p>
+    </div>
+  </div>`;
+}
+/* Sezon rozetlerinde kullanılacak kısa etiket. */
+function standingsSeasonBadge(rows){
+  const type=standingsSourceType(rows);
+  if(type==='historic') return { label:`${STANDINGS_ARCHIVE_SEASON} arşiv`, note:'Geçmiş sezon · güncel değil', archive:true };
+  if(type==='computed') return { label:'Güncel sezon', note:'Oynanan maç sonuçlarından hesaplandı', archive:false };
+  if(type==='provider') return { label:'Güncel sezon', note:'Sağlayıcı resmî tablosu', archive:false };
+  return { label:'Güncel sezon', note:'Tablo verisi bekleniyor', archive:false };
+}
 function renderTransferCenterFilters(){
   const select=document.getElementById('transferClubFilter'); if(!select) return;
   const scopedClubs=leagueTeamSourceRows().map(club=>club.team);
@@ -488,15 +523,15 @@ function renderHistoricStandings(){
   const area=document.getElementById('historicStandingsTable'); if(!area) return;
   const rows=standingRowsForActiveLeague();
   const label=competitionLabelBySlug(activeFootballLeague);
-  const hasProviderRows=rows.some(row=>row.sourceType==='provider');
-  const note=hasProviderRows
+  const sourceType=standingsSourceType(rows);
+  const note=sourceType==='provider'
     ? `${label} için sağlayıcıdan gelen güncel puan tablosu`
-    : rows.some(row=>row.played>0)
-      ? 'Sportmonks fikstür ve sonuç akışından hesaplanan tablo'
-      : activeFootballLeague==='super-lig'
-        ? '2024–25 final tablosu'
+    : sourceType==='computed'
+      ? 'Sportmonks fikstür ve sonuç akışından hesaplanan güncel sezon tablosu'
+      : sourceType==='historic'
+        ? `${STANDINGS_ARCHIVE_SEASON} final tablosu · güncel sezon verisi henüz yayınlanmadı`
         : `${label} sezon verisi yayınlandığında puan tablosu burada görünür`;
-  area.innerHTML=`<div class="historic-standings-note">${escapeHTML(note)}</div><div class="historic-standings-head"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AG</span><span>YG</span><span>AV</span><strong>P</strong><span>Son 5</span></div><div class="historic-standings-body">${rows.map((row,index)=>`<div class="historic-standing-row ${row.zone||''}">
+  area.innerHTML=`${standingsArchiveBannerHTML(rows)}<div class="historic-standings-note">${escapeHTML(note)}</div><div class="historic-standings-head"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>AG</span><span>YG</span><span>AV</span><strong>P</strong><span>Son 5</span></div><div class="historic-standings-body">${rows.map((row,index)=>`<div class="historic-standing-row ${row.zone||''}">
     <span class="historic-rank">${index+1}</span><span class="historic-team">${crestHTML(row.team,'xs')}<b>${escapeHTML(row.team)}</b></span><span>${row.played}</span><span>${row.won}</span><span>${row.drawn}</span><span>${row.lost}</span><span>${row.goals_for}</span><span>${row.goals_against}</span><span>${row.goal_difference>0?'+':''}${row.goal_difference}</span><strong>${row.points}</strong>${standingFormHTML(row.form)}
   </div>`).join('')}</div>`;
 }
@@ -610,8 +645,12 @@ function updateLeagueScopedCopy(){
   }
   const seasonCard=document.querySelector('.standings-season-card');
   if(seasonCard){
-    const seasonLabel=summary?.season || (activeFootballLeague==='super-lig' ? '2024–25' : 'Güncel sezon');
-    const seasonNote=summary?.championNote || (activeFootballLeague==='super-lig' ? '38. hafta · final' : `${label} resmî sezon özeti`);
+    // Sezon rozeti artık tablonun gerçek kaynağını yansıtır: arşiv tablosu
+    // gösteriliyorsa rozet de "arşiv" olarak işaretlenir.
+    const badge=standingsSeasonBadge();
+    const seasonLabel=badge.archive ? badge.label : (summary?.season || badge.label);
+    const seasonNote=badge.archive ? badge.note : (summary?.championNote || badge.note);
+    seasonCard.classList.toggle('is-archive', badge.archive);
     seasonCard.innerHTML=`<span>Sezon</span><strong>${escapeHTML(seasonLabel)}</strong><small>${escapeHTML(seasonNote)}</small>`;
   }
 }
@@ -1374,25 +1413,42 @@ function formatYouTubeDuration(value){
   const hours=Number(match[1]||0),minutes=Number(match[2]||0),seconds=Number(match[3]||0);
   return `${hours?`${hours}:`:''}${String(minutes).padStart(hours?2:1,'0')}:${String(seconds).padStart(2,'0')}`;
 }
-function renderYouTubeFallback(){
+/* Yayin merkezi bos kalirken kullaniciya NEDEN bos oldugu acikca soylenir.
+   reason: 'empty' (yayin yok) | 'error' (baglanti/kota hatasi) | 'unconfigured' (anahtar tanimli degil).
+   Her durumda dogrulanmis kanal rehberi gosterilir, yani modul asla bombos kalmaz. */
+const YOUTUBE_FALLBACK_COPY={
+  empty:{ status:'Şu anda canlı yayın yok', title:'Şu anda doğrulanmış canlı yayın yok.', body:'Kanallar dakikada bir kontrol edilir; yeni yayın açıldığında bu alan otomatik güncellenir. Bu arada resmî kanallara doğrudan geçebilirsin.' },
+  error:{ status:'Yayın servisi geçici olarak yanıt vermiyor', title:'Yayın listesi şu anda alınamıyor.', body:'Bağlantı yeniden kurulduğunda program akışı otomatik yüklenecek. Şimdilik resmî kanallara doğrudan geçebilirsin.' },
+  unconfigured:{ status:'Doğrulanmış kanal rehberi', title:'Canlı yayın entegrasyonu bu ortamda henüz aktif değil.', body:'Yayın anahtarı tanımlandığında programlar burada otomatik listelenir. Şimdilik resmî kanallara doğrudan geçebilirsin.' },
+};
+function renderYouTubeFallback(reason){
   const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
-  status.textContent='Doğrulanmış kanal rehberi';
-  grid.innerHTML=`<div class="youtube-channel-intro"><span class="youtube-play-mark">▶</span><div><strong>Canlı yayın bulunduğunda burada otomatik görünür.</strong><p>Şimdilik doğrulanmış yayıncıların resmî YouTube kanallarına doğrudan geçiş yapabilirsin.</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/live" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(channel.note)}</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
+  const copy=YOUTUBE_FALLBACK_COPY[reason]||YOUTUBE_FALLBACK_COPY.empty;
+  status.textContent=copy.status;
+  status.dataset.state=reason||'empty';
+  grid.innerHTML=`<div class="youtube-channel-intro" data-state="${escapeHTML(reason||'empty')}"><span class="youtube-play-mark">▶</span><div><strong>${escapeHTML(copy.title)}</strong><p>${escapeHTML(copy.body)}</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/live" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(channel.note)}</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
 }
 function renderYouTubeItems(payload){
   const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
-  const items=Array.isArray(payload?.items)?payload.items.slice(0,6):[]; if(!items.length){ renderYouTubeFallback(); return; }
+  const items=Array.isArray(payload?.items)?payload.items.slice(0,6):[]; if(!items.length){ renderYouTubeFallback('empty'); return; }
+  status.dataset.state='live';
   const liveCount=items.filter(item=>item.live).length;
   status.textContent=liveCount?`${liveCount} canlı yayın`:`${items.length} güncel program`;
   grid.innerHTML=items.map((item,index)=>`<a class="youtube-video-card ${index===0?'featured':''}" href="${escapeHTML(item.url)}" target="_blank" rel="noopener noreferrer"><div class="youtube-video-thumb"><img src="${escapeHTML(item.thumbnail)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="youtube-video-play" aria-hidden="true">▶</span>${item.live?'<span class="youtube-live-chip">CANLI</span>':item.upcoming?'<span class="youtube-upcoming-chip">YAKINDA</span>':''}${item.duration?`<span class="youtube-duration">${escapeHTML(formatYouTubeDuration(item.duration))}</span>`:''}</div><div class="youtube-video-copy"><span>${escapeHTML(item.channelTitle)}</span><h3>${escapeHTML(item.title)}</h3><p>${item.live&&item.concurrentViewers?`${escapeHTML(String(item.concurrentViewers))} kişi izliyor`:escapeHTML(fmtEditorialDate(item.publishedAt))}</p></div></a>`).join('');
 }
 async function renderYouTubeMedia(){
   const grid=document.getElementById('youtubeMediaGrid'); if(!grid) return;
-  grid.innerHTML='<div class="youtube-media-loading"><span></span>Doğrulanmış yayınlar kontrol ediliyor…</div>';
+  const status=document.getElementById('youtubeMediaStatus');
+  if(status){ status.textContent='Yayın akışı kontrol ediliyor'; status.dataset.state='loading'; }
+  // Bos kutu yerine gercek kart olcusunde skeleton goster.
+  grid.innerHTML=skeletonCardsHTML(3,'youtube-skeleton-card');
   try{
-    if(!youtubeMediaRequest) youtubeMediaRequest=fetch('/api/media/youtube',{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok) throw new Error(payload?.error||'youtube_unavailable'); return payload; });
+    if(!youtubeMediaRequest) youtubeMediaRequest=fetch('/api/media/youtube',{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok){ const error=new Error(payload?.error||'youtube_unavailable'); error.code=payload?.error; throw error; } return payload; });
     renderYouTubeItems(await youtubeMediaRequest);
-  }catch(_error){ youtubeMediaRequest=null; renderYouTubeFallback(); }
+  }catch(error){
+    youtubeMediaRequest=null;
+    renderYouTubeFallback(error?.code==='youtube_not_configured' ? 'unconfigured' : 'error');
+  }
 }
 function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
@@ -1469,10 +1525,11 @@ function renderFootballStandingsCompact(){
   const area=document.getElementById('footballStandingsCompact'); if(!area) return;
   const rows=standingRowsForActiveLeague().slice(0,5);
   const summary=officialSeasonSummaryForLeague(activeFootballLeague);
+  const compactBadge=standingsSeasonBadge(rows);
   const hasProviderRows=rows.some(row=>row.sourceType==='provider');
-  const label=summary?.season ? `${summary.season} tablo` : hasProviderRows ? `${competitionShortBySlug(activeFootballLeague)} tablo` : (activeFootballLeague==='super-lig'?'2024–25 final':competitionShortBySlug(activeFootballLeague));
+  const label=compactBadge.archive ? `${STANDINGS_ARCHIVE_SEASON} arşiv` : summary?.season ? `${summary.season} tablo` : hasProviderRows ? `${competitionShortBySlug(activeFootballLeague)} tablo` : competitionShortBySlug(activeFootballLeague);
   const note=summary ? `<div class="standing-compact-note">Üstte son tamamlanan sezonun resmî özeti, altta bu lig için tabloda görünen son kayıt yer alır.</div>` : '';
-  area.innerHTML=`${note}<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
+  area.innerHTML=`${standingsArchiveBannerHTML(rows)}${note}<div class="standing-compact"><div class="standing-compact-header"><span>#</span><span>${escapeHTML(label)}</span><span>O</span><span>P</span></div>${rows.map((row,index)=>`<div class="standing-compact-row"><span>${index+1}</span><span class="standing-compact-team">${crestHTML(row.team,'xs')}${escapeHTML(row.team)}</span><span>${row.played}</span><b>${row.points}</b></div>`).join('')}</div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Tam puan durumunu aç →</button>`;
 }
 function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
@@ -2000,10 +2057,38 @@ document.getElementById('adminSaveBtn').onclick = async () => {
 };
 
 /* ===================== MASTER RENDER ===================== */
+/* Tek satirlik skeleton uretici; her modul kendi kart olcusunde iskelet gosterir
+   boylece ilk boyamada hicbir alan "bombos kutu" olarak gorunmez. */
+function skeletonRowsHTML(count,extraClass){
+  return Array.from({length:Math.max(1,count)},()=>`<div class="skeleton skeleton-row ${extraClass||''}"></div>`).join('');
+}
+function skeletonCardsHTML(count,extraClass){
+  return Array.from({length:Math.max(1,count)},()=>`<div class="skeleton skeleton-card ${extraClass||''}"></div>`).join('');
+}
+function fillSkeleton(id,html){
+  const node=document.getElementById(id);
+  if(!node || node.dataset.filled==='1') return;
+  node.innerHTML=html;
+}
 function renderSkeletons(){
-  document.getElementById('storyFeaturedArea').innerHTML = `<div class="skeleton skeleton-hero"></div>`;
-  document.getElementById('storyMatchList').innerHTML = `<div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div>`;
-  const lm = document.getElementById('leagueMatchList'); if(lm) lm.innerHTML = `<div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div>`;
+  const hero=document.getElementById('storyFeaturedArea'); if(hero) hero.innerHTML=`<div class="skeleton skeleton-hero"></div>`;
+  fillSkeleton('storyMatchList',skeletonRowsHTML(3));
+  fillSkeleton('leagueMatchList',skeletonRowsHTML(2));
+  // Onceden iskeletsiz kalan ve bu yuzden bos kutu gibi gorunen moduller:
+  fillSkeleton('footballQuickMatches',skeletonRowsHTML(3));
+  fillSkeleton('footballFeaturedDevelopment',`<div class="skeleton skeleton-hero"></div>`);
+  fillSkeleton('footballNewsStream',skeletonRowsHTML(3));
+  fillSkeleton('footballStandingsCompact',skeletonRowsHTML(4));
+  fillSkeleton('footballTransferStream',skeletonRowsHTML(3));
+  fillSkeleton('clubSocialStage',skeletonCardsHTML(3,'club-social-skeleton'));
+  fillSkeleton('preseasonSocialStage',skeletonCardsHTML(3,'club-social-skeleton'));
+  fillSkeleton('youtubeMediaGrid',skeletonCardsHTML(3,'youtube-skeleton-card'));
+  fillSkeleton('editorialLeadNews',skeletonRowsHTML(2));
+  fillSkeleton('footballNewsFullStream',skeletonRowsHTML(4));
+  fillSkeleton('standingsBody',skeletonRowsHTML(5));
+  fillSkeleton('asideStandings',skeletonRowsHTML(4));
+  fillSkeleton('historicStandingsTable',skeletonRowsHTML(6));
+  fillSkeleton('leaderBody',skeletonRowsHTML(4));
 }
 function showLoadError(message){
   const box = `<div class="load-error"><p>${message || 'Veriler şu anda alınamıyor.'}</p><button class="btn gold" onclick="boot()">Tekrar dene</button></div>`;
@@ -2280,8 +2365,15 @@ function renderFootballNews(){
     const rows=standingRowsForActiveLeague().slice(0,6);
     const honors=document.getElementById('footballSeasonHonors');
     if(honors){ honors.innerHTML=''; honors.hidden=true; }
-    const standingsKicker=document.getElementById('footballStandingsKicker'); if(standingsKicker) standingsKicker.textContent=`${competitionShortBySlug(activeFootballLeague)} · CANLI YARIŞ`;
-    const standingsTitle=document.getElementById('footballStandingsTitle'); if(standingsTitle) standingsTitle.textContent='Zirve hattı';
+    // Arşiv tablosu gösterilirken "CANLI YARIŞ" ifadesi yanıltıcı olur; kicker
+    // ve başlık tablonun gerçek kaynağına göre yazılır.
+    const raceBadge=standingsSeasonBadge(rows);
+    const standingsKicker=document.getElementById('footballStandingsKicker');
+    if(standingsKicker) standingsKicker.textContent=raceBadge.archive
+      ? `${competitionShortBySlug(activeFootballLeague)} · ${STANDINGS_ARCHIVE_SEASON} ARŞİV`
+      : `${competitionShortBySlug(activeFootballLeague)} · CANLI YARIŞ`;
+    const standingsTitle=document.getElementById('footballStandingsTitle');
+    if(standingsTitle) standingsTitle.textContent=raceBadge.archive ? 'Geçmiş sezon zirvesi' : 'Zirve hattı';
     if(activeFootballLeague!=='super-lig' && !rows.length){
       area.innerHTML=`<div class="league-module-waiting"><strong>${escapeHTML(competitionLabelBySlug(activeFootballLeague))} puan durumu bekleniyor</strong><p>${escapeHTML(providerUnavailableMessage(activeFootballLeague))}</p></div><button class="football-module-full-link" type="button" onclick="openFootballSection('standings')">Puan durumu alanını aç →</button>`;
       return;
@@ -2294,7 +2386,7 @@ function renderFootballNews(){
     const chasers=rows.slice(1);
     const goalDiff=Number(leader.goal_difference||0);
     const form=String(leader.form||'').slice(-5);
-    area.innerHTML=`<div class="league-race-board">
+    area.innerHTML=`${standingsArchiveBannerHTML(rows)}<div class="league-race-board">
       <article class="league-race-leader">
         <div class="league-race-rank"><span>01</span><small>LİDER</small></div>
         <div class="league-race-club">${crestHTML(leader.team,'md')}<div><strong>${escapeHTML(leader.team)}</strong><small>${Number(leader.played||0)} maç · ${goalDiff>0?'+':''}${goalDiff} averaj</small></div></div>

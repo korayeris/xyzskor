@@ -21,7 +21,7 @@ const KNOWN_APP_ROUTE_PREFIXES = new Set([
 // taşınması ayrı, onaylı bir refactor gerektirir (bkz. geliştirme planı).
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' https: data:",

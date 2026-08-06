@@ -15,7 +15,11 @@
 <meta name="twitter:title" content="XYZSkor — Bilinmeyen Skoru Verilerle Çöz">
 <meta name="twitter:description" content="Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League için canlı skor, fikstür, puan durumu ve ücretsiz tahmin yarışması.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://swhwmqbamzczztpfxctg.supabase.co">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="preload" href="/assets/css/app.css" as="style">
 <link rel="stylesheet" href="/assets/css/app.css">
 
 </head>
@@ -141,9 +145,9 @@
   <section class="broadcast-desk" id="broadcastDesk" aria-labelledby="broadcastDeskTitle">
     <header class="broadcast-desk-head">
       <div><span class="broadcast-live-mark" aria-hidden="true"></span><div><span class="editorial-desk-kicker">YAYIN MERKEZİ · DOĞRULANMIŞ KANALLAR</span><h2 id="broadcastDeskTitle">Canlı yayınlar ve stüdyo akışı</h2><p>Doğrulanmış yayın kanalları, son programlar ve canlı yayın bağlantıları tek panelde toplanır.</p></div></div>
-      <span class="broadcast-status" id="youtubeMediaStatus">Yayın akışı taranıyor</span>
+      <span class="broadcast-status" id="youtubeMediaStatus" data-state="loading">Yayın akışı kontrol ediliyor</span>
     </header>
-    <div class="youtube-media-grid" id="youtubeMediaGrid" aria-live="polite"></div>
+    <div class="youtube-media-grid" id="youtubeMediaGrid" aria-live="polite"><div class="skeleton skeleton-card youtube-skeleton-card"></div><div class="skeleton skeleton-card youtube-skeleton-card"></div><div class="skeleton skeleton-card youtube-skeleton-card"></div></div>
   </section>
 
   <div id="weeklyStoryArea" class="football-legacy-story"></div>
@@ -321,7 +325,7 @@
       <div><span class="football-data-eyebrow" id="footballStandingsViewKicker">SEÇİLİ LİG · RESMÎ TABLO</span><h1 id="footballStandingsViewTitle">Puan Durumu</h1><p id="footballStandingsViewCopy">Seçilen lig için puan tablosu ve sezon özeti burada güncellenir.</p></div>
       <a class="football-source-link" id="footballStandingsSourceLink" href="https://www.tff.org/default.aspx?2586pg=47&amp;ftxtID=47737&amp;pageID=471" target="_blank" rel="noopener noreferrer">TFF kaynağı ↗</a>
     </header>
-    <div class="standings-season-card"><span>Sezon</span><strong>2024–25</strong><small>38. hafta · final</small></div>
+    <div class="standings-season-card"><span>Sezon</span><strong>Güncel sezon</strong><small>Tablo kaynağı doğrulanıyor</small></div>
     <div class="historic-standings-shell" id="historicStandingsTable"></div>
     <div class="standings-legend" aria-label="Puan durumu renk açıklamaları"><span class="champion">Şampiyon</span><span class="europe">Avrupa kupaları</span><span class="relegated">Küme düşenler</span></div>
   </section>
@@ -445,9 +449,9 @@
       </div>
     </div>
     <div class="live-list" id="liveScoreList" aria-live="polite">
-      <div class="live-notice"><strong>Canlı veri akışı hazırlanıyor</strong><p>Seçili ligde yayınlanan ilk resmî canlı kayıt bu ekrana otomatik olarak düşer.</p></div>
+      <div class="live-notice"><strong>Canlı maçlar kontrol ediliyor</strong><p>Seçili ligde şu anda oynanan bir maç varsa saniyeler içinde burada listelenir; yoksa bir sonraki maç saatinde otomatik açılır.</p></div>
     </div>
-    <div class="live-data-note"><span>Skor, olay ve durum bilgisi güvenli sağlayıcı katmanında normalize edilir.</span><span id="liveProviderState">Sağlayıcı bağlantısı doğrulanıyor</span></div>
+    <div class="live-data-note"><span>Skor, olay ve durum bilgisi güvenli sağlayıcı katmanında normalize edilir.</span><span id="liveProviderState" data-state="loading">Sağlayıcı bağlantısı doğrulanıyor</span></div>
   </div>
 </section>
 
@@ -537,11 +541,14 @@
   </button>
 </nav>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/assets/js/data.js"></script>
-<script src="/assets/js/live.js"></script>
-<script src="/assets/js/match-center.js"></script>
-<script src="/assets/js/ui.js"></script>
+<!-- supabase-js: birincil CDN duserse ikinci kaynak denenir. Her ikisi de
+     basarisiz olursa data.js yedek istemciye duser ve site futbol icerigiyle
+     calismaya devam eder (bkz. createSupabaseFallbackClient). -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.dataset.failed='1';var f=document.createElement('script');f.defer=true;f.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';document.head.appendChild(f);"></script>
+<script defer src="/assets/js/data.js"></script>
+<script defer src="/assets/js/live.js"></script>
+<script defer src="/assets/js/match-center.js"></script>
+<script defer src="/assets/js/ui.js"></script>
 
 </body>
 </html>
