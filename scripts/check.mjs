@@ -13,6 +13,7 @@ const liveFunction = await readFile(new URL('../supabase/functions/football-live
 const coreMigration = await readFile(new URL('../supabase/migrations/20260802180000_platform_core.sql', import.meta.url), 'utf8');
 const leaderboardMigration = await readFile(new URL('../supabase/migrations/20260802181000_server_leaderboard.sql', import.meta.url), 'utf8');
 const editorialMigration = await readFile(new URL('../supabase/migrations/20260802182000_editorial_operations.sql', import.meta.url), 'utf8');
+const membershipMigration = await readFile(new URL('../supabase/migrations/20260806165000_membership_data_foundation.sql', import.meta.url), 'utf8');
 const migrationFiles = (await readdir(new URL('../supabase/migrations/', import.meta.url))).filter((file) => file.endsWith('.sql'));
 const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
 assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
@@ -23,6 +24,8 @@ const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url
 const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
 const legalCss = await readFile(new URL('../assets/legal/xyz-legal.css', import.meta.url), 'utf8');
 const legalScript = await readFile(new URL('../assets/legal/legal.js', import.meta.url), 'utf8');
+const databaseFoundationDoc = await readFile(new URL('../docs/database-foundation.md', import.meta.url), 'utf8');
+const accessInventoryDoc = await readFile(new URL('../docs/access-and-env-inventory.md', import.meta.url), 'utf8');
 assert.match(documentHtml, /assets\/css\/app\.css/, 'Harici uygulama stili yüklenmeli.');
 assert.match(documentHtml, /legal\/kvkk-aydinlatma\.html/, 'Ana sayfadan KVKK Aydınlatma bağlantısı bulunmalı.');
 assert.match(documentHtml, /legal\/cerez-politikasi\.html/, 'Ana sayfadan Çerez Politikası bağlantısı bulunmalı.');
@@ -104,6 +107,21 @@ assert.match(coreMigration, /predictions_own_read/i, 'Tahminler yalnız hesap sa
 assert.match(coreMigration, /get_match_prediction_consensus/i, 'Topluluk dağılımı anonim RPC üzerinden sunulmalı.');
 assert.match(leaderboardMigration, /create or replace function public\.get_leaderboard/i, 'Puanlama ve liderlik RPC’si bulunmalı.');
 assert.match(leaderboardMigration, /security definer/i, 'Liderlik RPC’si RLS arkasında güvenli çalışmalı.');
+assert.match(membershipMigration, /create table if not exists public\.legal_documents/i, 'Yasal metinler sürümlü DB tablosunda tutulmalı.');
+assert.match(membershipMigration, /create table if not exists public\.user_consents/i, 'Kullanıcı onay kayıtları ayrı tabloda tutulmalı.');
+assert.match(membershipMigration, /create table if not exists public\.weekly_games/i, 'Haftalık oyun tanımları DB’de modellemeli.');
+assert.match(membershipMigration, /create table if not exists public\.weekly_game_entries/i, 'Haftalık oyun cevapları kullanıcı bazlı ayrı tutulmalı.');
+assert.match(membershipMigration, /create table if not exists public\.reward_claims/i, 'Ödül teslimat süreci yalnız kazanan kullanıcılar için ayrı tabloda tutulmalı.');
+assert.match(membershipMigration, /create table if not exists public\.account_security_events/i, 'Bot ve fraud sinyalleri için güvenlik olay tablosu bulunmalı.');
+assert.match(membershipMigration, /alter table public\.user_consents enable row level security/i, 'Onay kayıtlarında RLS aktif olmalı.');
+assert.match(membershipMigration, /create policy user_consents_own_read/i, 'Kullanıcı yalnız kendi onay kaydını okuyabilmeli.');
+assert.match(membershipMigration, /create or replace function public\.accept_user_consent/i, 'Onay kaydı kontrollü RPC ile yazılmalı.');
+assert.match(membershipMigration, /create or replace function public\.submit_weekly_game_entry/i, 'Haftalık oyun cevabı kilit zamanı kontrol eden RPC ile yazılmalı.');
+assert.match(membershipMigration, /create or replace function public\.request_reward_claim/i, 'Ödül talebi kontrollü RPC ile açılmalı.');
+assert.match(databaseFoundationDoc, /IP ve user-agent ham veri olarak değil, hash olarak saklanmalıdır/i, 'DB dokümanı KVKK veri minimizasyonu prensibini açıklamalı.');
+assert.match(accessInventoryDoc, /Bu dosya gizli değer saklamaz/i, 'Erişim envanteri gizli değer saklamama kuralını açıkça belirtmeli.');
+assert.match(accessInventoryDoc, /SUPABASE_SERVICE_ROLE_KEY/i, 'Erişim envanteri server-only Supabase secret adlarını değer yazmadan listelemeli.');
+assert.match(accessInventoryDoc, /X_BEARER_TOKEN/i, 'Erişim envanteri X token adını değer yazmadan listelemeli.');
 assert.doesNotMatch(editorialMigration, /^\s*rollback\s*;/im, 'Editoryal migration rollback ile bitmemeli.');
 assert.match(editorialMigration, /^\s*commit\s*;/im, 'Editoryal migration kalıcı transaction ile bitmeli.');
 assert.match(html, /XYZSKOR’da satılmaz/i, 'Mythos alanı XYZSKOR’da satış yapılmadığını açıkça belirtmeli.');
