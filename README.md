@@ -60,7 +60,6 @@ npm run build
 - `docs/api-envanteri-ve-satin-alim-notu-2026-08-04.md`: Aktif API yüzeyleri, çekilebilen veri tipleri ve satın alım teyit listesi
 - `docs/ops-secrets-ledger-template.md`: Secret, billing, owner ve recovery kayıt şablonu
 - `docs/advanced-upgrade-roadmap-2026-08-04.md`: Prototipten profesyonel seviyeye geçiş sırası
-- `docs/data-architecture-blueprint-2026-08-04.md`: Kanonik veri katmanı, entity listesi, source-of-truth ve rollout sırası
 - `docs/data-provider-architecture.md`: Değiştirilebilir API-Football/Sportmonks katmanı ve veri sınıflandırma sözleşmesi
 - `docs/provider-comparison-scorecard.csv`: 2–3 haftalık sağlayıcı karşılaştırma kayıt şablonu
 - `docs/supabase-migration-runbook.md`: Yedek, staging, migration ve yük testi yayın akışı
