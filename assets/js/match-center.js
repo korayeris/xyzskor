@@ -30,21 +30,82 @@ async function mcQuery(promise, label){
     return { data:null, error:error && (error.message || error.code) ? (error.message || error.code) : 'bilinmeyen hata' };
   }
 }
+/* ---- Maç verisi tazeleme ----
+   Önceden mcCache bir kez doldurulunca bir daha hiç yenilenmiyordu: maç merkezi
+   açıkken canlı maçın skoru, olayları ve istatistikleri DONUYORDU. Artık maçın
+   fazına göre TTL uygulanır ve canlı maçta arka planda periyodik yenileme yapılır.
+   Supabase tarafı (kadro, sakat, model tahmini) daha yavaş değiştiği için ayrı,
+   daha uzun bir TTL ile yenilenir; her turda 5 sorgu birden atılmaz. */
+const MC_TTL_LIVE_MS = 30000;      // canlı maç: sağlayıcı verisi 30 sn
+const MC_TTL_PRE_MS = 300000;      // maç öncesi: 5 dk
+const MC_TTL_POST_MS = 900000;     // maç sonrası: 15 dk
+const MC_SUPABASE_TTL_MS = 180000; // kadro/sakat/model: 3 dk
+let mcRefreshTimer = null;
+
+/* Maçın hangi aşamada olduğunu tek yerden belirler. */
+function mcPhase(match){
+  if(!match) return 'pre';
+  if(match.status === 'canlı' || match.status === 'devre_arasi') return 'live';
+  if(match.status === 'bitti' || getResult(match.id)) return 'post';
+  const kickoff = match.kickoff ? new Date(match.kickoff).getTime() : 0;
+  if(kickoff && Date.now() > kickoff + 3 * 60 * 60 * 1000) return 'post';
+  if(kickoff && Date.now() >= kickoff) return 'live';
+  return 'pre';
+}
+
+function mcTtlFor(match){
+  const phase = mcPhase(match);
+  return phase === 'live' ? MC_TTL_LIVE_MS : phase === 'post' ? MC_TTL_POST_MS : MC_TTL_PRE_MS;
+}
+
+/* Canlı maçta arka plan yenilemesini kurar; diğer fazlarda durdurur. */
+function mcScheduleRefresh(){
+  if(mcRefreshTimer){ clearInterval(mcRefreshTimer); mcRefreshTimer = null; }
+  const match = MATCHES.find(item => item.id === mcMatchId);
+  if(!match || mcPhase(match) !== 'live') return;
+  mcRefreshTimer = setInterval(async () => {
+    // Sekme arka plandaysa boşuna istek atma.
+    if(document.hidden) return;
+    const current = MATCHES.find(item => item.id === mcMatchId);
+    if(!current || mcPhase(current) !== 'live'){ mcScheduleRefresh(); return; }
+    try{
+      await ensureMcData(mcMatchId);
+      renderMcHeader(current);
+      renderMcTab();
+    }catch(_error){ /* yenileme hatası sessizce yutulur; eldeki veri korunur */ }
+  }, MC_TTL_LIVE_MS);
+}
+
 async function ensureMcData(matchId){
-  if(mcCache[matchId] && mcCache[matchId].loaded) return mcCache[matchId];
+  const cached = mcCache[matchId];
+  if(cached && cached.loaded){
+    const match = MATCHES.find(item => item.id === matchId);
+    const age = Date.now() - (cached.fetchedAt || 0);
+    if(age < mcTtlFor(match)) return cached;
+    // Suresi dolmus: saglayici verisi mutlaka, Supabase verisi kendi TTL suresine gore
+    // yenilenir. Yenileme sırasında eldeki veri ekranda kalmaya devam eder.
+    cached.refreshing = true;
+  }
   const entry = { lineups:[], absences:[], events:[], statistics:[], provider:null, modelPred:null, consensus:null, errors:{}, loaded:false };
   const providerPromise=String(matchId).startsWith('sportmonks:')?fetch(`/api/football/fixture?id=${encodeURIComponent(matchId)}`,{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>({})); if(!response.ok) throw new Error(payload.error||'fixture_unavailable'); return payload; }).catch(error=>({error:error.message||'fixture_unavailable'})):Promise.resolve(null);
+  // Supabase tarafi kendi TTL suresi dolmadiysa tekrar sorgulanmaz (canli yenilemede
+  // 30 saniyede bir 5 sorgu yerine yalnizca saglayici cagrisi yapilir).
+  const previous = mcCache[matchId];
+  const supabaseFresh = previous && previous.loaded && (Date.now() - (previous.supabaseFetchedAt || 0) < MC_SUPABASE_TTL_MS);
+  const skip = () => Promise.resolve({ data:null, error:null, skipped:true });
   const [lineupsRes, absencesRes, modelRes, consensusRes, providerRes] = await Promise.all([
-    mcQuery(sb.from('match_lineups').select('*').eq('match_id', matchId), 'match_lineups'),
-    mcQuery(sb.from('match_absences').select('*').eq('match_id', matchId), 'match_absences'),
-    mcQuery(sb.from('model_predictions').select('*').eq('match_id', matchId).maybeSingle(), 'model_predictions'),
-    mcQuery(sb.rpc('get_match_prediction_consensus', { p_match_id: matchId }), 'prediction_consensus'),
+    supabaseFresh ? skip() : mcQuery(sb.from('match_lineups').select('*').eq('match_id', matchId), 'match_lineups'),
+    supabaseFresh ? skip() : mcQuery(sb.from('match_absences').select('*').eq('match_id', matchId), 'match_absences'),
+    supabaseFresh ? skip() : mcQuery(sb.from('model_predictions').select('*').eq('match_id', matchId).maybeSingle(), 'model_predictions'),
+    supabaseFresh ? skip() : mcQuery(sb.rpc('get_match_prediction_consensus', { p_match_id: matchId }), 'prediction_consensus'),
     providerPromise
   ]);
-  entry.lineups = Array.isArray(lineupsRes.data) ? lineupsRes.data : [];
-  entry.absences = Array.isArray(absencesRes.data) ? absencesRes.data : [];
-  entry.modelPred = modelRes.data || null;
-  entry.consensus = Array.isArray(consensusRes.data) ? (consensusRes.data[0] || null) : null;
+  // Atlanan (skipped) sorgularda önceki değer korunur, sıfırlanmaz.
+  entry.lineups = lineupsRes.skipped ? (previous?.lineups || []) : (Array.isArray(lineupsRes.data) ? lineupsRes.data : []);
+  entry.absences = absencesRes.skipped ? (previous?.absences || []) : (Array.isArray(absencesRes.data) ? absencesRes.data : []);
+  entry.modelPred = modelRes.skipped ? (previous?.modelPred || null) : (modelRes.data || null);
+  entry.consensus = consensusRes.skipped ? (previous?.consensus || null) : (Array.isArray(consensusRes.data) ? (consensusRes.data[0] || null) : null);
+  entry.supabaseFetchedAt = supabaseFresh ? (previous?.supabaseFetchedAt || Date.now()) : Date.now();
   if(providerRes?.details){
     const details=providerRes.details; entry.provider=providerRes;
     if(!entry.lineups.length) entry.lineups=Array.isArray(details.lineups)?details.lineups:[];
@@ -62,7 +123,15 @@ async function ensureMcData(matchId){
   if(absencesRes.error) entry.errors.absences=absencesRes.error;
   if(modelRes.error) entry.errors.model=modelRes.error;
   if(consensusRes.error) entry.errors.consensus=consensusRes.error;
+  // Sağlayıcı çağrısı başarısız olduysa eldeki eski veriyi koru (boş ekran yerine).
+  if(providerRes?.error && previous?.provider){
+    entry.provider = previous.provider;
+    if(!entry.events.length) entry.events = previous.events || [];
+    if(!entry.statistics.length) entry.statistics = previous.statistics || [];
+    entry.stale = true;
+  }
   entry.loaded = true;
+  entry.fetchedAt = Date.now();
   mcCache[matchId] = entry;
   return entry;
 }
@@ -84,10 +153,15 @@ async function openMatchCenter(matchId, updateUrl){
   document.getElementById('mcBody').innerHTML = `<div class="mc-empty">Yükleniyor…</div>`;
   document.querySelector('.mc-close').focus();
   await ensureMcData(matchId);
+  renderMcHeader(m);
   renderMcTab();
+  mcScheduleRefresh();
 }
 function closeMatchCenter(updateUrl){
   const shouldNavigateBack = updateUrl !== false && !!mcOriginHash && location.hash.startsWith('#match/');
+  // Panel kapanınca arka plan yenilemesi durmalı; aksi halde görünmeyen bir maç
+  // icin sonsuza kadar 30 saniyede bir istek atilir.
+  if(mcRefreshTimer){ clearInterval(mcRefreshTimer); mcRefreshTimer = null; }
   mcMatchId = null;
   const overlay=document.getElementById('mcOverlay'); overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true');
   document.body.classList.remove('modal-open');
@@ -291,7 +365,40 @@ function renderMcNews(m){
   if(!cards.length){ document.getElementById('mcBody').innerHTML='<div class="mc-empty">Bu maçla ilişkilendirilmiş yayınlanmış haber bulunmuyor.</div>'; return; }
   document.getElementById('mcBody').innerHTML=`<div class="mc-related-list">${cards.map(card=>`<article class="mc-related-item"><h3>${escapeHTML(card.title||'İlgili gelişme')}</h3>${card.text?`<p>${escapeHTML(card.text)}</p>`:''}<div class="mc-related-meta">${card.source?'Kaynak: '+escapeHTML(card.source):'Kaynak bilgisi yayınlanmadı'}${card.verified_at?' · '+escapeHTML(fmtEditorialDate(card.verified_at)):''}</div></article>`).join('')}</div>`;
 }
+/* Topluluk tahmin dagilimi.
+   get_match_prediction_consensus RPC'si ensureMcData icinde ZATEN cekiliyordu
+   ama hicbir yerde render edilmiyordu. RPC bireysel tahminleri degil yalnizca
+   toplam ve yuzdeleri dondurur (security definer, kickoff-15dk sonrasi acilir),
+   bu yuzden gizlilik davranisi degismeden anonim dagilim gosterilebilir. */
+function mcConsensusHTML(entry){
+  const consensus = entry && entry.consensus;
+  const total = Number(consensus && consensus.total ? consensus.total : 0);
+  if(!consensus || !total){
+    return '<div class="mc-empty">Toplu tahmin dagilimi, tahmin penceresi kapandiktan sonra ve yeterli katilim olustugunda gosterilir.</div>';
+  }
+  const rows = [
+    { key:'1', label:'Ev sahibi', count:Number(consensus.home_count||0), pct:Number(consensus.home_pct||0) },
+    { key:'X', label:'Beraberlik', count:Number(consensus.draw_count||0), pct:Number(consensus.draw_pct||0) },
+    { key:'2', label:'Deplasman', count:Number(consensus.away_count||0), pct:Number(consensus.away_pct||0) },
+  ];
+  const lead = rows.slice().sort((a,b)=>b.pct-a.pct)[0];
+  return `<section class="mc-section">
+    <div class="mc-section-title">Topluluk dagilimi</div>
+    <div class="mc-consensus">
+      ${rows.map(row=>`<div class="mc-consensus-row ${row.key===lead.key?'is-lead':''}">
+        <span class="mc-consensus-key">${escapeHTML(row.key)}</span>
+        <span class="mc-consensus-label">${escapeHTML(row.label)}</span>
+        <span class="mc-consensus-bar"><i style="width:${Math.max(0,Math.min(100,row.pct)).toFixed(1)}%"></i></span>
+        <b>%${row.pct.toFixed(0)}</b>
+        <small>${row.count}</small>
+      </div>`).join('')}
+    </div>
+    <div class="mc-consensus-foot">${total} tahmin</div>
+  </section>`;
+}
 function renderMcCommunity(m){
   const user=getCurrentUser(); const own=user && ALL_PREDICTIONS[m.id] ? ALL_PREDICTIONS[m.id][user.id] : null;
-  document.getElementById('mcBody').innerHTML=`${own?`<section class="mc-section"><div class="mc-section-title">Senin tahminin</div><div class="mc-result-card"><div class="pts">${escapeHTML(own.pick)}${own.scoreHome!=null?` · ${escapeHTML(own.scoreHome)}–${escapeHTML(own.scoreAway)}`:''}</div></div></section>`:''}<div class="mc-empty">Diğer kullanıcıların bireysel tahminleri gösterilmez. Anonim toplu dağılım için mevcut RLS ve gizlilik davranışı değiştirilmedi.</div>`;
+  const entry=mcCache[m.id];
+  const privacyNote='<div class="mc-consensus-privacy">Diğer kullanıcıların bireysel tahminleri gösterilmez; yalnızca anonim toplu dağılım yayınlanır.</div>';
+  document.getElementById('mcBody').innerHTML=`${own?`<section class="mc-section"><div class="mc-section-title">Senin tahminin</div><div class="mc-result-card"><div class="pts">${escapeHTML(own.pick)}${own.scoreHome!=null?` · ${escapeHTML(own.scoreHome)}–${escapeHTML(own.scoreAway)}`:''}</div></div></section>`:''}${mcConsensusHTML(entry)}${privacyNote}`;
 }

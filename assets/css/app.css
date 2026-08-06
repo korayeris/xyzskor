@@ -4375,3 +4375,35 @@ body.chat-open .chat-launcher{ opacity:0; pointer-events:none; transform:transla
   .instagram-card:hover{ transform:none; }
   .instagram-card:hover .instagram-card-media img{ transform:none; }
 }
+
+/* v112 · Maç merkezi topluluk tahmin dağılımı */
+.mc-consensus{ display:grid; gap:9px; }
+.mc-consensus-row{
+  display:grid;
+  grid-template-columns:22px minmax(70px,auto) minmax(0,1fr) 40px 34px;
+  align-items:center;
+  gap:9px;
+}
+.mc-consensus-key{
+  display:grid; place-items:center;
+  width:22px; height:22px; border-radius:6px;
+  background:rgba(255,255,255,.07);
+  color:#c9d0d8; font:750 10px/1 var(--font-mono);
+}
+.mc-consensus-row.is-lead .mc-consensus-key{
+  background:var(--league-accent,#5eb9ff); color:#08121c;
+}
+.mc-consensus-label{ color:#98a0aa; font-size:10.5px; }
+.mc-consensus-row .mc-consensus-bar{
+  position:relative; height:7px; border-radius:999px;
+  background:rgba(255,255,255,.07); overflow:hidden;
+}
+.mc-consensus-row .mc-consensus-bar i{
+  display:block; height:100%; border-radius:999px;
+  background:linear-gradient(90deg,var(--league-accent,#5eb9ff),color-mix(in srgb,var(--league-accent,#5eb9ff) 55%,#fff));
+  transition:width var(--dur-slow) var(--ease-out);
+}
+.mc-consensus-row b{ color:#eef2f7; font:750 11.5px/1 var(--font-display); text-align:right; }
+.mc-consensus-row small{ color:#6d747d; font:550 9px/1 var(--font-mono); text-align:right; }
+.mc-consensus-foot{ margin-top:10px; color:#6d747d; font-size:9.5px; }
+.mc-consensus-privacy{ margin-top:12px; color:#6d747d; font-size:9.5px; line-height:1.5; }

@@ -978,7 +978,7 @@ async function handleFootballTransfers(request, env, context) {
   const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
   const leagueIdSet = new Set(leagueIds.map((id) => String(id)));
   const confirmedPath = "/transfers/latest?include=player;fromTeam;toTeam;type;position;detailedPosition&per_page=50";
-  const rumoursPath = `/transfer-rumours?include=player&per_page=50`;
+  const rumoursPath = `/transfer-rumours?include=player;fromTeam;toTeam;type;position;detailedPosition&per_page=50`;
   const [confirmedResult, rumourResult] = await Promise.allSettled([
     sportmonksRequest(confirmedPath, token),
     sportmonksRequest(rumoursPath, token),
@@ -1039,6 +1039,33 @@ function standingNumber(row, names) {
   return Number(match?.value ?? match?.points ?? match?.standing_value ?? 0) || 0;
 }
 
+// Sportmonks v3'te `form` include edilmedigi surece gelmez; include edildiginde
+// ise duz string degil bir ILISKI (dizi) olarak doner. Onceki kod dogrudan
+// String(row.form) yaptigi icin dizi geldiginde "[object Object]" uretirdi.
+// Bu yardimci her iki sekli de guvenle en fazla 8 karakterlik W/D/L dizgisine cevirir.
+function normalizeStandingForm(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 8);
+  const rows = relationRows(value);
+  if (!rows.length) return "";
+  const letters = rows
+    .slice()
+    .sort((left, right) => Number(left?.sort_order ?? 0) - Number(right?.sort_order ?? 0))
+    .map((entry) => {
+      const raw = String(entry?.form ?? entry?.result ?? entry?.value ?? "").trim().toUpperCase();
+      if (!raw) return "";
+      const first = raw[0];
+      // Saglayici bazi durumlarda Almanca/Ingilizce kisaltma karisik dondurebilir.
+      if (first === "W" || first === "G") return "W";
+      if (first === "L" || first === "M") return "L";
+      if (first === "D" || first === "B" || first === "U") return "D";
+      return "";
+    })
+    .filter(Boolean)
+    .join("");
+  return letters.slice(-8);
+}
+
 function normalizeProviderStanding(row, league, seasonId, index) {
   const participant = row?.participant || row?.team || {};
   const goalsFor = standingNumber(row, ["goals_for", "overall_goals_for", "scored", "goals_scored"]);
@@ -1053,7 +1080,7 @@ function normalizeProviderStanding(row, league, seasonId, index) {
     goals_for: goalsFor, goals_against: goalsAgainst,
     goal_difference: Number(row?.goal_difference ?? row?.goaldifference ?? goalsFor - goalsAgainst) || 0,
     points: standingNumber(row, ["points", "overall_points"]),
-    form: String(row?.form || "").slice(0, 8),
+    form: normalizeStandingForm(row?.form),
     source: "sportmonks", competition: league?.name || null, competition_logo: league?.image_path || null,
     country: league?.country?.name || null, provider_league_id: String(league?.id || ""), provider_season_id: String(seasonId),
     provider_team_id: participant?.id ? String(participant.id) : null, team_logo: participant?.image_path || null, verified_at: new Date().toISOString(),
@@ -1206,7 +1233,7 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
   if (!season?.id) return fetchSportmonksLeagueWindow(leagueKey, leagueId, token, [{ module:"season", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "active_season_unavailable" }]);
   const seasonId = String(season.id);
   const [standingsResult, scheduleResult] = await Promise.allSettled([
-    sportmonksRequest(`/standings/seasons/${encodeURIComponent(seasonId)}?include=participant;details.type`, token),
+    sportmonksRequest(`/standings/seasons/${encodeURIComponent(seasonId)}?include=participant;details.type;form`, token),
     sportmonksRequest(`/schedules/seasons/${encodeURIComponent(seasonId)}`, token),
   ]);
   const standings = standingsResult.status === "fulfilled"
