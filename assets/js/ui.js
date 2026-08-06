@@ -922,11 +922,10 @@ function cardMentionsFootballTeam(card, team){
   return fields.toLocaleLowerCase('tr-TR').includes(String(team).toLocaleLowerCase('tr-TR'));
 }
 function renderPortalSponsor(){
-  const banner=document.getElementById('portalSponsorBanner'); const rail=document.getElementById('portalSponsorRail');
+  const rail=document.getElementById('portalSponsorRail');
   const reward=Object.entries(REWARDS).flatMap(([team,items])=>(items||[]).map(item=>({team,item}))).find(entry=>entry.item&&entry.item.aciklama&&entry.item.aciklama!=='—');
   const rewardTitle=reward?escapeHTML(reward.item.aciklama):'Haftalık ödül programı güncelleniyor';
   const rewardNote=reward?`${escapeHTML(reward.team)} · ${escapeHTML(reward.item.sira)}. sıra ödülü`:'Yeni ödül duyurusu yayınlandığında burada görünecek.';
-  if(banner) banner.innerHTML=`<div class="portal-sponsor-copy"><div class="portal-sponsor-label">Mythos Cards · Ödül sponsoru</div><div class="portal-sponsor-title">Futbolu takip et. Tahmin et. Yarış.</div><div class="portal-sponsor-note">Ücretsiz Predict yarışması · bahis ve para yatırma yok.</div></div><div class="portal-sponsor-action"><b>${rewardTitle}</b>${rewardNote}</div>`;
   if(rail) rail.innerHTML=`<div class="portal-rail-label">Ödül sponsoru</div><div class="portal-rail-title">${rewardTitle}</div><div class="portal-rail-note">${rewardNote}<br>Ürün satışı yapılmaz; açıklanan ödüller yarışma kazananlarına verilir.</div><div class="portal-rail-mark">MYTHOS CARDS · RESMÎ SPONSOR</div>`;
 }
 function fmtEditorialDate(value){
@@ -1726,27 +1725,15 @@ function renderFeaturedStats(){
   `;
 }
 
-/* ===================== SIDEBAR: SIRADAKİ MAÇ ===================== */
+/* ===================== SIDEBAR: ÜCRETSİZ KATILIM MESAJI ===================== */
 function renderAsideNextMatch(){
   const area = document.getElementById('asideNextMatch'); if(!area) return;
-  const now = Date.now();
-  const weekUpcoming = weekMatches(activeWeek).filter(m => new Date(m.kickoff).getTime() > now).sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff))[0];
-  const m = weekUpcoming || nextUpcomingMatch();
-  if(!m){
-    const st = weekStatus(activeWeek);
-    if(st.key==='completed'){
-      area.innerHTML = `<div class="aside-title">Sıradaki Maç</div><p style="font-size:14px;color:var(--ink-dim);margin:0 0 10px;">Bu hafta tamamlandı.</p><button class="btn ghost" style="width:100%;" onclick="switchMainTab('story');document.getElementById('storyMatchList').scrollIntoView({behavior:'smooth'});">Hafta sonuçlarına bak</button>`;
-    } else {
-      area.innerHTML = `<div class="aside-title">Sıradaki Maç</div><p style="font-size:14px;color:var(--ink-dim);margin:0;">Sezonun tüm maçları tamamlandı.</p>`;
-    }
-    return;
-  }
   area.innerHTML = `
-    <div class="aside-title">Sıradaki Maç${!weekUpcoming ? ' (gelecek hafta)' : ''}</div>
-    <div class="aside-next-match">${escapeHTML(m.ev)} — ${escapeHTML(m.konuk)}</div>
-    <div class="aside-next-time mono">${escapeHTML(fmtKickoff(m.kickoff))}</div>
-    <div class="aside-facts">${escapeHTML(m.stadyum)}${m.verified ? ' · Doğrulandı' : ''}</div>
-    <button class="btn ghost" style="width:100%;margin-top:10px;" onclick="openMatchCenter('${m.id}')">Maç Merkezi →</button>
+    <div class="aside-title">Burada paran geçmez</div>
+    <div class="aside-next-match">Cüzdanı cebine koy, skor bilgin yeter.</div>
+    <div class="aside-next-time mono">Katılım ücretsiz · Bahis yok · Para yatırma yok</div>
+    <div class="aside-facts">Ödül varsa sponsordan gelir; kullanıcıdan para alınmaz. En fazla arkadaş ortamında “ben demiştim” deme hakkı kazanırsın.</div>
+    <button class="btn ghost" style="width:100%;margin-top:10px;" onclick="switchMainTab('predict')">Ücretsiz tahmine git →</button>
   `;
 }
 
@@ -2473,11 +2460,279 @@ function renderFootballNews(){
   const renderPortalSponsorBase=renderPortalSponsor;
   renderPortalSponsor = function(){
     renderPortalSponsorBase();
-    const banner=document.getElementById('portalSponsorBanner');
     const rail=document.getElementById('portalSponsorRail'); if(!rail) return;
     const predictUrl='https://xyzskor-tr.korayeris2002.chatgpt.site/predict/';
-    if(banner) banner.innerHTML=`<a class="predict-ad predict-ad-billboard" href="${predictUrl}" target="_self"><span class="predict-ad-brand"><b>X</b><strong>XYZSKOR</strong><small>FOOTBALL INTELLIGENCE</small></span><span class="predict-ad-copy"><em>🏆 UEFA Avrupa Ligi dev çekilişi</em><strong>Skorunu tahmin et, orijinal forma & bilet kazan!</strong><small>Katılım ücretsizdir · bahis ve para yatırma yoktur.</small></span><span class="predict-ad-prize"><b>🎁 Ücretsiz çekiliş paketi</b><small>2026/27 orijinal kulüp forması</small><small>2x UEFA Avrupa Ligi maç bileti</small><i>Çekilişe katıl →</i></span></a>`;
     rail.innerHTML=`<a class="predict-ad predict-ad-skyscraper" href="${predictUrl}" target="_self"><span class="predict-ad-brand"><b>X</b><strong>XYZSKOR</strong><small>FOOTBALL INTELLIGENCE</small></span><span class="predict-ad-pill">🏆 UEFA Avrupa Ligi çekilişi</span><span class="predict-ad-copy"><strong>Skorunu tahmin et!</strong><small>Orijinal forma + 2x VIP maç bileti kazanma şansı.</small></span><span class="predict-ad-score"><small>Haftanın maçı</small><b>2</b><i>−</i><b>1</b></span><span class="predict-ad-cta">Hemen tahmin yap →</span><small class="predict-ad-legal">Katılım ücretsizdir. Bahis yoktur.</small></a>`;
   };
+
+  function initSideWidgets(){
+    const form=document.getElementById('sideChatForm');
+    const input=document.getElementById('sideChatInput');
+    const feed=document.getElementById('sideChatFeed');
+    if(form && input && feed && !form.dataset.ready){
+      form.dataset.ready='1';
+      form.addEventListener('submit',(event)=>{
+        event.preventDefault();
+        const text=input.value.trim();
+        if(!text) return;
+        const article=document.createElement('article');
+        article.innerHTML=`<b>Sen</b><p>${escapeHTML(text)}</p>`;
+        feed.appendChild(article);
+        input.value='';
+        feed.scrollTop=feed.scrollHeight;
+      });
+    }
+    initMiniGoalGame();
+  }
+
+  function initMiniGoalGame(){
+    const trigger=document.getElementById('miniGoalTrigger');
+    const overlay=document.getElementById('miniGoalOverlay');
+    const close=document.getElementById('miniGoalClose');
+    const restart=document.getElementById('miniGoalRestart');
+    const canvas=document.getElementById('miniGoalCanvas');
+    const scoreEl=document.getElementById('miniGoalScore');
+    if(!trigger || !overlay || !canvas || trigger.dataset.ready) return;
+    trigger.dataset.ready='1';
+
+    const game={
+      ready:false,
+      open:false,
+      raf:0,
+      last:0,
+      score:0,
+      renderedScore:-1,
+      goalFlashUntil:0,
+      w:420,
+      h:560,
+      keys:new Set(),
+      ball:{x:210,y:96,vx:2.2,vy:0,r:18},
+      bar:{x:152,y:468,w:96,h:14,speed:8.4,vx:0},
+      goal:{x:155,y:22,w:110,h:38}
+    };
+    const ctx=canvas.getContext('2d');
+
+    function setupCanvas(){
+      const ratio=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+      canvas.width=game.w*ratio;
+      canvas.height=game.h*ratio;
+      ctx.setTransform(ratio,0,0,ratio,0,0);
+    }
+    function resetBall(scored=false){
+      game.ball.x=game.w/2;
+      game.ball.y=96;
+      game.ball.vx=(Math.random()>.5?1:-1)*(3.1+Math.random()*2.0);
+      game.ball.vy=0;
+    }
+    function restartGame(){
+      game.score=0;
+      game.renderedScore=-1;
+      game.goalFlashUntil=0;
+      game.bar.vx=0;
+      game.bar.x=(game.w-game.bar.w)/2;
+      game.goal.x=(game.w-game.goal.w)/2;
+      resetBall(false);
+      renderScore();
+      draw();
+    }
+    function renderScore(){
+      if(scoreEl && game.renderedScore!==game.score){
+        scoreEl.textContent=String(game.score);
+        game.renderedScore=game.score;
+      }
+    }
+    function openGame(){
+      if(!game.ready){
+        setupCanvas();
+        game.ready=true;
+        draw();
+      }
+      game.open=true;
+      overlay.hidden=false;
+      trigger.setAttribute('aria-expanded','true');
+      renderScore();
+      game.last=performance.now();
+      game.raf=requestAnimationFrame(loop);
+    }
+    function closeGame(){
+      game.open=false;
+      overlay.hidden=true;
+      trigger.setAttribute('aria-expanded','false');
+      if(game.raf) cancelAnimationFrame(game.raf);
+      game.raf=0;
+    }
+    function toggleGame(){
+      if(game.open) closeGame();
+      else openGame();
+    }
+    function update(dt){
+      const step=Math.min(2,dt/16.67);
+      const movingLeft=game.keys.has('ArrowLeft') || game.keys.has('KeyA');
+      const movingRight=game.keys.has('ArrowRight') || game.keys.has('KeyD');
+      if(movingLeft) game.bar.vx-=0.92*step;
+      if(movingRight) game.bar.vx+=0.92*step;
+      if(!movingLeft && !movingRight) game.bar.vx*=0.90;
+      game.bar.vx=Math.max(-game.bar.speed,Math.min(game.bar.speed,game.bar.vx));
+      game.bar.x+=game.bar.vx*step;
+      if(game.bar.x<12){ game.bar.x=12; game.bar.vx=Math.abs(game.bar.vx)*0.45; }
+      if(game.bar.x>game.w-game.bar.w-12){ game.bar.x=game.w-game.bar.w-12; game.bar.vx=-Math.abs(game.bar.vx)*0.45; }
+      game.bar.x=Math.max(12,Math.min(game.w-game.bar.w-12,game.bar.x));
+
+      const b=game.ball;
+      b.vy+=0.22*step;
+      b.x+=b.vx*step;
+      b.y+=b.vy*step;
+
+      if(b.x-b.r<10){ b.x=10+b.r; b.vx=Math.abs(b.vx)*0.94; }
+      if(b.x+b.r>game.w-10){ b.x=game.w-10-b.r; b.vx=-Math.abs(b.vx)*0.94; }
+      if(b.y-b.r<10){ b.y=10+b.r; b.vy=Math.abs(b.vy)*0.72; }
+
+      const bar=game.bar;
+      const hitBar=b.vy>0 && b.y+b.r>=bar.y && b.y+b.r<=bar.y+bar.h+12 && b.x+b.r>bar.x && b.x-b.r<bar.x+bar.w;
+      if(hitBar){
+        b.y=bar.y-b.r;
+        b.vy=-15.8;
+        b.vx+=(b.x-(bar.x+bar.w/2))*0.104;
+        b.vx+=game.bar.vx*0.22;
+        b.vx=Math.max(-9.4,Math.min(9.4,b.vx));
+      }
+
+      const g=game.goal;
+      const scored=b.vy<0 && b.x>g.x && b.x<g.x+g.w && b.y-b.r<g.y+g.h && b.y+b.r>g.y;
+      if(scored){
+        game.score+=1;
+        game.goalFlashUntil=performance.now()+1100;
+        renderScore();
+        resetBall(true);
+      }else if(b.y-b.r>game.h){
+        resetBall(false);
+      }
+    }
+    function drawBall(){
+      const b=game.ball;
+      ctx.save();
+      ctx.translate(b.x,b.y);
+      ctx.fillStyle='#f8fafc';
+      ctx.beginPath();
+      ctx.arc(0,0,b.r,0,Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle='#151922';
+      ctx.lineWidth=2;
+      ctx.stroke();
+      ctx.strokeStyle='#11151d';
+      ctx.lineWidth=2.4;
+      for(let i=0;i<5;i+=1){
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.lineTo(Math.cos(i*1.256)*b.r*.78,Math.sin(i*1.256)*b.r*.78);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function draw(){
+      ctx.clearRect(0,0,game.w,game.h);
+      const grd=ctx.createLinearGradient(0,0,0,game.h);
+      grd.addColorStop(0,'#18202a');
+      grd.addColorStop(1,'#0c1118');
+      ctx.fillStyle=grd;
+      ctx.fillRect(0,0,game.w,game.h);
+
+      ctx.strokeStyle='rgba(255,255,255,.08)';
+      ctx.lineWidth=2;
+      ctx.strokeRect(10,10,game.w-20,game.h-20);
+      ctx.beginPath();
+      ctx.moveTo(10,game.h/2);
+      ctx.lineTo(game.w-10,game.h/2);
+      ctx.stroke();
+
+      const g=game.goal;
+      ctx.fillStyle='rgba(255,149,0,.18)';
+      ctx.strokeStyle='#ff9500';
+      ctx.lineWidth=3;
+      ctx.fillRect(g.x,g.y,g.w,g.h);
+      ctx.strokeRect(g.x,g.y,g.w,g.h);
+      ctx.strokeStyle='rgba(255,255,255,.22)';
+      ctx.lineWidth=1;
+      for(let x=g.x+12;x<g.x+g.w;x+=12){
+        ctx.beginPath();
+        ctx.moveTo(x,g.y);
+        ctx.lineTo(x,g.y+g.h);
+        ctx.stroke();
+      }
+      for(let y=g.y+10;y<g.y+g.h;y+=10){
+        ctx.beginPath();
+        ctx.moveTo(g.x,y);
+        ctx.lineTo(g.x+g.w,y);
+        ctx.stroke();
+      }
+      ctx.fillStyle='#ffb04a';
+      ctx.font='800 10px Inter, sans-serif';
+      ctx.fillText('KALE',g.x+50,g.y+26);
+
+      ctx.fillStyle='#00e5ff';
+      ctx.shadowColor='rgba(0,229,255,.35)';
+      ctx.shadowBlur=14;
+      ctx.fillRect(game.bar.x,game.bar.y,game.bar.w,game.bar.h);
+      ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,255,255,.16)';
+      ctx.fillRect(game.bar.x,game.bar.y-4,game.bar.w,4);
+
+      drawBall();
+
+      if(game.goalFlashUntil>performance.now()){
+        const remaining=Math.max(0,game.goalFlashUntil-performance.now());
+        const alpha=Math.min(1,remaining/260);
+        ctx.save();
+        ctx.globalAlpha=alpha;
+        ctx.fillStyle='rgba(255,149,0,.16)';
+        ctx.fillRect(0,0,game.w,game.h);
+        ctx.shadowColor='rgba(255,149,0,.72)';
+        ctx.shadowBlur=28;
+        ctx.fillStyle='#ffb04a';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.font='950 62px Inter, sans-serif';
+        ctx.fillText('GOALLL!',game.w/2,game.h/2-18);
+        ctx.shadowBlur=0;
+        ctx.fillStyle='rgba(255,255,255,.88)';
+        ctx.font='800 15px Inter, sans-serif';
+        ctx.fillText('Skor bilgin çalışıyor',game.w/2,game.h/2+34);
+        ctx.restore();
+      }
+    }
+    function loop(now){
+      if(!game.open) return;
+      update(now-game.last);
+      draw();
+      game.last=now;
+      game.raf=requestAnimationFrame(loop);
+    }
+    function pointerToBar(event){
+      const rect=canvas.getBoundingClientRect();
+      const clientX=event.touches?.[0]?.clientX ?? event.clientX;
+      const x=(clientX-rect.left)/rect.width*game.w;
+      const target=Math.max(12,Math.min(game.w-game.bar.w-12,x-game.bar.w/2));
+      game.bar.vx=Math.max(-game.bar.speed,Math.min(game.bar.speed,(target-game.bar.x)*0.18));
+    }
+
+    trigger.addEventListener('click',toggleGame);
+    close?.addEventListener('click',closeGame);
+    restart?.addEventListener('click',restartGame);
+    window.addEventListener('keydown',(event)=>{
+      if(!game.open) return;
+      if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(event.code)){
+        event.preventDefault();
+        game.keys.add(event.code);
+      }
+      if(event.code==='Escape') closeGame();
+    });
+    window.addEventListener('keyup',(event)=>game.keys.delete(event.code));
+    canvas.addEventListener('pointerdown',(event)=>{ if(game.open){ canvas.setPointerCapture(event.pointerId); pointerToBar(event); } });
+    canvas.addEventListener('pointermove',(event)=>{ if(game.open && event.buttons) pointerToBar(event); });
+    window.addEventListener('resize',()=>{ if(game.ready) setupCanvas(); });
+    window.addEventListener('beforeunload',()=>{ if(game.raf) cancelAnimationFrame(game.raf); });
+  }
+
+  initSideWidgets();
 
 })();

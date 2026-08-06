@@ -64,12 +64,51 @@
   </a>
 </div>
 
+<aside class="mini-goal-game" id="miniGoalGame" aria-label="Golü At mini oyunu">
+  <button class="mini-goal-trigger" id="miniGoalTrigger" type="button" aria-expanded="false" aria-controls="miniGoalOverlay" aria-label="Golü At mini oyununu aç veya kapat">
+    <span aria-hidden="true">⚽</span>
+  </button>
+  <div class="mini-goal-overlay" id="miniGoalOverlay" hidden>
+    <section class="mini-goal-modal" role="dialog" aria-modal="true" aria-labelledby="miniGoalTitle">
+      <header class="mini-goal-head">
+        <div>
+          <span>Mini oyun</span>
+          <h2 id="miniGoalTitle">Golü At</h2>
+          <p>Çubuğu sağa ve sola hareket ettirerek topu kaleye sok.</p>
+        </div>
+        <button class="mini-goal-close" id="miniGoalClose" type="button" aria-label="Mini oyunu kapat">×</button>
+      </header>
+      <div class="mini-goal-score"><span>Gol</span><strong id="miniGoalScore">0</strong></div>
+      <canvas id="miniGoalCanvas" width="420" height="560" aria-label="Golü At oyun alanı"></canvas>
+      <footer class="mini-goal-actions">
+        <button id="miniGoalRestart" type="button">Yeniden başlat</button>
+        <small>Klavyede A/D veya oklar, mobilde çubuğu sürükle.</small>
+      </footer>
+    </section>
+  </div>
+</aside>
+
+<aside class="side-chat-prototype" id="sideChatPrototype" aria-label="Kullanıcı sohbet prototipi">
+  <header>
+    <span>Canlı tribün</span>
+    <strong>Üyeler konuşuyor</strong>
+  </header>
+  <div class="side-chat-feed" id="sideChatFeed">
+    <article><b>Koray</b><p>Bu hafta predictte banko skor var mı?</p></article>
+    <article><b>Emre</b><p>Önce kadrolar gelsin, sonra konuşalım.</p></article>
+    <article><b>XYZ Bot</b><p>Kalıcı sohbet için Supabase bağlantısı hazırlanacak.</p></article>
+  </div>
+  <form class="side-chat-form" id="sideChatForm">
+    <input id="sideChatInput" type="text" maxlength="90" autocomplete="off" placeholder="Kısa mesaj yaz..." aria-label="Sohbet mesajı">
+    <button type="submit">Gönder</button>
+  </form>
+</aside>
+
 <div class="wrap">
 
 <!-- ===================== TAB 1: HAFTANIN HİKAYESİ ===================== -->
 <div class="tabpage active" id="page-story">
   <div id="footballOverviewView">
-  <section class="portal-sponsor-banner predict-billboard-slot" id="portalSponsorBanner" aria-label="Predict çekiliş banner alanı"></section>
   <div id="weekSelector" class="week-selector-bar"></div>
   <div class="data-status-line" id="dataStatusLine"></div>
   <section class="portal-league-strip" aria-labelledby="portalLeagueStripTitle">

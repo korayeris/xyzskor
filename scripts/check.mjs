@@ -204,7 +204,8 @@ assert.match(functionSource('renderYouTubeMedia'), /\/api\/media\/youtube/, 'You
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
-assert.match(html, /id="portalSponsorBanner"/i, 'Futbol portalında üst sponsor envanteri bulunmalı.');
+assert.match(html, /class="predict-leaderboard-slot"/i, 'Tek Predict duyuru bannerı ana akış üstünde bulunmalı.');
+assert.doesNotMatch(html, /id="portalSponsorBanner"/i, 'Futbol portalında tekrar eden ikinci Predict bannerı bulunmamalı.');
 assert.match(html, /id="portalSponsorRail"/i, 'Futbol portalında sağ sponsor envanteri bulunmalı.');
 assert.match(documentHtml, /id="clubSocialTitle">Kulüp Gündemi</, 'Kulüp sosyal alanı ürünleşmiş gündem adı kullanmalı.');
 assert.match(documentHtml, /<h2>Süper Lig Maç Merkezi<\/h2>/, 'Canlı panel Süper Lig maç merkezi başlığı kullanmalı.');
