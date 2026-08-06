@@ -1,5 +1,38 @@
 const STATIC_CACHE = "public, max-age=31536000, immutable";
 const HTML_CACHE = "public, max-age=0, must-revalidate";
+// index.html barındırdığı mevcut inline onclick/style kullanımı nedeniyle
+// script-src/style-src şu an 'unsafe-inline' içeriyor. Bu, sayfayı bozmadan
+// eklenebilecek ilk CSP katmanıdır; inline handler'ların addEventListener'a
+// taşınması ayrı, onaylı bir refactor gerektirir (bkz. geliştirme planı).
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' https: data:",
+  "connect-src 'self' https://swhwmqbamzczztpfxctg.supabase.co wss://swhwmqbamzczztpfxctg.supabase.co",
+  "frame-src https://www.google.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+// jsonResponse ve withHeaders arasında tekrarlanan güvenlik başlıklarının
+// tek kaynağı. Buradaki değerler her iki yol için de aynıdır; yalnızca
+// Content-Type/Cache-Control gibi yanıta özgü başlıklar ayrı ayrı eklenir.
+function securityHeaders() {
+  return {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Frame-Options": "DENY",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+  };
+}
 const SOCIAL_CACHE = "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800";
 const SOCIAL_STALE_CACHE = "public, max-age=3600, s-maxage=604800";
 const X_USER_CACHE = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
@@ -180,12 +213,10 @@ function jsonResponse(payload, status = 200, extraHeaders = {}) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "X-Content-Type-Options": "nosniff",
+      ...securityHeaders(),
+      // JSON yanıtları hiçbir bağlamda render edilmediği için referrer'ı
+      // tamamen kesmek (no-referrer) HTML'den daha sıkı tutulabilir.
       "Referrer-Policy": "no-referrer",
-      "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-      "X-Frame-Options": "DENY",
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Resource-Policy": "same-origin",
       ...extraHeaders,
     },
   });
@@ -1399,13 +1430,9 @@ function handleHealth(request, env) {
 
 function withHeaders(response, pathname) {
   const headers = new Headers(response.headers);
-  headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  headers.set("X-Frame-Options", "DENY");
-  headers.set("Cross-Origin-Opener-Policy", "same-origin");
-  headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  for (const [name, value] of Object.entries(securityHeaders())) {
+    headers.set(name, value);
+  }
   headers.set("Cache-Control", pathname.startsWith("/assets/") ? STATIC_CACHE : HTML_CACHE);
 
   return new Response(response.body, {
