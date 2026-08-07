@@ -4593,6 +4593,12 @@ body.chat-open .chat-launcher{ opacity:0; pointer-events:none; transform:transla
   45%{transform:translateY(-12px) rotate(7deg)}
   68%{transform:translateY(2px) rotate(-2deg)}
 }
+@keyframes miniGoalFallback{
+  0%,100%{transform:translate3d(12px,120px,0)}
+  25%{transform:translate3d(160px,210px,0)}
+  50%{transform:translate3d(12px,300px,0)}
+  75%{transform:translate3d(160px,220px,0)}
+}
 @media(max-width:1500px){
   .side-chat-prototype{display:none}
   .side-ball-widget{left:14px;width:270px}
@@ -4605,28 +4611,48 @@ body.chat-open .chat-launcher{ opacity:0; pointer-events:none; transform:transla
 body.mini-goal-open{overflow:auto}
 .mini-goal-game{
   position:fixed;
-  right:22px;
-  bottom:22px;
+  left:0;
+  top:0;
+  right:auto;
+  bottom:auto;
+  width:100vw;
+  height:100vh;
+  pointer-events:none;
   z-index:80;
   font-family:var(--font-body);
+  overflow:visible;
 }
 .mini-goal-trigger{
   display:grid;
   place-items:center;
   width:58px;
   height:58px;
+  position:fixed;
+  left:0;
+  top:0;
+  animation:none;
+  pointer-events:auto;
   border:1px solid rgba(255,255,255,.18);
   border-radius:50%;
   background:linear-gradient(145deg,#f8fafc,#d9dee6);
   box-shadow:0 18px 44px rgba(0,0,0,.34);
   cursor:pointer;
 }
+
+.mini-goal-dash{
+  text-indent:0!important;
+  color:#101217!important;
+  font-weight:900!important;
+  font-size:42px!important;
+  line-height:1!important;
+  text-shadow:0 3px 4px rgba(0,0,0,.18)!important;
+}
 .mini-goal-trigger span{
   font-size:30px;
   filter:drop-shadow(0 3px 4px rgba(0,0,0,.18));
 }
 .mini-goal-trigger[aria-expanded="true"]{
-  transform:scale(.96);
+  scale:.96;
 }
 .mini-goal-overlay{
   position:fixed;
@@ -4756,8 +4782,18 @@ body.mini-goal-open{overflow:auto}
   .side-chat-prototype{display:none!important}
 }
 @media(max-width:767px){
-  .mini-goal-game{right:16px;bottom:calc(16px + env(safe-area-inset-bottom))}
-  .mini-goal-trigger{width:54px;height:54px}
+  .mini-goal-game{
+    left:0!important;
+    top:0!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:100vw!important;
+    height:100vh!important;
+  }
+  .mini-goal-trigger{
+    width:54px!important;
+    height:54px!important;
+  }
   .mini-goal-overlay{padding:12px}
   .mini-goal-modal{padding:13px;border-radius:18px}
   .mini-goal-head h2{font-size:22px}
@@ -4768,14 +4804,19 @@ body.mini-goal-open{overflow:auto}
 
 /* v115 · Make mini game discoverable and enlarge right-side chat */
 .mini-goal-game{
-  left:26px!important;
+  left:0!important;
+  top:0!important;
   right:auto!important;
-  bottom:96px!important;
+  bottom:auto!important;
+  width:100vw!important;
+  height:100vh!important;
+  pointer-events:none!important;
   z-index:10020!important;
 }
 .mini-goal-trigger{
-  position:relative!important;
+  position:fixed!important;
   z-index:10031!important;
+  pointer-events:auto!important;
   width:72px!important;
   height:72px!important;
   border:2px solid rgba(255,149,0,.86)!important;
@@ -4786,17 +4827,23 @@ body.mini-goal-open{overflow:auto}
     0 22px 62px rgba(0,0,0,.46)!important;
 }
 .mini-goal-trigger span{
-  display:none!important;
+  display:block!important;
+  color:#101217;
+  font-size:40px;
+  line-height:1;
+  font-weight:900;
+  transform:none;
+  pointer-events:none;
 }
 .mini-goal-trigger::before{
-  content:"\26BD";
+  content:none;
   color:#101217;
   font-size:39px;
   line-height:1;
   filter:drop-shadow(0 3px 4px rgba(0,0,0,.18));
 }
 .mini-goal-trigger::after{
-  content:"Golü At";
+  content:none;
   position:absolute;
   left:78px;
   right:auto;
@@ -4877,9 +4924,10 @@ body.mini-goal-open{overflow:auto}
 }
 @media(max-width:767px){
   .mini-goal-game{
-    left:18px!important;
+    left:0!important;
+    top:0!important;
     right:auto!important;
-    bottom:calc(86px + env(safe-area-inset-bottom))!important;
+    bottom:auto!important;
   }
   .mini-goal-trigger{
     width:64px!important;
@@ -4893,4 +4941,74 @@ body.mini-goal-open{overflow:auto}
     width:min(440px,calc(100vw - 20px))!important;
   }
   #miniGoalCanvas{max-height:54dvh!important}
+}
+
+/* =============================================================== */
+/* v116 � Football intro floating button */
+.interactive-football{
+  --fs-intro-size:52px;
+  position:fixed;
+  left:0;
+  top:0;
+  width:var(--fs-intro-size);
+  height:var(--fs-intro-size);
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.22);
+  background:radial-gradient(circle at 30% 22%,#ffffff 0 28%,#dae1eb 40%,#b9c4d1 100%);
+  color:#101217;
+  font-family:var(--font-body);
+  font-size:42px;
+  font-weight:900;
+  line-height:1;
+  text-indent:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  cursor:pointer;
+  z-index:10030;
+  pointer-events:auto;
+  box-shadow:0 0 0 6px rgba(255,149,0,.14), 0 22px 56px rgba(0,0,0,.42);
+  transform:translate3d(-140px, calc(100vh - 140px),0);
+  opacity:0;
+}
+.interactive-football.show{
+  display:flex;
+  opacity:1;
+}
+.interactive-football:focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:2px;
+}
+.interactive-football::before{
+  content:'';
+  position:absolute;
+  inset:2px;
+  border-radius:inherit;
+  border:1px solid rgba(255,255,255,.36);
+  pointer-events:none;
+}
+.football-intro-canvas{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100vh;
+  pointer-events:none;
+  z-index:10020;
+  opacity:1;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .interactive-football{
+    transition:none!important;
+  }
+}
+
+@media (max-width: 900px){
+  .interactive-football{
+    --fs-intro-size:50px;
+    font-size:38px;
+    box-shadow:0 0 0 5px rgba(255,149,0,.16), 0 16px 42px rgba(0,0,0,.36);
+    transform:translate3d(-130px, calc(100vh - 134px),0);
+  }
 }

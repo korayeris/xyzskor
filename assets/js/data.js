@@ -63,6 +63,9 @@ const sb = (() => {
 /* Diğer katmanlar bu bayrakla Supabase'e bağlı UI'yi gizleyebilir. */
 const SUPABASE_READY = !sb.__fallback;
 
+let authStateTimer = null;
+let authStateUnsubscribe = null;
+
 /* ===================== SABİTLER ===================== */
 const TEAMS = ['Beşiktaş','Diğer','Fenerbahçe','Galatasaray','Trabzonspor'];
 const TEAM_COLORS = {Galatasaray:'var(--gs)',Fenerbahçe:'var(--fb)',Beşiktaş:'var(--bjk)',Trabzonspor:'var(--ts)',Diğer:'var(--other)'};
@@ -458,6 +461,49 @@ let SERVER_LEADERBOARDS = new Map();
 let serverLeaderboardMode = 'unknown';
 let seasonFixturesReady = new Set();
 
+function toSafeUserObject(authUser){
+  if(!authUser) return null;
+  return {
+    id: authUser.id || null,
+    email: authUser.email || null,
+    emailVerified: !!authUser.email_confirmed_at
+  };
+}
+function mergeProfileWithSession(profile, sessionUser){
+  if(!sessionUser) return null;
+  const baseProfile = profile || {};
+  return { ...baseProfile, ...toSafeUserObject(sessionUser), id: sessionUser.id || baseProfile.id };
+}
+function refreshAuthState(){
+  if(authStateTimer){
+    clearTimeout(authStateTimer);
+  }
+  authStateTimer = setTimeout(async () => {
+    authStateTimer = null;
+    try{
+      await loadAllData();
+      if(typeof renderAll === 'function') renderAll();
+    }catch(error){
+      console.error('[XYZSkor] auth değişim sonrası oturum senkronizasyonu başarısız:', error);
+    }
+  }, 100);
+}
+function bindAuthStateSync(){
+  if(!SUPABASE_READY || typeof sb?.auth?.onAuthStateChange !== 'function' || authStateUnsubscribe) return;
+  try{
+    const { data } = sb.auth.onAuthStateChange((_event, _session) => {
+      if(_event === 'SIGNED_OUT'){
+        currentUser = null;
+        if(typeof renderAll === 'function') renderAll();
+      }
+      refreshAuthState();
+    });
+    authStateUnsubscribe = data?.subscription?.unsubscribe || null;
+  }catch(error){
+    console.warn('[XYZSkor] auth state dinleyicisi kurulamadı:', error?.message || error);
+  }
+}
+
 function getCurrentUser(){ return currentUser; }
 function normalizeCompetitionText(value){
   return String(value || '')
@@ -672,7 +718,7 @@ async function loadAllData(){
         if(profile) PROFILES[profile.id] = profile;
       }catch(e){ console.error('[XYZSkor veri hatası] eksik profil oluşturulamadı', e); }
     }
-    currentUser = profile ? { ...profile, email: session.user.email } : null;
+    currentUser = mergeProfileWithSession(profile, session.user);
   } else currentUser = null;
   const serverReady = await primeServerLeaderboards(activeWeek);
   if(!serverReady){
@@ -881,3 +927,5 @@ function computeBadges(uid){
   return [...new Set(badges)];
 }
 function levelFor(totalPts){ return Math.floor(totalPts/20) + 1; }
+
+bindAuthStateSync();

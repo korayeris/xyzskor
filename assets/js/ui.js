@@ -2607,7 +2607,184 @@ function renderFootballNews(){
         feed.scrollTop=feed.scrollHeight;
       });
     }
-    initMiniGoalGame();
+    if(!miniGoalGameController) miniGoalGameController = initMiniGoalGame();
+    initFootballIntro();
+  }
+
+  let miniGoalGameController = null;
+  let introLoopId = 0;
+
+  function initFootballIntro(){
+    const trigger = document.getElementById('miniGoalTrigger');
+    if(!trigger || trigger.dataset.footballIntroReady) return;
+    if(!miniGoalGameController) miniGoalGameController = initMiniGoalGame();
+    if(!miniGoalGameController) return;
+    trigger.dataset.footballIntroReady='1';
+
+    const label = trigger.querySelector('span') || trigger;
+    label.textContent = '-';
+    trigger.classList.add('interactive-football','show');
+    trigger.setAttribute('aria-label', 'Golü At oyunu');
+    trigger.setAttribute('title', 'Golü At oyunu');
+
+    const root=document.createElement('div');
+    root.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:9999';
+    document.body.appendChild(root);
+
+    const miniGame = miniGoalGameController;
+
+    function corridorBounds(){
+      const wrap = document.querySelector('.wrap');
+      const wrapRect = wrap ? wrap.getBoundingClientRect() : null;
+      const leftSpace = Math.max(0, wrapRect ? wrapRect.left : 0);
+      const xMin = 12;
+      const xMax = Math.max(90, Math.min(260, Math.max(100, leftSpace - 12)));
+      const yMin = Math.max(120, Math.min(Math.floor(window.innerHeight * 0.24), 190));
+      const yMax = Math.max(yMin + 260, window.innerHeight - 120);
+      return {xMin, xMax, yMin, yMax};
+    }
+
+    function randomBetween(minimum, maximum){
+      return minimum + Math.random() * Math.max(1, maximum - minimum);
+    }
+
+    function createBall(element, options){
+      const size = options.size || 34;
+      const radius = size / 2;
+      const speed = options.speed || (0.6 + Math.random() * 0.8);
+      const angle = options.angle || (Math.random() * Math.PI * 2);
+      const bounds = corridorBounds();
+      return {
+        el: element,
+        size,
+        r: radius,
+        x: randomBetween(bounds.xMin + radius, Math.max(bounds.xMin + radius + 1, bounds.xMax - radius)),
+        y: randomBetween(bounds.yMin + radius, Math.max(bounds.yMin + radius + 1, bounds.yMax - radius)),
+        vx: Math.cos(angle) * speed * (options.slow ? 0.7 : 1),
+        vy: Math.sin(angle) * speed * (options.slow ? 0.7 : 1),
+        interactive: !!options.interactive
+      };
+    }
+
+    function styleGhost(el, size, alpha){
+      el.style.position = 'fixed';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.display = 'grid';
+      el.style.placeItems = 'center';
+      el.style.width = `${Math.round(size)}px`;
+      el.style.height = `${Math.round(size)}px`;
+      el.style.border = '1px solid rgba(255,255,255,.16)';
+      el.style.borderRadius = '999px';
+      el.style.background = 'linear-gradient(145deg,#f8fafc,#dae2ec)';
+      el.style.color = '#101217';
+      el.style.fontWeight = '900';
+      el.style.fontFamily = 'var(--font-body)';
+      el.style.lineHeight = '1';
+      el.style.textShadow = '0 3px 4px rgba(0,0,0,.18)';
+      el.style.pointerEvents = 'none';
+      el.style.userSelect = 'none';
+      el.style.zIndex = '9998';
+      el.style.opacity = alpha;
+      el.style.fontSize = `${Math.max(12, Math.round(size * 0.62))}px`;
+      el.style.textIndent = '0';
+    }
+
+    function placeBall(ball){
+      ball.el.style.transform = `translate3d(${Math.round(ball.x - ball.r)}px, ${Math.round(ball.y - ball.r)}px, 0)`;
+    }
+
+    function moveBall(ball, step, bounds){
+      ball.x += ball.vx * step * 1.55;
+      ball.y += ball.vy * step * 1.55;
+
+      if(ball.x - ball.r < bounds.xMin){
+        ball.x = bounds.xMin + ball.r;
+        ball.vx = Math.abs(ball.vx);
+      } else if(ball.x + ball.r > bounds.xMax){
+        ball.x = bounds.xMax - ball.r;
+        ball.vx = -Math.abs(ball.vx);
+      }
+
+      if(ball.y - ball.r < bounds.yMin){
+        ball.y = bounds.yMin + ball.r;
+        ball.vy = Math.abs(ball.vy);
+      } else if(ball.y + ball.r > bounds.yMax){
+        ball.y = bounds.yMax - ball.r;
+        ball.vy = -Math.abs(ball.vy);
+      }
+
+      placeBall(ball);
+    }
+
+    const balls = [];
+    const master = createBall(trigger, {size: 62, speed: 1, slow: true, interactive: true, angle: Math.random() * Math.PI * 2});
+    master.size = 58;
+    master.r = 29;
+    placeBall(master);
+    balls.push(master);
+
+    const ghostCount = 5;
+    for(let i = 0; i < ghostCount; i += 1){
+      const size = 24 + Math.random() * 10;
+      const ghost = document.createElement('span');
+      ghost.textContent = '-';
+      ghost.setAttribute('aria-hidden', 'true');
+      root.appendChild(ghost);
+      const state = createBall(ghost, {size, slow: true});
+      styleGhost(ghost, size, Math.max(0.45, 0.75 - i * 0.08));
+      placeBall(state);
+      balls.push(state);
+    }
+
+    function frame(now){
+      if(!introLoopId) return;
+      const bounds = corridorBounds();
+      if(!frame.lastTime){
+        frame.lastTime = now;
+      }
+      const dt = Math.min(2.25, Math.max(0.8, (now - frame.lastTime) / 16.67));
+      frame.lastTime = now;
+      balls.forEach(ball => moveBall(ball, dt, bounds));
+      introLoopId = requestAnimationFrame(frame);
+    }
+    frame.lastTime = 0;
+
+    trigger.addEventListener('click', miniGame.open);
+    miniGame.restart?.();
+    introLoopId = requestAnimationFrame(frame);
+    window.addEventListener('resize', () => {
+      const bounds = corridorBounds();
+      balls.forEach(ball => {
+        const maxX = Math.max(bounds.xMin + ball.r + 1, bounds.xMax - ball.r);
+        const maxY = Math.max(bounds.yMin + ball.r + 1, bounds.yMax - ball.r);
+        ball.x = Math.max(bounds.xMin + ball.r, Math.min(maxX, ball.x));
+        ball.y = Math.max(bounds.yMin + ball.r, Math.min(maxY, ball.y));
+      });
+    });
+    window.addEventListener('beforeunload', () => {
+      if(introLoopId){
+        cancelAnimationFrame(introLoopId);
+        introLoopId = 0;
+      }
+    });
+
+    const stop = () => {
+      if(introLoopId){
+        cancelAnimationFrame(introLoopId);
+        introLoopId = 0;
+      }
+    };
+    const start = () => {
+      if(introLoopId) return;
+      frame.lastTime = 0;
+      introLoopId = requestAnimationFrame(frame);
+    };
+    trigger.addEventListener('blur', stop);
+    trigger.addEventListener('focus', start);
+    window.addEventListener('visibilitychange', () => {
+      if(document.hidden){ stop(); } else { start(); }
+    });
   }
 
   function initMiniGoalGame(){
@@ -2685,10 +2862,6 @@ function renderFootballNews(){
       trigger.setAttribute('aria-expanded','false');
       if(game.raf) cancelAnimationFrame(game.raf);
       game.raf=0;
-    }
-    function toggleGame(){
-      if(game.open) closeGame();
-      else openGame();
     }
     function update(dt){
       const step=Math.min(2,dt/16.67);
@@ -2840,7 +3013,6 @@ function renderFootballNews(){
       game.bar.vx=Math.max(-game.bar.speed,Math.min(game.bar.speed,(target-game.bar.x)*0.18));
     }
 
-    trigger.addEventListener('click',toggleGame);
     close?.addEventListener('click',closeGame);
     restart?.addEventListener('click',restartGame);
     window.addEventListener('keydown',(event)=>{
@@ -2856,6 +3028,11 @@ function renderFootballNews(){
     canvas.addEventListener('pointermove',(event)=>{ if(game.open && event.buttons) pointerToBar(event); });
     window.addEventListener('resize',()=>{ if(game.ready) setupCanvas(); });
     window.addEventListener('beforeunload',()=>{ if(game.raf) cancelAnimationFrame(game.raf); });
+    return {
+      open: openGame,
+      close: closeGame,
+      restart: restartGame
+    };
   }
 
   initSideWidgets();
