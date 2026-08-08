@@ -113,7 +113,7 @@
       w:420,
       h:560,
       keys:new Set(),
-      ball:{ x:210, y:292, vx:3.1, vy:3.6, r:18, spin:0 },
+      ball:{ x:210, y:292, vx:3.1, vy:3.6, r:28, spin:0 },
       bar:{ x:148, y:414, w:124, h:18, speed:8.6, vx:0 },
       goal:{ x:100, y:82, w:220, h:58 },
       goalFlashUntil:0
