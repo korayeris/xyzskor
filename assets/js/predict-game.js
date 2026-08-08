@@ -6,14 +6,12 @@
   const STORAGE_KEY = 'xyzskor_predict_guest_session_v1';
   const ASSETS = {
     field:'/assets/game/field.webp',
-    player:'/assets/game/player-sprite.webp',
+    player:'/assets/game/player.webp',
     ball:'/assets/game/ball.webp'
   };
   const STATES = Object.freeze({
     INTRO:'INTRO',
-    READY:'READY',
     BALL_FALLING:'BALL_FALLING',
-    PLAYER_READY:'PLAYER_READY',
     KICKING:'KICKING',
     BALL_SHOT:'BALL_SHOT',
     GOAL:'GOAL',
@@ -73,11 +71,17 @@
             <div class="predict-game-brand">XYZ<span>SKOR</span></div>
             <div class="predict-game-card"><span>Kalan Hak</span><strong id="predictGameMisses">5</strong></div>
           </div>
-          <div class="predict-game-points" id="miniGoalPoints">Predict Puanı: 0</div>
           <div class="predict-game-goal" aria-hidden="true"></div>
+          <div class="predict-game-aim-line" id="predictGameAimLine" aria-hidden="true"></div>
+          <div class="predict-game-kick-zone" aria-hidden="true">
+            <span></span>
+          </div>
           <div class="predict-game-ball" id="predictGameBall" aria-hidden="true"></div>
-          <div class="predict-game-player" id="predictGamePlayer" aria-hidden="true"></div>
+          <div class="predict-game-player" id="predictGamePlayer" aria-hidden="true">
+            <div class="predict-game-player-sprite"></div>
+          </div>
           <div class="predict-game-drag-hint" id="predictGameHint">← Sürükle →</div>
+          <div class="predict-game-points" id="miniGoalPoints">Predict Puanı: 0</div>
           <div class="predict-game-toast" id="predictGameToast" aria-live="polite"></div>
           <div class="predict-game-end" id="predictGameEnd" hidden></div>
         </div>
@@ -92,6 +96,7 @@
       field:modal.querySelector('#predictGameField'),
       ball:modal.querySelector('#predictGameBall'),
       player:modal.querySelector('#predictGamePlayer'),
+      aimLine:modal.querySelector('#predictGameAimLine'),
       goals:modal.querySelector('#predictGameGoals'),
       misses:modal.querySelector('#predictGameMisses'),
       points:modal.querySelector('#miniGoalPoints'),
@@ -114,6 +119,7 @@
     let pointerActive = false;
     let session = null;
     let outcomeSent = false;
+    let kickStartedAt = 0;
     let contactApplied = false;
     const game = {
       state:STATES.INTRO,
@@ -121,19 +127,21 @@
       goals:0,
       misses:0,
       rewardEligible:false,
-      rewardClaimed:false,
       training:false,
       idempotencyKey:uuid(),
-      player:{ x:.5, vx:0, target:.5, state:'idle', frame:0, frameTime:0 },
-      ball:{ x:.5, y:.42, vx:0, vy:.34, scale:1, visible:true },
-      message:'',
-      nextAt:0,
-      started:false
+      player:{ x:.5, vx:0, target:.5 },
+      ball:{ x:.5, y:.34, vx:0, vy:.36, scale:.78, rot:0, visible:true },
+      nextAt:0
     };
 
     function setState(state, delay = 0){
       game.state = state;
       game.nextAt = delay ? performance.now() + delay : 0;
+      el.field.dataset.state = state.toLowerCase();
+      el.player.classList.toggle('is-kicking', state === STATES.KICKING);
+      el.player.classList.toggle('is-celebrate', state === STATES.GOAL);
+      el.player.classList.toggle('is-miss', state === STATES.MISS);
+      el.ball.classList.toggle('is-shot', state === STATES.BALL_SHOT);
     }
 
     function track(name, data = {}){
@@ -148,49 +156,32 @@
       el.statusMisses.textContent = `Kalan Hak: ${Math.max(0, MAX_MISSES - game.misses)}`;
     }
 
-    function renderSprite(dt){
-      const ranges = {
-        idle:[0, 1],
-        ready:[2, 3],
-        kick:[4, 9],
-        miss:[10, 11],
-        celebrate:[12, 15]
-      };
-      const range = ranges[game.player.state] || ranges.idle;
-      game.player.frameTime += dt;
-      const speed = game.player.state === 'kick' ? 58 : 150;
-      if(game.player.frameTime >= speed){
-        game.player.frameTime = 0;
-        game.player.frame += 1;
-        if(game.player.frame > range[1]) game.player.frame = range[0];
-      }
-      const frame = clamp(game.player.frame, range[0], range[1]);
-      const col = frame % 4;
-      const row = Math.floor(frame / 4);
-      el.player.style.backgroundPosition = `${col * -33.3333}% ${row * -33.3333}%`;
-    }
-
     function layout(){
       const w = el.field.clientWidth || 360;
       const h = el.field.clientHeight || 640;
       const px = game.player.x * w;
       const bx = game.ball.x * w;
       const by = game.ball.y * h;
-      el.player.style.transform = `translate3d(${Math.round(px)}px,0,0)`;
-      el.ball.style.transform = `translate3d(${Math.round(bx)}px,${Math.round(by)}px,0) scale(${game.ball.scale})`;
+      el.player.style.setProperty('--pg-x', `${Math.round(px)}px`);
+      el.ball.style.setProperty('--ball-x', `${Math.round(bx)}px`);
+      el.ball.style.setProperty('--ball-y', `${Math.round(by)}px`);
+      el.ball.style.setProperty('--ball-scale', game.ball.scale.toFixed(3));
+      el.ball.style.setProperty('--ball-rot', `${Math.round(game.ball.rot)}deg`);
       el.ball.classList.toggle('is-hidden', !game.ball.visible);
+      const offset = clamp((game.ball.x - game.player.x) / .2, -1, 1);
+      el.aimLine.style.setProperty('--aim-offset', `${Math.round(offset * 74)}px`);
+      el.aimLine.style.opacity = game.state === STATES.BALL_FALLING && game.ball.y > .48 ? '1' : '0';
     }
 
     function resetBall(){
       game.ball.x = .18 + Math.random() * .64;
-      game.ball.y = .30;
-      game.ball.vx = (Math.random() - .5) * .06;
-      game.ball.vy = .25 + Math.random() * .08;
-      game.ball.scale = .74;
+      game.ball.y = .29;
+      game.ball.vx = (Math.random() - .5) * .055;
+      game.ball.vy = .30 + Math.random() * .06;
+      game.ball.scale = .72;
+      game.ball.rot = 0;
       game.ball.visible = true;
       contactApplied = false;
-      game.player.state = 'idle';
-      game.player.frame = 0;
       el.toast.textContent = '';
       setState(STATES.BALL_FALLING);
     }
@@ -224,7 +215,6 @@
       };
       try{
         const payload = await gameApi('/api/predict-game/complete', body);
-        game.rewardClaimed = Boolean(payload.reward?.claimed);
         setState(STATES.REWARD_CLAIMED);
         renderEnd(finalState, rewardText(payload));
         if(payload.reward?.claimed) track('predict_game_reward_claimed', { reward_points:payload.reward.points });
@@ -263,24 +253,22 @@
 
     function registerGoal(){
       game.goals += 1;
-      game.player.state = 'celebrate';
-      game.player.frame = 12;
+      setState(STATES.GOAL);
       el.toast.textContent = 'GOOOL! +5 Predict Puanı';
       track('predict_game_goal');
       if(game.goals >= TARGET_GOALS){
-        setState(STATES.GAME_SUCCESS);
+        setState(STATES.GAME_SUCCESS, 0);
         track('predict_game_success');
         track('predict_game_complete', { final_state:STATES.GAME_SUCCESS });
         finishGame(STATES.GAME_SUCCESS);
       }else{
-        setState(STATES.ROUND_RESET, 780);
+        setState(STATES.ROUND_RESET, 850);
       }
     }
 
     function registerMiss(){
       game.misses += 1;
-      game.player.state = 'miss';
-      game.player.frame = 10;
+      setState(STATES.MISS);
       el.toast.textContent = 'Kaçtı!';
       track('predict_game_miss');
       if(game.misses >= MAX_MISSES){
@@ -289,59 +277,58 @@
         track('predict_game_complete', { final_state:STATES.GAME_OVER });
         finishGame(STATES.GAME_OVER);
       }else{
-        setState(STATES.ROUND_RESET, 720);
+        setState(STATES.ROUND_RESET, 760);
       }
+    }
+
+    function startKick(now){
+      kickStartedAt = now;
+      contactApplied = false;
+      setState(STATES.KICKING);
+    }
+
+    function applyKick(){
+      const offset = clamp((game.ball.x - game.player.x) / .18, -1, 1);
+      game.ball.vx = -offset * .52;
+      game.ball.vy = -1.18;
+      game.ball.scale = 1.02;
+      contactApplied = true;
+      setState(STATES.BALL_SHOT);
     }
 
     function update(dt, now){
       if(!game.open || document.visibilityState === 'hidden') return;
       const step = Math.min(32, dt) / 1000;
-      const speed = .95;
-      game.player.x += (game.player.target - game.player.x) * Math.min(1, step * 11);
-      game.player.x = clamp(game.player.x + game.player.vx * step * speed, .18, .82);
-      game.player.vx *= .86;
+      game.player.x += (game.player.target - game.player.x) * Math.min(1, step * 13);
+      game.player.x = clamp(game.player.x + game.player.vx * step, .17, .83);
+      game.player.vx *= .84;
 
-      if(game.state === STATES.BALL_FALLING || game.state === STATES.PLAYER_READY){
+      if(game.state === STATES.BALL_FALLING){
         game.ball.y += game.ball.vy * step;
         game.ball.x += game.ball.vx * step;
-        game.ball.scale = clamp(game.ball.scale + step * .16, .74, 1.08);
-        const closeY = game.ball.y > .62 && game.ball.y < .78;
+        game.ball.rot += 270 * step;
+        game.ball.scale = clamp(game.ball.scale + step * .25, .72, 1.06);
         const offset = Math.abs(game.ball.x - game.player.x);
-        if(closeY) game.player.state = 'ready';
-        if(closeY && offset < .18){
-          setState(STATES.KICKING);
-          game.player.state = 'kick';
-          game.player.frame = 4;
-          game.player.frameTime = 0;
-        }else if(game.ball.y > .86){
-          registerMiss();
-        }
+        if(game.ball.y >= .70 && game.ball.y <= .78 && offset <= .16) startKick(now);
+        if(game.ball.y > .84) registerMiss();
       }
 
-      if(game.state === STATES.KICKING){
-        if(game.player.frame >= 8 && !contactApplied){
-          contactApplied = true;
-          const offset = clamp((game.ball.x - game.player.x) / .18, -1, 1);
-          game.ball.vx = -offset * .68;
-          game.ball.vy = -1.02;
-          setState(STATES.BALL_SHOT);
-        }
-      }
+      if(game.state === STATES.KICKING && !contactApplied && now - kickStartedAt > 150) applyKick();
 
       if(game.state === STATES.BALL_SHOT){
         game.ball.y += game.ball.vy * step;
         game.ball.x += game.ball.vx * step;
-        game.ball.vy += 1.08 * step;
-        game.ball.scale = clamp(game.ball.scale - step * .24, .58, 1.1);
-        if(game.ball.y <= .22){
-          if(game.ball.x > .28 && game.ball.x < .72) registerGoal();
+        game.ball.vy += 1.02 * step;
+        game.ball.rot += 620 * step;
+        game.ball.scale = clamp(game.ball.scale - step * .24, .62, 1.08);
+        if(game.ball.y <= .205){
+          if(game.ball.x > .265 && game.ball.x < .735) registerGoal();
           else registerMiss();
         }
-        if(game.ball.x < .04 || game.ball.x > .96 || game.ball.y > .94) registerMiss();
+        if(game.ball.x < .02 || game.ball.x > .98 || game.ball.y > .95) registerMiss();
       }
 
       if(game.state === STATES.ROUND_RESET && game.nextAt && now >= game.nextAt) resetBall();
-      renderSprite(dt);
       renderHud();
       layout();
     }
@@ -361,14 +348,13 @@
       game.goals = 0;
       game.misses = 0;
       game.idempotencyKey = uuid();
-      game.started = true;
       game.player.x = .5;
       game.player.target = .5;
+      game.player.vx = 0;
       el.end.hidden = true;
       el.hint.classList.remove('is-hidden');
       renderHud();
       await startSession();
-      setState(STATES.READY);
       resetBall();
       last = performance.now();
       raf = requestAnimationFrame(loop);
@@ -399,7 +385,7 @@
     function pointerToPlayer(event){
       const rect = el.field.getBoundingClientRect();
       const clientX = event.touches?.[0]?.clientX ?? event.clientX;
-      game.player.target = clamp((clientX - rect.left) / rect.width, .18, .82);
+      game.player.target = clamp((clientX - rect.left) / rect.width, .17, .83);
       el.hint.classList.add('is-hidden');
     }
 
@@ -414,8 +400,8 @@
     el.stage.addEventListener('pointercancel', () => { pointerActive = false; });
     window.addEventListener('keydown', (event) => {
       if(!game.open) return;
-      if(event.code === 'ArrowLeft' || event.code === 'KeyA'){ game.player.vx = -.72; el.hint.classList.add('is-hidden'); event.preventDefault(); }
-      if(event.code === 'ArrowRight' || event.code === 'KeyD'){ game.player.vx = .72; el.hint.classList.add('is-hidden'); event.preventDefault(); }
+      if(event.code === 'ArrowLeft' || event.code === 'KeyA'){ game.player.vx = -.82; el.hint.classList.add('is-hidden'); event.preventDefault(); }
+      if(event.code === 'ArrowRight' || event.code === 'KeyD'){ game.player.vx = .82; el.hint.classList.add('is-hidden'); event.preventDefault(); }
       if(event.code === 'Escape') close();
     });
     document.addEventListener('visibilitychange', () => { last = performance.now(); });
