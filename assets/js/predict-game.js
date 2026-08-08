@@ -4,19 +4,10 @@
   const POINTS_PER_GOAL = 5;
   const MAX_REWARD_POINTS = 50;
   const STORAGE_KEY = 'xyzskor_predict_guest_session_v1';
-  const ASSETS = {
-    field:'/assets/game/field.webp',
-    player:'/assets/game/player.webp',
-    ball:'/assets/game/ball.webp'
-  };
+  const FIELD_SRC = '/assets/game/field.webp';
+  const BALL_SRC = '/assets/game/ball.webp';
   const STATES = Object.freeze({
-    INTRO:'INTRO',
-    AIMING:'AIMING',
-    KICKING:'KICKING',
-    BALL_SHOT:'BALL_SHOT',
-    GOAL:'GOAL',
-    MISS:'MISS',
-    ROUND_RESET:'ROUND_RESET',
+    PLAYING:'PLAYING',
     GAME_SUCCESS:'GAME_SUCCESS',
     GAME_OVER:'GAME_OVER',
     REWARD_PENDING:'REWARD_PENDING',
@@ -61,50 +52,36 @@
   function buildGameDOM(overlay){
     const modal = overlay.querySelector('.mini-goal-modal');
     if(!modal) return null;
-    modal.classList.add('predict-game-modal');
+    modal.classList.remove('predict-game-modal');
+    modal.classList.add('mini-goal-legacy-modal');
     modal.innerHTML = `
-      <button class="predict-game-close" id="miniGoalClose" type="button" aria-label="Mini oyunu kapat">x</button>
-      <div class="predict-game-stage" id="predictGameStage" role="application" aria-label="XYZSKOR Predict mini futbol oyunu" tabindex="0">
-        <div class="predict-game-field" id="predictGameField">
-          <div class="predict-game-hud" aria-live="polite">
-            <div class="predict-game-card"><span>Gol</span><strong id="predictGameGoals">0 / 10</strong></div>
-            <div class="predict-game-brand">XYZ<span>SKOR</span></div>
-            <div class="predict-game-card"><span>Kalan Hak</span><strong id="predictGameMisses">5</strong></div>
-          </div>
-          <div class="predict-game-goal" aria-hidden="true"></div>
-          <div class="predict-game-aim-target" id="predictGameAimTarget" aria-hidden="true"></div>
-          <div class="predict-game-aim-line" id="predictGameAimLine" aria-hidden="true"></div>
-          <div class="predict-game-ball" id="predictGameBall" aria-hidden="true"></div>
-          <div class="predict-game-player" id="predictGamePlayer" aria-hidden="true">
-            <div class="predict-game-player-sprite"></div>
-          </div>
-          <div class="predict-game-drag-hint" id="predictGameHint">Nişan al, bırak</div>
-          <div class="predict-game-points" id="miniGoalPoints">Predict Puanı: 0</div>
-          <div class="predict-game-toast" id="predictGameToast" aria-live="polite"></div>
-          <div class="predict-game-end" id="predictGameEnd" hidden></div>
+      <header class="mini-goal-head">
+        <div>
+          <span>Predict Mini Oyun</span>
+          <h2>Golü At</h2>
+          <p>Top sekiyor. Alttaki barı sağa-sola sürükle, topu kaleye sektir.</p>
         </div>
+        <button class="mini-goal-close" id="miniGoalClose" type="button" aria-label="Mini oyunu kapat">x</button>
+      </header>
+      <div class="mini-goal-score" aria-live="polite">
+        <div class="mini-goal-score-item">Gol <strong id="predictGameGoals">0 / 10</strong></div>
+        <div class="mini-goal-score-item" id="miniGoalRemainingMisses">Kalan Hak: 5</div>
       </div>
-      <footer class="predict-game-actions">
+      <canvas id="miniGoalCanvas" width="420" height="560" aria-label="Yeşil sahada seken top mini oyunu"></canvas>
+      <footer class="mini-goal-actions">
         <button id="miniGoalRestart" type="button">Yeniden başlat</button>
-        <span id="miniGoalRemainingMisses" class="predict-game-hidden-status">Kalan Hak: 5</span>
-      </footer>`;
+        <small id="miniGoalPoints">Predict Puanı: 0</small>
+      </footer>
+      <div class="mini-goal-end" id="predictGameEnd" hidden></div>`;
     return {
       modal,
-      stage:modal.querySelector('#predictGameStage'),
-      field:modal.querySelector('#predictGameField'),
-      ball:modal.querySelector('#predictGameBall'),
-      player:modal.querySelector('#predictGamePlayer'),
-      aimLine:modal.querySelector('#predictGameAimLine'),
-      aimTarget:modal.querySelector('#predictGameAimTarget'),
-      goals:modal.querySelector('#predictGameGoals'),
-      misses:modal.querySelector('#predictGameMisses'),
-      points:modal.querySelector('#miniGoalPoints'),
-      statusMisses:modal.querySelector('#miniGoalRemainingMisses'),
-      toast:modal.querySelector('#predictGameToast'),
-      end:modal.querySelector('#predictGameEnd'),
-      hint:modal.querySelector('#predictGameHint'),
+      canvas:modal.querySelector('#miniGoalCanvas'),
       close:modal.querySelector('#miniGoalClose'),
-      restart:modal.querySelector('#miniGoalRestart')
+      restart:modal.querySelector('#miniGoalRestart'),
+      goals:modal.querySelector('#predictGameGoals'),
+      misses:modal.querySelector('#miniGoalRemainingMisses'),
+      points:modal.querySelector('#miniGoalPoints'),
+      end:modal.querySelector('#predictGameEnd')
     };
   }
 
@@ -113,89 +90,174 @@
     const el = buildGameDOM(overlay);
     if(!el) return null;
     trigger.dataset.predictReady = '1';
+
+    const ctx = el.canvas.getContext('2d');
+    const fieldImage = new Image();
+    const ballImage = new Image();
+    fieldImage.src = FIELD_SRC;
+    ballImage.src = BALL_SRC;
+
     let raf = 0;
     let last = 0;
     let pointerActive = false;
     let session = null;
     let outcomeSent = false;
-    let kickStartedAt = 0;
     const game = {
-      state:STATES.INTRO,
       open:false,
+      state:STATES.PLAYING,
       goals:0,
       misses:0,
       rewardEligible:false,
       training:false,
       idempotencyKey:uuid(),
-      player:{ x:.5 },
-      aim:{ x:.5, active:false },
-      ball:{ x:.5, y:.665, vx:0, vy:0, scale:1, rot:0, visible:true },
-      nextAt:0
+      w:420,
+      h:560,
+      keys:new Set(),
+      ball:{ x:210, y:214, vx:3.1, vy:3.6, r:18, spin:0 },
+      bar:{ x:154, y:488, w:112, h:16, speed:8.6, vx:0 },
+      goal:{ x:132, y:34, w:156, h:48 },
+      goalFlashUntil:0
     };
-
-    function setState(state, delay = 0){
-      game.state = state;
-      game.nextAt = delay ? performance.now() + delay : 0;
-      el.field.dataset.state = state.toLowerCase();
-      el.player.classList.toggle('is-kicking', state === STATES.KICKING);
-      el.player.classList.toggle('is-celebrate', state === STATES.GOAL);
-      el.player.classList.toggle('is-miss', state === STATES.MISS);
-      el.ball.classList.toggle('is-shot', state === STATES.BALL_SHOT);
-    }
 
     function track(name, data = {}){
       if(typeof trackEvent === 'function') trackEvent(name, { goals:game.goals, misses:game.misses, points:pointValue(game.goals), ...data });
     }
 
+    function setupCanvas(){
+      const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      el.canvas.width = game.w * ratio;
+      el.canvas.height = game.h * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
     function renderHud(){
-      const points = pointValue(game.goals);
       el.goals.textContent = `${game.goals} / ${TARGET_GOALS}`;
-      el.misses.textContent = String(Math.max(0, MAX_MISSES - game.misses));
-      el.points.textContent = `Predict Puanı: ${points}`;
-      el.statusMisses.textContent = `Kalan Hak: ${Math.max(0, MAX_MISSES - game.misses)}`;
+      el.points.textContent = `Predict Puanı: ${pointValue(game.goals)}`;
+      el.misses.textContent = `Kalan Hak: ${Math.max(0, MAX_MISSES - game.misses)}`;
     }
 
-    function layout(){
-      const w = el.field.clientWidth || 360;
-      const h = el.field.clientHeight || 640;
-      const px = game.player.x * w;
-      const bx = game.ball.x * w;
-      const by = game.ball.y * h;
-      const targetX = game.aim.x * w;
-      const targetY = h * .19;
-      const dx = targetX - bx;
-      const dy = targetY - by;
-      const length = Math.max(90, Math.hypot(dx, dy));
-      const angle = Math.atan2(dx, -dy) * 180 / Math.PI;
-      el.player.style.setProperty('--pg-x', `${Math.round(px)}px`);
-      el.ball.style.setProperty('--ball-x', `${Math.round(bx)}px`);
-      el.ball.style.setProperty('--ball-y', `${Math.round(by)}px`);
-      el.ball.style.setProperty('--ball-scale', game.ball.scale.toFixed(3));
-      el.ball.style.setProperty('--ball-rot', `${Math.round(game.ball.rot)}deg`);
-      el.ball.classList.toggle('is-hidden', !game.ball.visible);
-      el.aimLine.style.setProperty('--aim-left', `${Math.round(bx)}px`);
-      el.aimLine.style.setProperty('--aim-top', `${Math.round(by)}px`);
-      el.aimLine.style.setProperty('--aim-height', `${Math.round(length)}px`);
-      el.aimLine.style.setProperty('--aim-angle', `${angle.toFixed(2)}deg`);
-      el.aimTarget.style.setProperty('--target-x', `${Math.round(targetX)}px`);
-      el.aimTarget.style.opacity = game.state === STATES.AIMING ? '1' : '0';
-      el.aimLine.style.opacity = game.state === STATES.AIMING ? '1' : '0';
+    function drawField(){
+      if(fieldImage.complete && fieldImage.naturalWidth){
+        ctx.drawImage(fieldImage, 0, 0, game.w, game.h);
+      }else{
+        const grd = ctx.createLinearGradient(0, 0, 0, game.h);
+        grd.addColorStop(0, '#31b64a');
+        grd.addColorStop(1, '#0f6f28');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, game.w, game.h);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,.18)';
+      ctx.fillRect(0, 0, game.w, game.h);
     }
 
-    function resetRound(){
-      game.player.x = .5;
-      game.aim.x = .5;
-      game.ball.x = .5;
-      game.ball.y = .665;
-      game.ball.vx = 0;
-      game.ball.vy = 0;
-      game.ball.scale = 1;
-      game.ball.rot = 0;
-      game.ball.visible = true;
-      pointerActive = false;
-      el.toast.textContent = '';
-      setState(STATES.AIMING);
-      layout();
+    function drawGoal(now){
+      const flash = now < game.goalFlashUntil;
+      ctx.save();
+      ctx.strokeStyle = flash ? 'rgba(255,199,43,.98)' : 'rgba(255,255,255,.86)';
+      ctx.lineWidth = flash ? 5 : 3;
+      ctx.shadowColor = flash ? 'rgba(255,199,43,.9)' : 'rgba(255,255,255,.35)';
+      ctx.shadowBlur = flash ? 22 : 10;
+      ctx.strokeRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h);
+      ctx.fillStyle = flash ? 'rgba(255,199,43,.18)' : 'rgba(255,255,255,.08)';
+      ctx.fillRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h);
+      ctx.restore();
+    }
+
+    function drawBar(){
+      const { x, y, w, h } = game.bar;
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,.34)';
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h + 13, w * .48, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const grd = ctx.createLinearGradient(x, y, x + w, y);
+      grd.addColorStop(0, '#ffb000');
+      grd.addColorStop(.5, '#fff5b3');
+      grd.addColorStop(1, '#ff8a00');
+      ctx.fillStyle = grd;
+      roundRect(x, y, w, h, 999);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.62)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawBall(){
+      const { x, y, r, spin } = game.ball;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(spin);
+      if(ballImage.complete && ballImage.naturalWidth){
+        ctx.drawImage(ballImage, -r, -r, r * 2, r * 2);
+      }else{
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawMessage(){
+      if(game.state === STATES.PLAYING) return;
+      const success = game.state === STATES.GAME_SUCCESS;
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,.52)';
+      ctx.fillRect(0, 0, game.w, game.h);
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 34px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(success ? 'Bravo!' : 'Oyun Bitti', game.w / 2, game.h / 2 - 8);
+      ctx.font = '800 16px sans-serif';
+      ctx.fillText(`${game.goals}/${TARGET_GOALS} gol - ${pointValue(game.goals)} Predict Puanı`, game.w / 2, game.h / 2 + 26);
+      ctx.restore();
+    }
+
+    function roundRect(x, y, w, h, r){
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    function draw(now = performance.now()){
+      ctx.clearRect(0, 0, game.w, game.h);
+      drawField();
+      drawGoal(now);
+      drawBar();
+      drawBall();
+      drawMessage();
+    }
+
+    function resetBall(direction = 1){
+      game.ball.x = game.w / 2;
+      game.ball.y = 214;
+      game.ball.vx = (Math.random() > .5 ? 1 : -1) * (2.4 + Math.random() * 1.7);
+      game.ball.vy = direction * (3.2 + Math.random() * 1.2);
+      game.ball.spin = 0;
+    }
+
+    function restartState(){
+      outcomeSent = false;
+      game.state = STATES.PLAYING;
+      game.goals = 0;
+      game.misses = 0;
+      game.idempotencyKey = uuid();
+      game.bar.x = (game.w - game.bar.w) / 2;
+      game.bar.vx = 0;
+      game.goalFlashUntil = 0;
+      el.end.hidden = true;
+      resetBall(1);
+      renderHud();
+      draw();
     }
 
     async function startSession(){
@@ -205,17 +267,47 @@
         session = { ...session, ...payload.session };
         game.rewardEligible = Boolean(payload.session?.reward_eligible);
         game.training = payload.session?.reward_eligible === false && Boolean(currentUserSafe()?.id);
-        if(game.training) el.toast.textContent = 'Bugünkü ödüllü oyun tamamlandı. Bu tur antrenman.';
       }catch(_error){
         session.id = uuid();
         game.rewardEligible = false;
       }
     }
 
+    function registerGoal(){
+      if(game.state !== STATES.PLAYING) return;
+      game.goals += 1;
+      game.goalFlashUntil = performance.now() + 950;
+      track('predict_game_goal');
+      renderHud();
+      if(game.goals >= TARGET_GOALS){
+        complete(STATES.GAME_SUCCESS);
+      }else{
+        resetBall(1);
+      }
+    }
+
+    function registerMiss(){
+      if(game.state !== STATES.PLAYING) return;
+      game.misses += 1;
+      track('predict_game_miss');
+      renderHud();
+      if(game.misses >= MAX_MISSES){
+        complete(STATES.GAME_OVER);
+      }else{
+        resetBall(-1);
+      }
+    }
+
+    function complete(finalState){
+      game.state = finalState;
+      track(finalState === STATES.GAME_SUCCESS ? 'predict_game_success' : 'predict_game_game_over');
+      track('predict_game_complete', { final_state:finalState });
+      finishGame(finalState);
+    }
+
     async function finishGame(finalState){
       if(outcomeSent) return;
       outcomeSent = true;
-      setState(STATES.REWARD_PENDING);
       renderEnd(finalState, 'Puanın kaydediliyor...');
       const body = {
         sessionId:session?.id,
@@ -227,7 +319,7 @@
       };
       try{
         const payload = await gameApi('/api/predict-game/complete', body);
-        setState(STATES.REWARD_CLAIMED);
+        game.state = STATES.REWARD_CLAIMED;
         renderEnd(finalState, rewardText(payload));
         if(payload.reward?.claimed) track('predict_game_reward_claimed', { reward_points:payload.reward.points });
         if(payload.reward?.blocked === 'daily_limit') track('predict_game_reward_blocked_daily_limit');
@@ -252,92 +344,68 @@
       const success = finalState === STATES.GAME_SUCCESS;
       el.end.hidden = false;
       el.end.innerHTML = `
-        <div class="predict-game-end-card">
+        <div class="mini-goal-end-card">
           <span>${success ? 'Bravo' : 'Oyun Bitti'}</span>
           <strong>${game.goals} / ${TARGET_GOALS}</strong>
           <p>${text}</p>
-          <div class="predict-game-end-actions">
+          <div class="mini-goal-end-actions">
             ${!currentUserSafe()?.id ? '<button type="button" data-pg-auth="login">Giriş Yap</button><button type="button" data-pg-auth="register">Kayıt Ol</button>' : ''}
             <button type="button" data-pg-restart>Tekrar oyna</button>
           </div>
         </div>`;
     }
 
-    function registerGoal(){
-      game.goals += 1;
-      setState(STATES.GOAL);
-      el.toast.textContent = 'GOOOL! +5 Predict Puanı';
-      track('predict_game_goal');
-      if(game.goals >= TARGET_GOALS){
-        setState(STATES.GAME_SUCCESS);
-        track('predict_game_success');
-        track('predict_game_complete', { final_state:STATES.GAME_SUCCESS });
-        finishGame(STATES.GAME_SUCCESS);
-      }else{
-        setState(STATES.ROUND_RESET, 820);
+    function step(dt){
+      if(game.state !== STATES.PLAYING) return;
+      const ball = game.ball;
+      const bar = game.bar;
+      const speed = Math.min(2.1, Math.max(.7, dt / 16.67));
+      if(game.keys.has('ArrowLeft') || game.keys.has('KeyA')) bar.vx = -bar.speed;
+      if(game.keys.has('ArrowRight') || game.keys.has('KeyD')) bar.vx = bar.speed;
+      bar.x = clamp(bar.x + bar.vx * speed, 18, game.w - bar.w - 18);
+      bar.vx *= pointerActive ? .92 : .78;
+
+      ball.x += ball.vx * speed;
+      ball.y += ball.vy * speed;
+      ball.spin += ball.vx * .025 * speed;
+
+      if(ball.x - ball.r <= 14){
+        ball.x = 14 + ball.r;
+        ball.vx = Math.abs(ball.vx);
       }
-    }
-
-    function registerMiss(){
-      game.misses += 1;
-      setState(STATES.MISS);
-      el.toast.textContent = 'Kaçtı!';
-      track('predict_game_miss');
-      if(game.misses >= MAX_MISSES){
-        setState(STATES.GAME_OVER);
-        track('predict_game_game_over');
-        track('predict_game_complete', { final_state:STATES.GAME_OVER });
-        finishGame(STATES.GAME_OVER);
-      }else{
-        setState(STATES.ROUND_RESET, 760);
+      if(ball.x + ball.r >= game.w - 14){
+        ball.x = game.w - 14 - ball.r;
+        ball.vx = -Math.abs(ball.vx);
       }
-    }
-
-    function aimFromPointer(event){
-      const rect = el.field.getBoundingClientRect();
-      const clientX = event.touches?.[0]?.clientX ?? event.clientX;
-      game.aim.x = clamp((clientX - rect.left) / rect.width, .18, .82);
-      el.hint.classList.add('is-hidden');
-      layout();
-    }
-
-    function shoot(now){
-      if(game.state !== STATES.AIMING) return;
-      const dx = game.aim.x - game.ball.x;
-      game.ball.vx = dx * 1.55;
-      game.ball.vy = -1.22;
-      game.ball.scale = 1.03;
-      kickStartedAt = now;
-      setState(STATES.KICKING);
-    }
-
-    function update(dt, now){
-      if(!game.open || document.visibilityState === 'hidden') return;
-      const step = Math.min(32, dt) / 1000;
-
-      if(game.state === STATES.KICKING && now - kickStartedAt > 130) setState(STATES.BALL_SHOT);
-
-      if(game.state === STATES.BALL_SHOT){
-        game.ball.y += game.ball.vy * step;
-        game.ball.x += game.ball.vx * step;
-        game.ball.vy += .62 * step;
-        game.ball.rot += 720 * step;
-        game.ball.scale = clamp(game.ball.scale - step * .22, .64, 1.08);
-        if(game.ball.y <= .205){
-          if(game.ball.x > .265 && game.ball.x < .735) registerGoal();
-          else registerMiss();
-        }
-        if(game.ball.x < .02 || game.ball.x > .98 || game.ball.y > .94) registerMiss();
+      if(ball.y - ball.r <= 10){
+        ball.y = 10 + ball.r;
+        ball.vy = Math.abs(ball.vy);
       }
 
-      if(game.state === STATES.ROUND_RESET && game.nextAt && now >= game.nextAt) resetRound();
-      renderHud();
-      layout();
+      const hitBar = ball.vy > 0 &&
+        ball.y + ball.r >= bar.y &&
+        ball.y - ball.r <= bar.y + bar.h &&
+        ball.x >= bar.x - ball.r &&
+        ball.x <= bar.x + bar.w + ball.r;
+      if(hitBar){
+        const offset = ((ball.x - (bar.x + bar.w / 2)) / (bar.w / 2));
+        ball.y = bar.y - ball.r - 1;
+        ball.vy = -(4.3 + Math.min(1.4, Math.abs(offset) * 1.2));
+        ball.vx = clamp(ball.vx + offset * 2.2, -6.2, 6.2);
+      }
+
+      const inGoal = ball.y - ball.r <= game.goal.y + game.goal.h &&
+        ball.y + ball.r >= game.goal.y &&
+        ball.x >= game.goal.x &&
+        ball.x <= game.goal.x + game.goal.w;
+      if(inGoal && ball.vy < 0) registerGoal();
+      if(ball.y - ball.r > game.h) registerMiss();
     }
 
     function loop(now){
       if(!game.open) return;
-      update(now - last, now);
+      step(now - last);
+      draw(now);
       last = now;
       raf = requestAnimationFrame(loop);
     }
@@ -345,16 +413,9 @@
     async function restart(){
       cancelAnimationFrame(raf);
       raf = 0;
-      outcomeSent = false;
       session = null;
-      game.goals = 0;
-      game.misses = 0;
-      game.idempotencyKey = uuid();
-      el.end.hidden = true;
-      el.hint.classList.remove('is-hidden');
-      renderHud();
+      restartState();
       await startSession();
-      resetRound();
       last = performance.now();
       raf = requestAnimationFrame(loop);
       track('predict_game_start', { reward_eligible:game.rewardEligible });
@@ -366,7 +427,6 @@
       trigger.setAttribute('aria-expanded', 'true');
       document.body.classList.add('mini-goal-open');
       trigger.classList.add('is-game-hidden');
-      el.stage.focus({ preventScroll:true });
       track('predict_game_view');
       await restart();
     }
@@ -381,43 +441,34 @@
       raf = 0;
     }
 
-    el.stage.addEventListener('pointerdown', (event) => {
-      if(game.state !== STATES.AIMING) return;
+    function moveBarFromPointer(event){
+      const rect = el.canvas.getBoundingClientRect();
+      const clientX = event.touches?.[0]?.clientX ?? event.clientX;
+      const ratio = game.w / rect.width;
+      game.bar.x = clamp((clientX - rect.left) * ratio - game.bar.w / 2, 18, game.w - game.bar.w - 18);
+    }
+
+    el.canvas.addEventListener('pointerdown', (event) => {
       pointerActive = true;
-      el.stage.setPointerCapture?.(event.pointerId);
-      aimFromPointer(event);
+      el.canvas.setPointerCapture?.(event.pointerId);
+      moveBarFromPointer(event);
       event.preventDefault();
     });
-    el.stage.addEventListener('pointermove', (event) => {
-      if(pointerActive && game.state === STATES.AIMING) aimFromPointer(event);
+    el.canvas.addEventListener('pointermove', (event) => {
+      if(pointerActive) moveBarFromPointer(event);
     });
-    el.stage.addEventListener('pointerup', (event) => {
-      if(!pointerActive) return;
-      pointerActive = false;
-      aimFromPointer(event);
-      shoot(performance.now());
-    });
-    el.stage.addEventListener('pointercancel', () => { pointerActive = false; });
+    el.canvas.addEventListener('pointerup', () => { pointerActive = false; });
+    el.canvas.addEventListener('pointercancel', () => { pointerActive = false; });
     window.addEventListener('keydown', (event) => {
       if(!game.open) return;
-      if(game.state === STATES.AIMING && (event.code === 'ArrowLeft' || event.code === 'KeyA')){
-        game.aim.x = clamp(game.aim.x - .035, .18, .82);
-        el.hint.classList.add('is-hidden');
-        event.preventDefault();
-      }
-      if(game.state === STATES.AIMING && (event.code === 'ArrowRight' || event.code === 'KeyD')){
-        game.aim.x = clamp(game.aim.x + .035, .18, .82);
-        el.hint.classList.add('is-hidden');
-        event.preventDefault();
-      }
-      if(game.state === STATES.AIMING && (event.code === 'Space' || event.code === 'Enter')){
-        el.hint.classList.add('is-hidden');
-        shoot(performance.now());
+      if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(event.code)){
+        game.keys.add(event.code);
         event.preventDefault();
       }
       if(event.code === 'Escape') close();
-      layout();
     });
+    window.addEventListener('keyup', (event) => { game.keys.delete(event.code); });
+    window.addEventListener('resize', () => { setupCanvas(); draw(); });
     document.addEventListener('visibilitychange', () => { last = performance.now(); });
     el.close.addEventListener('click', close);
     el.restart.addEventListener('click', restart);
@@ -430,9 +481,11 @@
       }
       if(again) restart();
     });
-    [ASSETS.field, ASSETS.player, ASSETS.ball].forEach((src) => { const img = new Image(); img.src = src; });
+    fieldImage.addEventListener('load', draw);
+    ballImage.addEventListener('load', draw);
+    setupCanvas();
     renderHud();
-    layout();
+    draw();
     return { open, close, restart };
   };
 })();
