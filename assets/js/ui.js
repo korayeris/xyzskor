@@ -2670,18 +2670,19 @@ function renderFootballNews(){
     const miniGame = miniGoalGameController;
 
       function corridorBounds(){
-        const gameOverlay = document.getElementById('miniGoalOverlay');
-        const gameRect = gameOverlay ? gameOverlay.getBoundingClientRect() : null;
-        const banner = document.querySelector('.predict-ad-skyscraper, .predict-ad, .side-ball-widget');
-        const bannerRect = banner ? banner.getBoundingClientRect() : null;
-        const leftWall = bannerRect ? Math.max(8, Math.round(bannerRect.left)) : (gameRect ? Math.max(8, Math.round(gameRect.left)) : 16);
-        const xMin = leftWall + 2;
-        const bannerWidth = Math.max(160, Math.min(420, bannerRect ? Math.round(bannerRect.width) : (gameRect ? Math.round(gameRect.width) : 420)));
-        const xMax = Math.min(window.innerWidth - 24, Math.max(xMin + 120, leftWall + bannerWidth - 20));
-      const yMin = Math.max(120, Math.min(Math.floor(window.innerHeight * 0.24), 190));
-      const yMax = Math.max(yMin + 260, window.innerHeight - 120);
-      return {xMin: Math.min(xMin, xMax - 60), xMax, yMin, yMax};
-    }
+        if(window.innerWidth < 900){
+          const y = Math.max(96, window.innerHeight - 150);
+          return { xMin: 12, xMax: 110, yMin: y, yMax: y + 2 };
+        }
+        const wrap = document.querySelector('.wrap');
+        const wrapRect = wrap ? wrap.getBoundingClientRect() : null;
+        const contentLeft = wrapRect ? Math.round(wrapRect.left) : Math.round(Math.max(360, (window.innerWidth - 1180) / 2));
+        const xMin = 20;
+        const xMax = Math.max(118, Math.min(340, contentLeft - 34));
+        const yMin = Math.max(150, Math.min(Math.floor(window.innerHeight * 0.28), 245));
+        const yMax = Math.max(yMin + 2, Math.min(window.innerHeight - 136, yMin + 4));
+        return {xMin: Math.min(xMin, xMax - 60), xMax, yMin, yMax};
+      }
 
     function randomBetween(minimum, maximum){
       return minimum + Math.random() * Math.max(1, maximum - minimum);

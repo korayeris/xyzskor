@@ -5692,3 +5692,34 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
   .side-chat-bubble{right:12px;bottom:14px;min-height:42px;padding:0 13px;font-size:11px}
   .side-chat-prototype{right:10px!important;bottom:66px!important;top:auto!important;width:min(340px,calc(100vw - 20px))!important}
 }
+
+/* v124 - Separate football trigger rail from chat bubble */
+.interactive-football{
+  z-index:10004!important;
+}
+.side-chat-bubble{
+  z-index:10020!important;
+  right:18px!important;
+  bottom:18px!important;
+}
+.side-chat-prototype{
+  z-index:10021!important;
+}
+@media(min-width:900px){
+  .interactive-football{
+    --fs-intro-size:58px;
+  }
+}
+@media(max-width:899px){
+  .interactive-football{
+    --fs-intro-size:50px;
+    width:50px!important;
+    height:50px!important;
+    font-size:36px!important;
+    box-shadow:0 0 0 4px rgba(255,149,0,.14), 0 14px 34px rgba(0,0,0,.34)!important;
+  }
+  .side-chat-bubble{
+    right:12px!important;
+    bottom:14px!important;
+  }
+}
