@@ -5243,3 +5243,9 @@ body.mini-goal-open{overflow:auto}
   .predict-game-drag-hint{transition:none}
 }
 
+
+body.mini-goal-open .mini-goal-trigger.is-game-hidden{opacity:0!important;visibility:hidden!important;pointer-events:none!important;}
+body.mini-goal-open .mini-goal-overlay{z-index:10040!important;}
+body.mini-goal-open .predict-game-player{z-index:6;}
+body.mini-goal-open .predict-game-ball{z-index:5;}
+

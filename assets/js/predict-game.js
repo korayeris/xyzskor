@@ -167,7 +167,7 @@
       const frame = clamp(game.player.frame, range[0], range[1]);
       const col = frame % 4;
       const row = Math.floor(frame / 4);
-      el.player.style.backgroundPosition = `${col * -100}% ${row * -100}%`;
+      el.player.style.backgroundPosition = `${col * -33.3333}% ${row * -33.3333}%`;
     }
 
     function layout(){
@@ -380,6 +380,7 @@
       overlay.hidden = false;
       trigger.setAttribute('aria-expanded', 'true');
       document.body.classList.add('mini-goal-open');
+      trigger.classList.add('is-game-hidden');
       el.stage.focus({ preventScroll:true });
       track('predict_game_view');
       await restart();
@@ -390,6 +391,7 @@
       overlay.hidden = true;
       trigger.setAttribute('aria-expanded', 'false');
       document.body.classList.remove('mini-goal-open');
+      trigger.classList.remove('is-game-hidden');
       if(raf) cancelAnimationFrame(raf);
       raf = 0;
     }
