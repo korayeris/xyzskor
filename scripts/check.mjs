@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const documentHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
-const scriptFiles = ['data.js', 'live.js', 'match-center.js', 'ui.js'];
+const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'predict-game.js', 'ui.js', 'chat.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
 const dataSource = scriptSources[0];
 const appSource = scriptSources.join('\n');

@@ -2723,10 +2723,13 @@ function renderFootballNews(){
     }
     frame.lastTime = 0;
 
+    let lastPointerOpenAt = 0;
     const openFromTrigger = (event)=>{
       if(event){
         event.preventDefault();
         event.stopPropagation();
+        if(event.type === 'click' && Date.now() - lastPointerOpenAt < 500) return;
+        if(event.type === 'pointerup') lastPointerOpenAt = Date.now();
       }
       miniGame.open();
     };
@@ -2771,6 +2774,10 @@ function renderFootballNews(){
   function initMiniGoalGame(){
     const trigger=document.getElementById('miniGoalTrigger');
     const overlay=document.getElementById('miniGoalOverlay');
+    if(window.initPredictMiniGame){
+      const upgraded = window.initPredictMiniGame({ trigger, overlay });
+      if(upgraded) return upgraded;
+    }
     const close=document.getElementById('miniGoalClose');
     const restart=document.getElementById('miniGoalRestart');
     const canvas=document.getElementById('miniGoalCanvas');

@@ -251,6 +251,217 @@ function jsonResponse(payload, status = 200, extraHeaders = {}) {
   });
 }
 
+const SUPABASE_URL_FALLBACK = "https://swhwmqbamzczztpfxctg.supabase.co";
+const PREDICT_GAME = Object.freeze({
+  TARGET_GOALS: 10,
+  MAX_MISSES: 5,
+  POINTS_PER_GOAL: 5,
+  MAX_REWARD_POINTS: 50,
+});
+
+function supabaseUrl(env) {
+  return String(env.SUPABASE_URL || SUPABASE_URL_FALLBACK).replace(/\/+$/, "");
+}
+
+function supabaseServiceKey(env) {
+  return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || "";
+}
+
+function supabaseAnonKey(env) {
+  return env.SUPABASE_ANON_KEY || env.SUPABASE_KEY || supabaseServiceKey(env);
+}
+
+function cleanUuid(value) {
+  const text = String(value || "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : null;
+}
+
+function cleanToken(value, max = 120) {
+  return String(value || "").trim().replace(/[^a-zA-Z0-9_:-]/g, "").slice(0, max) || null;
+}
+
+function predictPoints(goals) {
+  return Math.min(Math.max(0, Number(goals) || 0) * PREDICT_GAME.POINTS_PER_GOAL, PREDICT_GAME.MAX_REWARD_POINTS);
+}
+
+async function readJsonBody(request, maxBytes = 8192) {
+  const text = await request.text();
+  if (text.length > maxBytes) {
+    const error = new Error("payload_too_large");
+    error.status = 413;
+    throw error;
+  }
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    const error = new Error("invalid_json");
+    error.status = 400;
+    throw error;
+  }
+}
+
+async function getAuthUser(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const token = auth.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return null;
+  const response = await fetch(`${supabaseUrl(env)}/auth/v1/user`, {
+    headers: {
+      apikey: supabaseAnonKey(env),
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+  if (!response.ok) return null;
+  const user = await response.json().catch(() => null);
+  return user?.id ? user : null;
+}
+
+async function supabaseRest(env, path, init = {}) {
+  const key = supabaseServiceKey(env);
+  if (!key) {
+    const error = new Error("supabase_service_not_configured");
+    error.status = 503;
+    throw error;
+  }
+  const response = await fetch(`${supabaseUrl(env)}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+      ...(init.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(payload?.message || payload?.error || "supabase_error");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function handlePredictGameStatus(request, env) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const user = await getAuthUser(request, env);
+  if (!user) return jsonResponse({ authenticated: false, reward_eligible: false, training: false }, 200, { "Cache-Control": "no-store" });
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = await supabaseRest(env, `predict_game_sessions?user_id=eq.${encodeURIComponent(user.id)}&reward_date=eq.${today}&reward_claimed=eq.true&select=id`);
+  const eligible = !Array.isArray(rows) || rows.length === 0;
+  return jsonResponse({ authenticated: true, reward_eligible: eligible, training: !eligible, reward_date: today }, 200, { "Cache-Control": "no-store" });
+}
+
+async function handlePredictGameSession(request, env) {
+  if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "POST" });
+  const body = await readJsonBody(request);
+  const user = await getAuthUser(request, env);
+  const guestSessionId = cleanToken(body.guestSessionId, 96);
+  const today = new Date().toISOString().slice(0, 10);
+  let rewardEligible = Boolean(user?.id);
+  if (user?.id) {
+    const rows = await supabaseRest(env, `predict_game_sessions?user_id=eq.${encodeURIComponent(user.id)}&reward_date=eq.${today}&reward_claimed=eq.true&select=id`);
+    rewardEligible = !Array.isArray(rows) || rows.length === 0;
+  }
+  const inserted = await supabaseRest(env, "predict_game_sessions", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: user?.id || null,
+      guest_session_id: guestSessionId,
+      status: "started",
+      reward_eligible: rewardEligible,
+    }),
+  });
+  return jsonResponse({ session: inserted?.[0] || null }, 200, { "Cache-Control": "no-store" });
+}
+
+async function handlePredictGameComplete(request, env) {
+  if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "POST" });
+  const body = await readJsonBody(request);
+  const sessionId = cleanUuid(body.sessionId);
+  const guestSessionId = cleanToken(body.guestSessionId, 96);
+  const goals = Number(body.goals);
+  const misses = Number(body.misses);
+  const finalState = String(body.finalState || "");
+  const idempotencyKey = cleanToken(body.idempotencyKey, 120) || sessionId;
+  if (!sessionId) return jsonResponse({ error: "invalid_session" }, 400, { "Cache-Control": "no-store" });
+  if (!Number.isInteger(goals) || goals < 0 || goals > PREDICT_GAME.TARGET_GOALS) return jsonResponse({ error: "invalid_goals" }, 400, { "Cache-Control": "no-store" });
+  if (!Number.isInteger(misses) || misses < 0 || misses > PREDICT_GAME.MAX_MISSES) return jsonResponse({ error: "invalid_misses" }, 400, { "Cache-Control": "no-store" });
+  if (!["GAME_SUCCESS", "GAME_OVER"].includes(finalState)) return jsonResponse({ error: "invalid_final_state" }, 400, { "Cache-Control": "no-store" });
+
+  const user = await getAuthUser(request, env);
+  if (!user?.id) {
+    const rows = await supabaseRest(env, `predict_game_sessions?id=eq.${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: finalState === "GAME_SUCCESS" ? "game_success" : "game_over",
+        goals,
+        misses,
+        points_earned: predictPoints(goals),
+        finished_at: new Date().toISOString(),
+        idempotency_key: idempotencyKey,
+      }),
+    });
+    return jsonResponse({ session: rows?.[0] || null, reward: { claimed: false, points: predictPoints(goals), guest: true } }, 200, { "Cache-Control": "no-store" });
+  }
+
+  const rpc = await supabaseRest(env, "rpc/claim_predict_game_reward", {
+    method: "POST",
+    body: JSON.stringify({
+      p_session_id: sessionId,
+      p_user_id: user.id,
+      p_guest_session_id: guestSessionId,
+      p_goals: goals,
+      p_misses: misses,
+      p_final_state: finalState,
+      p_idempotency_key: idempotencyKey,
+    }),
+  });
+  return jsonResponse({ reward: rpc, points: rpc?.points ?? predictPoints(goals) }, 200, { "Cache-Control": "no-store" });
+}
+
+function sanitizeAnalyticsProperties(properties) {
+  const out = {};
+  for (const [key, value] of Object.entries(properties || {}).slice(0, 24)) {
+    if (!/^[a-zA-Z0-9_:-]{1,48}$/.test(key)) continue;
+    if (/email|phone|token|jwt|secret|password|address|ip/i.test(key)) continue;
+    if (typeof value === "boolean") out[key] = value;
+    else if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+    else if (value != null) out[key] = String(value).slice(0, 180);
+  }
+  return out;
+}
+
+async function handleAnalyticsEvent(request, env) {
+  if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "POST" });
+  const body = await readJsonBody(request, 6144);
+  const name = String(body.name || "").trim().slice(0, 64);
+  const eventUuid = cleanUuid(body.event_uuid);
+  if (!eventUuid || !/^[a-zA-Z0-9_:-]{1,64}$/.test(name)) return jsonResponse({ error: "invalid_event" }, 400, { "Cache-Control": "no-store" });
+  const user = await getAuthUser(request, env);
+  const analyticsUserId = cleanUuid(body.analytics_user_id);
+  const userAgent = request.headers.get("User-Agent") || "";
+  const hash = userAgent ? await crypto.subtle.digest("SHA-256", new TextEncoder().encode(userAgent)).then((buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("")) : null;
+  try {
+    await supabaseRest(env, "analytics_events", {
+      method: "POST",
+      body: JSON.stringify({
+        event_uuid: eventUuid,
+        user_id: user?.id || null,
+        analytics_user_id: analyticsUserId,
+        name,
+        properties: sanitizeAnalyticsProperties(body.properties),
+        user_agent_hash: hash,
+      }),
+    });
+  } catch (error) {
+    if (!String(error?.message || "").includes("duplicate")) throw error;
+  }
+  return jsonResponse({ ok: true }, 200, { "Cache-Control": "no-store" });
+}
+
 async function xRequest(pathname, token) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), X_TIMEOUT_MS);
@@ -1684,6 +1895,11 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") return handleHealth(request, env);
+    if (url.pathname === "/api/predict-game/status") return handlePredictGameStatus(request, env);
+    if (url.pathname === "/api/predict-game/session") return handlePredictGameSession(request, env);
+    if (url.pathname === "/api/predict-game/complete") return handlePredictGameComplete(request, env);
+    if (url.pathname === "/api/predict-game/claim") return handlePredictGameComplete(request, env);
+    if (url.pathname === "/api/analytics/event") return handleAnalyticsEvent(request, env);
     if (["/api/social/x", "/api/social/x-media-v2", "/api/social/x-media-v3", "/api/social/x-media-v4"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2", "/api/social/x-preseason-v3"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/football/x-media") return handleXClubFeed(request, env, context);
