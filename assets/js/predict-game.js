@@ -113,9 +113,9 @@
       w:420,
       h:560,
       keys:new Set(),
-      ball:{ x:210, y:214, vx:3.1, vy:3.6, r:18, spin:0 },
-      bar:{ x:154, y:488, w:112, h:16, speed:8.6, vx:0 },
-      goal:{ x:132, y:34, w:156, h:48 },
+      ball:{ x:210, y:292, vx:3.1, vy:3.6, r:18, spin:0 },
+      bar:{ x:148, y:414, w:124, h:18, speed:8.6, vx:0 },
+      goal:{ x:100, y:82, w:220, h:58 },
       goalFlashUntil:0
     };
 
@@ -153,12 +153,15 @@
     function drawGoal(now){
       const flash = now < game.goalFlashUntil;
       ctx.save();
-      ctx.strokeStyle = flash ? 'rgba(255,199,43,.98)' : 'rgba(255,255,255,.86)';
-      ctx.lineWidth = flash ? 5 : 3;
+      ctx.strokeStyle = flash ? 'rgba(255,199,43,.98)' : 'rgba(255,255,255,.42)';
+      ctx.lineWidth = flash ? 5 : 2;
       ctx.shadowColor = flash ? 'rgba(255,199,43,.9)' : 'rgba(255,255,255,.35)';
-      ctx.shadowBlur = flash ? 22 : 10;
-      ctx.strokeRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h);
-      ctx.fillStyle = flash ? 'rgba(255,199,43,.18)' : 'rgba(255,255,255,.08)';
+      ctx.shadowBlur = flash ? 22 : 6;
+      ctx.setLineDash(flash ? [] : [10, 10]);
+      roundRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h, 12);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = flash ? 'rgba(255,199,43,.18)' : 'rgba(255,255,255,.045)';
       ctx.fillRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h);
       ctx.restore();
     }
@@ -239,7 +242,7 @@
 
     function resetBall(direction = 1){
       game.ball.x = game.w / 2;
-      game.ball.y = 214;
+      game.ball.y = 292;
       game.ball.vx = (Math.random() > .5 ? 1 : -1) * (2.4 + Math.random() * 1.7);
       game.ball.vy = direction * (3.2 + Math.random() * 1.2);
       game.ball.spin = 0;

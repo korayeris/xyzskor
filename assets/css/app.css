@@ -5575,3 +5575,22 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
   .mini-goal-legacy-modal{width:min(430px,calc(100vw - 18px))!important;padding:12px!important;border-radius:18px!important}
   .mini-goal-legacy-modal #miniGoalCanvas{max-height:56dvh!important}
 }
+
+/* v121 - Fix restored canvas composition */
+.mini-goal-legacy-modal #miniGoalCanvas{
+  max-height:64dvh!important;
+  object-fit:contain!important;
+  background-color:#1a9638!important;
+}
+.mini-goal-legacy-modal .mini-goal-head p{
+  display:none!important;
+}
+.mini-goal-legacy-modal .mini-goal-head{
+  align-items:center!important;
+}
+.mini-goal-legacy-modal .mini-goal-head h2{
+  margin-top:2px!important;
+}
+@media(max-width:767px){
+  .mini-goal-legacy-modal #miniGoalCanvas{max-height:62dvh!important}
+}
