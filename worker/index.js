@@ -801,7 +801,7 @@ async function handleXClubFeed(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.X_BEARER_TOKEN) return jsonResponse({ error: "x_not_configured" }, 503, { "Cache-Control": "no-store" });
 
-  const cacheUrl = new URL("/api/football/x-media-v1", request.url);
+  const cacheUrl = new URL("/api/football/x-media-v2", request.url);
   const requestedLeague = new URL(request.url).searchParams.get("league");
   const league = validLeagueKey(requestedLeague, { xFeed:true });
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
@@ -812,7 +812,7 @@ async function handleXClubFeed(request, env, context) {
     return response;
   }
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/football/x-media-stale-v1", request.url);
+  const staleUrl = new URL("/api/football/x-media-stale-v2", request.url);
   if (requestedLeague) staleUrl.searchParams.set("league", requestedLeague);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();

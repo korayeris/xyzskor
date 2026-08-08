@@ -890,8 +890,8 @@ function xPostCardHTML(club){
     <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;
 }
-const X_FEED_TOGGLE_KEY = "xyzskor.xFeedEnabled.v1";
-let xFeedsEnabled = false;
+const X_FEED_TOGGLE_KEY = "xyzskor.xFeedEnabled.v2";
+let xFeedsEnabled = true;
 (() => {
   try {
     const params = new URLSearchParams(location.search);
@@ -904,14 +904,14 @@ let xFeedsEnabled = false;
     } else {
       const stored = localStorage.getItem(X_FEED_TOGGLE_KEY);
       if (stored === null) {
-        localStorage.setItem(X_FEED_TOGGLE_KEY, "0");
-        xFeedsEnabled = false;
+        localStorage.setItem(X_FEED_TOGGLE_KEY, "1");
+        xFeedsEnabled = true;
       } else {
         xFeedsEnabled = stored !== "0";
       }
     }
   } catch {
-    xFeedsEnabled = false;
+    xFeedsEnabled = true;
   }
 })();
 function isXFeedPaused() {
