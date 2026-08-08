@@ -151,18 +151,7 @@
     }
 
     function drawGoal(now){
-      const flash = now < game.goalFlashUntil;
-      if(!flash) return;
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255,199,43,.98)';
-      ctx.lineWidth = 5;
-      ctx.shadowColor = 'rgba(255,199,43,.9)';
-      ctx.shadowBlur = 22;
-      roundRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h, 12);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(255,199,43,.14)';
-      ctx.fillRect(game.goal.x, game.goal.y, game.goal.w, game.goal.h);
-      ctx.restore();
+      return;
     }
 
     function drawBar(){
@@ -278,7 +267,6 @@
     function registerGoal(){
       if(game.state !== STATES.PLAYING) return;
       game.goals += 1;
-      game.goalFlashUntil = performance.now() + 950;
       track('predict_game_goal');
       renderHud();
       if(game.goals >= TARGET_GOALS){

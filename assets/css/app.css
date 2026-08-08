@@ -5594,3 +5594,32 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
 @media(max-width:767px){
   .mini-goal-legacy-modal #miniGoalCanvas{max-height:62dvh!important}
 }
+
+/* v122 - Remove goal flash and add side chat close button */
+.side-chat-prototype[hidden]{display:none!important}
+.side-chat-prototype header{
+  position:relative;
+  padding-right:34px;
+}
+.side-chat-close{
+  position:absolute;
+  right:0;
+  top:0;
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  color:#fff;
+  font:900 18px/1 var(--font-display);
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(0,0,0,.22);
+}
+.side-chat-close:hover,
+.side-chat-close:focus-visible{
+  background:#ff9500;
+  color:#101217;
+  outline:none;
+}

@@ -2594,6 +2594,25 @@ function renderFootballNews(){
     const form=document.getElementById('sideChatForm');
     const input=document.getElementById('sideChatInput');
     const feed=document.getElementById('sideChatFeed');
+    const chatPanel=form?.closest('.side-chat-prototype') || feed?.closest('.side-chat-prototype');
+    if(chatPanel && !chatPanel.dataset.closeReady){
+      chatPanel.dataset.closeReady='1';
+      const closedKey='xyzskor_side_chat_closed_v1';
+      try{
+        if(localStorage.getItem(closedKey)==='1') chatPanel.hidden=true;
+      }catch(_error){}
+      const header=chatPanel.querySelector('header') || chatPanel;
+      const closeButton=document.createElement('button');
+      closeButton.type='button';
+      closeButton.className='side-chat-close';
+      closeButton.setAttribute('aria-label','Sohbet alanını kapat');
+      closeButton.textContent='x';
+      header.appendChild(closeButton);
+      closeButton.addEventListener('click',()=>{
+        chatPanel.hidden=true;
+        try{ localStorage.setItem(closedKey,'1'); }catch(_error){}
+      });
+    }
     if(form && input && feed && !form.dataset.ready){
       form.dataset.ready='1';
       form.addEventListener('submit',(event)=>{
