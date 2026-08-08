@@ -4656,11 +4656,11 @@ body.mini-goal-open{overflow:auto}
 }
 .mini-goal-overlay{
   position:fixed;
-  inset:auto 22px 92px auto;
+  inset:auto auto 92px 16px;
   z-index:79;
   display:grid;
   place-items:end;
-  width:min(500px,calc(100vw - 32px));
+  width:min(420px,calc(100vw - 30px));
   padding:0;
   background:transparent;
   backdrop-filter:none;
@@ -4668,7 +4668,7 @@ body.mini-goal-open{overflow:auto}
 }
 .mini-goal-overlay[hidden]{display:none!important}
 .mini-goal-modal{
-  width:min(460px,100%);
+  width:min(420px,100%);
   max-height:min(760px,calc(100dvh - 32px));
   display:grid;
   grid-template-rows:auto auto minmax(0,1fr) auto;
@@ -4717,7 +4717,8 @@ body.mini-goal-open{overflow:auto}
   cursor:pointer;
 }
 .mini-goal-score{
-  display:flex;
+  display:grid;
+  grid-template-columns:1fr 1fr;
   align-items:center;
   justify-content:space-between;
   min-height:42px;
@@ -4725,18 +4726,17 @@ body.mini-goal-open{overflow:auto}
   border:1px solid rgba(255,255,255,.08);
   border-radius:14px;
   background:rgba(255,255,255,.04);
+  gap:10px;
 }
-.mini-goal-score span{
-  color:#8d96a1;
-  font:850 9px/1 var(--font-mono);
-  letter-spacing:.12em;
-  text-transform:uppercase;
-}
-.mini-goal-score strong{
+.mini-goal-score-item{
   color:#ffb04a;
-  font:950 24px/1 var(--font-display);
+  font:760 13px/1.25 var(--font-display);
+  text-align:left;
 }
-#miniGoalCanvas{
+.mini-goal-score-item:last-child{
+  text-align:right;
+  color:#f3f6fa;
+}#miniGoalCanvas{
   width:100%;
   max-width:420px;
   height:auto;
@@ -4861,8 +4861,8 @@ body.mini-goal-open{overflow:auto}
 }
 .mini-goal-overlay{
   z-index:10010!important;
-  inset:auto auto 92px 24px!important;
-  width:min(500px,calc(100vw - 32px))!important;
+  inset:auto auto 92px 16px!important;
+  width:min(420px,calc(100vw - 30px))!important;
   padding:0!important;
   place-items:start!important;
   background:transparent!important;
@@ -4969,7 +4969,7 @@ body.mini-goal-open{overflow:auto}
   z-index:10030;
   pointer-events:auto;
   box-shadow:0 0 0 6px rgba(255,149,0,.14), 0 22px 56px rgba(0,0,0,.42);
-  transform:translate3d(-140px, calc(100vh - 140px),0);
+  transform:translate3d(16px, calc(100vh - 140px),0);
   opacity:0;
 }
 .interactive-football.show{
@@ -5009,6 +5009,9 @@ body.mini-goal-open{overflow:auto}
     --fs-intro-size:50px;
     font-size:38px;
     box-shadow:0 0 0 5px rgba(255,149,0,.16), 0 16px 42px rgba(0,0,0,.36);
-    transform:translate3d(-130px, calc(100vh - 134px),0);
+    transform:translate3d(14px, calc(100vh - 134px),0);
   }
 }
+
+
+

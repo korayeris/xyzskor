@@ -78,7 +78,10 @@
         </div>
         <button class="mini-goal-close" id="miniGoalClose" type="button" aria-label="Mini oyunu kapat">×</button>
       </header>
-      <div class="mini-goal-score"><span>Gol</span><strong id="miniGoalScore">0</strong></div>
+      <div class="mini-goal-score">
+        <span id="miniGoalPoints" class="mini-goal-score-item">Predict Puanı: 0</span>
+        <span id="miniGoalRemainingMisses" class="mini-goal-score-item">Kalan Hak: 5</span>
+      </div>
       <canvas id="miniGoalCanvas" width="420" height="560" aria-label="Golü At oyun alanı"></canvas>
       <footer class="mini-goal-actions">
         <button id="miniGoalRestart" type="button">Yeniden başlat</button>

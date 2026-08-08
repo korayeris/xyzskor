@@ -2634,11 +2634,12 @@ function renderFootballNews(){
     const miniGame = miniGoalGameController;
 
     function corridorBounds(){
-      const wrap = document.querySelector('.wrap');
-      const wrapRect = wrap ? wrap.getBoundingClientRect() : null;
-      const leftSpace = Math.max(0, wrapRect ? wrapRect.left : 0);
-      const xMin = 12;
-      const xMax = Math.max(90, Math.min(260, Math.max(100, leftSpace - 12)));
+      const gameOverlay = document.getElementById('miniGoalOverlay');
+      const gameRect = gameOverlay ? gameOverlay.getBoundingClientRect() : null;
+      const leftWall = gameRect ? Math.round(gameRect.left) : 16;
+      const xMin = 16;
+      const bannerWidth = Math.max(160, Math.min(420, gameRect ? Math.round(gameRect.width) : 420));
+      const xMax = Math.min(window.innerWidth - 24, Math.max(xMin + 120, leftWall + bannerWidth - 20));
       const yMin = Math.max(120, Math.min(Math.floor(window.innerHeight * 0.24), 190));
       const yMax = Math.max(yMin + 260, window.innerHeight - 120);
       return {xMin, xMax, yMin, yMax};
@@ -2654,14 +2655,18 @@ function renderFootballNews(){
       const speed = options.speed || (0.6 + Math.random() * 0.8);
       const angle = options.angle || (Math.random() * Math.PI * 2);
       const bounds = corridorBounds();
+      const vx = options.vx != null ? options.vx : Math.cos(angle) * speed * (options.slow ? 0.7 : 1);
+      const vy = options.vy != null ? options.vy : Math.sin(angle) * speed * (options.slow ? 0.7 : 1);
+      const startX = Number.isFinite(options.x) ? options.x : randomBetween(bounds.xMin + radius, Math.max(bounds.xMin + radius + 1, bounds.xMax - radius));
+      const startY = Number.isFinite(options.y) ? options.y : randomBetween(bounds.yMin + radius, Math.max(bounds.yMin + radius + 1, bounds.yMax - radius));
       return {
         el: element,
         size,
         r: radius,
-        x: randomBetween(bounds.xMin + radius, Math.max(bounds.xMin + radius + 1, bounds.xMax - radius)),
-        y: randomBetween(bounds.yMin + radius, Math.max(bounds.yMin + radius + 1, bounds.yMax - radius)),
-        vx: Math.cos(angle) * speed * (options.slow ? 0.7 : 1),
-        vy: Math.sin(angle) * speed * (options.slow ? 0.7 : 1),
+        x: startX,
+        y: startY,
+        vx: options.vx != null ? vx : Math.cos(angle) * speed * (options.slow ? 0.7 : 1),
+        vy: options.vy != null ? vy : Math.sin(angle) * speed * (options.slow ? 0.7 : 1),
         interactive: !!options.interactive
       };
     }
@@ -2696,7 +2701,6 @@ function renderFootballNews(){
 
     function moveBall(ball, step, bounds){
       ball.x += ball.vx * step * 1.55;
-      ball.y += ball.vy * step * 1.55;
 
       if(ball.x - ball.r < bounds.xMin){
         ball.x = bounds.xMin + ball.r;
@@ -2706,36 +2710,29 @@ function renderFootballNews(){
         ball.vx = -Math.abs(ball.vx);
       }
 
-      if(ball.y - ball.r < bounds.yMin){
-        ball.y = bounds.yMin + ball.r;
-        ball.vy = Math.abs(ball.vy);
-      } else if(ball.y + ball.r > bounds.yMax){
-        ball.y = bounds.yMax - ball.r;
-        ball.vy = -Math.abs(ball.vy);
-      }
+      ball.y = bounds.yMin + ball.r;
 
       placeBall(ball);
     }
 
     const balls = [];
-    const master = createBall(trigger, {size: 62, speed: 1, slow: true, interactive: true, angle: Math.random() * Math.PI * 2});
+    const introBounds = corridorBounds();
+    const master = createBall(
+      trigger,
+      {
+        size: 62,
+        speed: 1.1,
+        slow: true,
+        interactive: true,
+        x: introBounds.xMax - 29,
+        vx: -(0.95 + Math.random() * 0.85),
+        vy: 0
+      }
+    );
     master.size = 58;
     master.r = 29;
     placeBall(master);
     balls.push(master);
-
-    const ghostCount = 5;
-    for(let i = 0; i < ghostCount; i += 1){
-      const size = 24 + Math.random() * 10;
-      const ghost = document.createElement('span');
-      ghost.textContent = '-';
-      ghost.setAttribute('aria-hidden', 'true');
-      root.appendChild(ghost);
-      const state = createBall(ghost, {size, slow: true});
-      styleGhost(ghost, size, Math.max(0.45, 0.75 - i * 0.08));
-      placeBall(state);
-      balls.push(state);
-    }
 
     function frame(now){
       if(!introLoopId) return;
@@ -2750,7 +2747,12 @@ function renderFootballNews(){
     }
     frame.lastTime = 0;
 
-    trigger.addEventListener('click', miniGame.open);
+    const openFromTrigger = (event)=>{
+      event.preventDefault();
+      miniGame.open();
+    };
+    trigger.addEventListener('click', openFromTrigger);
+    trigger.addEventListener('pointerdown', openFromTrigger);
     miniGame.restart?.();
     introLoopId = requestAnimationFrame(frame);
     window.addEventListener('resize', () => {
@@ -2793,17 +2795,26 @@ function renderFootballNews(){
     const close=document.getElementById('miniGoalClose');
     const restart=document.getElementById('miniGoalRestart');
     const canvas=document.getElementById('miniGoalCanvas');
-    const scoreEl=document.getElementById('miniGoalScore');
-    if(!trigger || !overlay || !canvas || trigger.dataset.ready) return;
+    const pointsEl=document.getElementById('miniGoalPoints');
+    const missesEl=document.getElementById('miniGoalRemainingMisses');
+    if(!trigger || !overlay || !canvas || !pointsEl || !missesEl || trigger.dataset.ready) return;
     trigger.dataset.ready='1';
+
+    const MAX_GOALS = 10;
+    const MAX_MISSES = 5;
 
     const game={
       ready:false,
       open:false,
       raf:0,
       last:0,
-      score:0,
-      renderedScore:-1,
+      goals:0,
+      misses:0,
+      points:0,
+      remainingMisses:MAX_MISSES,
+      gameOver:false,
+      renderedPoints:-1,
+      renderedMisses:-1,
       goalFlashUntil:0,
       w:420,
       h:560,
@@ -2813,6 +2824,7 @@ function renderFootballNews(){
       goal:{x:155,y:22,w:110,h:38}
     };
     const ctx=canvas.getContext('2d');
+    let isPointerDown=false;
 
     function setupCanvas(){
       const ratio=Math.max(1,Math.min(2,window.devicePixelRatio||1));
@@ -2827,8 +2839,13 @@ function renderFootballNews(){
       game.ball.vy=0;
     }
     function restartGame(){
-      game.score=0;
-      game.renderedScore=-1;
+      game.goals=0;
+      game.misses=0;
+      game.points=0;
+      game.remainingMisses=MAX_MISSES;
+      game.gameOver=false;
+      game.renderedPoints=-1;
+      game.renderedMisses=-1;
       game.goalFlashUntil=0;
       game.bar.vx=0;
       game.bar.x=(game.w-game.bar.w)/2;
@@ -2838,9 +2855,43 @@ function renderFootballNews(){
       draw();
     }
     function renderScore(){
-      if(scoreEl && game.renderedScore!==game.score){
-        scoreEl.textContent=String(game.score);
-        game.renderedScore=game.score;
+      if(game.renderedPoints!==game.points){
+        pointsEl.textContent=`Predict Puanı: ${game.points}`;
+        game.renderedPoints=game.points;
+      }
+      if(game.renderedMisses!==game.remainingMisses){
+        missesEl.textContent=`Kalan Hak: ${game.remainingMisses}`;
+        game.renderedMisses=game.remainingMisses;
+      }
+    }
+    function maybeEndGame(){
+      if(game.gameOver){
+        return true;
+      }
+      if(game.goals >= MAX_GOALS || game.misses >= MAX_MISSES){
+        game.gameOver=true;
+        renderScore();
+        return true;
+      }
+      return false;
+    }
+    function registerGoal(){
+      if(game.gameOver) return;
+      game.goals += 1;
+      game.points = Math.min(game.goals * 5, 50);
+      game.goalFlashUntil=performance.now()+1100;
+      renderScore();
+      if(!maybeEndGame()){
+        resetBall(true);
+      }
+    }
+    function registerMiss(){
+      if(game.gameOver) return;
+      game.misses += 1;
+      game.remainingMisses = Math.max(0, MAX_MISSES - game.misses);
+      renderScore();
+      if(!maybeEndGame()){
+        resetBall(false);
       }
     }
     function openGame(){
@@ -2849,6 +2900,7 @@ function renderFootballNews(){
         game.ready=true;
         draw();
       }
+      game.gameOver=false;
       game.open=true;
       overlay.hidden=false;
       trigger.setAttribute('aria-expanded','true');
@@ -2864,6 +2916,9 @@ function renderFootballNews(){
       game.raf=0;
     }
     function update(dt){
+      if(game.gameOver){
+        return;
+      }
       const step=Math.min(2,dt/16.67);
       const movingLeft=game.keys.has('ArrowLeft') || game.keys.has('KeyA');
       const movingRight=game.keys.has('ArrowRight') || game.keys.has('KeyD');
@@ -2898,12 +2953,9 @@ function renderFootballNews(){
       const g=game.goal;
       const scored=b.vy<0 && b.x>g.x && b.x<g.x+g.w && b.y-b.r<g.y+g.h && b.y+b.r>g.y;
       if(scored){
-        game.score+=1;
-        game.goalFlashUntil=performance.now()+1100;
-        renderScore();
-        resetBall(true);
+        registerGoal();
       }else if(b.y-b.r>game.h){
-        resetBall(false);
+        registerMiss();
       }
     }
     function drawBall(){
@@ -2963,10 +3015,6 @@ function renderFootballNews(){
         ctx.lineTo(g.x+g.w,y);
         ctx.stroke();
       }
-      ctx.fillStyle='#ffb04a';
-      ctx.font='800 10px Inter, sans-serif';
-      ctx.fillText('KALE',g.x+50,g.y+26);
-
       ctx.fillStyle='#00e5ff';
       ctx.shadowColor='rgba(0,229,255,.35)';
       ctx.shadowBlur=14;
@@ -2990,11 +3038,7 @@ function renderFootballNews(){
         ctx.textAlign='center';
         ctx.textBaseline='middle';
         ctx.font='950 62px Inter, sans-serif';
-        ctx.fillText('GOALLL!',game.w/2,game.h/2-18);
-        ctx.shadowBlur=0;
-        ctx.fillStyle='rgba(255,255,255,.88)';
-        ctx.font='800 15px Inter, sans-serif';
-        ctx.fillText('Skor bilgin çalışıyor',game.w/2,game.h/2+34);
+        ctx.fillText('+5',game.w/2,game.h/2-18);
         ctx.restore();
       }
     }
@@ -3002,6 +3046,9 @@ function renderFootballNews(){
       if(!game.open) return;
       update(now-game.last);
       draw();
+      if(game.gameOver){
+        return;
+      }
       game.last=now;
       game.raf=requestAnimationFrame(loop);
     }
@@ -3024,8 +3071,12 @@ function renderFootballNews(){
       if(event.code==='Escape') closeGame();
     });
     window.addEventListener('keyup',(event)=>game.keys.delete(event.code));
-    canvas.addEventListener('pointerdown',(event)=>{ if(game.open){ canvas.setPointerCapture(event.pointerId); pointerToBar(event); } });
-    canvas.addEventListener('pointermove',(event)=>{ if(game.open && event.buttons) pointerToBar(event); });
+    canvas.addEventListener('pointerdown',(event)=>{ if(game.open){ isPointerDown=true; event.preventDefault(); canvas.setPointerCapture(event.pointerId); pointerToBar(event); } });
+    canvas.addEventListener('pointermove',(event)=>{ if(game.open && isPointerDown){ pointerToBar(event); } });
+    canvas.addEventListener('pointerup',()=>{ isPointerDown=false; });
+    canvas.addEventListener('pointercancel',()=>{ isPointerDown=false; });
+    canvas.addEventListener('pointerleave',()=>{ isPointerDown=false; });
+    canvas.addEventListener('click',(event)=>{ if(game.open){ event.preventDefault(); pointerToBar(event); } });
     window.addEventListener('resize',()=>{ if(game.ready) setupCanvas(); });
     window.addEventListener('beforeunload',()=>{ if(game.raf) cancelAnimationFrame(game.raf); });
     return {
