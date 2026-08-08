@@ -5,9 +5,9 @@
   const MAX_REWARD_POINTS = 50;
   const STORAGE_KEY = 'xyzskor_predict_guest_session_v1';
   const ASSETS = {
-    field:'/assets/game/field.png',
-    player:'/assets/game/player-sprite.png',
-    ball:'/assets/game/ball.png'
+    field:'/assets/game/field.webp',
+    player:'/assets/game/player-sprite.webp',
+    ball:'/assets/game/ball.webp'
   };
   const STATES = Object.freeze({
     INTRO:'INTRO',
