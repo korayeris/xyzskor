@@ -932,7 +932,7 @@ function fetchLeagueXMediaPayload(){
     return Promise.resolve(payload);
   }
   if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
-    const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+    const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}&v=2`,{headers:{Accept:'application/json'},cache:'no-store'}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||payload?.league!==requestedLeague||!Array.isArray(payload?.clubs)) throw new Error(payload?.error||'X veri katmanı hazır değil.');
       return payload;
@@ -952,7 +952,7 @@ async function loadXClubPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!xClubPostsRequest||xClubPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/football/x-media'+`?league=${encodeURIComponent(requestedLeague)}&v=2`,{headers:{Accept:'application/json'},cache:'no-store'}).then(async response=>{
       const payload=await response.json().catch(()=>null);
       if(!response.ok||payload?.league!==requestedLeague||!Array.isArray(payload?.clubs)) throw new Error(payload?.error||'X veri katmanı hazır değil.');
       return payload;
@@ -1008,7 +1008,7 @@ async function loadPreseasonPosts(){
   try{
     const requestedLeague=activeFootballLeague;
     if(!preseasonPostsRequest||preseasonPostsRequest.league!==requestedLeague){
-      const request=fetch('/api/football/x-preseason'+`?league=${encodeURIComponent(requestedLeague)}`,{headers:{Accept:'application/json'}}).then(async response=>{
+      const request=fetch('/api/football/x-preseason'+`?league=${encodeURIComponent(requestedLeague)}&v=2`,{headers:{Accept:'application/json'},cache:'no-store'}).then(async response=>{
         const payload=await response.json().catch(()=>null);
         if(!response.ok||payload?.league!==requestedLeague||!Array.isArray(payload?.clubs)) throw new Error(payload?.error||'Hazırlık maçı akışı hazır değil.');
         return payload;
