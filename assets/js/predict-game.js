@@ -113,10 +113,11 @@
       w:420,
       h:560,
       keys:new Set(),
-      ball:{ x:210, y:292, vx:3.1, vy:3.6, r:28, spin:0 },
-      bar:{ x:148, y:414, w:124, h:18, speed:8.6, vx:0 },
-      goal:{ x:104, y:78, w:212, h:72 },
-      goalFlashUntil:0
+      ball:{ x:210, y:274, vx:3.7, vy:4.25, r:28, spin:0 },
+      bar:{ x:162, y:468, w:96, h:18, speed:9.2, vx:0 },
+      goal:{ x:124, y:78, w:172, h:72 },
+      goalFlashUntil:0,
+      goalTextUntil:0
     };
 
     function track(name, data = {}){
@@ -208,6 +209,22 @@
       ctx.restore();
     }
 
+    function drawGoalText(now){
+      if(now >= game.goalTextUntil) return;
+      const life = Math.max(0, game.goalTextUntil - now) / 900;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, life * 1.35);
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.lineWidth = 8;
+      ctx.font = '950 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeText('GOAL!', game.w / 2, 218 - (1 - life) * 24);
+      ctx.fillText('GOAL!', game.w / 2, 218 - (1 - life) * 24);
+      ctx.restore();
+    }
+
     function roundRect(x, y, w, h, r){
       const radius = Math.min(r, w / 2, h / 2);
       ctx.beginPath();
@@ -225,14 +242,15 @@
       drawGoal(now);
       drawBar();
       drawBall();
+      drawGoalText(now);
       drawMessage();
     }
 
     function resetBall(direction = 1){
       game.ball.x = game.w / 2;
-      game.ball.y = 292;
-      game.ball.vx = (Math.random() > .5 ? 1 : -1) * (2.4 + Math.random() * 1.7);
-      game.ball.vy = direction * (3.2 + Math.random() * 1.2);
+      game.ball.y = 274;
+      game.ball.vx = (Math.random() > .5 ? 1 : -1) * (3.1 + Math.random() * 2.0);
+      game.ball.vy = direction * (3.9 + Math.random() * 1.4);
       game.ball.spin = 0;
     }
 
@@ -267,6 +285,7 @@
     function registerGoal(){
       if(game.state !== STATES.PLAYING) return;
       game.goals += 1;
+      game.goalTextUntil = performance.now() + 900;
       track('predict_game_goal');
       renderHud();
       if(game.goals >= TARGET_GOALS){
@@ -380,8 +399,8 @@
       if(hitBar){
         const offset = ((ball.x - (bar.x + bar.w / 2)) / (bar.w / 2));
         ball.y = bar.y - ball.r - 1;
-        ball.vy = -(4.3 + Math.min(1.4, Math.abs(offset) * 1.2));
-        ball.vx = clamp(ball.vx + offset * 2.2, -6.2, 6.2);
+        ball.vy = -(5.0 + Math.min(1.7, Math.abs(offset) * 1.35));
+        ball.vx = clamp(ball.vx + offset * 2.6, -7.0, 7.0);
       }
 
       const inGoal = ball.y - ball.r <= game.goal.y + game.goal.h &&

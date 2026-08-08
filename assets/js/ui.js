@@ -2599,8 +2599,19 @@ function renderFootballNews(){
       chatPanel.dataset.closeReady='1';
       const closedKey='xyzskor_side_chat_closed_v1';
       try{
-        if(localStorage.getItem(closedKey)==='1') chatPanel.hidden=true;
+        if(localStorage.getItem(closedKey)!=='open') chatPanel.hidden=true;
       }catch(_error){}
+      let bubble=document.getElementById('sideChatBubble');
+      if(!bubble){
+        bubble=document.createElement('button');
+        bubble.type='button';
+        bubble.id='sideChatBubble';
+        bubble.className='side-chat-bubble';
+        bubble.setAttribute('aria-label','Canlı Tribün sohbetini aç');
+        bubble.innerHTML='<span>Canlı Tribün</span><b><i></i><i></i><i></i></b>';
+        document.body.appendChild(bubble);
+      }
+      bubble.classList.toggle('is-open', !chatPanel.hidden);
       const header=chatPanel.querySelector('header') || chatPanel;
       const closeButton=document.createElement('button');
       closeButton.type='button';
@@ -2608,9 +2619,15 @@ function renderFootballNews(){
       closeButton.setAttribute('aria-label','Sohbet alanını kapat');
       closeButton.textContent='x';
       header.appendChild(closeButton);
+      bubble.addEventListener('click',()=>{
+        chatPanel.hidden=false;
+        bubble.classList.add('is-open');
+        try{ localStorage.setItem(closedKey,'open'); }catch(_error){}
+      });
       closeButton.addEventListener('click',()=>{
         chatPanel.hidden=true;
-        try{ localStorage.setItem(closedKey,'1'); }catch(_error){}
+        bubble.classList.remove('is-open');
+        try{ localStorage.setItem(closedKey,'closed'); }catch(_error){}
       });
     }
     if(form && input && feed && !form.dataset.ready){
@@ -2652,13 +2669,15 @@ function renderFootballNews(){
 
     const miniGame = miniGoalGameController;
 
-    function corridorBounds(){
-      const gameOverlay = document.getElementById('miniGoalOverlay');
-      const gameRect = gameOverlay ? gameOverlay.getBoundingClientRect() : null;
-      const leftWall = gameRect ? Math.max(8, Math.round(gameRect.left)) : 16;
-      const xMin = leftWall + 2;
-      const bannerWidth = Math.max(160, Math.min(420, gameRect ? Math.round(gameRect.width) : 420));
-      const xMax = Math.min(window.innerWidth - 24, Math.max(xMin + 120, leftWall + bannerWidth - 20));
+      function corridorBounds(){
+        const gameOverlay = document.getElementById('miniGoalOverlay');
+        const gameRect = gameOverlay ? gameOverlay.getBoundingClientRect() : null;
+        const banner = document.querySelector('.predict-ad-skyscraper, .predict-ad, .side-ball-widget');
+        const bannerRect = banner ? banner.getBoundingClientRect() : null;
+        const leftWall = bannerRect ? Math.max(8, Math.round(bannerRect.left)) : (gameRect ? Math.max(8, Math.round(gameRect.left)) : 16);
+        const xMin = leftWall + 2;
+        const bannerWidth = Math.max(160, Math.min(420, bannerRect ? Math.round(bannerRect.width) : (gameRect ? Math.round(gameRect.width) : 420)));
+        const xMax = Math.min(window.innerWidth - 24, Math.max(xMin + 120, leftWall + bannerWidth - 20));
       const yMin = Math.max(120, Math.min(Math.floor(window.innerHeight * 0.24), 190));
       const yMax = Math.max(yMin + 260, window.innerHeight - 120);
       return {xMin: Math.min(xMin, xMax - 60), xMax, yMin, yMax};
