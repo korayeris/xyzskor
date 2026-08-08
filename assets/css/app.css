@@ -5723,3 +5723,17 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
     bottom:14px!important;
   }
 }
+
+/* v125 - Raise live stands chat above the bottom edge */
+.side-chat-bubble{
+  bottom:120px!important;
+}
+@media(max-width:899px){
+  .side-chat-bubble{
+    bottom:92px!important;
+  }
+  .side-chat-prototype{
+    bottom:146px!important;
+    top:auto!important;
+  }
+}
