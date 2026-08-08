@@ -2636,13 +2636,13 @@ function renderFootballNews(){
     function corridorBounds(){
       const gameOverlay = document.getElementById('miniGoalOverlay');
       const gameRect = gameOverlay ? gameOverlay.getBoundingClientRect() : null;
-      const leftWall = gameRect ? Math.round(gameRect.left) : 16;
-      const xMin = 16;
+      const leftWall = gameRect ? Math.max(8, Math.round(gameRect.left)) : 16;
+      const xMin = leftWall + 2;
       const bannerWidth = Math.max(160, Math.min(420, gameRect ? Math.round(gameRect.width) : 420));
       const xMax = Math.min(window.innerWidth - 24, Math.max(xMin + 120, leftWall + bannerWidth - 20));
       const yMin = Math.max(120, Math.min(Math.floor(window.innerHeight * 0.24), 190));
       const yMax = Math.max(yMin + 260, window.innerHeight - 120);
-      return {xMin, xMax, yMin, yMax};
+      return {xMin: Math.min(xMin, xMax - 60), xMax, yMin, yMax};
     }
 
     function randomBetween(minimum, maximum){
@@ -2669,30 +2669,6 @@ function renderFootballNews(){
         vy: options.vy != null ? vy : Math.sin(angle) * speed * (options.slow ? 0.7 : 1),
         interactive: !!options.interactive
       };
-    }
-
-    function styleGhost(el, size, alpha){
-      el.style.position = 'fixed';
-      el.style.left = '0';
-      el.style.top = '0';
-      el.style.display = 'grid';
-      el.style.placeItems = 'center';
-      el.style.width = `${Math.round(size)}px`;
-      el.style.height = `${Math.round(size)}px`;
-      el.style.border = '1px solid rgba(255,255,255,.16)';
-      el.style.borderRadius = '999px';
-      el.style.background = 'linear-gradient(145deg,#f8fafc,#dae2ec)';
-      el.style.color = '#101217';
-      el.style.fontWeight = '900';
-      el.style.fontFamily = 'var(--font-body)';
-      el.style.lineHeight = '1';
-      el.style.textShadow = '0 3px 4px rgba(0,0,0,.18)';
-      el.style.pointerEvents = 'none';
-      el.style.userSelect = 'none';
-      el.style.zIndex = '9998';
-      el.style.opacity = alpha;
-      el.style.fontSize = `${Math.max(12, Math.round(size * 0.62))}px`;
-      el.style.textIndent = '0';
     }
 
     function placeBall(ball){
@@ -2748,11 +2724,14 @@ function renderFootballNews(){
     frame.lastTime = 0;
 
     const openFromTrigger = (event)=>{
-      event.preventDefault();
+      if(event){
+        event.preventDefault();
+        event.stopPropagation();
+      }
       miniGame.open();
     };
     trigger.addEventListener('click', openFromTrigger);
-    trigger.addEventListener('pointerdown', openFromTrigger);
+    trigger.addEventListener('pointerup', openFromTrigger);
     miniGame.restart?.();
     introLoopId = requestAnimationFrame(frame);
     window.addEventListener('resize', () => {
