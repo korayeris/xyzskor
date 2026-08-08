@@ -5410,3 +5410,71 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
   .predict-game-drag-hint{ bottom:12.2%; }
   .predict-game-points{ bottom:7.6%; }
 }
+
+/* v119 - Direct drag-to-shoot Predict mini game */
+.predict-game-field[data-state="aiming"] .predict-game-goal{
+  opacity:.58;
+  box-shadow:0 0 26px rgba(255,255,255,.28), inset 0 0 24px rgba(0,185,255,.18);
+}
+.predict-game-aim-target{
+  position:absolute;
+  left:0;
+  top:18.6%;
+  width:24px;
+  height:24px;
+  z-index:7;
+  border-radius:999px;
+  transform:translateX(var(--target-x,50%)) translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(255,255,255,1) 0 4px, rgba(255,184,0,.95) 5px 10px, rgba(255,255,255,.2) 11px 12px, transparent 13px);
+  filter:drop-shadow(0 0 13px rgba(255,184,0,.85));
+  pointer-events:none;
+  transition:opacity .12s ease, transform .1s ease;
+  animation:pgAimTargetPulse .9s ease-in-out infinite;
+}
+.predict-game-aim-line{
+  left:var(--aim-left,50%) !important;
+  top:var(--aim-top,50%) !important;
+  width:5px !important;
+  height:var(--aim-height,220px) !important;
+  transform:translate(-50%,-100%) rotate(var(--aim-angle,0deg)) !important;
+  transform-origin:50% 100% !important;
+  background:linear-gradient(180deg, rgba(255,184,0,.96), rgba(255,255,255,.92), rgba(255,255,255,.18)) !important;
+  border-radius:999px;
+  z-index:6;
+  filter:drop-shadow(0 0 12px rgba(255,184,0,.72));
+}
+.predict-game-kick-zone{ display:none !important; }
+.predict-game-ball{
+  width:17.5%;
+  max-width:82px;
+}
+.predict-game-player{
+  bottom:5.8%;
+  width:min(47%, 210px);
+}
+.predict-game-drag-hint{
+  bottom:15.5%;
+  padding:8px 18px;
+  border-radius:999px;
+  color:#fff;
+  font-weight:900;
+  letter-spacing:.02em;
+  background:rgba(255,153,0,.84);
+  box-shadow:0 12px 26px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.28) inset;
+}
+.predict-game-points{ bottom:9.2%; }
+.predict-game-field[data-state="aiming"] .predict-game-player-sprite{ animation:pgPlayerReady 1s ease-in-out infinite; }
+.predict-game-field[data-state="aiming"] .predict-game-ball{ filter:drop-shadow(0 0 10px rgba(255,255,255,.72)) drop-shadow(0 13px 8px rgba(0,0,0,.32)); }
+@keyframes pgAimTargetPulse{
+  0%,100%{ transform:translateX(var(--target-x,50%)) translate(-50%,-50%) scale(1); }
+  50%{ transform:translateX(var(--target-x,50%)) translate(-50%,-50%) scale(1.18); }
+}
+@keyframes pgPlayerReady{
+  0%,100%{ transform:translateY(0) rotate(-1deg) scale(1); }
+  50%{ transform:translateY(-4px) rotate(1deg) scale(1.025); }
+}
+@media (max-width:480px){
+  .predict-game-player{ bottom:5.5%; width:48%; }
+  .predict-game-drag-hint{ bottom:14.3%; }
+  .predict-game-points{ bottom:8.2%; }
+}
