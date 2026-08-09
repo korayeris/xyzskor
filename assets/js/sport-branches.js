@@ -2,11 +2,11 @@
 
 ;(() => {
   const jokes = [
-    'Bu site senden para istemez; c\u00fczdan\u0131n trib\u00fcnden rahat\u00e7a izleyebilir.',
-    '\u00dcyelik \u00fccreti 0 TL. Hesap makinesi bile \u015fa\u015f\u0131rd\u0131.',
-    'Bahis yok, para yat\u0131rmak yok; tahmin var, e\u011flence var.',
-    'Kart bilgisi istemiyoruz; skor bilgisi bize yeter.',
-    'Kasaya de\u011fil sahaya bak\u0131yoruz: XYZSKOR \u00fccretsiz.'
+    'Senin paran burada ge\u00e7mez; \u00e7\u00fcnk\u00fc burada para ge\u00e7mez.',
+    'C\u00fczdan\u0131n\u0131 \u00e7\u0131karma, hakem oyunu durdurur.',
+    'Kart\u0131n\u0131 cebine koy; burada tek kart sar\u0131 kart.',
+    'Kasaya gitme, burada kasa yok.',
+    '\u00dccret 0 TL; pazarl\u0131k yaparsan yine 0 TL.'
   ];
   function startMoneyTicker(){
     const ticker=document.getElementById('liveTicker');
