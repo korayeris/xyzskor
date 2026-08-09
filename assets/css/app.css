@@ -5737,3 +5737,6 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
     top:auto!important;
   }
 }
+
+/* Transfer center removed; news feed remains active. */
+[data-football-route="transfers"],#footballTransfersView,button[onclick*="openFootballSection('transfers')"]{display:none!important}

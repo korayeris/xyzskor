@@ -537,7 +537,6 @@ const TRANSFER_PLAYER_PHOTOS=Object.freeze({
   'Kassoum Ouattara':'https://images.fotmob.com/image_resources/playerimages/1387194.png',
   'Alexander Nübel':'https://images.fotmob.com/image_resources/playerimages/554534.png',
   'Metehan Mimaroğlu':'https://images.fotmob.com/image_resources/playerimages/389181.png',
-  'Mohamed Salah':'https://images.fotmob.com/image_resources/playerimages/292462.png',
   'Julio Enciso':'https://images.fotmob.com/image_resources/playerimages/1073742.png',
   'Can Uzun':'https://images.fotmob.com/image_resources/playerimages/1367924.png',
   'Jhon Lucumí':'https://images.fotmob.com/image_resources/playerimages/860913.png',
@@ -1381,25 +1380,6 @@ function transferSignalCardHTML(entry){
   const avatar=account.profile_image_url?`<img src="${escapeHTML(account.profile_image_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:'𝕏';
   return `<article class="transfer-signal-card ${entry?.pinned?'is-pinned ':''}${media?'has-media':''}"><header class="transfer-signal-card-head"><span class="transfer-signal-avatar">${avatar}</span><span><strong>${escapeHTML(account.team||account.handle||'Kaynak')}</strong><small>@${escapeHTML(account.handle||'source')}</small></span><b aria-label="X">𝕏</b></header><div class="transfer-signal-card-body"><p>${text}</p>${media}</div><footer class="transfer-signal-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?.created_at?escapeHTML(xPostDate(post.created_at)):'Polling aktif'}</time><a href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">Gönderiyi aç ↗</a></footer></article>`;
 }
-function salahPinnedSignalPost(){
-  if(!['super-lig','premier-league'].includes(activeFootballLeague)) return null;
-  const record=(leagueTransferRecords('rumours')||[]).find(item=>normalizeLoose(item.name).includes('salah')) || TRANSFER_CENTER_DATA.rumours.find(item=>normalizeLoose(item.name).includes('salah')) || {};
-  const photo=record.photo||TRANSFER_PLAYER_PHOTOS['Mohamed Salah']||'https://images.fotmob.com/image_resources/playerimages/292462.png';
-  const sourceUrl='https://talksport.com/football/4491649/why-mohamed-salah-number-61-shirt-trabzonspor/';
-  return {
-    account:{team:'XYZSKOR Transfer',handle:'xyzskor',url:sourceUrl,profile_image_url:null,publisher:true},
-    post:{
-      id:'xyzskor-pinned-salah',
-      text:'Mohamed Salah dosyasında son durum: İngiltere kaynaklı son haberlerde Trabzonspor’un iki yıllık anlaşma iddiası ve 61 numara detayı öne çıkıyor. Kulüp teyidi gelene kadar kayıt “transfer iddiası” olarak izleniyor.',
-      translated_text_tr:null,
-      created_at:'2026-08-05T14:40:00+03:00',
-      url:sourceUrl,
-      metrics:{reply_count:24,retweet_count:199,like_count:9700,impression_count:1100000},
-      media:photo?[{media_key:'salah-cover',type:'photo',url:photo,width:900,height:900,alt_text:'Mohamed Salah transfer haberi'}]:[]
-    },
-    pinned:true
-  };
-}
 function renderTransferSignals(shell){
   if(!shell) return;
   const requestedLeague=activeFootballLeague;
@@ -1407,8 +1387,7 @@ function renderTransferSignals(shell){
   fetchLeagueXMediaPayload().then(payload=>{
     if(activeFootballLeague!==requestedLeague) return;
     const accounts=(payload?.publishers||[]).slice(0,3);
-    const pinned=salahPinnedSignalPost();
-    const posts=[...(pinned?[pinned]:[]),...accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,5)];
+    const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,5);
     if(!posts.length){
       const fallback=(accounts.length?accounts:rankedXClubs().slice(0,4)).map(account=>({account,post:null}));
       shell.innerHTML=`<div class="transfer-signal-head"><span>X kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · canlı polling bekleniyor</small></div><div class="transfer-signal-stream">${fallback.map(transferSignalCardHTML).join('')}</div>`;
@@ -2507,32 +2486,17 @@ function renderFootballNews(){
 
   renderFootballTransfers = function(){
     const area=document.getElementById('footballTransferStream'); if(!area) return;
-    const signalShellMarkup=`<div class="transfer-signal-shell" data-transfer-signals></div>`;
-    if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>item.key!=='all').every(item=>leagueTransferCache.has(item.key))){
-      ensureAllLeagueTransferFeeds().then(()=>renderFootballTransfers());
-    }else if(activeFootballLeague!=='all' && !leagueTransferCache.has(activeFootballLeague)){
-      ensureLeagueTransferFeed().then(()=>renderFootballTransfers());
-    }
-    if(activeFootballLeague!=='all'){
-      const label=competitionLabelBySlug(activeFootballLeague);
-      const rows=leagueTransferRecords('confirmed').slice(0,4);
-      const errors=(leagueTransferCache.get(activeFootballLeague)?.errors)||[];
-      const hasRestrictedError=errors.some(item=>/403|restricted|access/i.test(String(item?.message||'')));
-      area.innerHTML=rows.length
-        ? `<div class="transfer-compact-list">${rows.map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`
-        : `<div class="league-module-waiting"><strong>${escapeHTML(label)} transfer akışı ${hasRestrictedError?'kısıtlı':'hazırlanıyor'}</strong><p>${escapeHTML(hasRestrictedError?`${label} için rumor ucu plan dışında kaldı.`:providerUnavailableMessage(activeFootballLeague))}</p></div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
-      renderTransferSignals(area.querySelector('[data-transfer-signals]'));
+    const isHeadline=item=>item && !['transfer','rumour','transfer_development'].includes(String(item.kind||item.category||item.type||'').toLocaleLowerCase('tr-TR')) && !/salah/i.test(`${item.title||''} ${item.text||''}`);
+    const apiEntries=editorialNewsEntries().filter(isHeadline);
+    const primary=apiEntries[0] || contextualEditorialEntries().find(isHeadline);
+    if(!primary){
+      area.innerHTML=footballEmpty('Gündem yükleniyor','Canlı haber API’sindeki yeni manşet geldiğinde burada yayınlanacak.');
       return;
     }
-    const transfers=publishedStoryCards().map((card,index)=>({card,index})).filter(entry=>['transfer','transfer_development'].includes(String(entry.card.category || entry.card.type || '').toLocaleLowerCase('tr-TR')));
-    if(!transfers.length){
-      area.innerHTML=`<div class="transfer-compact-list">${TRANSFER_CENTER_DATA.confirmed.slice(0,3).map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
-      renderTransferSignals(area.querySelector('[data-transfer-signals]'));
-      return;
-    }
-    area.innerHTML=`<div class="football-news-list">${transfers.slice(0,4).map(({card,index})=>{ const confidence=storyConfidence(card); return `<article class="football-news-card" tabindex="0" role="button" data-news-index="${index}" aria-label="${escapeHTML(card.title||'Transfer haberi')} haberini aç">${storyIdentityHTML(card)}<h3>${escapeHTML(card.title || 'Transfer gelişmesi')}</h3>${card.text?`<p>${escapeHTML(card.text)}</p>`:''}<div class="football-news-meta">${confidence?`<span class="confidence-chip ${confidence.tone}">${confidence.label}</span>`:''}${card.source?`<span>Kaynak: ${escapeHTML(card.source)}</span>`:''}${card.verified_at?`<span>${escapeHTML(fmtEditorialDate(card.verified_at))}</span>`:''}</div></article>`; }).join('')}</div>${signalShellMarkup}`;
-    area.querySelectorAll('[data-news-index]').forEach(article=>{ article.onclick=()=>openNewsDetail(Number(article.dataset.newsIndex)); article.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openNewsDetail(Number(article.dataset.newsIndex));} }; });
-    renderTransferSignals(area.querySelector('[data-transfer-signals]'));
+    const image=primary.image?`<span class="editorial-highlight-image ${primary.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">●</span>';
+    area.innerHTML=`<article class="football-news-card" tabindex="0" role="button" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="football-news-identity"><div class="football-news-byline"><b>${escapeHTML(primary.label||'Son dakika')}</b><span>${escapeHTML(primary.source||'Canlı haber API')}</span></div>${image}</div><h3>${escapeHTML(primary.title)}</h3>${primary.text?`<p>${escapeHTML(primary.text)}</p>`:''}<div class="football-news-meta"><span>API’den güncel</span>${primary.time?`<span>${escapeHTML(primary.time.includes('T')?fmtEditorialDate(primary.time):primary.time)}</span>`:''}</div></article><button class="football-module-full-link" type="button" onclick="openFootballSection('news')">Tüm gündemi aç →</button>`;
+    const card=area.querySelector('.football-news-card');
+    if(card){ card.onclick=()=>openFootballSection('news'); card.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openFootballSection('news');} }; }
   };
 
   renderFootballStandingsCompact = function(){
