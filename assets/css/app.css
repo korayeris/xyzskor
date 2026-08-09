@@ -6088,3 +6088,22 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
   font:850 10px/1 var(--font-mono);
   letter-spacing:.08em;
 }
+
+/* Launch readiness: keep every game control inside the visible viewport. */
+body.mini-goal-open .mini-goal-overlay{
+  inset:max(10px,env(safe-area-inset-top)) auto auto 16px!important;
+  max-height:calc(100dvh - max(20px,env(safe-area-inset-top)))!important;
+  align-items:start!important;
+}
+body.mini-goal-open .mini-goal-modal{
+  max-height:calc(100dvh - max(20px,env(safe-area-inset-top)))!important;
+}
+@media(max-width:767px){
+  body.mini-goal-open .mini-goal-overlay{
+    inset:max(8px,env(safe-area-inset-top)) auto auto 9px!important;
+    width:calc(100vw - 18px)!important;
+  }
+}
+
+/* Do not expose an unfinished integration during the first public showing. */
+#instagramDesk:has(#instagramFeedStatus[data-state="unconfigured"]){display:none!important}
