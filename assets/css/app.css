@@ -6051,3 +6051,8 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
 /* v127: restrained social-feed density */
 .club-social-stage>.club-social-card:nth-child(n+5){display:none}
 .preseason-social-stage>.club-social-card:nth-child(n+3){display:none}
+
+
+/* v128: keep the homepage editorial, not a wall of tweets */
+#preseasonSocialSection{display:none!important}
+.club-social-stage>.club-social-card:nth-child(n+3){display:none!important}
