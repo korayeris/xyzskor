@@ -2423,17 +2423,16 @@ function renderFootballNews(){
       area.innerHTML=`<div class="football-module-kicker">${escapeHTML(competitionLabelBySlug(activeFootballLeague))} · MERKEZ</div><h2>${escapeHTML(ctx.headline)}</h2><p>${escapeHTML(ctx.copy)}</p>${supporting?`<div class="featured-source">${escapeHTML(supporting)}</div>`:''}<div class="headline-actions"><button type="button" onclick="openFootballSection('matches')">Maçlara geç →</button><button type="button" onclick="openFootballSection('standings')">Tabloyu aç →</button></div>`;
       return;
     }
-    const story=WEEKLY_STORIES[activeWeek];
-    if(!story || !story.is_published){
-      const fallback=leagueEditorialEntries()[0];
-      if(fallback){
-        area.innerHTML=`<div class="football-module-kicker">${escapeHTML(competitionLabelBySlug(activeFootballLeague))} · GÜNCEL BAĞLAM</div><h2>${escapeHTML(fallback.title)}</h2><p>${escapeHTML(fallback.text||activeLeagueContext().copy)}</p><div class="featured-source">${escapeHTML(fallback.source||'XYZSKOR yayın masası')}</div><div class="headline-actions"><button type="button" onclick="openFootballSection(fallback.routeTarget||'news')">Detaya git →</button></div>`;
-        return;
-      }
+    const weekMatches=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,9);
+    const opening=weekMatches[0];
+    if(opening){
+      const firstDate=fmtEditorialDate(opening.kickoff);
+      const lastDate=weekMatches.length>1?fmtEditorialDate(weekMatches[weekMatches.length-1].kickoff):firstDate;
+      const showcase=weekMatches.slice(0,3).map((match,index)=>`<button class="week-one-match" type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')"><span>${index===0?'AÇILIŞ':fmtKickoff(match.kickoff)}</span><b>${crestHTML(match.ev,'xs')}${escapeHTML(match.ev)}</b><i>vs</i><b>${crestHTML(match.konuk,'xs')}${escapeHTML(match.konuk)}</b></button>`).join('');
+      area.innerHTML=`<div class="football-module-kicker">CANLI FİKSTÜR · ${escapeHTML(activeWeek)}. HAFTA</div><h2>${escapeHTML(opening.ev)} – ${escapeHTML(opening.konuk)} ile sezon başlıyor</h2><p>${escapeHTML(weekMatches.length)} maçlık ilk hafta programı ${escapeHTML(firstDate)} ile ${escapeHTML(lastDate)} arasında oynanacak. Vitrin, Sportmonks fikstürü değiştikçe otomatik güncellenir.</p><div class="week-one-showcase">${showcase}</div><div class="featured-source">Sportmonks canlı fikstür · ${escapeHTML(fmtEditorialDate(new Date().toISOString()))}</div><div class="headline-actions"><button type="button" onclick="openFootballSection('matches')">1. hafta maçlarını aç →</button></div>`;
+      return;
     }
-    const source = story?.source ? `Kaynak: ${escapeHTML(story.source)}` : '';
-    const checked = story?.verified_at || story?.published_at || story?.updated_at;
-    area.innerHTML=`<div class="football-module-kicker">Haftanın Manşeti · ${escapeHTML(activeWeek)}. Hafta</div><h2>${escapeHTML(story?.title || (activeWeek+'. Hafta'))}</h2>${story?.intro?`<p>${escapeHTML(story.intro)}</p>`:''}${source || checked?`<div class="featured-source">${source}${source&&checked?' · ':''}${checked?escapeHTML(fmtEditorialDate(checked)):''}</div>`:''}<div class="headline-actions"><button type="button" onclick="openFootballSection('news')">Gündemi takip et →</button></div>`;
+    area.innerHTML=footballEmpty('1. hafta fikstürü yükleniyor','Sportmonks canlı fikstürü geldiğinde vitrin otomatik güncellenecek.');
   };
 
   renderFootballNews = function(){
@@ -2492,7 +2491,9 @@ function renderFootballNews(){
     const area=document.getElementById('footballTransferStream'); if(!area) return;
     const isHeadline=item=>item && !['transfer','rumour','transfer_development'].includes(String(item.kind||item.category||item.type||'').toLocaleLowerCase('tr-TR')) && !/salah/i.test(`${item.title||''} ${item.text||''}`);
     const apiEntries=editorialNewsEntries().filter(isHeadline);
-    const primary=apiEntries[0] || contextualEditorialEntries().find(isHeadline);
+    const openingMatch=activeFootballLeague==='super-lig'?matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0]:null;
+    const liveOpening=openingMatch?{label:'1. HAFTA · CANLI FİKSTÜR',source:'Sportmonks Football API',title:`${openingMatch.ev} – ${openingMatch.konuk}: sezonun açılışı`,text:`${fmtKickoff(openingMatch.kickoff)} tarihinde oynanacak açılış karşılaşmasıyla Süper Lig'de yeni sezon başlıyor.`,time:openingMatch.kickoff,image:null,imageType:'none'}:null;
+    const primary=liveOpening || apiEntries[0] || contextualEditorialEntries().find(isHeadline);
     if(!primary){
       area.innerHTML=footballEmpty('Gündem yükleniyor','Canlı haber API’sindeki yeni manşet geldiğinde burada yayınlanacak.');
       return;
