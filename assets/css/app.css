@@ -6046,3 +6046,8 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
   .week-one-showcase{grid-template-columns:1fr}
   .week-one-match{min-height:66px}
 }
+
+
+/* v127: restrained social-feed density */
+.club-social-stage>.club-social-card:nth-child(n+5){display:none}
+.preseason-social-stage>.club-social-card:nth-child(n+3){display:none}
