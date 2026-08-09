@@ -1862,6 +1862,9 @@ const MULTISPORT_FEEDS = Object.freeze({
   volleyball: { host: "v1.volleyball.api-sports.io", path: "games" },
   hockey: { host: "v1.hockey.api-sports.io", path: "games" },
   rugby: { host: "v1.rugby.api-sports.io", path: "games" },
+  baseball: { host: "v1.baseball.api-sports.io", path: "games" },
+  handball: { host: "v1.handball.api-sports.io", path: "games" },
+  americanFootball: { host: "v1.american-football.api-sports.io", path: "games" },
 });
 
 function multisportDate() {
@@ -1872,8 +1875,19 @@ function normalizeMultisportItem(sport, row) {
   const mma = sport === "mma";
   const first = mma ? row?.fighters?.first : row?.teams?.home;
   const second = mma ? row?.fighters?.second : row?.teams?.away;
-  const firstScore = row?.scores?.home?.total ?? row?.scores?.home;
-  const secondScore = row?.scores?.away?.total ?? row?.scores?.away;
+  const scoreValue = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value === "number" || typeof value === "string") return value;
+    if (typeof value === "object") {
+      for (const key of ["total", "current", "points", "runs", "goals", "score"]) {
+        const nested = scoreValue(value[key]);
+        if (nested !== null) return nested;
+      }
+    }
+    return null;
+  };
+  const firstScore = scoreValue(row?.scores?.home);
+  const secondScore = scoreValue(row?.scores?.away);
   return {
     id: row?.id,
     league: mma ? row?.slug : row?.league?.name,
@@ -1892,7 +1906,7 @@ async function handleMultisportToday(request, env, context) {
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v1?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v3?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
@@ -1903,7 +1917,7 @@ async function handleMultisportToday(request, env, context) {
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload || Object.keys(payload.errors || {}).length) throw new Error("provider_unavailable");
       const rows = Array.isArray(payload.response) ? payload.response : [];
-      return [sport, rows.map((row) => normalizeMultisportItem(sport, row)).filter((row) => row.id).slice(0, 12)];
+      return [sport, rows.map((row) => normalizeMultisportItem(sport, row)).filter((row) => row.id).slice(0, 60)];
     } catch (_error) {
       return [sport, []];
     }

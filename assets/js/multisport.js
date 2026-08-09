@@ -4,7 +4,10 @@
     mma: 'UFC / MMA',
     volleyball: 'Voleybol',
     hockey: 'Buz Hokeyi',
-    rugby: 'Rugby'
+    rugby: 'Rugby',
+    baseball: 'Beyzbol',
+    handball: 'Hentbol',
+    americanFootball: 'Amerikan Futbolu'
   };
 
   let feedPromise = null;
@@ -15,8 +18,8 @@
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
-  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby'}[sport] || 'basketbol');
-  const viewSlug = (view) => ({games:'maclar',teams:'takimlar',predict:'predict'}[view] || '');
+  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu'}[sport] || 'basketbol');
+  const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
 
   function hubPath(sport, view){
     const suffix = viewSlug(view);
@@ -25,8 +28,8 @@
 
   function routeState(){
     const parts = location.pathname.split('/').filter(Boolean);
-    const sport = ({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby'})[parts[0]];
-    const view = ({maclar:'games',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
+    const sport = ({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball'})[parts[0]];
+    const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
     return sport ? {sport,view} : null;
   }
 
@@ -80,10 +83,22 @@
     title.textContent = SPORT_LABELS[activeSport] || 'Spor';
     note.textContent = `${payload?.date || ''} programı · ücretsiz API-Sports verisi`;
     const viewNav = document.getElementById('multiSportViews');
-    const views = activeSport === 'basketball' ? [['home','Genel'],['games','Maçlar'],['teams','Takımlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son maçlar'],['predict','Predict']] : [['home','Genel'],['games','Maçlar']];
+    const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma\\u00e7lar'],['leagues','Ligler'],['teams','Tak\\u0131mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma\\u00e7lar'],['leagues','Organizasyonlar'],['predict','Predict']] : [['home','Genel'],['games','Ma\\u00e7lar'],['leagues','Ligler']];
     viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}">${label}</button>`).join('');
     viewNav.querySelectorAll('[data-multi-view]').forEach((button) => button.addEventListener('click', () => openHub(activeSport, button.dataset.multiView, true)));
-    if(activeView === 'teams'){
+    if(activeView === 'leagues'){
+      const groups = new Map();
+      items.forEach((item) => {
+        const name = item.league || item.category || 'Diger organizasyon';
+        if(!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(item);
+      });
+      grid.innerHTML = groups.size ? [...groups.entries()].map(([name, events]) => {
+        const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || '')).length;
+        return '<article class="multi-league-card"><span>LIG / ORGANIZASYON</span><h3>'+escapeHTML(name)+'</h3><div><b>'+events.length+'</b><small>gunluk etkinlik</small></div><em class="'+(live ? 'is-live' : '')+'">'+(live ? live+' canli' : 'program aktif')+'</em></article>';
+      }).join('') : '<div class="multi-event-empty"><strong>Bugunun lig programi hazirlaniyor.</strong></div>';
+      return;
+    }    if(activeView === 'teams'){
       const unique = new Map();
       items.forEach((item) => [item.first,item.second].forEach((team) => { if(team?.name) unique.set(team.name,team); }));
       grid.innerHTML = unique.size ? [...unique.values()].map(teamCardHTML).join('') : '<div class="multi-event-empty"><strong>Bugünün takım listesi hazırlanıyor.</strong></div>';
