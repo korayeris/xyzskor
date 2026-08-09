@@ -1856,6 +1856,64 @@ async function handleInstagramFeed(request, env, context) {
   }
 }
 
+const MULTISPORT_FEEDS = Object.freeze({
+  basketball: { host: "v1.basketball.api-sports.io", path: "games" },
+  mma: { host: "v1.mma.api-sports.io", path: "fights" },
+  volleyball: { host: "v1.volleyball.api-sports.io", path: "games" },
+  hockey: { host: "v1.hockey.api-sports.io", path: "games" },
+  rugby: { host: "v1.rugby.api-sports.io", path: "games" },
+});
+
+function multisportDate() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function normalizeMultisportItem(sport, row) {
+  const mma = sport === "mma";
+  const first = mma ? row?.fighters?.first : row?.teams?.home;
+  const second = mma ? row?.fighters?.second : row?.teams?.away;
+  const firstScore = row?.scores?.home?.total ?? row?.scores?.home;
+  const secondScore = row?.scores?.away?.total ?? row?.scores?.away;
+  return {
+    id: row?.id,
+    league: mma ? row?.slug : row?.league?.name,
+    category: row?.category || null,
+    time: row?.time || null,
+    timestamp: row?.timestamp || null,
+    status: row?.status?.long || row?.status?.short || null,
+    score: firstScore != null && secondScore != null ? `${firstScore} - ${secondScore}` : null,
+    first: { name: first?.name || null, logo: first?.logo || null, winner: mma ? first?.winner : null },
+    second: { name: second?.name || null, logo: second?.logo || null, winner: mma ? second?.winner : null },
+  };
+}
+
+async function handleMultisportToday(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const date = multisportDate();
+  const cache = edgeCache();
+  const cacheKey = new Request(new URL(`/api/sports/today-v1?date=${date}`, request.url), { method: "GET" });
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+  const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
+    try {
+      const url = new URL(`https://${feed.host}/${feed.path}`);
+      url.searchParams.set("date", date);
+      const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload || Object.keys(payload.errors || {}).length) throw new Error("provider_unavailable");
+      const rows = Array.isArray(payload.response) ? payload.response : [];
+      return [sport, rows.map((row) => normalizeMultisportItem(sport, row)).filter((row) => row.id).slice(0, 12)];
+    } catch (_error) {
+      return [sport, []];
+    }
+  }));
+  const payload = { source: "api-sports-free", date, updatedAt: new Date().toISOString(), sports: Object.fromEntries(entries) };
+  const response = jsonResponse(payload, 200, { "Cache-Control": "public, max-age=900, s-maxage=21600" });
+  writeEdgeCache(cache, cacheKey, response, context);
+  return response;
+}
+
 function handleHealth(request, env) {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
@@ -1894,6 +1952,7 @@ async function fetchAsset(request, env, pathname) {
 export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (url.pathname === "/api/predict-game/status") return handlePredictGameStatus(request, env);
     if (url.pathname === "/api/predict-game/session") return handlePredictGameSession(request, env);

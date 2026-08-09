@@ -6107,3 +6107,28 @@ body.mini-goal-open .mini-goal-modal{
 
 /* Do not expose an unfinished integration during the first public showing. */
 #instagramDesk:has(#instagramFeedStatus[data-state="unconfigured"]){display:none!important}
+
+/* v131 - compact multi-sport live desk */
+.multisport-hub{max-width:1240px;margin:0 auto;padding:24px 22px 70px;color:#eef2f5}
+.multisport-hub[hidden]{display:none!important}
+body.multisport-open .football-context-nav,
+body.multisport-open .football-league-command,
+body.multisport-open .predict-leaderboard-slot,
+body.multisport-open>.wrap{display:none!important}
+.multisport-hero{display:flex;align-items:end;justify-content:space-between;gap:20px;padding:34px;border:1px solid #34404b;border-radius:22px;background:radial-gradient(circle at 82% 20%,rgba(255,166,0,.18),transparent 34%),linear-gradient(135deg,#17212b,#0c1117 72%)}
+.multisport-hero span{color:#ff9a35;font:800 9px/1 var(--font-mono);letter-spacing:.18em}
+.multisport-hero h1{margin:9px 0 5px;font:800 clamp(30px,5vw,58px)/.95 var(--font-display);letter-spacing:-.055em}
+.multisport-hero p{margin:0;color:#8d99a5;font-size:11px}
+.multisport-hero>b{padding:9px 12px;border:1px solid rgba(82,224,145,.35);border-radius:999px;color:#63e8a2;font:800 9px/1 var(--font-mono)}
+.multisport-switcher{display:flex;gap:8px;margin:14px 0;padding:10px;overflow-x:auto;border:1px solid #2d3740;border-radius:14px;background:#11171d}
+.multisport-switcher button{flex:0 0 auto;padding:10px 14px;border:1px solid #39444e;border-radius:9px;background:#192129;color:#9da8b2;font:750 11px/1 var(--font-display);cursor:pointer}
+.multisport-switcher button.active{border-color:#ff9a35;background:#2a2017;color:#fff}
+.multi-event-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.multi-event-card{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;padding:16px;border:1px solid #303a43;border-radius:14px;background:linear-gradient(145deg,#171e25,#10161c)}
+.multi-event-card header{grid-column:1/-1;display:flex;justify-content:space-between;gap:14px;padding-bottom:11px;border-bottom:1px solid #2b343d;color:#818c96;font:700 8px/1.25 var(--font-mono);text-transform:uppercase}
+.multi-event-side{display:flex;align-items:center;gap:9px;min-width:0}.multi-event-side.away{justify-content:flex-end;text-align:right}
+.multi-event-side>span{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:#202a33}.multi-event-side img{max-width:30px;max-height:30px}
+.multi-event-side strong{overflow:hidden;color:#f2f4f5;font:730 12px/1.25 var(--font-display);text-overflow:ellipsis}
+.multi-event-score{text-align:center}.multi-event-score b{display:block;color:#ffad55;font:850 14px/1 var(--font-mono)}.multi-event-score small{display:block;margin-top:5px;color:#7e8993;font:650 7px/1 var(--font-mono);text-transform:uppercase}
+.multi-event-loading,.multi-event-empty{grid-column:1/-1;display:grid;place-items:center;align-content:center;min-height:260px;border:1px dashed #34404a;border-radius:16px;background:#11171d;color:#909ba5;text-align:center}.multi-event-loading i{display:inline-block;width:7px;height:7px;margin:2px;border-radius:50%;background:#ff9a35;animation:sideChatTypingDots .95s infinite ease-in-out}.multi-event-loading span{margin-top:10px}.multi-event-empty strong{color:#edf1f4}.multi-event-empty span{margin-top:8px;font-size:10px}
+@media(max-width:899px){.primary-nav{overflow-x:auto;justify-content:flex-start}.primary-nav .maintab{flex:0 0 auto}.multisport-hub{padding:16px 10px 74px}.multisport-hero{padding:24px 20px}.multi-event-grid{grid-template-columns:1fr}}
