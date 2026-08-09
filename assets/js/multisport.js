@@ -1,7 +1,7 @@
 (() => {
   const SPORT_LABELS = {
     basketball: 'Basketbol',
-    mma: 'Dovus',
+    mma: 'UFC / MMA',
     volleyball: 'Voleybol',
     hockey: 'Buz Hokeyi',
     rugby: 'Rugby'
@@ -9,16 +9,45 @@
 
   let feedPromise = null;
   let activeSport = 'basketball';
+  let activeView = 'home';
 
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+
+  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby'}[sport] || 'basketbol');
+  const viewSlug = (view) => ({games:'maclar',teams:'takimlar',predict:'predict'}[view] || '');
+
+  function hubPath(sport, view){
+    const suffix = viewSlug(view);
+    return `/${sportSlug(sport)}/${suffix ? `${suffix}/` : ''}`;
+  }
+
+  function routeState(){
+    const parts = location.pathname.split('/').filter(Boolean);
+    const sport = ({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby'})[parts[0]];
+    const view = ({maclar:'games',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
+    return sport ? {sport,view} : null;
+  }
 
   function closeHub(){
     document.body.classList.remove('multisport-open');
     const hub = document.getElementById('multiSportHub');
     if(hub) hub.hidden = true;
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.remove('active'));
+  }
+
+  function teamCardHTML(team){
+    return `<article class="multi-team-card"><span>${team.logo ? `<img src="${escapeHTML(team.logo)}" alt="" loading="lazy">` : ''}</span><strong>${escapeHTML(team.name || 'Takım')}</strong><small>Günün programında</small></article>`;
+  }
+
+  function predictCardHTML(item){
+    const key = `xyzskor_multi_pick_${activeSport}_${item.id}`;
+    let selected = '';
+    try{ selected = localStorage.getItem(key) || ''; }catch(_error){}
+    const first = item.first || {};
+    const second = item.second || {};
+    return `<article class="multi-predict-card" data-predict-key="${escapeHTML(key)}"><header><span>${escapeHTML(item.league || item.category || '')}</span><time>${escapeHTML(item.time || '')}</time></header><strong>${escapeHTML(first.name || 'TBA')} <i>vs</i> ${escapeHTML(second.name || 'TBA')}</strong><p>Ücretsiz Predict beta seçimi</p><div><button type="button" data-pick="first" class="${selected==='first'?'active':''}">1 · ${escapeHTML(first.name || 'İlk taraf')}</button><button type="button" data-pick="second" class="${selected==='second'?'active':''}">2 · ${escapeHTML(second.name || 'İkinci taraf')}</button></div></article>`;
   }
 
   function cardHTML(item){
@@ -49,10 +78,27 @@
     });
     const items = sports[activeSport] || [];
     title.textContent = SPORT_LABELS[activeSport] || 'Spor';
-    note.textContent = `${payload?.date || ''} programi - ucretsiz API-Sports verisi`;
-    grid.innerHTML = items.length
-      ? items.slice(0, 12).map(cardHTML).join('')
-      : '<div class="multi-event-empty"><strong>Bugun program bulunmuyor.</strong><span>Etkinligi olan diger branslar yukarida gorunur.</span></div>';
+    note.textContent = `${payload?.date || ''} programı · ücretsiz API-Sports verisi`;
+    const viewNav = document.getElementById('multiSportViews');
+    const views = activeSport === 'basketball' ? [['home','Genel'],['games','Maçlar'],['teams','Takımlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son maçlar'],['predict','Predict']] : [['home','Genel'],['games','Maçlar']];
+    viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}">${label}</button>`).join('');
+    viewNav.querySelectorAll('[data-multi-view]').forEach((button) => button.addEventListener('click', () => openHub(activeSport, button.dataset.multiView, true)));
+    if(activeView === 'teams'){
+      const unique = new Map();
+      items.forEach((item) => [item.first,item.second].forEach((team) => { if(team?.name) unique.set(team.name,team); }));
+      grid.innerHTML = unique.size ? [...unique.values()].map(teamCardHTML).join('') : '<div class="multi-event-empty"><strong>Bugünün takım listesi hazırlanıyor.</strong></div>';
+      return;
+    }
+    if(activeView === 'predict'){
+      grid.innerHTML = items.length ? items.slice(0,10).map(predictCardHTML).join('') : '<div class="multi-event-empty"><strong>Bugün tahmine açık etkinlik yok.</strong></div>';
+      grid.querySelectorAll('[data-predict-key] button').forEach((button) => button.addEventListener('click', () => {
+        const card = button.closest('[data-predict-key]');
+        try{ localStorage.setItem(card.dataset.predictKey, button.dataset.pick); }catch(_error){}
+        card.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
+      }));
+      return;
+    }
+    grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : '<div class="multi-event-empty"><strong>Bugün program bulunmuyor.</strong><span>Etkinliği olan diğer branşlar yukarıda görünür.</span></div>';
   }
 
   async function load(){
@@ -67,8 +113,10 @@
     return feedPromise;
   }
 
-  async function openHub(sport){
+  async function openHub(sport, view = 'home', updateUrl = true){
     activeSport = sport || activeSport;
+    activeView = view;
+    if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
     document.body.classList.add('multisport-open');
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
@@ -87,8 +135,8 @@
     if(!primary || !wrap || document.getElementById('multiSportHub')) return;
     const buttons = [
       ['basketball','Basketbol'],
-      ['mma','Dovus'],
-      ['volleyball','Diger Sporlar']
+      ['mma','UFC'],
+      ['volleyball','Diğer Sporlar']
     ];
     buttons.forEach(([key,label]) => {
       const button = document.createElement('button');
@@ -96,7 +144,7 @@
       button.className = 'maintab multisport-nav-button';
       button.dataset.multiSport = key;
       button.textContent = label;
-      button.addEventListener('click', () => openHub(key));
+      button.addEventListener('click', () => openHub(key,'home',true));
       primary.appendChild(button);
     });
     const hub = document.createElement('main');
@@ -104,12 +152,16 @@
     hub.className = 'multisport-hub';
     hub.hidden = true;
     hub.innerHTML = `<header class="multisport-hero"><div><span>XYZSKOR MULTISPORT</span><h1 id="multiSportTitle">Basketbol</h1><p id="multiSportNote">Gunun programi</p></div><b>CANLI VERI</b></header>
-      <nav class="multisport-switcher" aria-label="Spor bransi secimi">${Object.entries(SPORT_LABELS).map(([key,label]) => `<button type="button" data-multi-sport="${key}">${label}</button>`).join('')}</nav>
+      <nav class="multisport-switcher" aria-label="Spor branşı seçimi">${Object.entries(SPORT_LABELS).map(([key,label]) => `<button type="button" data-multi-sport="${key}">${label}</button>`).join('')}</nav>
+      <nav class="multisport-view-nav" id="multiSportViews" aria-label="Branş bölümleri"></nav>
       <section class="multi-event-grid" id="multiSportGrid" aria-live="polite"></section>`;
     wrap.parentNode.insertBefore(hub, wrap);
-    hub.querySelectorAll('[data-multi-sport]').forEach((button) => button.addEventListener('click', () => { activeSport = button.dataset.multiSport; load().then(render); }));
+    hub.querySelectorAll('[data-multi-sport]').forEach((button) => button.addEventListener('click', () => openHub(button.dataset.multiSport,'home',true)));
     document.getElementById('tabBtnFootball')?.addEventListener('click', closeHub, true);
     document.getElementById('tabBtnPredict')?.addEventListener('click', closeHub, true);
+    const initial = routeState();
+    if(initial) openHub(initial.sport,initial.view,false);
+    window.addEventListener('popstate', () => { const state=routeState(); if(state) openHub(state.sport,state.view,false); else closeHub(); });
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});

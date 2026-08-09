@@ -106,7 +106,7 @@ await cp(resolve(root, ".openai", "hosting.json"), resolve(dist, ".openai", "hos
 // paylaşılabilir ürün ve lig URL'lerini fiziksel giriş sayfaları olarak üretiriz.
 const leagues = ["super-lig", "champions-league", "europa-league", "la-liga", "premier-league", "all"];
 const leagueSections = ["matches", "agenda", "clubs", "transfers", "standings"];
-const routeDirectories = ["predict", ...leagues.flatMap((league) => [
+const routeDirectories = ["predict", "basketbol", "basketbol/maclar", "basketbol/takimlar", "basketbol/predict", "ufc", "ufc/maclar", "ufc/predict", "voleybol", "buz-hokeyi", "rugby", ...leagues.flatMap((league) => [
   league,
   ...leagueSections.map((section) => `${league}/${section}`),
   `${league}/transfers/talks`,
