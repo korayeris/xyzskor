@@ -6056,3 +6056,35 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
 /* v128: keep the homepage editorial, not a wall of tweets */
 #preseasonSocialSection{display:none!important}
 .club-social-stage>.club-social-card:nth-child(n+3){display:none!important}
+
+
+/* v129: data-backed editorial visuals */
+.editorial-highlight-image.fixture-crests{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  background:radial-gradient(circle at 50% 35%,rgba(111,151,203,.18),rgba(24,30,39,.96) 70%);
+}
+.editorial-highlight-image.fixture-crests .crest,
+.editorial-highlight-image.fixture-crests .team-crest{
+  width:34px;
+  height:34px;
+  flex:0 0 34px;
+  border:2px solid #202731;
+  border-radius:50%;
+  background:#f5f7fa;
+}
+.editorial-highlight-image.fixture-crests .crest+ .crest,
+.editorial-highlight-image.fixture-crests .team-crest+ .team-crest{margin-left:-10px}
+.editorial-data-mark{
+  display:grid;
+  place-items:center;
+  background:radial-gradient(circle at 35% 30%,rgba(255,108,124,.22),rgba(25,31,40,.96) 72%);
+  border-color:rgba(255,121,136,.24);
+}
+.editorial-data-mark b{
+  color:#ff9ba6;
+  font:850 10px/1 var(--font-mono);
+  letter-spacing:.08em;
+}

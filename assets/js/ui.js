@@ -2453,6 +2453,13 @@ function renderFootballNews(){
     area.querySelectorAll('[data-news-match]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.newsMatch); });
   };
 
+  function editorialHighlightVisualHTML(item){
+    if(item.image) return `<span class="editorial-highlight-image ${item.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`;
+    const match=item.matchId?MATCHES.find(entry=>entry.id===item.matchId):null;
+    if(match) return `<span class="editorial-highlight-image fixture-crests" aria-label="${escapeHTML(match.ev)} ve ${escapeHTML(match.konuk)} armaları">${crestHTML(match.ev,'xs')}${crestHTML(match.konuk,'xs')}</span>`;
+    return `<span class="editorial-highlight-mark editorial-data-mark"><b>${escapeHTML(String(item.label||'VERİ').slice(0,2).toLocaleUpperCase('tr-TR'))}</b></span>`;
+  }
+
   renderEditorialNews = function(){
     const lead=document.getElementById('editorialLeadNews'); const list=document.getElementById('editorialHighlights'); if(!lead||!list) return;
     if(leagueProviderUnavailable(activeFootballLeague)){
@@ -2460,14 +2467,16 @@ function renderFootballNews(){
       list.innerHTML='';
       return;
     }
-    EDITORIAL_NEWS_CACHE=contextualEditorialEntries();
+    const editorialEntries=contextualEditorialEntries();
+    const visualLead=editorialEntries.find(item=>item.image||item.matchId);
+    EDITORIAL_NEWS_CACHE=visualLead?[visualLead,...editorialEntries.filter(item=>item!==visualLead)]:editorialEntries;
     const primary=EDITORIAL_NEWS_CACHE[0];
     if(!primary){ lead.innerHTML=footballEmpty('Yayın masası hazırlanıyor','Kaynağı doğrulanmış ilk içerik yayınlandığında burada görünür.'); list.innerHTML=''; return; }
     const matchVisual=editorialMatchVisualHTML(primary);
     const leadMedia=primary.image?`<span class="editorial-portrait-shell"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-portrait-shell').remove()"></span>`:matchVisual||'<div class="editorial-media-fallback"><span>●</span><small>Kaynaklı yayın</small></div>';
     const leadMediaType=primary.imageType==='portrait'?'portrait':matchVisual?'match':'photo';
     lead.innerHTML=`<article class="editorial-lead-card" tabindex="0" role="button" data-editorial-index="0" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="editorial-lead-media ${leadMediaType}">${leadMedia}</div><div class="editorial-lead-copy"><span class="editorial-news-label">${escapeHTML(primary.label)}</span><h3>${escapeHTML(primary.title)}</h3><p>${escapeHTML(primary.text)}</p><footer><strong>${escapeHTML(primary.source)}</strong>${primary.time?`<time>${escapeHTML(fmtEditorialDate(primary.time))}</time>`:''}</footer></div></article>`;
-    list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} haberini aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source)}${item.time?` · ${escapeHTML(fmtEditorialDate(item.time))}`:''}</p></div>${item.image?`<span class="editorial-highlight-image ${item.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">●</span>'}</article>`).join('')}`;
+    list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} haberini aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source)}${item.time?` · ${escapeHTML(fmtEditorialDate(item.time))}`:''}</p></div>${editorialHighlightVisualHTML(item)}</article>`).join('')}`;
     bindEditorialEntries(lead); bindEditorialEntries(list);
   };
 
