@@ -17,7 +17,7 @@ const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
 // chat.js daha önce parmak izine DAHİL DEĞİLDİ; bu yüzden yalnızca chat.js
 // değiştiğinde buildVersion aynı kalıyor ve tarayıcı eski dosyayı önbellekten
 // sunabiliyordu. Liste tek yere alınarak bu sınıf hata tekrarlanamaz hale getirildi.
-const CLIENT_JS_FILES = ["data.js", "analytics.js", "live.js", "match-center.js", "predict-game.js", "ui.js", "chat.js", "multisport.js"];
+const CLIENT_JS_FILES = ["data.js", "analytics.js", "live.js", "match-center.js", "predict-game.js", "ui.js", "chat.js", "multisport.js", "sport-branches.js"];
 const clientFingerprintSources = await Promise.all([
   resolve(root, "assets", "css", "app.css"),
   ...CLIENT_JS_FILES.map((file) => resolve(root, "assets", "js", file)),
