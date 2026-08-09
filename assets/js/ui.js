@@ -2308,6 +2308,7 @@ function xPostMediaHTML(club,post,targetURL){
 }
 function xPostCardHTML(club){
   const post=club.post||null;
+  if(!post) return '';
   const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
   const mediaBody=xPostMediaHTML(club,post,targetURL);
@@ -2328,6 +2329,7 @@ function xPostCardHTML(club){
 }
 function preseasonCardHTML(club){
   const post=club.preseason_post||null;
+  if(!post) return '';
   const targetURL=post?.url||club.url;
   const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
