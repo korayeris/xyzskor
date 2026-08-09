@@ -76,14 +76,14 @@
     if(!available.includes(activeSport)) activeSport = available[0] || 'basketball';
     document.querySelectorAll('[data-multi-sport]').forEach((button) => {
       const key = button.dataset.multiSport;
-      button.hidden = !available.includes(key);
+      button.hidden = false;
       button.classList.toggle('active', key === activeSport);
     });
     const items = sports[activeSport] || [];
     title.textContent = SPORT_LABELS[activeSport] || 'Spor';
     note.textContent = `${payload?.date || ''} programı · ücretsiz API-Sports verisi`;
     const viewNav = document.getElementById('multiSportViews');
-    const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma\\u00e7lar'],['leagues','Ligler'],['teams','Tak\\u0131mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma\\u00e7lar'],['leagues','Organizasyonlar'],['predict','Predict']] : [['home','Genel'],['games','Ma\\u00e7lar'],['leagues','Ligler']];
+    const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma&#231;lar'],['leagues','Organizasyonlar'],['predict','Predict']] : [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler']];
     viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}">${label}</button>`).join('');
     viewNav.querySelectorAll('[data-multi-view]').forEach((button) => button.addEventListener('click', () => openHub(activeSport, button.dataset.multiView, true)));
     if(activeView === 'leagues'){
@@ -143,6 +143,8 @@
     catch(_error){ grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>'; }
     window.scrollTo({top:0,behavior:'smooth'});
   }
+
+  window.openMultiSportHub = openHub;
 
   function init(){
     const primary = document.querySelector('.primary-nav');

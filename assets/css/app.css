@@ -6164,3 +6164,7 @@ body.multisport-open>.wrap{display:none!important}
 .multi-league-card div{display:flex;align-items:baseline;gap:8px}.multi-league-card div b{color:#fff;font-size:28px}.multi-league-card div small{color:#8694a3}
 .multi-league-card em{position:absolute;right:18px;top:18px;padding:6px 9px;border-radius:20px;background:#232c34;color:#93a0ad;font-size:9px;font-style:normal}.multi-league-card em.is-live{background:rgba(72,215,131,.12);color:#48d783}
 @media(max-width:680px){.multisport-hub{width:calc(100% - 20px);padding-top:12px}.multisport-hero{padding:22px 18px}.multisport-view-nav{margin:10px 0!important}.multisport-view-nav button{min-width:auto!important;padding:10px 13px!important}.multi-event-card:first-child{grid-column:auto}.multi-league-card{min-height:140px}}
+.live-ticker .ticker-inner{justify-content:center;gap:9px}
+.money-joke-dot{width:7px;height:7px;border-radius:50%;background:#48d783;box-shadow:0 0 0 4px rgba(72,215,131,.1)}
+.live-ticker .ticker-inner>strong{color:#48d783;font:800 9px/1 "IBM Plex Mono",monospace;letter-spacing:.13em}
+.live-ticker .ticker-inner>span:last-child{color:#dce3ea;font-size:11px;font-weight:700}

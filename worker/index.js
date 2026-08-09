@@ -1906,7 +1906,7 @@ async function handleMultisportToday(request, env, context) {
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v3?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v4?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
@@ -1916,7 +1916,19 @@ async function handleMultisportToday(request, env, context) {
       const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload || Object.keys(payload.errors || {}).length) throw new Error("provider_unavailable");
-      const rows = Array.isArray(payload.response) ? payload.response : [];
+      let rows = Array.isArray(payload.response) ? payload.response : [];
+      if (!rows.length) {
+        for (let offset = 1; offset <= 7 && !rows.length; offset += 1) {
+          const futureDate = new Date(`${date}T12:00:00+03:00`);
+          futureDate.setDate(futureDate.getDate() + offset);
+          const queryDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(futureDate);
+          const futureUrl = new URL(`https://${feed.host}/${feed.path}`);
+          futureUrl.searchParams.set("date", queryDate);
+          const futureResponse = await fetch(futureUrl, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
+          const futurePayload = await futureResponse.json().catch(() => null);
+          if (futureResponse.ok && futurePayload && !Object.keys(futurePayload.errors || {}).length) rows = Array.isArray(futurePayload.response) ? futurePayload.response : [];
+        }
+      }
       return [sport, rows.map((row) => normalizeMultisportItem(sport, row)).filter((row) => row.id).slice(0, 60)];
     } catch (_error) {
       return [sport, []];
