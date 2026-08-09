@@ -5937,3 +5937,58 @@ body.mini-goal-open .predict-game-ball{z-index:5;}
     -webkit-line-clamp:4;
   }
 }
+
+
+/* v125: final premium social-card finish */
+.club-social-stage{align-items:start}
+.club-social-card{
+  position:relative;
+  align-self:start;
+  isolation:isolate;
+  transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;
+}
+.club-social-card::before{
+  content:"";
+  position:absolute;
+  z-index:3;
+  top:0;
+  left:22px;
+  width:74px;
+  height:3px;
+  border-radius:0 0 3px 3px;
+  background:linear-gradient(90deg,#ff6072,#f3a0aa);
+  box-shadow:0 0 18px rgba(255,96,114,.34);
+}
+.club-social-card:hover{
+  transform:translateY(-3px);
+  border-color:rgba(255,116,132,.28);
+  box-shadow:0 24px 56px rgba(0,0,0,.3);
+}
+.club-social-card:not(.has-media){
+  height:350px;
+  min-height:350px;
+}
+.club-social-card:not(.has-media) .club-social-copy{
+  min-height:0;
+  -webkit-line-clamp:7;
+}
+.club-social-card.has-media .club-social-copy{
+  min-height:68px;
+}
+.preseason-social-card:not(.has-media){
+  height:330px;
+  min-height:330px;
+}
+.club-social-media{
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025),0 12px 26px rgba(0,0,0,.18);
+}
+.club-social-profile-link{
+  padding:6px 9px;
+  border:1px solid rgba(242,138,150,.2);
+  border-radius:999px;
+  background:rgba(242,138,150,.06);
+}
+@media (prefers-reduced-motion:reduce){
+  .club-social-card,.club-social-media-item img{transition:none}
+  .club-social-card:hover{transform:none}
+}

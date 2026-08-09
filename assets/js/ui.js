@@ -2309,11 +2309,12 @@ function xPostMediaHTML(club,post,targetURL){
 function xPostCardHTML(club){
   const post=club.post||null;
   if(!post) return '';
+  const cleanPostText=String(post.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
   const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
   const mediaBody=xPostMediaHTML(club,post,targetURL);
   const translated=post?.translated_text_tr && normalizeLoose(post.translated_text_tr)!==normalizeLoose(post.text) ? `<div class="club-social-translation"><span>TR</span><p>${escapeHTML(post.translated_text_tr)}</p></div>` : '';
-  const postBody=post?`<p class="club-social-copy">${escapeHTML(post.text)}</p>${translated}${mediaBody}
+  const postBody=post?`<p class="club-social-copy">${escapeHTML(cleanPostText)}</p>${translated}${mediaBody}
     <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">◌</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
@@ -2321,7 +2322,7 @@ function xPostCardHTML(club){
       <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
     </div>`:club.account_found===false?`<div class="club-social-pending"><strong>Resmî sosyal hesap doğrulanıyor</strong><span>Hesap kataloğu güncellenirken bu kulüp için akış bağlantısı hazırlanıyor.</span></div>`:`<div class="club-social-pending"><strong>Henüz yeni paylaşım yok</strong><span>Resmî hesap bağlı; yeni gönderi geldiğinde burada yayınlanır.</span></div>`;
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
-  const accountLabel=club.publisher?'Genel resmî akış':club.leagueRank?`${competitionShortBySlug(activeFootballLeague)} ${club.leagueRank}.`:'';
+  const accountLabel=club.publisher?'Editoryal kaynak':competitionShortBySlug(activeFootballLeague);
   return `<article class="club-social-card ${club.publisher?'publisher-card ':''}${mediaBody?'has-media':''}">
     <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${accountLabel}${accountLabel?' · ':''}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-label="X platformu" aria-hidden="true">𝕏</span></header>
     <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
@@ -2330,11 +2331,12 @@ function xPostCardHTML(club){
 function preseasonCardHTML(club){
   const post=club.preseason_post||null;
   if(!post) return '';
+  const cleanPostText=String(post.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
   const targetURL=post?.url||club.url;
   const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
   const translated=post?.translated_text_tr && normalizeLoose(post.translated_text_tr)!==normalizeLoose(post.text) ? `<div class="club-social-translation preseason-social-translation"><span>TR</span><p>${escapeHTML(post.translated_text_tr)}</p></div>` : '';
-  const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">${escapeHTML(post.label||'Hazırlık')}</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(post.text)}</p>${translated}${mediaBody}
+  const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">HAZIRLIK</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(cleanPostText)}</p>${translated}${mediaBody}
     <div class="club-social-meta preseason-social-meta" aria-label="Paylaşım etkileşimleri">
       <span aria-label="${escapeHTML(xMetric(post.metrics?.reply_count))} yanıt"><i aria-hidden="true">◌</i>${escapeHTML(xMetric(post.metrics?.reply_count))}</span>
       <span aria-label="${escapeHTML(xMetric(post.metrics?.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(post.metrics?.retweet_count))}</span>
