@@ -14,6 +14,7 @@
   let feedPromise = null;
   let activeSport = 'basketball';
   let activeView = 'home';
+  let activeLeague = 'all';
 
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -42,7 +43,7 @@
 
   function routeState(){
     const parts = location.pathname.split('/').filter(Boolean);
-    const sport = ({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball','avustralya-futbolu':'australianFootball'})[parts[0]];
+    const sport = ({basketbol:'basketball',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball','avustralya-futbolu':'australianFootball'})[parts[0]];
     const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
     return sport ? {sport,view} : null;
   }
@@ -94,7 +95,7 @@
       button.hidden = false;
       button.classList.toggle('active', key === activeSport);
     });
-    const items = sports[activeSport] || [];
+    const allItems = sports[activeSport] || [];
     hub.dataset.sport = activeSport;
     grid.dataset.sport = activeSport;
     title.textContent = SPORT_LABELS[activeSport] || 'Spor';
@@ -103,6 +104,18 @@
     const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma&#231;lar'],['leagues','Organizasyonlar'],['predict','Predict']] : [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler']];
     viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}">${label}</button>`).join('');
     viewNav.querySelectorAll('[data-multi-view]').forEach((button) => button.addEventListener('click', () => openHub(activeSport, button.dataset.multiView, true)));
+    let leagueStrip = document.getElementById('multiLeagueStrip');
+    if(!leagueStrip){
+      leagueStrip = document.createElement('nav');
+      leagueStrip.id = 'multiLeagueStrip';
+      leagueStrip.className = 'multi-league-strip';
+      viewNav.after(leagueStrip);
+    }
+    const leagueNames = [...new Set(allItems.map(item => item.league || item.category).filter(Boolean))];
+    leagueStrip.hidden = !leagueNames.length;
+    leagueStrip.innerHTML = leagueNames.length ? [['all','Tumu'],...leagueNames.slice(0,14).map(name=>[name,name])].map(([key,label])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}">${escapeHTML(label)}</button>`).join('') : '';
+    leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.league;render(payload)}));
+    const items = activeLeague === 'all' ? allItems : allItems.filter(item => (item.league || item.category) === activeLeague);
     if(activeView === 'leagues'){
       const groups = new Map();
       items.forEach((item) => {
@@ -146,6 +159,11 @@
   }
 
   async function openHub(sport, view = 'home', updateUrl = true){
+    if(sport === 'mma'){
+      location.assign('/ufc/');
+      return;
+    }
+    if(sport && sport !== activeSport) activeLeague = 'all';
     activeSport = sport || activeSport;
     activeView = view;
     if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
