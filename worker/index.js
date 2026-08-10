@@ -1941,6 +1941,36 @@ async function handleCitoUfc(request, env, context) {
   }
 }
 
+const CITO_UFC_PROXY_ROUTE = /^(?:live(?:\/[a-z0-9-]+(?:\/state)?)?|events(?:\/(?:upcoming|recent|[a-z0-9-]+(?:\/(?:bouts|stats))?))?|bouts(?:\/[a-z0-9-]+(?:\/(?:stats|rounds))?)?|fighters(?:\/[a-z0-9-]+(?:\/(?:stats|fights))?)?|rankings(?:\/(?:meta|media)(?:\/[a-z0-9-]+)?)?|search)$/i;
+
+async function handleCitoUfcProxy(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  if (!env.CITO_API_KEY) return jsonResponse({ error: "cito_api_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const input = new URL(request.url);
+  const route = input.pathname.replace(/^\/api\/ufc\/?/, "") || "events/upcoming";
+  if (!CITO_UFC_PROXY_ROUTE.test(route)) return jsonResponse({ error: "invalid_ufc_route" }, 400, { "Cache-Control": "no-store" });
+  const upstream = new URL(`https://api.citoapi.com/api/v1/ufc/${route}`);
+  for (const key of ["q", "page", "limit", "division", "hasStats", "includeStats", "round"]) {
+    const value = input.searchParams.get(key); if (value) upstream.searchParams.set(key, value);
+  }
+  const live = route.startsWith("live");
+  const ttl = live ? 15 : route.includes("upcoming") ? 21600 : route.includes("rankings") ? 86400 : route.includes("fighters/") ? 604800 : 21600;
+  const cache = edgeCache();
+  const cacheKey = new Request(new URL(`/api/ufc/proxy-cache/${route}?${upstream.searchParams}`, request.url));
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+  try {
+    const response = await fetch(upstream, { headers: { "x-api-key": env.CITO_API_KEY, Accept: "application/json" } });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || data == null) return jsonResponse({ error: "cito_ufc_upstream_unavailable", status: response.status }, 502, { "Cache-Control": "no-store" });
+    const output = jsonResponse({ source: "citoapi", route, updatedAt: new Date().toISOString(), data }, 200, { "Cache-Control": `public, max-age=${Math.min(ttl, 21600)}, s-maxage=${ttl}, stale-while-revalidate=86400` });
+    writeEdgeCache(cache, cacheKey, output, context);
+    return output;
+  } catch (_error) {
+    return jsonResponse({ error: "cito_ufc_upstream_unavailable" }, 502, { "Cache-Control": "no-store" });
+  }
+}
+
 async function handleMultisportToday(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
@@ -2080,6 +2110,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
     if (url.pathname === "/api/ufc") return handleCitoUfc(request, env, context);
+    if (url.pathname.startsWith("/api/ufc/")) return handleCitoUfcProxy(request, env, context);
     if (url.pathname === "/api/motorsports") {
       const allowedDynamicResources = new Set(["live", "drivers", "teams", "standings-drivers", "standings-teams", "standings"]);
       if (!allowedDynamicResources.has(url.searchParams.get("resource"))) return jsonResponse({ source: "manual-snapshot", refresh: "disabled" }, 423, { "Cache-Control": "public, max-age=86400" });
