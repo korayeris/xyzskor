@@ -29,6 +29,7 @@
     calendar: 'events', results: 'events', standings: 'standings-drivers',
     drivers: 'drivers', riders: 'drivers', teams: 'teams', circuits: 'circuits', live: 'live'
   };
+  const dynamicResources = new Set(['drivers', 'teams', 'standings-drivers', 'standings-teams', 'standings']);
   const unsupported = {
     stages: ['Etap verisi pakette bulunmuyor.', 'Saglayici ayri etap akisi verdiginde bu alan otomatik aktif olur.']
   };
@@ -62,6 +63,11 @@
   const imageOf = item => scalar(item?.image || item?.logo || item?.photo || item?.avatar || item?.driver?.image || item?.team?.logo, ['url', 'src', 'href']);
   const dateOf = item => scalar(item?.dateStart || item?.startDate || item?.date || item?.scheduledAt || item?.start, ['date', 'value', 'label']);
   const valueOf = item => scalar(item?.points ?? item?.position ?? item?.rank ?? item?.number ?? item?.status, ['long', 'short', 'name', 'value', 'label']);
+  const initialsOf = item => nameOf(item).split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  const flagOf = item => {
+    const code = scalar(item?.country, ['twoCode']).toUpperCase();
+    return /^[A-Z]{2}$/.test(code) ? String.fromCodePoint(...[...code].map(letter => 127397 + letter.charCodeAt())) : '';
+  };
   const menu = () => groups.map(([group, items]) => `<section class="xms-mega-group"><strong>${group}</strong>${items.map(([label, slug]) => `<a href="/motorsports/${slug}">${label}</a>`).join('')}</section>`).join('');
   const viewsFor = slug => viewRegistry[series[slug]?.[2] || 'formula'];
   const classSwitch = slug => {
@@ -79,6 +85,12 @@
       if (!response.ok) throw new Error(payload.error || 'live_unavailable');
       return payload;
     }
+    if (dynamicResources.has(resource)) {
+      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=${encodeURIComponent(resource)}&limit=100&page=1`, { headers: { Accept: 'application/json' } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'motorsport_profile_unavailable');
+      return payload;
+    }
     snapshotPromise ||= fetch('/assets/data/motorsports-snapshot.json', { cache: 'force-cache' }).then(response => {
       if (!response.ok) throw new Error('snapshot_unavailable');
       return response.json();
@@ -91,7 +103,10 @@
     const date = dateOf(item);
     const value = valueOf(item);
     const meta = date || scalar(item?.country) || scalar(item?.nationality) || scalar(item?.location) || scalar(item?.team);
-    return `<article class="xms-data-card"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span>${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : ''}<div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${esc(meta)}</p></div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
+    const flag = flagOf(item);
+    const stats = [['wins', 'W'], ['podiums', 'POD'], ['poles', 'POLE'], ['races', 'RACE'], ['starts', 'START'], ['championships', 'TITLE']]
+      .map(([key, label]) => item?.[key] != null ? `<span><b>${esc(item[key])}</b><small>${label}</small></span>` : '').filter(Boolean).join('');
+    return `<article class="xms-data-card xms-type-${esc(type.toLowerCase())}"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span>${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : `<span class="xms-avatar" aria-hidden="true">${flag || esc(initialsOf(item))}</span>`}<div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${flag ? `<span>${flag}</span>` : ''}${esc(meta)}</p>${stats ? `<div class="xms-statline">${stats}</div>` : ''}</div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
   }
   function emptyState(title, detail) {
     return `<div class="xms-empty"><strong>${esc(title)}</strong><p>${esc(detail)}</p></div>`;
@@ -139,7 +154,7 @@
   function shell(slug) {
     const [label, accent, discipline] = series[slug] || ['Motor Sporlari', '#ef3e4f', 'hub'];
     const detail = Boolean(series[slug]);
-    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><span>XYZSKOR / SPORTS INTELLIGENCE</span><h1>${detail ? label : 'Hizin veriye donustugu merkez.'}</h1><p>${detail ? 'Seriye ozel takvim, sonuc, siralama ve canli veri deneyimi.' : 'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>PROVIDER DATA</b></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a data-mobile-view="live" href="#live">Live</a><a data-mobile-view="calendar" href="#calendar">Calendar</a><a data-mobile-view="standings" href="#standings">Standings</a><a href="#more">More</a></nav></main>`;
+    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><div class="xms-hero-copy"><span>XYZSKOR / SPORTS INTELLIGENCE</span><h1>${detail ? label : 'Hizin veriye donustugu merkez.'}</h1><p>${detail ? 'Seriye ozel takvim, sonuc, siralama ve canli veri deneyimi.' : 'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>PROVIDER DATA</b></div><div class="xms-hero-visual" aria-hidden="true"><i></i><strong>${detail ? label : 'MOTORSPORT'}</strong><em>${discipline === 'rally' ? 'STAGE' : discipline === 'endurance' ? '24H' : discipline === 'moto' ? 'RACE' : discipline === 'stock' ? 'STAGE 01' : 'P1'}</em></div></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a data-mobile-view="live" href="#live">Live</a><a data-mobile-view="calendar" href="#calendar">Calendar</a><a data-mobile-view="standings" href="#standings">Standings</a><a href="#more">More</a></nav></main>`;
   }
   function init() {
     const header = document.querySelector('.global-header');

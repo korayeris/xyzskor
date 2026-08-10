@@ -1902,6 +1902,45 @@ function normalizeMultisportItem(sport, row) {
   };
 }
 
+const CITO_UFC_RESOURCES = Object.freeze({
+  upcoming: "events/upcoming", recent: "events/recent", rankings: "rankings",
+  fighters: "fighters", live: "live"
+});
+
+async function fetchCitoUfc(env, resourceKey, query = new URLSearchParams()) {
+  if (!env.CITO_API_KEY) throw new Error("cito_api_not_configured");
+  const resource = CITO_UFC_RESOURCES[resourceKey];
+  if (!resource) throw new Error("invalid_cito_ufc_resource");
+  const upstream = new URL(`https://api.citoapi.com/api/v1/ufc/${resource}`);
+  for (const key of ["page", "limit", "division", "hasStats"]) {
+    const value = query.get(key); if (value) upstream.searchParams.set(key, value);
+  }
+  const response = await fetch(upstream, { headers: { "x-api-key": env.CITO_API_KEY, Accept: "application/json" } });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload) throw new Error(`cito_ufc_unavailable_${response.status}`);
+  return payload;
+}
+
+async function handleCitoUfc(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const input = new URL(request.url);
+  const resource = input.searchParams.get("resource") || "upcoming";
+  if (!CITO_UFC_RESOURCES[resource]) return jsonResponse({ error: "invalid_ufc_resource" }, 400, { "Cache-Control": "no-store" });
+  const cache = edgeCache();
+  const cacheKey = new Request(new URL(`/api/ufc/cache/${resource}?${input.searchParams}`, request.url));
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+  try {
+    const data = await fetchCitoUfc(env, resource, input.searchParams);
+    const ttl = resource === "live" ? 15 : resource === "upcoming" ? 21600 : resource === "rankings" ? 86400 : 604800;
+    const output = jsonResponse({ source: "citoapi", resource, updatedAt: new Date().toISOString(), data }, 200, { "Cache-Control": `public, max-age=${Math.min(ttl, 21600)}, s-maxage=${ttl}, stale-while-revalidate=86400` });
+    writeEdgeCache(cache, cacheKey, output, context);
+    return output;
+  } catch (error) {
+    return jsonResponse({ error: error?.message || "cito_ufc_unavailable" }, 502, { "Cache-Control": "no-store" });
+  }
+}
+
 async function handleMultisportToday(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
@@ -1912,6 +1951,20 @@ async function handleMultisportToday(request, env, context) {
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
     try {
+      if (sport === "mma" && env.CITO_API_KEY) {
+        const cito = await fetchCitoUfc(env, "upcoming");
+        const eventRows = Array.isArray(cito?.data) ? cito.data : Array.isArray(cito?.events) ? cito.events : [];
+        return [sport, eventRows.slice(0, 30).map((event, index) => ({
+          id: event.id || event.dataId || event.slug || `ufc-${index}`,
+          league: event.name || event.title || event.slug || "UFC",
+          category: event.location || event.venue || "Fight Card",
+          time: event.date || event.startDate || event.startsAt || null,
+          timestamp: event.timestamp || null,
+          status: event.status || "scheduled", score: null,
+          first: { name: event.mainEvent?.fighter1?.name || event.mainEvent?.red?.name || event.name || "UFC Event", logo: event.mainEvent?.fighter1?.image || null, winner: null },
+          second: { name: event.mainEvent?.fighter2?.name || event.mainEvent?.blue?.name || event.venue || "Fight Card", logo: event.mainEvent?.fighter2?.image || null, winner: null }
+        }))];
+      }
       const url = new URL(`https://${feed.host}/${feed.path}`);
       url.searchParams.set("date", date);
       const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
@@ -1935,7 +1988,7 @@ async function handleMultisportToday(request, env, context) {
       return [sport, []];
     }
   }));
-  const payload = { source: "api-sports-free", date, updatedAt: new Date().toISOString(), sports: Object.fromEntries(entries) };
+  const payload = { source: env.CITO_API_KEY ? "api-sports-and-citoapi" : "api-sports-free", date, updatedAt: new Date().toISOString(), sports: Object.fromEntries(entries) };
   const response = jsonResponse(payload, 200, { "Cache-Control": "public, max-age=900, s-maxage=21600" });
   writeEdgeCache(cache, cacheKey, response, context);
   return response;
@@ -1992,7 +2045,7 @@ async function handleMotorsportData(request, env, context) {
     const data = await response.json().catch(() => null);
     if (!response.ok || data == null) return jsonResponse({ error: "motorsport_upstream_unavailable", status: response.status }, 502, { "Cache-Control": "no-store" });
     const payload = { source: "orange-cat-blacktop", sport, resource: resourceKey, liveSupported: ["formula1", "nascar", "wrc"].includes(sport), updatedAt: new Date().toISOString(), data };
-    const cacheControl = live ? "public, max-age=30, s-maxage=60" : resourceKey === "events" ? "public, max-age=120, s-maxage=300" : "public, max-age=900, s-maxage=3600";
+    const cacheControl = live ? "public, max-age=30, s-maxage=60" : resourceKey === "events" ? "public, max-age=120, s-maxage=300" : "public, max-age=21600, s-maxage=604800, stale-while-revalidate=86400";
     const output = jsonResponse(payload, 200, { "Cache-Control": cacheControl });
     writeEdgeCache(cache, cacheKey, output, context);
     return output;
@@ -2026,6 +2079,7 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
+    if (url.pathname === "/api/ufc") return handleCitoUfc(request, env, context);
     if (url.pathname === "/api/motorsports") {
       if (url.searchParams.get("resource") !== "live") return jsonResponse({ source: "manual-snapshot", refresh: "disabled" }, 423, { "Cache-Control": "public, max-age=86400" });
       return handleMotorsportData(request, env, context);
