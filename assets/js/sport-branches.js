@@ -1,33 +1,95 @@
-(()=>{const b=[['football','Futbol'],['basketball','Basketbol'],['mma','UFC'],['volleyball','Voleybol'],['hockey','Buz Hokeyi'],['rugby','Rugby'],['baseball','Beyzbol'],['handball','Hentbol'],['americanFootball','Amerikan Futbolu'],['australianFootball','Avustralya Futbolu']],r=()=>({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball','avustralya-futbolu':'australianFootball'})[location.pathname.split('/').filter(Boolean)[0]]||'football';let a=r();function s(k){const routes={football:"/",basketball:"/basketbol/",mma:"/ufc/",volleyball:"/voleybol/",hockey:"/buz-hokeyi/",rugby:"/rugby/",baseball:"/beyzbol/",handball:"/hentbol/",americanFootball:"/amerikan-futbolu/",australianFootball:"/avustralya-futbolu/"};location.assign(routes[k]||"/")}async function m(){const h=document.getElementById('multiSportHub');if(!h||a==='football')return;let e=document.getElementById('multiSportMetrics');if(!e){e=document.createElement('section');e.id='multiSportMetrics';e.className='multisport-metrics';h.querySelector('.multisport-switcher')?.before(e)}try{const p=await(await fetch('/api/sports/today?client=v5',{cache:'no-store',headers:{'Cache-Control':'no-cache'}})).json(),i=p?.sports?.[a]||[],l=i.filter(x=>/live|quarter|period|halftime|in progress/i.test(x.status||'')).length,f=i.filter(x=>/finished|after|ended|ft/i.test(x.status||'')).length,g=new Set(i.map(x=>x.league||x.category).filter(Boolean)).size;e.innerHTML='<span><b>'+i.length+'</b><small>Gunluk etkinlik</small></span><span class="is-live"><b>'+l+'</b><small>Canli</small></span><span><b>'+f+'</b><small>Tamamlanan</small></span><span><b>'+g+'</b><small>Lig / organizasyon</small></span>'}catch(_){e.innerHTML='<span><b>!</b><small>Canli veri yenileniyor</small></span>'}}function n(){const h=document.querySelector('.global-header');if(!h)return;const n=document.createElement('nav');n.className='sport-branch-nav';n.innerHTML='<span>BRANSLAR</span><div>'+b.map(([k,l])=>'<button class="sport-branch-button '+(k===a?'active':'')+'" data-branch="'+k+'">'+l+'</button>').join('')+'</div>';h.after(n);n.querySelectorAll('button').forEach(x=>x.onclick=async()=>{s(x.dataset.branch);await m()});if(a!=='football')setTimeout(m)}document.readyState==='loading'?document.addEventListener('DOMContentLoaded',n,{once:true}):n()})();
-
-;(() => {
-  const jokes = [
-    'Senin paran burada ge\u00e7mez; \u00e7\u00fcnk\u00fc burada para ge\u00e7mez.',
-    'C\u00fczdan\u0131n\u0131 \u00e7\u0131karma, hakem oyunu durdurur.',
-    'Kart\u0131n\u0131 cebine koy; burada tek kart sar\u0131 kart.',
-    'Kasaya gitme, burada kasa yok.',
-    '\u00dccret 0 TL; pazarl\u0131k yaparsan yine 0 TL.'
+(() => {
+  const primary = [
+    ["football", "Futbol", "/"],
+    ["basketball", "Basketbol", "/basketbol/"],
+    ["volleyball", "Voleybol", "/voleybol/"],
+    ["motorsports", "Motorsporlari", "/motorsports/"]
   ];
-  function startMoneyTicker(){
-    const ticker=document.getElementById('liveTicker');
-    if(!ticker||ticker.dataset.moneyJokes==='1')return;
-    ticker.dataset.moneyJokes='1';
-    let index=0;
-    const paint=()=>{ticker.innerHTML='<span class="money-joke-dot"></span><strong>UCRETSIZ TRIBUN</strong><span>'+jokes[index++%jokes.length]+'</span>';};
-    paint();
-    setInterval(paint,8000);
+  const secondary = [
+    ["mma", "UFC", "/ufc/"],
+    ["hockey", "Buz Hokeyi", "/buz-hokeyi/"],
+    ["rugby", "Rugby", "/rugby/"],
+    ["baseball", "Beyzbol", "/beyzbol/"],
+    ["handball", "Hentbol", "/hentbol/"],
+    ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"],
+    ["australianFootball", "Avustralya Futbolu", "/avustralya-futbolu/"]
+  ];
+  const routeMap = {
+    basketbol: "basketball",
+    ufc: "mma",
+    voleybol: "volleyball",
+    "buz-hokeyi": "hockey",
+    rugby: "rugby",
+    beyzbol: "baseball",
+    hentbol: "handball",
+    "amerikan-futbolu": "americanFootball",
+    "avustralya-futbolu": "australianFootball",
+    motorsports: "motorsports"
+  };
+  const active = routeMap[location.pathname.split("/").filter(Boolean)[0]] || "football";
+
+  async function refreshMetrics() {
+    const hub = document.getElementById("multiSportHub");
+    if (!hub || active === "football" || active === "motorsports") return;
+    let metrics = document.getElementById("multiSportMetrics");
+    if (!metrics) {
+      metrics = document.createElement("section");
+      metrics.id = "multiSportMetrics";
+      metrics.className = "multisport-metrics";
+      hub.querySelector(".multisport-switcher")?.before(metrics);
+    }
+    try {
+      const payload = await (await fetch("/api/sports/today?client=v5", { cache: "no-store" })).json();
+      const events = payload?.sports?.[active] || [];
+      const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
+      const ended = events.filter((item) => /finished|after|ended|ft/i.test(item.status || "")).length;
+      const leagues = new Set(events.map((item) => item.league || item.category).filter(Boolean)).size;
+      metrics.innerHTML = `<span><b>${events.length}</b><small>Gunluk etkinlik</small></span><span class="is-live"><b>${live}</b><small>Canli</small></span><span><b>${ended}</b><small>Tamamlanan</small></span><span><b>${leagues}</b><small>Lig / organizasyon</small></span>`;
+    } catch (_) {
+      metrics.innerHTML = "<span><b>!</b><small>Canli veri yenileniyor</small></span>";
+    }
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startMoneyTicker,{once:true});else startMoneyTicker();
-})();
-;(() => {
-  document.addEventListener('click', (event) => {
-    const button = event.target.closest('.sport-branch-button');
-    const sport = button?.dataset?.branch;
-    if(!sport || sport === 'football') return;
-    if(sport === 'mma'){ event.preventDefault(); event.stopImmediatePropagation(); location.href='/ufc/'; return; }
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    document.querySelectorAll('.sport-branch-button').forEach((item) => item.classList.toggle('active', item === button));
-    window.openMultiSportHub?.(sport, 'home', true);
-  }, true);
+
+  function mount() {
+    const header = document.querySelector(".global-header");
+    if (!header) return;
+    const activeSecondary = secondary.find(([key]) => key === active);
+    const nav = document.createElement("nav");
+    nav.className = "sport-branch-nav sport-branch-nav-compact";
+    nav.setAttribute("aria-label", "Spor branslari");
+    nav.innerHTML = `<div class="sport-branch-main">
+      ${primary.map(([key, label, url]) => `<button class="sport-branch-button ${key === active ? "active" : ""}" data-branch="${key}" data-url="${url}">${label}</button>`).join("")}
+      <button class="sport-branch-button sport-predict-button" data-action="predict">Predict</button>
+      <div class="sport-more-wrap">
+        <button class="sport-branch-button sport-more-button ${activeSecondary ? "active" : ""}" aria-expanded="false">${activeSecondary ? activeSecondary[1] : "Diger"}<span>+</span></button>
+        <div class="sport-more-menu" hidden>
+          ${secondary.map(([key, label, url]) => `<button class="sport-more-item ${key === active ? "active" : ""}" data-url="${url}">${label}</button>`).join("")}
+        </div>
+      </div>
+    </div>`;
+    header.after(nav);
+
+    nav.querySelectorAll("[data-url]").forEach((button) => {
+      button.addEventListener("click", () => location.assign(button.dataset.url));
+    });
+    nav.querySelector("[data-action='predict']")?.addEventListener("click", () => {
+      const existing = [...document.querySelectorAll(".primary-nav .maintab")].find((item) => /predict/i.test(item.textContent));
+      if (existing) existing.click();
+      else location.assign("/?tab=predict");
+    });
+    const moreButton = nav.querySelector(".sport-more-button");
+    const menu = nav.querySelector(".sport-more-menu");
+    const close = () => { menu.hidden = true; moreButton.setAttribute("aria-expanded", "false"); };
+    moreButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+      moreButton.setAttribute("aria-expanded", String(!menu.hidden));
+    });
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+    if (active !== "football" && active !== "motorsports") setTimeout(refreshMetrics);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, { once: true });
+  else mount();
 })();
