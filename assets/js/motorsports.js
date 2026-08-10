@@ -54,7 +54,11 @@
     }
     return '';
   };
-  const nameOf = item => scalar(item, ['name', 'fullName', 'displayName', 'title', 'eventName', 'year', 'season', 'slug']) || scalar(item?.driver) || scalar(item?.team) || scalar(item?.constructor) || 'Kayit';
+  const nameOf = item => {
+    const personName = [scalar(item?.firstName), scalar(item?.lastName)].filter(Boolean).join(' ');
+    const resolved = personName || scalar(item, ['name', 'fullName', 'displayName', 'title', 'eventName', 'year', 'season', 'slug']) || scalar(item?.driver) || scalar(item?.team) || scalar(item?.constructor);
+    return resolved && !/^\[?object(?: object)?\]?$/i.test(resolved.trim()) ? resolved : 'Kayit';
+  };
   const imageOf = item => scalar(item?.image || item?.logo || item?.photo || item?.avatar || item?.driver?.image || item?.team?.logo, ['url', 'src', 'href']);
   const dateOf = item => scalar(item?.dateStart || item?.startDate || item?.date || item?.scheduledAt || item?.start, ['date', 'value', 'label']);
   const valueOf = item => scalar(item?.points ?? item?.position ?? item?.rank ?? item?.number ?? item?.status, ['long', 'short', 'name', 'value', 'label']);
