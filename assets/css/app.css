@@ -6421,3 +6421,40 @@ body>.global-header .primary-nav{display:none!important}
   .sport-branch-nav-compact .sport-branch-button{min-height:36px!important;padding:0 10px!important;font-size:10px!important}
   .sport-more-menu{position:fixed;left:10px;right:10px;top:118px;width:auto;grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Basketball football-style portal v1 */
+.multisport-hub[data-sport="basketball"]{max-width:1180px}
+.multisport-hub[data-sport="basketball"] .multisport-hero{min-height:116px;padding:24px 28px;border-radius:16px 16px 0 0}
+.multisport-hub[data-sport="basketball"] .multisport-hero h1{font-size:42px}
+.multisport-hub[data-sport="basketball"] .multisport-switcher{display:none!important}
+.multisport-hub[data-sport="basketball"] .multisport-view-nav{justify-content:flex-start;min-height:50px;padding:6px;background:#11171c}
+.multisport-hub[data-sport="basketball"] .multisport-view-nav button{min-width:92px}
+.multisport-hub[data-sport="basketball"] .multi-league-strip{display:flex;gap:8px;margin:0;padding:11px 10px;overflow-x:auto;border:1px solid #34404b;border-radius:0 0 13px 13px;background:#171d23;scrollbar-width:none}
+.multisport-hub[data-sport="basketball"] .multi-league-strip::-webkit-scrollbar{display:none}
+.multisport-hub[data-sport="basketball"] .multi-league-strip button{flex:0 0 auto;min-width:120px;min-height:46px;padding:8px 13px;border:1px solid #53606d;border-radius:9px;background:#252c34;color:#d5dbe2;text-align:left;font-weight:900}
+.multisport-hub[data-sport="basketball"] .multi-league-strip button.active{border-color:#f17886;background:linear-gradient(135deg,#56303a,#29323b);box-shadow:inset 0 -2px #ef7180}
+.multisport-hub[data-sport="basketball"] .multi-event-grid{display:block;margin-top:12px}
+.basket-team-command{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;border:1px solid #44505c;border-radius:13px;background:linear-gradient(135deg,#303943,#1b2229)}
+.basket-team-command>strong{color:#fff;font-size:12px}
+.basket-team-command>div{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
+.basket-team-command>div::-webkit-scrollbar{display:none}
+.basket-team-chip{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:42px;padding:5px 10px 5px 6px;border:1px solid #53606c;border-radius:8px;background:#20272e;color:#cfd5dc;font-weight:800}
+.basket-team-chip img{width:28px;height:28px;object-fit:contain;border-radius:50%;background:#182028}
+.basket-football-layout{display:grid;grid-template-columns:250px minmax(0,1fr) 270px;gap:12px;align-items:stretch}
+.basket-schedule-panel,.basket-feature-card,.basket-league-panel{overflow:hidden;border:1px solid #46525e;border-radius:16px;background:#1b2229;color:#fff}
+.basket-schedule-panel header,.basket-league-panel header{padding:18px;border-bottom:1px solid #46525e;background:linear-gradient(135deg,#34404b,#252d35)}
+.basket-schedule-panel header span,.basket-league-panel header span,.basket-feature-card>span{color:#ef7180;font:900 9px monospace;letter-spacing:.15em}
+.basket-schedule-panel h3,.basket-league-panel h3{margin:5px 0 0;font-size:17px}
+.basket-schedule-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px;min-height:58px;padding:8px 11px;border-bottom:1px solid #35414b}
+.basket-schedule-row time{color:#8fa0b1;font:700 9px monospace}.basket-schedule-row strong{overflow:hidden;color:#f6f7f8;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.basket-schedule-row b{color:#ffad43;font-size:11px}
+.basket-feature-card{padding:25px;background:radial-gradient(circle at 50% 110%,#df792f35,transparent 48%),linear-gradient(135deg,#323b46,#20272f)}
+.basket-feature-card h2{margin:8px 0 22px;font-size:27px}
+.basket-feature-match{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;min-height:220px}
+.basket-feature-match figure{display:grid;justify-items:center;gap:10px;margin:0;text-align:center}
+.basket-feature-match img{width:104px;height:104px;object-fit:contain;border-radius:24px;background:#141a20;box-shadow:0 15px 35px #0008}
+.basket-feature-match figcaption{font-weight:900}.basket-feature-match>strong{color:#ffad43;font-size:28px}
+.basket-feature-card>p{margin:18px 0 0;padding-top:15px;border-top:1px solid #56616b;color:#aeb7c1}
+.basket-league-panel>button{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:9px;width:100%;min-height:54px;padding:8px 13px;border:0;border-bottom:1px solid #35414b;background:transparent;color:#fff;text-align:left}
+.basket-league-panel>button:hover{background:#27313a}.basket-league-panel i{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#f0a03d;color:#101419;font:900 10px monospace}.basket-league-panel span{font-weight:800}.basket-league-panel b{color:#97a6b5}
+@media(max-width:900px){.basket-football-layout{grid-template-columns:1fr 1fr}.basket-feature-card{grid-column:1/-1;grid-row:1}.basket-team-command{grid-template-columns:1fr}.basket-team-command>strong{display:none}}
+@media(max-width:620px){.multisport-hub[data-sport="basketball"] .multisport-hero{min-height:94px;padding:18px}.multisport-hub[data-sport="basketball"] .multisport-hero h1{font-size:31px}.basket-football-layout{grid-template-columns:1fr}.basket-feature-card,.basket-schedule-panel,.basket-league-panel{grid-column:auto;grid-row:auto}.basket-feature-match{min-height:170px;gap:8px}.basket-feature-match img{width:76px;height:76px}.basket-feature-match>strong{font-size:20px}}

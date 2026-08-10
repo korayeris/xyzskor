@@ -80,6 +80,36 @@
     </article>`;
   }
 
+  function basketballPortalHTML(items, leagueNames){
+    const featured = items[0];
+    const teams = new Map();
+    items.forEach((item) => [item.first || item.home, item.second || item.away].forEach((team) => {
+      if(team?.name && !teams.has(team.name)) teams.set(team.name, team);
+    }));
+    const teamStrip = [...teams.values()].slice(0,10).map((team) => `<button type="button" class="basket-team-chip">${visual(team.name, team.logo)}<span>${escapeHTML(team.name)}</span></button>`).join('');
+    const schedule = items.slice(0,8).map((item) => {
+      const first = item.first || item.home || {};
+      const second = item.second || item.away || {};
+      return `<article class="basket-schedule-row"><time>${escapeHTML(item.time || item.feedDate || '--:--')}</time><strong>${escapeHTML(first.name || 'TBA')}</strong><b>${escapeHTML(scoreText(item.score))}</b><strong>${escapeHTML(second.name || 'TBA')}</strong></article>`;
+    }).join('');
+    const featuredHTML = featured ? (() => {
+      const first = featured.first || featured.home || {};
+      const second = featured.second || featured.away || {};
+      return `<article class="basket-feature-card">
+        <span>GUNUN VITRINI</span><h2>${escapeHTML(featured.league || 'Basketbol')}</h2>
+        <div class="basket-feature-match"><figure>${visual(first.name, first.logo)}<figcaption>${escapeHTML(first.name || 'TBA')}</figcaption></figure><strong>${escapeHTML(scoreText(featured.score))}</strong><figure>${visual(second.name, second.logo)}<figcaption>${escapeHTML(second.name || 'TBA')}</figcaption></figure></div>
+        <p>${escapeHTML(featured.status || 'Programda')} · ${escapeHTML(featured.feedDate || featured.date || featured.time || '')}</p>
+      </article>`;
+    })() : '<article class="basket-feature-card"><h2>Basketbol vitrini hazırlanıyor</h2></article>';
+    const leagueList = leagueNames.slice(0,8).map((name, index) => `<button type="button" data-basket-league="${escapeHTML(name)}"><i>${index + 1}</i><span>${escapeHTML(name)}</span><b>${items.filter((item) => (item.league || item.category) === name).length}</b></button>`).join('');
+    return `<section class="basket-team-command"><strong>TAKIM GUNDEMI</strong><div>${teamStrip || '<span>Takimlar programla birlikte güncellenir.</span>'}</div></section>
+      <section class="basket-football-layout">
+        <aside class="basket-schedule-panel"><header><span>MAC MERKEZI</span><h3>Canli ve yaklasan maclar</h3></header>${schedule || '<p>Program güncelleniyor.</p>'}</aside>
+        ${featuredHTML}
+        <aside class="basket-league-panel"><header><span>LIGLER</span><h3>Basketbol vitrini</h3></header>${leagueList || '<p>Ligler güncelleniyor.</p>'}</aside>
+      </section>`;
+  }
+
   function render(payload){
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
@@ -116,6 +146,14 @@
     leagueStrip.innerHTML = leagueNames.length ? [['all','Tumu'],...leagueNames.slice(0,14).map(name=>[name,name])].map(([key,label])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}">${escapeHTML(label)}</button>`).join('') : '';
     leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.league;render(payload)}));
     const items = activeLeague === 'all' ? allItems : allItems.filter(item => (item.league || item.category) === activeLeague);
+    if(activeSport === 'basketball' && activeView === 'home'){
+      grid.innerHTML = basketballPortalHTML(items, leagueNames);
+      grid.querySelectorAll('[data-basket-league]').forEach((button) => button.addEventListener('click', () => {
+        activeLeague = button.dataset.basketLeague;
+        render(payload);
+      }));
+      return;
+    }
     if(activeView === 'leagues'){
       const groups = new Map();
       items.forEach((item) => {
