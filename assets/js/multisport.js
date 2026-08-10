@@ -125,12 +125,12 @@
       }));
       return;
     }
-    grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : '<div class="multi-event-empty"><strong>Bugün program bulunmuyor.</strong><span>Etkinliği olan diğer branşlar yukarıda görünür.</span></div>';
+    grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : '<div class="multi-event-empty"><strong>Bu branşın son verileri hazırlanıyor.</strong><span>Yasal API kaynağı veri sunduğunda son gerçekleşen karşılaşmalar otomatik gösterilir.</span></div>';
   }
 
   async function load(){
     if(!feedPromise){
-      feedPromise = fetch('/api/sports/today?client=v5', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
+      feedPromise = fetch('/api/sports/today?client=v7', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');

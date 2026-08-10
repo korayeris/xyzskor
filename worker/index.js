@@ -1982,7 +1982,7 @@ async function handleMultisportToday(request, env, context) {
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v6?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v7?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
