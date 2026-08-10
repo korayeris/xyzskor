@@ -7,7 +7,8 @@
     rugby: 'Rugby',
     baseball: 'Beyzbol',
     handball: 'Hentbol',
-    americanFootball: 'Amerikan Futbolu'
+    americanFootball: 'Amerikan Futbolu',
+    australianFootball: 'Avustralya Futbolu'
   };
 
   let feedPromise = null;
@@ -18,7 +19,7 @@
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
-  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu'}[sport] || 'basketbol');
+  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu',australianFootball:'avustralya-futbolu'}[sport] || 'basketbol');
   const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
 
   function hubPath(sport, view){
@@ -28,7 +29,7 @@
 
   function routeState(){
     const parts = location.pathname.split('/').filter(Boolean);
-    const sport = ({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball'})[parts[0]];
+    const sport = ({basketbol:'basketball',ufc:'mma',voleybol:'volleyball','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball','avustralya-futbolu':'australianFootball'})[parts[0]];
     const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
     return sport ? {sport,view} : null;
   }

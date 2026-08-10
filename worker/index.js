@@ -1865,6 +1865,7 @@ const MULTISPORT_FEEDS = Object.freeze({
   baseball: { host: "v1.baseball.api-sports.io", path: "games" },
   handball: { host: "v1.handball.api-sports.io", path: "games" },
   americanFootball: { host: "v1.american-football.api-sports.io", path: "games" },
+  australianFootball: { host: "v1.australian-football.api-sports.io", path: "games" },
 });
 
 function multisportDate() {
@@ -1906,7 +1907,7 @@ async function handleMultisportToday(request, env, context) {
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v4?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v5?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
@@ -1918,7 +1919,7 @@ async function handleMultisportToday(request, env, context) {
       if (!response.ok || !payload || Object.keys(payload.errors || {}).length) throw new Error("provider_unavailable");
       let rows = Array.isArray(payload.response) ? payload.response : [];
       if (!rows.length) {
-        for (let offset = 1; offset <= 7 && !rows.length; offset += 1) {
+        for (let offset = 1; offset <= 14 && !rows.length; offset += 1) {
           const futureDate = new Date(`${date}T12:00:00+03:00`);
           futureDate.setDate(futureDate.getDate() + offset);
           const queryDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(futureDate);
@@ -1954,6 +1955,52 @@ function handleHealth(request, env) {
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
 }
 
+const MOTORSPORT_SPORTS = Object.freeze({
+  "formula-1": "formula1", "formula-e": "formula-e", indycar: "indycar",
+  motogp: "moto-gp", moto2: "moto2", moto3: "moto3", wrc: "wrc",
+  wec: "wec", "le-mans": "wec", nascar: "nascar"
+});
+
+const MOTORSPORT_RESOURCES = Object.freeze({
+  events: "events", drivers: "drivers", teams: "teams", seasons: "seasons",
+  circuits: "circuits", "standings-drivers": "standings/drivers",
+  "standings-teams": "standings/teams", standings: "standings", live: "live/timing"
+});
+
+async function handleMotorsportData(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  if (!env.OCBLACKTOP_API_KEY) return jsonResponse({ error: "motorsport_api_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const input = new URL(request.url);
+  const sport = MOTORSPORT_SPORTS[input.searchParams.get("sport") || ""];
+  const resourceKey = input.searchParams.get("resource") || "events";
+  const resource = MOTORSPORT_RESOURCES[resourceKey];
+  if (!sport || !resource) return jsonResponse({ error: "invalid_motorsport_query" }, 400, { "Cache-Control": "no-store" });
+  if (resourceKey === "live" && !["formula1", "nascar", "wrc"].includes(sport)) {
+    return jsonResponse({ source: "orange-cat-blacktop", sport, resource: resourceKey, liveSupported: false, data: [] }, 200, { "Cache-Control": "public, max-age=60" });
+  }
+  const upstream = new URL(`https://api.ocblacktop.com/v1/${sport}/${resource}`);
+  for (const key of ["season", "year", "limit", "offset", "page", "status", "eventId", "sessionId"]) {
+    const value = input.searchParams.get(key); if (value) upstream.searchParams.set(key, value);
+  }
+  const cache = edgeCache();
+  const live = resourceKey === "live";
+  const cacheKey = new Request(new URL(`/api/motorsports/cache/${sport}/${resourceKey}?${upstream.searchParams}`, request.url));
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+  try {
+    const response = await fetch(upstream, { headers: { "x-api-key": env.OCBLACKTOP_API_KEY, Accept: "application/json" } });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || data == null) return jsonResponse({ error: "motorsport_upstream_unavailable", status: response.status }, 502, { "Cache-Control": "no-store" });
+    const payload = { source: "orange-cat-blacktop", sport, resource: resourceKey, liveSupported: ["formula1", "nascar", "wrc"].includes(sport), updatedAt: new Date().toISOString(), data };
+    const cacheControl = live ? "public, max-age=30, s-maxage=60" : resourceKey === "events" ? "public, max-age=120, s-maxage=300" : "public, max-age=900, s-maxage=3600";
+    const output = jsonResponse(payload, 200, { "Cache-Control": cacheControl });
+    writeEdgeCache(cache, cacheKey, output, context);
+    return output;
+  } catch (_error) {
+    return jsonResponse({ error: "motorsport_upstream_unavailable" }, 502, { "Cache-Control": "no-store" });
+  }
+}
+
 function withHeaders(response, pathname) {
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(securityHeaders())) {
@@ -1979,6 +2026,10 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
+    if (url.pathname === "/api/motorsports") {
+      if (url.searchParams.get("resource") !== "live") return jsonResponse({ source: "manual-snapshot", refresh: "disabled" }, 423, { "Cache-Control": "public, max-age=86400" });
+      return handleMotorsportData(request, env, context);
+    }
     if (url.pathname === "/api/health") return handleHealth(request, env);
     if (url.pathname === "/api/predict-game/status") return handlePredictGameStatus(request, env);
     if (url.pathname === "/api/predict-game/session") return handlePredictGameSession(request, env);
