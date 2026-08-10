@@ -58,7 +58,7 @@
     const first = item.first || item.home || {};
     const second = item.second || item.away || {};
     const score = item.score || '';
-    return `<article class="multi-event-card">
+    return `<article class="multi-event-card sport-${activeSport}">
       <header><span>${escapeHTML(item.league || item.category || SPORT_LABELS[activeSport])}</span><time>${escapeHTML(item.time || '')}</time></header>
       <div class="multi-event-side"><span>${first.logo ? `<img src="${escapeHTML(first.logo)}" alt="" loading="lazy">` : ''}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
       <div class="multi-event-score"><b>${escapeHTML(score || 'VS')}</b><small>${escapeHTML(item.status || 'Yaklasan')}</small></div>
@@ -74,13 +74,16 @@
     if(!hub || !grid) return;
     const sports = payload?.sports || {};
     const available = Object.keys(SPORT_LABELS).filter((key) => Array.isArray(sports[key]) && sports[key].length);
-    if(!available.includes(activeSport)) activeSport = available[0] || 'basketball';
+    // Never replace the requested branch with another sport's feed.
+    // An empty branch must render its own honest empty state.
     document.querySelectorAll('[data-multi-sport]').forEach((button) => {
       const key = button.dataset.multiSport;
       button.hidden = false;
       button.classList.toggle('active', key === activeSport);
     });
     const items = sports[activeSport] || [];
+    hub.dataset.sport = activeSport;
+    grid.dataset.sport = activeSport;
     title.textContent = SPORT_LABELS[activeSport] || 'Spor';
     note.textContent = `${payload?.date || ''} programı · ücretsiz API-Sports verisi`;
     const viewNav = document.getElementById('multiSportViews');

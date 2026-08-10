@@ -1,27 +1,169 @@
-﻿(() => {
-  const otherSports=[['UFC / MMA','/ufc/'],['Buz Hokeyi','/buz-hokeyi/'],['Rugby','/rugby/'],['Beyzbol','/beyzbol/'],['Hentbol','/hentbol/'],['Amerikan Futbolu','/amerikan-futbolu/'],['Avustralya Futbolu','/avustralya-futbolu/']];
-  const groups=[['FORMULA',[['Formula 1','formula-1'],['Formula E','formula-e'],['IndyCar','indycar']]],['MOTOSIKLET',[['MotoGP','motogp'],['Moto2','moto2'],['Moto3','moto3']]],['RALLY',[['WRC','wrc']]],['ENDURANCE',[['WEC','wec'],['Le Mans','le-mans']]],['STOCK CAR',[['NASCAR Cup Series','nascar']]]];
-  const series={'formula-1':['Formula 1','#ef3547'],'formula-e':['Formula E','#38a8ff'],indycar:['IndyCar','#1689d8'],motogp:['MotoGP','#ff6a28'],moto2:['Moto2','#e9853a'],moto3:['Moto3','#efad43'],wrc:['WRC','#3fc77a'],wec:['WEC','#8a6cff'],'le-mans':['Le Mans','#9c79ff'],nascar:['NASCAR Cup Series','#f0c83f']};
-  const views=[['overview','Overview'],['calendar','Calendar'],['results','Results'],['standings','Standings'],['drivers','Drivers'],['teams','Teams'],['seasons','Archive'],['circuits','Circuits'],['live','Live']];
-  const parts=()=>location.pathname.split('/').filter(Boolean),isMotor=()=>parts()[0]==='motorsports';
-  const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-  const rows=data=>{if(Array.isArray(data))return data;if(!data||typeof data!=='object')return[];for(const key of ['data','response','items','results','events','drivers','teams','seasons','standings','circuits'])if(Array.isArray(data[key]))return data[key];for(const value of Object.values(data))if(Array.isArray(value))return value;return[]};
-  const nameOf=item=>item?.name||item?.fullName||item?.displayName||item?.title||item?.driver?.name||item?.team?.name||item?.constructor?.name||item?.eventName||'Kayit';
-  const imageOf=item=>item?.image||item?.logo||item?.photo||item?.driver?.image||item?.team?.logo||'';
-  const dateOf=item=>item?.dateStart||item?.startDate||item?.date||item?.scheduledAt||item?.start||'';
-  const valueOf=item=>item?.points??item?.position??item?.rank??item?.number??item?.status??'';
-  const menu=()=>groups.map(([g,items])=>`<section class="xms-mega-group"><strong>${g}</strong>${items.map(([l,s])=>`<a href="/motorsports/${s}">${l}</a>`).join('')}</section>`).join('');
-  const others=()=>`<section class="xms-mega-group"><strong>DOVUS</strong><a href="/ufc/">UFC / MMA</a></section><section class="xms-mega-group"><strong>TAKIM SPORLARI</strong>${otherSports.slice(1,5).map(([l,u])=>`<a href="${u}">${l}</a>`).join('')}</section><section class="xms-mega-group"><strong>FUTBOL TURLERI</strong>${otherSports.slice(5).map(([l,u])=>`<a href="${u}">${l}</a>`).join('')}</section>`;
-  let snapshotPromise,liveTimer=0,activeView='overview';async function api(sport,resource){if(resource==='live'){const response=await fetch('/api/motorsports?sport='+encodeURIComponent(sport)+'&resource=live',{headers:{Accept:'application/json'}});const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload.error||'live_unavailable');return payload}snapshotPromise ||= fetch('/assets/data/motorsports-snapshot.json',{cache:'force-cache'}).then(response=>{if(!response.ok)throw new Error('snapshot_unavailable');return response.json()});const snapshot=await snapshotPromise;return {source:snapshot.source,updatedAt:snapshot.fetchedAt,liveSupported:false,data:snapshot.sports?.[sport]?.[resource]||[]}}
-  function itemCard(item,index,type){const image=imageOf(item),date=dateOf(item),value=valueOf(item);return `<article class="xms-data-card"><span class="xms-data-index">${String(index+1).padStart(2,'0')}</span>${image?`<img src="${esc(image)}" alt="" loading="lazy">`:''}<div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${esc(date||item?.country?.name||item?.nationality||item?.location?.name||item?.team?.name||'')}</p></div>${value!==''?`<b>${esc(value)}</b>`:''}</article>`}
-  function renderList(host,payload,type,empty){const list=rows(payload?.data);host.innerHTML=list.length?`<div class="xms-data-list">${list.slice(0,60).map((item,i)=>itemCard(item,i,type)).join('')}</div>`:`<div class="xms-empty"><strong>${empty}</strong><p>Bu seri icin saglayicidan kayit gelmediginde baska bir bransin verisi gosterilmez.</p></div>`}
-  async function loadView(slug,view){const host=document.getElementById('xmsData');if(!host)return;host.innerHTML='<div class="xms-loading"><i></i><span>Motor sporları verisi yukleniyor</span></div>';try{
-    if(view==='overview'){const [events,drivers,teams]=await Promise.all([api(slug,'events'),api(slug,'standings-drivers').catch(()=>({data:[]})),api(slug,slug==='wec'||slug==='le-mans'?'standings':'standings-teams').catch(()=>({data:[]}))]);host.innerHTML=`<section class="xms-overview-block"><header><small>NEXT / RECENT EVENTS</small><h2>Yaris merkezi</h2></header><div class="xms-data-list">${rows(events.data).slice(0,8).map((x,i)=>itemCard(x,i,'EVENT')).join('')||'<div class="xms-empty">Etkinlik bulunamadi.</div>'}</div></section><section class="xms-overview-split"><div><h2>Surucu siralamasi</h2>${rows(drivers.data).slice(0,8).map((x,i)=>itemCard(x,i,'DRIVER')).join('')||'<p>Kayit bekleniyor.</p>'}</div><div><h2>Takim / Uretici</h2>${rows(teams.data).slice(0,8).map((x,i)=>itemCard(x,i,'TEAM')).join('')||'<p>Kayit bekleniyor.</p>'}</div></section>`;return}
-    const resource={calendar:'events',results:'events',standings:slug==='wec'||slug==='le-mans'?'standings':'standings-drivers',drivers:'drivers',teams:'teams',seasons:'seasons',circuits:'circuits',live:'live'}[view]||'events';const payload=await api(slug,resource);if(view==='live'&&!payload.liveSupported){host.innerHTML='<div class="xms-empty"><strong>Canli timing bu seride saglayici tarafindan sunulmuyor.</strong><p>Takvim, sonuclar ve siralamalar otomatik guncellenmeye devam eder.</p></div>';return}renderList(host,payload,view.toUpperCase(),`${series[slug]?.[0]||'Seri'} icin ${view} kaydi bulunamadi.`);
-  }catch(error){host.innerHTML=`<div class="xms-empty"><strong>Veri akisi su anda yenileniyor.</strong><p>${esc(error.message)}</p></div>`}}
-  function shell(slug){const [label,accent]=series[slug]||['Motor Sporlari','#ef3e4f'],detail=Boolean(series[slug]);return `<main class="xms-shell" style="--xms-accent:${accent}"><header class="xms-hero"><span>XYZSKOR / MOTORSPORT DATA</span><h1>${detail?label:'Hizin veriye donustugu merkez.'}</h1><p>${detail?'Takvim, sonuc, siralama, surucu, takim ve canli yaris kontrolu tek seri deneyiminde.':'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>LIVE DATA</b></header>${detail?`<nav class="xms-series-nav">${views.map(([key,label],i)=>`<button data-xms-view="${key}" class="${i===0?'active':''}">${label}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>`:`<section class="xms-catalog">${groups.map(([group,items])=>`<article><small>${group}</small>${items.map(([name,key])=>`<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a class="live" href="#live">Live</a><a href="#calendar">Calendar</a><a href="#standings">Standings</a><a href="#more">More</a></nav></main>`}
-  function init(){const header=document.querySelector('.global-header');if(!header||document.querySelector('.xms-primary'))return;const nav=document.createElement('nav');nav.className='xms-primary';nav.innerHTML=`<div class="xms-primary-inner"><a href="/">FUTBOL</a><a href="/basketbol/">BASKETBOL</a><a href="/voleybol/">VOLEYBOL</a><button class="xms-trigger">DIGER SPORLAR</button><button class="xms-trigger ${isMotor()?'active':''}">MOTORSPORLARI</button><div class="xms-mega xms-other" hidden>${others()}</div><div class="xms-mega" hidden>${menu()}</div></div>`;header.after(nav);const triggers=nav.querySelectorAll('.xms-trigger'),menus=nav.querySelectorAll('.xms-mega');triggers.forEach((trigger,i)=>trigger.onclick=()=>{const open=menus[i].hidden;menus.forEach(m=>m.hidden=true);menus[i].hidden=!open});document.addEventListener('click',e=>{if(!nav.contains(e.target))menus.forEach(m=>m.hidden=true)});if(isMotor()){document.body.classList.add('motorsport-open');document.querySelectorAll('body > .wrap,#multiSportHub,.sport-branch-nav').forEach(el=>el.hidden=true);const slug=parts()[1]||'';nav.insertAdjacentHTML('afterend',shell(slug));if(series[slug]){document.querySelectorAll('[data-xms-view]').forEach(button=>button.onclick=()=>{activeView=button.dataset.xmsView;clearTimeout(liveTimer);document.querySelectorAll('[data-xms-view]').forEach(x=>x.classList.toggle('active',x===button));loadView(slug,activeView)});loadView(slug,'overview')}}}
-  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init,{once:true}):init();
+(() => {
+  const groups = [
+    ['FORMULA', [['Formula 1', 'formula-1'], ['Formula E', 'formula-e'], ['IndyCar', 'indycar']]],
+    ['MOTOSIKLET', [['MotoGP', 'motogp'], ['Moto2', 'moto2'], ['Moto3', 'moto3']]],
+    ['RALLY', [['WRC', 'wrc']]],
+    ['ENDURANCE', [['WEC', 'wec'], ['Le Mans', 'le-mans']]],
+    ['STOCK CAR', [['NASCAR Cup Series', 'nascar']]]
+  ];
+  const series = {
+    'formula-1': ['Formula 1', '#ef3547', 'formula'],
+    'formula-e': ['Formula E', '#38a8ff', 'formula'],
+    indycar: ['IndyCar', '#1689d8', 'formula'],
+    motogp: ['MotoGP', '#ff6a28', 'moto'],
+    moto2: ['Moto2', '#e9853a', 'moto'],
+    moto3: ['Moto3', '#efad43', 'moto'],
+    wrc: ['WRC', '#3fc77a', 'rally'],
+    wec: ['WEC', '#8a6cff', 'endurance'],
+    'le-mans': ['Le Mans', '#9c79ff', 'endurance'],
+    nascar: ['NASCAR Cup Series', '#f0c83f', 'stock']
+  };
+  const viewRegistry = {
+    formula: [['overview', 'Overview'], ['calendar', 'Calendar'], ['results', 'Results'], ['standings', 'Standings'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['circuits', 'Circuits'], ['live', 'Live']],
+    moto: [['overview', 'Overview'], ['calendar', 'Calendar'], ['results', 'Results'], ['standings', 'Standings'], ['riders', 'Riders'], ['teams', 'Teams'], ['live', 'Live']],
+    rally: [['overview', 'Overview'], ['calendar', 'Calendar'], ['stages', 'Stages'], ['results', 'Results'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['live', 'Live']],
+    endurance: [['overview', 'Overview'], ['calendar', 'Calendar'], ['results', 'Results'], ['standings', 'Standings'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['live', 'Live']],
+    stock: [['overview', 'Overview'], ['calendar', 'Calendar'], ['stages', 'Stages'], ['results', 'Results'], ['standings', 'Standings'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['live', 'Live']]
+  };
+  const resourceMap = {
+    calendar: 'events', results: 'events', standings: 'standings-drivers',
+    drivers: 'drivers', riders: 'drivers', teams: 'teams', circuits: 'circuits', live: 'live'
+  };
+  const unsupported = {
+    stages: ['Etap verisi pakette bulunmuyor.', 'Saglayici ayri etap akisi verdiginde bu alan otomatik aktif olur.']
+  };
+  const parts = () => location.pathname.split('/').filter(Boolean);
+  const isMotor = () => parts()[0] === 'motorsports';
+  const esc = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+  const rows = data => {
+    if (Array.isArray(data)) return data;
+    if (!data || typeof data !== 'object') return [];
+    for (const key of ['data', 'response', 'items', 'results', 'events', 'drivers', 'teams', 'seasons', 'standings', 'circuits']) {
+      if (Array.isArray(data[key])) return data[key];
+    }
+    for (const value of Object.values(data)) if (Array.isArray(value)) return value;
+    return [];
+  };
+  const scalar = (value, keys = ['name', 'fullName', 'displayName', 'title', 'year', 'season', 'value', 'label', 'code']) => {
+    if (value == null) return '';
+    if (['string', 'number', 'boolean'].includes(typeof value)) return String(value);
+    if (Array.isArray(value)) return value.map(item => scalar(item, keys)).filter(Boolean).join(' / ');
+    for (const key of keys) {
+      const found = scalar(value?.[key], keys);
+      if (found) return found;
+    }
+    return '';
+  };
+  const nameOf = item => scalar(item, ['name', 'fullName', 'displayName', 'title', 'eventName', 'year', 'season', 'slug']) || scalar(item?.driver) || scalar(item?.team) || scalar(item?.constructor) || 'Kayit';
+  const imageOf = item => scalar(item?.image || item?.logo || item?.photo || item?.avatar || item?.driver?.image || item?.team?.logo, ['url', 'src', 'href']);
+  const dateOf = item => scalar(item?.dateStart || item?.startDate || item?.date || item?.scheduledAt || item?.start, ['date', 'value', 'label']);
+  const valueOf = item => scalar(item?.points ?? item?.position ?? item?.rank ?? item?.number ?? item?.status, ['long', 'short', 'name', 'value', 'label']);
+  const menu = () => groups.map(([group, items]) => `<section class="xms-mega-group"><strong>${group}</strong>${items.map(([label, slug]) => `<a href="/motorsports/${slug}">${label}</a>`).join('')}</section>`).join('');
+  const viewsFor = slug => viewRegistry[series[slug]?.[2] || 'formula'];
+  const classSwitch = slug => {
+    if (['motogp', 'moto2', 'moto3'].includes(slug)) return `<nav class="xms-class-switch" aria-label="Motosiklet sinifi">${['motogp', 'moto2', 'moto3'].map(key => `<a class="${key === slug ? 'active' : ''}" href="/motorsports/${key}">${series[key][0]}</a>`).join('')}</nav>`;
+    if (['wec', 'le-mans'].includes(slug)) return '<nav class="xms-class-switch" aria-label="Endurance sinifi"><button class="active">Genel</button><button disabled>Hypercar</button><button disabled>LMGT3</button></nav>';
+    return '';
+  };
+
+  let snapshotPromise;
+  let liveTimer = 0;
+  async function api(sport, resource) {
+    if (resource === 'live') {
+      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=live`, { headers: { Accept: 'application/json' } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'live_unavailable');
+      return payload;
+    }
+    snapshotPromise ||= fetch('/assets/data/motorsports-snapshot.json', { cache: 'force-cache' }).then(response => {
+      if (!response.ok) throw new Error('snapshot_unavailable');
+      return response.json();
+    });
+    const snapshot = await snapshotPromise;
+    return { source: snapshot.source, updatedAt: snapshot.fetchedAt, liveSupported: false, data: snapshot.sports?.[sport]?.[resource] || [] };
+  }
+  function itemCard(item, index, type) {
+    const image = imageOf(item);
+    const date = dateOf(item);
+    const value = valueOf(item);
+    const meta = date || scalar(item?.country) || scalar(item?.nationality) || scalar(item?.location) || scalar(item?.team);
+    return `<article class="xms-data-card"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span>${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : ''}<div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${esc(meta)}</p></div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
+  }
+  function emptyState(title, detail) {
+    return `<div class="xms-empty"><strong>${esc(title)}</strong><p>${esc(detail)}</p></div>`;
+  }
+  function renderList(host, payload, type, empty) {
+    const list = rows(payload?.data);
+    host.innerHTML = list.length ? `<div class="xms-data-list">${list.slice(0, 60).map((item, index) => itemCard(item, index, type)).join('')}</div>` : emptyState(empty, 'Bu seri icin kayit gelmediginde baska bir bransin verisi gosterilmez.');
+  }
+  async function loadView(slug, view) {
+    const host = document.getElementById('xmsData');
+    if (!host) return;
+    clearTimeout(liveTimer);
+    host.innerHTML = '<div class="xms-loading"><i></i><span>Motor sporlari verisi yukleniyor</span></div>';
+    if (unsupported[view]) {
+      host.innerHTML = emptyState(...unsupported[view]);
+      return;
+    }
+    try {
+      if (view === 'overview') {
+        const teamResource = ['wec', 'le-mans'].includes(slug) ? 'standings' : 'standings-teams';
+        const [events, drivers, teams] = await Promise.all([
+          api(slug, 'events'),
+          api(slug, 'standings-drivers').catch(() => ({ data: [] })),
+          api(slug, teamResource).catch(() => ({ data: [] }))
+        ]);
+        host.innerHTML = `<section class="xms-overview-block"><header><small>NEXT / RECENT EVENTS</small><h2>Yaris merkezi</h2></header><div class="xms-data-list">${rows(events.data).slice(0, 8).map((item, index) => itemCard(item, index, 'EVENT')).join('') || emptyState('Etkinlik bulunamadi.', 'Saglayicidan yeni takvim kaydi bekleniyor.')}</div></section><section class="xms-overview-split"><div><h2>${series[slug][2] === 'moto' ? 'Surucu siralamasi' : 'Pilot siralamasi'}</h2>${rows(drivers.data).slice(0, 8).map((item, index) => itemCard(item, index, 'DRIVER')).join('') || '<p>Kayit bekleniyor.</p>'}</div><div><h2>Takim / Uretici</h2>${rows(teams.data).slice(0, 8).map((item, index) => itemCard(item, index, 'TEAM')).join('') || '<p>Kayit bekleniyor.</p>'}</div></section>`;
+        return;
+      }
+      const resource = resourceMap[view];
+      if (!resource) {
+        host.innerHTML = emptyState('Bu veri tipi pakette bulunmuyor.', 'Yanlis veya baska bir spor dalina ait veri gosterilmiyor.');
+        return;
+      }
+      const payload = await api(slug, resource);
+      if (view === 'live' && !payload.liveSupported && rows(payload?.data).length === 0) {
+        host.innerHTML = emptyState('Canli timing bu seride saglayici tarafindan sunulmuyor.', 'Takvim, sonuclar ve siralamalar statik API snapshotindan gosterilmeye devam eder.');
+        return;
+      }
+      renderList(host, payload, view.toUpperCase(), `${series[slug][0]} icin ${view} kaydi bulunamadi.`);
+      if (view === 'live') liveTimer = window.setTimeout(() => loadView(slug, 'live'), 60000);
+    } catch (error) {
+      host.innerHTML = emptyState('Veri akisi su anda yenileniyor.', error.message);
+    }
+  }
+  function shell(slug) {
+    const [label, accent, discipline] = series[slug] || ['Motor Sporlari', '#ef3e4f', 'hub'];
+    const detail = Boolean(series[slug]);
+    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><span>XYZSKOR / SPORTS INTELLIGENCE</span><h1>${detail ? label : 'Hizin veriye donustugu merkez.'}</h1><p>${detail ? 'Seriye ozel takvim, sonuc, siralama ve canli veri deneyimi.' : 'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>PROVIDER DATA</b></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a data-mobile-view="live" href="#live">Live</a><a data-mobile-view="calendar" href="#calendar">Calendar</a><a data-mobile-view="standings" href="#standings">Standings</a><a href="#more">More</a></nav></main>`;
+  }
+  function init() {
+    const header = document.querySelector('.global-header');
+    if (!header || document.querySelector('.xms-primary')) return;
+    const nav = document.createElement('nav');
+    nav.className = 'xms-primary';
+    nav.innerHTML = `<div class="xms-primary-inner"><a href="/">FUTBOL</a><a href="/basketbol/">BASKETBOL</a><a href="/voleybol/">VOLEYBOL</a><button class="xms-trigger ${isMotor() ? 'active' : ''}">MOTORSPORLARI</button><a href="/predict/">PREDICT</a><div class="xms-mega" hidden>${menu()}</div></div>`;
+    header.after(nav);
+    const trigger = nav.querySelector('.xms-trigger');
+    const mega = nav.querySelector('.xms-mega');
+    trigger.onclick = () => { mega.hidden = !mega.hidden; };
+    document.addEventListener('click', event => { if (!nav.contains(event.target)) mega.hidden = true; });
+    if (!isMotor()) return;
+    const slug = parts()[1] || '';
+    document.body.classList.add('motorsport-open');
+    document.body.dataset.motorsport = slug || 'hub';
+    document.querySelectorAll('body > .wrap, #multiSportHub, .sport-branch-nav').forEach(element => { element.hidden = true; });
+    nav.insertAdjacentHTML('afterend', shell(slug));
+    if (!series[slug]) return;
+    const activate = view => {
+      const button = document.querySelector(`[data-xms-view="${view}"]`);
+      if (!button) return;
+      document.querySelectorAll('[data-xms-view]').forEach(item => item.classList.toggle('active', item === button));
+      loadView(slug, view);
+    };
+    document.querySelectorAll('[data-xms-view]').forEach(button => { button.onclick = () => activate(button.dataset.xmsView); });
+    document.querySelectorAll('[data-mobile-view]').forEach(link => { link.onclick = event => { event.preventDefault(); activate(link.dataset.mobileView); }; });
+    activate('overview');
+  }
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init, { once: true }) : init();
 })();
-
-
