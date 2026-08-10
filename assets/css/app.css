@@ -6561,3 +6561,12 @@ body.motorsport-open .sport-branch-nav-compact{display:flex!important}
 .sport-branch-button[data-branch="motorsports"]{min-height:38px!important;padding:0 14px!important;font-size:11px!important;line-height:1!important}
 .sport-branch-button[data-branch="motorsports"]:after{display:none!important;content:none!important}
 @media(max-width:680px){.sport-branch-button[data-branch="motorsports"]{min-height:36px!important;padding:0 10px!important;font-size:10px!important}}
+
+/* Clean football landing chrome v1 */
+.predict-promo-banner{display:none!important}
+.mini-goal-game,#miniGoalGame{display:none!important}
+.sport-branch-nav-compact{position:sticky!important;top:64px!important;z-index:92!important;box-shadow:0 8px 24px #0006!important}
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .football-context-nav{display:flex!important}
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .football-league-command{display:grid!important}
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ticker{display:block!important}
+@media(max-width:680px){.sport-branch-nav-compact{top:58px!important}.football-league-command{display:flex!important}}
