@@ -2081,7 +2081,8 @@ export default {
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
     if (url.pathname === "/api/ufc") return handleCitoUfc(request, env, context);
     if (url.pathname === "/api/motorsports") {
-      if (url.searchParams.get("resource") !== "live") return jsonResponse({ source: "manual-snapshot", refresh: "disabled" }, 423, { "Cache-Control": "public, max-age=86400" });
+      const allowedDynamicResources = new Set(["live", "drivers", "teams", "standings-drivers", "standings-teams", "standings"]);
+      if (!allowedDynamicResources.has(url.searchParams.get("resource"))) return jsonResponse({ source: "manual-snapshot", refresh: "disabled" }, 423, { "Cache-Control": "public, max-age=86400" });
       return handleMotorsportData(request, env, context);
     }
     if (url.pathname === "/api/health") return handleHealth(request, env);
