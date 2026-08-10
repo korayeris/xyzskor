@@ -61,6 +61,16 @@
     return resolved && !/^\[?object(?: object)?\]?$/i.test(resolved.trim()) ? resolved : 'Kayit';
   };
   const imageOf = item => scalar(item?.image || item?.logo || item?.photo || item?.avatar || item?.driver?.image || item?.team?.logo, ['url', 'src', 'href']);
+  const updateMotorTicker = (slug, events) => {
+    const ticker = document.getElementById('liveTicker');
+    if(!ticker) return;
+    const event = (events || [])[0];
+    const discipline = series[slug]?.[2];
+    const label = discipline === 'rally' ? 'YAKLASAN RALLY' : discipline === 'moto' ? 'YAKLASAN YARIS' : 'SIRADAKI YARIS';
+    const eventName = event ? nameOf(event) : `${series[slug]?.[0] || 'Motorsporlari'} programi bekleniyor`;
+    const date = event ? scalar(event, ['dateStart','startDate','date','scheduledAt','time']) : '';
+    ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${label}</span><span class="ticker-match">${esc(eventName)}</span><span class="ticker-time mono">${esc(date)}</span>`;
+  };
   const dateOf = item => scalar(item?.dateStart || item?.startDate || item?.date || item?.scheduledAt || item?.start, ['date', 'value', 'label']);
   const valueOf = item => scalar(item?.points ?? item?.position ?? item?.rank ?? item?.number ?? item?.status, ['long', 'short', 'name', 'value', 'label']);
   const initialsOf = item => nameOf(item).split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
@@ -138,6 +148,7 @@
           api(slug, 'standings-drivers').catch(() => ({ data: [] })),
           api(slug, teamResource).catch(() => ({ data: [] }))
         ]);
+        updateMotorTicker(slug, rows(events.data));
         host.innerHTML = `<section class="xms-overview-block"><header><small>NEXT / RECENT EVENTS</small><h2>Yaris merkezi</h2></header><div class="xms-data-list">${rows(events.data).slice(0, 8).map((item, index) => itemCard(item, index, 'EVENT')).join('') || emptyState('Etkinlik bulunamadi.', 'Saglayicidan yeni takvim kaydi bekleniyor.')}</div></section><section class="xms-overview-split"><div><h2>${series[slug][2] === 'moto' ? 'Surucu siralamasi' : 'Pilot siralamasi'}</h2>${rows(drivers.data).slice(0, 8).map((item, index) => itemCard(item, index, 'DRIVER')).join('') || '<p>Kayit bekleniyor.</p>'}</div><div><h2>Takim / Uretici</h2>${rows(teams.data).slice(0, 8).map((item, index) => itemCard(item, index, 'TEAM')).join('') || '<p>Kayit bekleniyor.</p>'}</div></section>`;
         return;
       }

@@ -80,6 +80,17 @@
     </article>`;
   }
 
+  function updateBranchTicker(items){
+    const ticker = document.getElementById('liveTicker');
+    if(!ticker || !activeSport || activeSport === 'football') return;
+    const labels = {basketball:'SIRADAKI BASKETBOL MACI',volleyball:'SIRADAKI VOLEYBOL MACI',hockey:'SIRADAKI HOKEY MACI',rugby:'SIRADAKI RUGBY MACI',baseball:'SIRADAKI BEYZBOL MACI',handball:'SIRADAKI HENTBOL MACI',americanFootball:'SIRADAKI AMERIKAN FUTBOLU MACI',australianFootball:'SIRADAKI AFL MACI'};
+    const next = items.find((item) => !/finished|ended|after|ft/i.test(item.status || '')) || items[0];
+    if(!next){ ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">Program verisi bekleniyor</span>`; return; }
+    const first = next.first || next.home || {};
+    const second = next.second || next.away || {};
+    ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">${escapeHTML(first.name || 'TBA')} — ${escapeHTML(second.name || 'TBA')}</span><span class="ticker-time mono">${escapeHTML(next.time || next.feedDate || next.date || '')}</span>`;
+  }
+
   function basketballPortalHTML(items, leagueNames){
     const featured = items[0];
     const teams = new Map();
@@ -126,6 +137,7 @@
       button.classList.toggle('active', key === activeSport);
     });
     const allItems = sports[activeSport] || [];
+    updateBranchTicker(allItems);
     hub.dataset.sport = activeSport;
     grid.dataset.sport = activeSport;
     title.textContent = SPORT_LABELS[activeSport] || 'Spor';

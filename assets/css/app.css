@@ -6526,3 +6526,22 @@ body[data-motorsport="wrc"] .xms-data-card img{width:78px;height:78px;border-rad
 body[data-motorsport="wrc"] .xms-data-card h3{font-size:18px}
 body[data-motorsport="wrc"] .xms-data-card>div>small{color:#9bd174}
 @media(max-width:700px){.multisport-hub .multisport-hero{min-height:170px;background-position:65% center!important}.multisport-hub .multisport-hero:after{background:linear-gradient(180deg,#070b0f44,#070b0ff5 82%)}body[data-motorsport="wrc"] .xms-hero,body[data-motorsport="formula-1"] .xms-hero,body[data-motorsport="formula-e"] .xms-hero,body[data-motorsport="indycar"] .xms-hero{min-height:340px}body[data-motorsport="wrc"] .xms-hero:before,body[data-motorsport="formula-1"] .xms-hero:before,body[data-motorsport="formula-e"] .xms-hero:before,body[data-motorsport="indycar"] .xms-hero:before{background-position:68% center}body[data-motorsport="wrc"] .xms-hero-copy,body[data-motorsport="formula-1"] .xms-hero-copy,body[data-motorsport="formula-e"] .xms-hero-copy,body[data-motorsport="indycar"] .xms-hero-copy{align-self:end;padding:22px}}
+
+/* Unified branch chrome and contextual ticker v1 */
+.xms-primary{display:none!important}
+body.motorsport-open>nav.sport-branch-nav{display:flex!important}
+body.motorsport-open>.live-ticker{display:block!important}
+body.motorsport-open>.sport-branch-nav-compact{position:relative!important;z-index:95!important}
+.sport-branch-nav-compact .sport-branch-button:before,
+.sport-branch-nav-compact .sport-more-button:before{display:none!important;content:none!important;background-image:none!important}
+.multisport-hub .multisport-hero:before{display:none!important;content:none!important;background-image:none!important}
+body.multisport-open .mini-goal-game,
+body.motorsport-open .mini-goal-game,
+body.ufc-premium-open .mini-goal-game{display:none!important}
+body.multisport-open .live-ticker,
+body.motorsport-open .live-ticker,
+body.ufc-premium-open .live-ticker{display:block!important;position:relative;z-index:30}
+body.multisport-open .ticker-label,
+body.motorsport-open .ticker-label,
+body.ufc-premium-open .ticker-label{color:#ef7180}
+@media(max-width:680px){body.motorsport-open>nav.sport-branch-nav{display:flex!important}.sport-branch-nav-compact .sport-branch-button{padding-left:10px!important}}

@@ -28,6 +28,23 @@
   };
   const active = routeMap[location.pathname.split("/").filter(Boolean)[0]] || "football";
 
+  async function refreshContextTicker() {
+    if (active !== "mma") return;
+    const ticker = document.getElementById("liveTicker");
+    if (!ticker) return;
+    try {
+      const payload = await (await fetch("/api/ufc/events/upcoming", { cache: "no-store" })).json();
+      const raw = payload?.data?.events || payload?.data || payload?.events || [];
+      const events = Array.isArray(raw) ? raw : (Array.isArray(raw?.items) ? raw.items : []);
+      const event = events[0];
+      const name = event?.name || event?.title || event?.eventName || "UFC programi bekleniyor";
+      const date = event?.date || event?.startDate || event?.scheduledAt || "";
+      ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">YAKLASAN DOVUS</span><span class="ticker-match">${name}</span><span class="ticker-time mono">${date}</span>`;
+    } catch (_) {
+      ticker.innerHTML = '<span class="ticker-dot"></span><span class="ticker-label">YAKLASAN DOVUS</span><span class="ticker-match">Dovus programi yenileniyor</span>';
+    }
+  }
+
   async function refreshMetrics() {
     const hub = document.getElementById("multiSportHub");
     if (!hub || active === "football" || active === "motorsports") return;
@@ -53,6 +70,8 @@
   function mount() {
     const header = document.querySelector(".global-header");
     if (!header) return;
+    const miniGame = document.getElementById("miniGoalGame");
+    if (miniGame && active !== "football") miniGame.remove();
     const activeSecondary = secondary.find(([key]) => key === active);
     const nav = document.createElement("nav");
     nav.className = "sport-branch-nav sport-branch-nav-compact";
@@ -87,6 +106,7 @@
     });
     document.addEventListener("click", close);
     document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+    refreshContextTicker();
     if (active !== "football" && active !== "motorsports") setTimeout(refreshMetrics);
   }
 
