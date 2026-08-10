@@ -3,7 +3,7 @@
     ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
-    ["motorsports", "Motorsporlari", "/motorsports/"]
+    ["motorsports", "Motor Sporlari", "/motorsports/"]
   ];
   const secondary = [
     ["mma", "UFC", "/ufc/"],

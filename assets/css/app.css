@@ -6546,3 +6546,18 @@ body.motorsport-open .ticker-label,
 body.ufc-premium-open .ticker-label{color:#ef7180}
 @media(max-width:680px){body.motorsport-open>nav.sport-branch-nav{display:flex!important}.sport-branch-nav-compact .sport-branch-button{padding-left:10px!important}}
 
+
+/* Hard isolation for motorsport shell v1 */
+.xms-primary,.xms-trigger:after{display:none!important;content:none!important}
+body.motorsport-open .football-context-nav,
+body.motorsport-open .football-league-command,
+body.motorsport-open .predict-promo-banner,
+body.motorsport-open .portal-team-strip,
+body.motorsport-open #portalTeamStrip,
+body.motorsport-open .wrap,
+body.motorsport-open #miniGoalGame{display:none!important}
+body.motorsport-open .xms-shell{display:block!important}
+body.motorsport-open .sport-branch-nav-compact{display:flex!important}
+.sport-branch-button[data-branch="motorsports"]{min-height:38px!important;padding:0 14px!important;font-size:11px!important;line-height:1!important}
+.sport-branch-button[data-branch="motorsports"]:after{display:none!important;content:none!important}
+@media(max-width:680px){.sport-branch-button[data-branch="motorsports"]{min-height:36px!important;padding:0 10px!important;font-size:10px!important}}
