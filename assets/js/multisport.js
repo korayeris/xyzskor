@@ -130,7 +130,7 @@
 
   async function load(){
     if(!feedPromise){
-      feedPromise = fetch('/api/sports/today?client=v7', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
+      feedPromise = fetch('/api/sports/today?client=v8', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');

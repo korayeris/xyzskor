@@ -2035,7 +2035,7 @@ async function handleMultisportToday(request, env, context) {
     }
   }));
   const payload = { source: env.CITO_API_KEY ? "api-sports-and-citoapi" : "api-sports-free", date, updatedAt: new Date().toISOString(), sports: Object.fromEntries(entries) };
-  const response = jsonResponse(payload, 200, { "Cache-Control": "public, max-age=900, s-maxage=21600" });
+  const response = jsonResponse(payload, 200, { "Cache-Control": "public, max-age=0, s-maxage=21600, stale-while-revalidate=86400" });
   writeEdgeCache(cache, cacheKey, response, context);
   return response;
 }
