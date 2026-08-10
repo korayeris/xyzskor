@@ -6482,3 +6482,47 @@ body[data-motorsport^="moto"] .xms-data-card>div>small{color:#ff8650}
 body[data-motorsport^="moto"] .xms-data-card>b{min-width:74px;color:#ff945f;font-size:24px;text-align:right}
 body[data-motorsport^="moto"] .xms-statline span{border-color:#ffffff14;background:#0a0f14}
 @media(max-width:700px){body[data-motorsport^="moto"] .xms-hero{min-height:340px}body[data-motorsport^="moto"] .xms-hero:before{background-image:linear-gradient(180deg,#05090d44,#05090df5 76%),url("/assets/images/motorsports/motogp-hero-v1.png");background-position:62% center}body[data-motorsport^="moto"] .xms-hero-copy{align-self:end;padding:22px}body[data-motorsport^="moto"] .xms-hero-copy h1{font-size:45px}body[data-motorsport^="moto"] .xms-hero-visual{display:none}body[data-motorsport^="moto"] .xms-data-card img{width:58px;height:58px}}
+
+/* Royalty-safe horizontal sport hero system v1 */
+.multisport-hub .multisport-hero{position:relative;isolation:isolate;min-height:210px;overflow:hidden;background-color:#0a0f14!important;background-position:center!important;background-size:cover!important}
+.multisport-hub .multisport-hero:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,#070b0ff5 0%,#070b0fca 42%,#070b0f3d 78%,#070b0f18)}
+.multisport-hub .multisport-hero>div,.multisport-hub .multisport-hero>b{position:relative;z-index:1}
+.multisport-hub[data-sport="basketball"] .multisport-hero,
+.multisport-hub[data-sport="volleyball"] .multisport-hero,
+.multisport-hub[data-sport="handball"] .multisport-hero{background-image:url("/assets/images/sports/heroes/arena-hero-v1.png")!important}
+.multisport-hub[data-sport="rugby"] .multisport-hero,
+.multisport-hub[data-sport="baseball"] .multisport-hero,
+.multisport-hub[data-sport="americanFootball"] .multisport-hero,
+.multisport-hub[data-sport="australianFootball"] .multisport-hero{background-image:url("/assets/images/sports/heroes/field-hero-v1.png")!important}
+.multisport-hub[data-sport="hockey"] .multisport-hero,
+.multisport-hub[data-sport="mma"] .multisport-hero{background-image:url("/assets/images/sports/heroes/ice-combat-hero-v1.png")!important}
+body[data-motorsport="wrc"] .xms-hero{position:relative;isolation:isolate;min-height:390px;overflow:hidden;background:#05090d}
+body[data-motorsport="wrc"] .xms-hero:before{content:"";position:absolute;z-index:-2;inset:0;background-image:linear-gradient(90deg,#05090df2 0%,#05090dbd 37%,#05090d25 76%),url("/assets/images/sports/heroes/wrc-hero-v1.png");background-position:center;background-size:cover}
+body[data-motorsport="formula-1"] .xms-hero,
+body[data-motorsport="formula-e"] .xms-hero,
+body[data-motorsport="indycar"] .xms-hero,
+body[data-motorsport="wec"] .xms-hero,
+body[data-motorsport="le-mans"] .xms-hero,
+body[data-motorsport="nascar"] .xms-hero{position:relative;isolation:isolate;min-height:390px;overflow:hidden;background:#05090d}
+body[data-motorsport="formula-1"] .xms-hero:before,
+body[data-motorsport="formula-e"] .xms-hero:before,
+body[data-motorsport="indycar"] .xms-hero:before,
+body[data-motorsport="wec"] .xms-hero:before,
+body[data-motorsport="le-mans"] .xms-hero:before,
+body[data-motorsport="nascar"] .xms-hero:before{content:"";position:absolute;z-index:-2;inset:0;background-image:linear-gradient(90deg,#05090df2 0%,#05090dbd 37%,#05090d22 76%),url("/assets/images/sports/heroes/formula-hero-v1.png");background-position:center;background-size:cover}
+body[data-motorsport="wrc"] .xms-hero-copy,
+body[data-motorsport="formula-1"] .xms-hero-copy,
+body[data-motorsport="formula-e"] .xms-hero-copy,
+body[data-motorsport="indycar"] .xms-hero-copy,
+body[data-motorsport="wec"] .xms-hero-copy,
+body[data-motorsport="le-mans"] .xms-hero-copy,
+body[data-motorsport="nascar"] .xms-hero-copy{max-width:530px;padding:38px}
+body[data-motorsport="wrc"] .xms-hero-copy h1,
+body[data-motorsport="formula-1"] .xms-hero-copy h1,
+body[data-motorsport="formula-e"] .xms-hero-copy h1,
+body[data-motorsport="indycar"] .xms-hero-copy h1{font-size:clamp(48px,7vw,84px);line-height:.9;text-shadow:0 8px 28px #000}
+body[data-motorsport="wrc"] .xms-data-card{border-left:3px solid #77b255;background:linear-gradient(110deg,#142019,#0c1210)}
+body[data-motorsport="wrc"] .xms-data-card img{width:78px;height:78px;border-radius:18px;background:#111a14;object-fit:cover}
+body[data-motorsport="wrc"] .xms-data-card h3{font-size:18px}
+body[data-motorsport="wrc"] .xms-data-card>div>small{color:#9bd174}
+@media(max-width:700px){.multisport-hub .multisport-hero{min-height:170px;background-position:65% center!important}.multisport-hub .multisport-hero:after{background:linear-gradient(180deg,#070b0f44,#070b0ff5 82%)}body[data-motorsport="wrc"] .xms-hero,body[data-motorsport="formula-1"] .xms-hero,body[data-motorsport="formula-e"] .xms-hero,body[data-motorsport="indycar"] .xms-hero{min-height:340px}body[data-motorsport="wrc"] .xms-hero:before,body[data-motorsport="formula-1"] .xms-hero:before,body[data-motorsport="formula-e"] .xms-hero:before,body[data-motorsport="indycar"] .xms-hero:before{background-position:68% center}body[data-motorsport="wrc"] .xms-hero-copy,body[data-motorsport="formula-1"] .xms-hero-copy,body[data-motorsport="formula-e"] .xms-hero-copy,body[data-motorsport="indycar"] .xms-hero-copy{align-self:end;padding:22px}}
