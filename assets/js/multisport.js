@@ -20,7 +20,12 @@
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
   const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu',australianFootball:'avustralya-futbolu'}[sport] || 'basketbol');
-  const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
+  const visualFallback = (name, sport = activeSport) => {
+    const colors = {basketball:'#ff9d24',mma:'#ff405d',volleyball:'#20c997',hockey:'#55b8ff',rugby:'#d5b44c',baseball:'#ef5b5b',handball:'#ff7b3d',americanFootball:'#8fb3ff',australianFootball:'#e6c45b'};
+    const initials = String(name || SPORT_LABELS[sport] || 'XYZ').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+    return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${colors[sport] || '#ef4058'}"/><stop offset="1" stop-color="#091118"/></linearGradient></defs><rect width="160" height="160" rx="32" fill="url(#g)"/><circle cx="80" cy="68" r="34" fill="rgba(255,255,255,.14)"/><path d="M30 150c5-36 24-54 50-54s45 18 50 54" fill="rgba(255,255,255,.12)"/><text x="80" y="88" text-anchor="middle" font-family="Arial" font-size="40" font-weight="800" fill="white">${initials}</text></svg>`)}`;
+  };
+  const visual = (name, src) => `<img src="${escapeHTML(src || visualFallback(name))}" data-fallback="${escapeHTML(visualFallback(name))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHTML(name || '')}" loading="lazy">`;  const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
   const scoreText = (score) => {
     if(score == null || score === '') return 'VS';
     if(typeof score !== 'object') return String(score);
@@ -50,7 +55,7 @@
   }
 
   function teamCardHTML(team){
-    return `<article class="multi-team-card"><span>${team.logo ? `<img src="${escapeHTML(team.logo)}" alt="" loading="lazy">` : ''}</span><strong>${escapeHTML(team.name || 'Takım')}</strong><small>Günün programında</small></article>`;
+    return `<article class="multi-team-card"><span>${visual(team.name, team.logo)}</span><strong>${escapeHTML(team.name || 'Takim')}</strong><small>Gunun programinda</small></article>`;
   }
 
   function predictCardHTML(item){
@@ -68,9 +73,9 @@
     const score = scoreText(item.score);
     return `<article class="multi-event-card sport-${activeSport}">
       <header><span>${item.leagueLogo ? `<img class="multi-league-logo" src="${escapeHTML(item.leagueLogo)}" alt="">` : ''}${escapeHTML(item.league || item.category || SPORT_LABELS[activeSport])}</span><time>${escapeHTML(item.feedDate || item.date || item.time || '')}</time></header>
-      <div class="multi-event-side"><span>${first.logo ? `<img src="${escapeHTML(first.logo)}" alt="" loading="lazy">` : ''}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
+      <div class="multi-event-side"><span>${visual(first.name, first.logo)}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
       <div class="multi-event-score"><b>${escapeHTML(score)}</b><small>${escapeHTML(item.status || 'Yaklasan') + (item.archived ? ' · Son gerceklesen' : '')}</small></div>
-      <div class="multi-event-side away"><strong>${escapeHTML(second.name || 'TBA')}</strong><span>${second.logo ? `<img src="${escapeHTML(second.logo)}" alt="" loading="lazy">` : ''}</span></div>
+      <div class="multi-event-side away"><strong>${escapeHTML(second.name || 'TBA')}</strong><span>${visual(second.name, second.logo)}</span></div>
     </article>`;
   }
 

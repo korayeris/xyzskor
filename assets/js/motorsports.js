@@ -64,6 +64,11 @@
   const dateOf = item => scalar(item?.dateStart || item?.startDate || item?.date || item?.scheduledAt || item?.start, ['date', 'value', 'label']);
   const valueOf = item => scalar(item?.points ?? item?.position ?? item?.rank ?? item?.number ?? item?.status, ['long', 'short', 'name', 'value', 'label']);
   const initialsOf = item => nameOf(item).split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  const fallbackOf = (item, type) => {
+    const initials = initialsOf(item) || 'XR';
+    const accent = type === 'DRIVER' ? '#ef3547' : type === 'TEAM' ? '#38a8ff' : '#f0c83f';
+    return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${accent}"/><stop offset="1" stop-color="#091118"/></linearGradient></defs><rect width="180" height="180" rx="28" fill="url(#g)"/><path d="M18 125h144M36 103l30-33 24 19 30-42 26 56" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="9"/><text x="90" y="112" text-anchor="middle" font-family="Arial" font-size="48" font-weight="900" fill="white">${initials}</text><text x="90" y="151" text-anchor="middle" font-family="Arial" font-size="13" font-weight="700" fill="rgba(255,255,255,.7)">${type}</text></svg>`)}`;
+  };
   const flagOf = item => {
     const code = scalar(item?.country, ['twoCode']).toUpperCase();
     return /^[A-Z]{2}$/.test(code) ? String.fromCodePoint(...[...code].map(letter => 127397 + letter.charCodeAt())) : '';
@@ -99,14 +104,15 @@
     return { source: snapshot.source, updatedAt: snapshot.fetchedAt, liveSupported: false, data: snapshot.sports?.[sport]?.[resource] || [] };
   }
   function itemCard(item, index, type) {
-    const image = imageOf(item);
+    const fallback = fallbackOf(item, type);
+    const image = imageOf(item) || fallback;
     const date = dateOf(item);
     const value = valueOf(item);
     const meta = date || scalar(item?.country) || scalar(item?.nationality) || scalar(item?.location) || scalar(item?.team);
     const flag = flagOf(item);
     const stats = [['wins', 'W'], ['podiums', 'POD'], ['poles', 'POLE'], ['races', 'RACE'], ['starts', 'START'], ['championships', 'TITLE']]
       .map(([key, label]) => item?.[key] != null ? `<span><b>${esc(item[key])}</b><small>${label}</small></span>` : '').filter(Boolean).join('');
-    return `<article class="xms-data-card xms-type-${esc(type.toLowerCase())}"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span>${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : `<span class="xms-avatar" aria-hidden="true">${flag || esc(initialsOf(item))}</span>`}<div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${flag ? `<span>${flag}</span>` : ''}${esc(meta)}</p>${stats ? `<div class="xms-statline">${stats}</div>` : ''}</div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
+    return `<article class="xms-data-card xms-type-${esc(type.toLowerCase())}"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span><img src="${esc(image)}" data-fallback="${esc(fallback)}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${esc(nameOf(item))}" loading="lazy"><div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${flag ? `<span>${flag}</span>` : ''}${esc(meta)}</p>${stats ? `<div class="xms-statline">${stats}</div>` : ''}</div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
   }
   function emptyState(title, detail) {
     return `<div class="xms-empty"><strong>${esc(title)}</strong><p>${esc(detail)}</p></div>`;
