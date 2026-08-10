@@ -86,7 +86,7 @@
       return payload;
     }
     if (dynamicResources.has(resource)) {
-      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=${encodeURIComponent(resource)}&limit=100&page=1`, { headers: { Accept: 'application/json' } });
+      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=${encodeURIComponent(resource)}&limit=100&page=1&profile=v2`, { headers: { Accept: 'application/json' } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'motorsport_profile_unavailable');
       return payload;
