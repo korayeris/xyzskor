@@ -6458,3 +6458,27 @@ body>.global-header .primary-nav{display:none!important}
 .basket-league-panel>button:hover{background:#27313a}.basket-league-panel i{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#f0a03d;color:#101419;font:900 10px monospace}.basket-league-panel span{font-weight:800}.basket-league-panel b{color:#97a6b5}
 @media(max-width:900px){.basket-football-layout{grid-template-columns:1fr 1fr}.basket-feature-card{grid-column:1/-1;grid-row:1}.basket-team-command{grid-template-columns:1fr}.basket-team-command>strong{display:none}}
 @media(max-width:620px){.multisport-hub[data-sport="basketball"] .multisport-hero{min-height:94px;padding:18px}.multisport-hub[data-sport="basketball"] .multisport-hero h1{font-size:31px}.basket-football-layout{grid-template-columns:1fr}.basket-feature-card,.basket-schedule-panel,.basket-league-panel{grid-column:auto;grid-row:auto}.basket-feature-match{min-height:170px;gap:8px}.basket-feature-match img{width:76px;height:76px}.basket-feature-match>strong{font-size:20px}}
+
+/* Premium MotoGP visual layer v1 */
+body[data-motorsport="motogp"] .xms-hero,
+body[data-motorsport="moto2"] .xms-hero,
+body[data-motorsport="moto3"] .xms-hero{position:relative;isolation:isolate;min-height:390px;overflow:hidden;border:1px solid #38424b;background:#05090d}
+body[data-motorsport="motogp"] .xms-hero:before,
+body[data-motorsport="moto2"] .xms-hero:before,
+body[data-motorsport="moto3"] .xms-hero:before{content:"";position:absolute;z-index:-2;inset:0;background-image:linear-gradient(90deg,#05090df2 0%,#05090dc7 34%,#05090d33 68%,#05090d18),url("/assets/images/motorsports/motogp-hero-v1.png");background-size:cover;background-position:center}
+body[data-motorsport="motogp"] .xms-hero:after,
+body[data-motorsport="moto2"] .xms-hero:after,
+body[data-motorsport="moto3"] .xms-hero:after{content:"";position:absolute;z-index:-1;inset:auto 0 0;height:90px;background:linear-gradient(transparent,#080d12)}
+body[data-motorsport^="moto"] .xms-hero-copy{max-width:520px;padding:36px}
+body[data-motorsport^="moto"] .xms-hero-copy h1{max-width:480px;font-size:clamp(44px,7vw,82px);line-height:.9;text-shadow:0 8px 28px #000}
+body[data-motorsport^="moto"] .xms-hero-copy p{max-width:450px;color:#d7e0e8;font-size:15px;line-height:1.65}
+body[data-motorsport^="moto"] .xms-hero-copy>b{display:inline-flex;margin-top:14px;padding:8px 12px;border:1px solid #ff7b3d;border-radius:999px;background:#0d1319c9;color:#ff9a64}
+body[data-motorsport^="moto"] .xms-hero-visual{align-self:end;justify-self:end;margin:0 28px 28px 0;padding:16px 20px;border:1px solid #ffffff35;border-radius:14px;background:#080d12bd;backdrop-filter:blur(12px)}
+body[data-motorsport^="moto"] .xms-data-stage{background:radial-gradient(circle at 15% 0,#ff6a2815,transparent 28%),#0c1116}
+body[data-motorsport^="moto"] .xms-data-card{min-height:118px;border-color:#33404b;background:linear-gradient(110deg,#161d24,#0d1217)}
+body[data-motorsport^="moto"] .xms-data-card img{width:76px;height:76px;border:1px solid #ffffff20;border-radius:18px;background:#10171d;object-fit:cover}
+body[data-motorsport^="moto"] .xms-data-card h3{font-size:18px}
+body[data-motorsport^="moto"] .xms-data-card>div>small{color:#ff8650}
+body[data-motorsport^="moto"] .xms-data-card>b{min-width:74px;color:#ff945f;font-size:24px;text-align:right}
+body[data-motorsport^="moto"] .xms-statline span{border-color:#ffffff14;background:#0a0f14}
+@media(max-width:700px){body[data-motorsport^="moto"] .xms-hero{min-height:340px}body[data-motorsport^="moto"] .xms-hero:before{background-image:linear-gradient(180deg,#05090d44,#05090df5 76%),url("/assets/images/motorsports/motogp-hero-v1.png");background-position:62% center}body[data-motorsport^="moto"] .xms-hero-copy{align-self:end;padding:22px}body[data-motorsport^="moto"] .xms-hero-copy h1{font-size:45px}body[data-motorsport^="moto"] .xms-hero-visual{display:none}body[data-motorsport^="moto"] .xms-data-card img{width:58px;height:58px}}
