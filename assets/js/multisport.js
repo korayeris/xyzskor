@@ -21,6 +21,14 @@
 
   const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu',australianFootball:'avustralya-futbolu'}[sport] || 'basketbol');
   const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
+  const scoreText = (score) => {
+    if(score == null || score === '') return 'VS';
+    if(typeof score !== 'object') return String(score);
+    const first = score.first ?? score.home ?? score.local ?? score.team1 ?? score.current?.home ?? score.total?.home;
+    const second = score.second ?? score.away ?? score.visitor ?? score.team2 ?? score.current?.away ?? score.total?.away;
+    if(first != null || second != null) return String(first ?? '-') + ' - ' + String(second ?? '-');
+    return score.display ?? score.text ?? score.value ?? 'VS';
+  };
 
   function hubPath(sport, view){
     const suffix = viewSlug(view);
@@ -57,11 +65,11 @@
   function cardHTML(item){
     const first = item.first || item.home || {};
     const second = item.second || item.away || {};
-    const score = item.score || '';
+    const score = scoreText(item.score);
     return `<article class="multi-event-card sport-${activeSport}">
-      <header><span>${escapeHTML(item.league || item.category || SPORT_LABELS[activeSport])}</span><time>${escapeHTML(item.time || '')}</time></header>
+      <header><span>${item.leagueLogo ? `<img class="multi-league-logo" src="${escapeHTML(item.leagueLogo)}" alt="">` : ''}${escapeHTML(item.league || item.category || SPORT_LABELS[activeSport])}</span><time>${escapeHTML(item.feedDate || item.date || item.time || '')}</time></header>
       <div class="multi-event-side"><span>${first.logo ? `<img src="${escapeHTML(first.logo)}" alt="" loading="lazy">` : ''}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
-      <div class="multi-event-score"><b>${escapeHTML(score || 'VS')}</b><small>${escapeHTML(item.status || 'Yaklasan')}</small></div>
+      <div class="multi-event-score"><b>${escapeHTML(score)}</b><small>${escapeHTML(item.status || 'Yaklasan') + (item.archived ? ' · Son gerceklesen' : '')}</small></div>
       <div class="multi-event-side away"><strong>${escapeHTML(second.name || 'TBA')}</strong><span>${second.logo ? `<img src="${escapeHTML(second.logo)}" alt="" loading="lazy">` : ''}</span></div>
     </article>`;
   }

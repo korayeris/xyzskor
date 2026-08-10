@@ -1892,6 +1892,12 @@ function normalizeMultisportItem(sport, row) {
   return {
     id: row?.id,
     league: mma ? row?.slug : row?.league?.name,
+    leagueLogo: row?.league?.logo || null,
+    leagueId: row?.league?.id || null,
+    season: row?.league?.season || row?.season || null,
+    country: row?.country?.name || row?.country || null,
+    venue: row?.venue?.name || row?.venue || null,
+    date: row?.date || null,
     category: row?.category || null,
     time: row?.time || null,
     timestamp: row?.timestamp || null,
@@ -1941,7 +1947,7 @@ async function handleCitoUfc(request, env, context) {
   }
 }
 
-const CITO_UFC_PROXY_ROUTE = /^(?:live(?:\/[a-z0-9-]+(?:\/state)?)?|events(?:\/(?:upcoming|recent|[a-z0-9-]+(?:\/(?:bouts|stats))?))?|bouts(?:\/[a-z0-9-]+(?:\/(?:stats|rounds))?)?|fighters(?:\/[a-z0-9-]+(?:\/(?:stats|fights))?)?|rankings(?:\/(?:meta|media)(?:\/[a-z0-9-]+)?)?|search)$/i;
+const CITO_UFC_PROXY_ROUTE = /^(?:live(?:\/events|\/health|\/[a-z0-9-]+(?:\/state)?)?|events(?:\/(?:upcoming|recent|[a-z0-9-]+(?:\/(?:bouts|stats|odds))?))?|fight-cards\/[a-z0-9-]+\/odds|bouts(?:\/[a-z0-9-]+(?:\/(?:stats|rounds|odds))?)?|fights\/[a-z0-9-]+\/odds|fighters(?:\/[a-z0-9-]+(?:\/(?:stats|fights))?)?|athletes(?:\/[a-z0-9-]+)?|rankings(?:\/(?:meta|media)?(?:\/[a-z0-9-]+)?)?|sync\/status|search)$/i;
 
 async function handleCitoUfcProxy(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
@@ -1950,11 +1956,11 @@ async function handleCitoUfcProxy(request, env, context) {
   const route = input.pathname.replace(/^\/api\/ufc\/?/, "") || "events/upcoming";
   if (!CITO_UFC_PROXY_ROUTE.test(route)) return jsonResponse({ error: "invalid_ufc_route" }, 400, { "Cache-Control": "no-store" });
   const upstream = new URL(`https://api.citoapi.com/api/v1/ufc/${route}`);
-  for (const key of ["q", "page", "limit", "division", "hasStats", "includeStats", "round"]) {
+  for (const key of ["q", "page", "limit", "division", "hasStats", "includeStats", "round", "bookmaker"]) {
     const value = input.searchParams.get(key); if (value) upstream.searchParams.set(key, value);
   }
   const live = route.startsWith("live");
-  const ttl = live ? 15 : route.includes("upcoming") ? 21600 : route.includes("rankings") ? 86400 : route.includes("fighters/") ? 604800 : 21600;
+  const ttl = live ? 15 : route.includes("/odds") ? 300 : route.includes("/stats") || route.includes("/rounds") ? 1800 : route.includes("upcoming") ? 21600 : route.includes("rankings") ? 86400 : route.includes("fighters/") ? 604800 : 21600;
   const cache = edgeCache();
   const cacheKey = new Request(new URL(`/api/ufc/proxy-cache/${route}?${upstream.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
@@ -1976,10 +1982,12 @@ async function handleMultisportToday(request, env, context) {
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v5?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v6?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
+    const latestKey = new Request(new URL(`/api/sports/latest-v1/${sport}`, request.url), { method: "GET" });
+    const latestCached = await readEdgeCache(cache, latestKey);
     try {
       if (sport === "mma" && env.CITO_API_KEY) {
         const cito = await fetchCitoUfc(env, "upcoming");
@@ -1995,26 +2003,34 @@ async function handleMultisportToday(request, env, context) {
           second: { name: event.mainEvent?.fighter2?.name || event.mainEvent?.blue?.name || event.venue || "Fight Card", logo: event.mainEvent?.fighter2?.image || null, winner: null }
         }))];
       }
-      const url = new URL(`https://${feed.host}/${feed.path}`);
-      url.searchParams.set("date", date);
-      const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload || Object.keys(payload.errors || {}).length) throw new Error("provider_unavailable");
-      let rows = Array.isArray(payload.response) ? payload.response : [];
-      if (!rows.length) {
-        for (let offset = 1; offset <= 14 && !rows.length; offset += 1) {
-          const futureDate = new Date(`${date}T12:00:00+03:00`);
-          futureDate.setDate(futureDate.getDate() + offset);
-          const queryDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(futureDate);
-          const futureUrl = new URL(`https://${feed.host}/${feed.path}`);
-          futureUrl.searchParams.set("date", queryDate);
-          const futureResponse = await fetch(futureUrl, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
-          const futurePayload = await futureResponse.json().catch(() => null);
-          if (futureResponse.ok && futurePayload && !Object.keys(futurePayload.errors || {}).length) rows = Array.isArray(futurePayload.response) ? futurePayload.response : [];
-        }
+      let rows = [], feedDate = date;
+      for (const offset of [0, -1, -2, -3, -7]) {
+        const target = new Date(`${date}T12:00:00+03:00`);
+        target.setDate(target.getDate() + offset);
+        const queryDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(target);
+        const url = new URL(`https://${feed.host}/${feed.path}`);
+        url.searchParams.set("date", queryDate);
+        const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload || Object.keys(payload.errors || {}).length) continue;
+        rows = Array.isArray(payload.response) ? payload.response : [];
+        if (rows.length) { feedDate = queryDate; break; }
       }
-      return [sport, rows.map((row) => normalizeMultisportItem(sport, row)).filter((row) => row.id).slice(0, 60)];
+      const items = rows.map((row) => ({ ...normalizeMultisportItem(sport, row), feedDate, archived: feedDate !== date })).filter((row) => row.id).slice(0, 60);
+      if (items.length) {
+        writeEdgeCache(cache, latestKey, jsonResponse({ sport, feedDate, items }, 200, { "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=7776000" }), context);
+        return [sport, items];
+      }
+      if (isUsableJsonCache(latestCached)) {
+        const previous = await latestCached.json();
+        return [sport, Array.isArray(previous?.items) ? previous.items.map((item) => ({ ...item, archived: true })) : []];
+      }
+      return [sport, []];
     } catch (_error) {
+      if (isUsableJsonCache(latestCached)) {
+        const previous = await latestCached.json();
+        return [sport, Array.isArray(previous?.items) ? previous.items.map((item) => ({ ...item, archived: true })) : []];
+      }
       return [sport, []];
     }
   }));

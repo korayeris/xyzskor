@@ -24,6 +24,7 @@
     const button = event.target.closest('.sport-branch-button');
     const sport = button?.dataset?.branch;
     if(!sport || sport === 'football') return;
+    if(sport === 'mma'){ event.preventDefault(); event.stopImmediatePropagation(); location.href='/ufc/'; return; }
     event.preventDefault();
     event.stopImmediatePropagation();
     document.querySelectorAll('.sport-branch-button').forEach((item) => item.classList.toggle('active', item === button));
