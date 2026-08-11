@@ -6749,3 +6749,56 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
   #navRight .account-button{max-width:118px!important;padding:0 10px!important}
   #navRight .account-button.is-guest{font-size:9px!important}
 }
+
+/* v170: safe floating-chat stack and contained league/team rails */
+.chat-launcher{
+  right:18px!important;
+  bottom:calc(72px + env(safe-area-inset-bottom,0px))!important;
+}
+.side-chat-bubble{
+  right:18px!important;
+  bottom:calc(124px + env(safe-area-inset-bottom,0px))!important;
+}
+.account-overlay[aria-hidden="false"] ~ .chat-launcher,
+.account-overlay[aria-hidden="false"] ~ .side-chat-bubble{
+  opacity:0!important;
+  pointer-events:none!important;
+  transform:translateY(8px)!important;
+}
+#footballOverviewView .portal-team-strip{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+#footballOverviewView .portal-team-list,
+#footballOverviewView .portal-league-list,
+.football-top-league-list{
+  min-width:0!important;
+  max-width:100%!important;
+  scrollbar-width:none!important;
+  -ms-overflow-style:none!important;
+}
+#footballOverviewView .portal-team-list::-webkit-scrollbar,
+#footballOverviewView .portal-league-list::-webkit-scrollbar,
+.football-top-league-list::-webkit-scrollbar{
+  display:none!important;
+  width:0!important;
+  height:0!important;
+}
+#footballOverviewView .portal-team-list{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  overscroll-behavior-inline:contain!important;
+  padding-bottom:0!important;
+}
+@media(max-width:899px){
+  .chat-launcher{
+    right:12px!important;
+    bottom:calc(72px + env(safe-area-inset-bottom,0px))!important;
+  }
+  .side-chat-bubble{
+    right:12px!important;
+    bottom:calc(122px + env(safe-area-inset-bottom,0px))!important;
+  }
+}
