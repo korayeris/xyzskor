@@ -793,8 +793,53 @@ async function changeTeam(newTeam){
   const fallback = await sb.from('profiles').update({ team:newTeam, team_changed:true }).eq('id', u.id);
   return !fallback.error;
 }
-async function fetchMemberAdminConsole(search=''){
-  if(!SUPABASE_READY) return { ok:false, rows:[], err:SUPABASE_UNAVAILABLE_MESSAGE };
+/* ===================== TAKİP EDİLENLER ===================== */
+async function fetchFollowedTeams(uid){
+  if(!uid || !SUPABASE_READY) return [];
+  const { data, error } = await sb.from('user_followed_teams').select('team').eq('user_id', uid).order('created_at');
+  if(error){ console.warn('[XYZSkor takip listesi]', error.message || error); return []; }
+  return (data || []).map(row => row.team);
+}
+async function followTeam(team){
+  const u = getCurrentUser(); if(!u || !team) return { ok:false };
+  const { error } = await sb.from('user_followed_teams').insert({ user_id:u.id, team });
+  if(error && error.code !== '23505') return { ok:false, err:error.message }; // 23505: zaten takip ediliyor, sorun değil
+  return { ok:true };
+}
+async function unfollowTeam(team){
+  const u = getCurrentUser(); if(!u || !team) return { ok:false };
+  const { error } = await sb.from('user_followed_teams').delete().eq('user_id', u.id).eq('team', team);
+  return { ok: !error, err: error && error.message };
+}
+function followableTeamList(){
+  const fromStandings = (STANDINGS || []).map(r => r.team).filter(Boolean);
+  const merged = [...new Set([...fromStandings, ...TEAMS.filter(t => t !== 'Diğer')])];
+  return merged.sort((a,b) => a.localeCompare(b, 'tr'));
+}
+
+/* ===================== BİLDİRİM TERCİHLERİ ===================== */
+async function fetchNotificationPreferences(){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const u = getCurrentUser(); if(!u) return { ok:false, err:'Giriş gerekli.' };
+  const { data, error } = await sb.rpc('get_my_notification_preferences');
+  if(error) return { ok:false, err:error.message || 'Bildirim tercihleri alınamadı.' };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok:true, prefs: row || { match_reminders:true, weekly_digest:true, reward_alerts:true } };
+}
+async function saveNotificationPreferences(prefs){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const u = getCurrentUser(); if(!u) return { ok:false, err:'Giriş gerekli.' };
+  const { data, error } = await sb.rpc('set_my_notification_preferences', {
+    p_match_reminders: !!prefs.match_reminders,
+    p_weekly_digest: !!prefs.weekly_digest,
+    p_reward_alerts: !!prefs.reward_alerts
+  });
+  if(error) return { ok:false, err:error.message || 'Bildirim tercihleri kaydedilemedi.' };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok:true, prefs: row };
+}
+
+async function fetchMemberAdminConsole(search=''){  if(!SUPABASE_READY) return { ok:false, rows:[], err:SUPABASE_UNAVAILABLE_MESSAGE };
   const u = getCurrentUser();
   if(!u || !u.is_admin) return { ok:false, rows:[], err:'Bu alan için admin girişi gerekli.' };
   const { data, error } = await sb.rpc('list_member_admin_console', {

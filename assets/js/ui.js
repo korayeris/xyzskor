@@ -36,6 +36,84 @@ const ADMIN_ROLE_OPTIONS = [
   ['source_manager','Kaynak yöneticisi'],
   ['football_data','Futbol veri sorumlusu']
 ];
+/* ===================== TAKİP EDİLENLER ===================== */
+let followedTeamsCache = [];
+function followedTeamChipHTML(team){
+  return `<span class="followed-team-chip" data-followed-team="${escapeHTML(team)}">${escapeHTML(team)}<button type="button" class="followed-team-remove" data-unfollow="${escapeHTML(team)}" aria-label="${escapeHTML(team)} takibini bırak">×</button></span>`;
+}
+function renderFollowedTeamsUI(){
+  const list = document.getElementById('followedTeamsList');
+  const select = document.getElementById('followTeamSelect');
+  if(!list || !select) return;
+  list.innerHTML = followedTeamsCache.length
+    ? followedTeamsCache.map(followedTeamChipHTML).join('')
+    : '<p class="account-empty">Henüz takip ettiğin ek bir takım yok.</p>';
+  const already = new Set(followedTeamsCache);
+  const options = followableTeamList().filter(team => team !== getCurrentUser()?.team && !already.has(team));
+  select.innerHTML = options.length
+    ? `<option value="">Takım seç…</option>${options.map(team=>`<option value="${escapeHTML(team)}">${escapeHTML(team)}</option>`).join('')}`
+    : '<option value="">Takip edilebilecek yeni takım yok</option>';
+  select.disabled = !options.length;
+  list.querySelectorAll('[data-unfollow]').forEach(btn=>{
+    btn.onclick = async () => {
+      const team = btn.getAttribute('data-unfollow');
+      btn.disabled = true;
+      const result = await unfollowTeam(team);
+      if(result.ok){ followedTeamsCache = followedTeamsCache.filter(t=>t!==team); renderFollowedTeamsUI(); }
+      else btn.disabled = false;
+    };
+  });
+}
+async function initFollowingSection(){
+  const list = document.getElementById('followedTeamsList');
+  const select = document.getElementById('followTeamSelect');
+  const addBtn = document.getElementById('followTeamAdd');
+  if(!list || !select || !addBtn) return;
+  list.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const u = getCurrentUser();
+  followedTeamsCache = u ? await fetchFollowedTeams(u.id) : [];
+  renderFollowedTeamsUI();
+  addBtn.onclick = async () => {
+    const team = select.value; if(!team) return;
+    addBtn.disabled = true;
+    const result = await followTeam(team);
+    addBtn.disabled = false;
+    if(result.ok){ followedTeamsCache = [...followedTeamsCache, team]; renderFollowedTeamsUI(); }
+  };
+}
+
+/* ===================== BİLDİRİM TERCİHLERİ ===================== */
+function notificationToggleRowHTML(key, label, checked){
+  return `<label class="account-settings-row notification-toggle-row"><span>${escapeHTML(label)}</span><input type="checkbox" data-notif-pref="${key}" ${checked?'checked':''}></label>`;
+}
+async function initNotificationPreferences(){
+  const holder = document.getElementById('notificationPrefsBody');
+  if(!holder) return;
+  holder.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const result = await fetchNotificationPreferences();
+  if(!result.ok){ holder.innerHTML = `<p class="account-empty">${escapeHTML(result.err||'Bildirim tercihleri alınamadı.')}</p>`; return; }
+  const p = result.prefs;
+  holder.innerHTML = `
+    ${notificationToggleRowHTML('match_reminders','Maç tahmin hatırlatması (kilit öncesi)', p.match_reminders)}
+    ${notificationToggleRowHTML('weekly_digest','Haftalık özet ve sıralama bildirimi', p.weekly_digest)}
+    ${notificationToggleRowHTML('reward_alerts','Ödül ve kampanya bildirimi', p.reward_alerts)}
+    <p class="account-note" id="notificationPrefsStatus">Değişiklik anında kaydedilir. Gönderim servisi henüz devrede değil; tercihin şimdiden kaydediliyor.</p>`;
+  holder.querySelectorAll('[data-notif-pref]').forEach(input=>{
+    input.onchange = async () => {
+      const status = document.getElementById('notificationPrefsStatus');
+      const current = {
+        match_reminders: holder.querySelector('[data-notif-pref="match_reminders"]').checked,
+        weekly_digest: holder.querySelector('[data-notif-pref="weekly_digest"]').checked,
+        reward_alerts: holder.querySelector('[data-notif-pref="reward_alerts"]').checked
+      };
+      input.disabled = true;
+      const saved = await saveNotificationPreferences(current);
+      input.disabled = false;
+      if(status) status.textContent = saved.ok ? 'Kaydedildi.' : (saved.err || 'Kaydedilemedi, tekrar dene.');
+    };
+  });
+}
+
 let memberAdminRows = [];
 function adminRoleLabel(role){
   const found = ADMIN_ROLE_OPTIONS.find(item=>item[0]===role);
@@ -151,8 +229,8 @@ function renderAccountContent(){
     <div class="account-metrics" aria-label="Kullanıcı performansı"><div class="account-metric"><b>${week.toplam}</b><span>Haftalık puan</span></div><div class="account-metric"><b>${life.toplam}</b><span>Toplam puan${oyunBonusuNotu}</span></div><div class="account-metric"><b>${rank||'—'}</b><span>Genel sıralama</span></div><div class="account-metric"><b>${life.sonuclananTahmin?`%${life.dogruYuzde}`:'—'}</b><span>Doğru tahmin oranı</span></div><div class="account-metric"><b>${life.kesinSkor}</b><span>Kesin skor</span></div><div class="account-metric"><b>${life.tahmin}</b><span>Toplam tahmin</span></div></div>
     <section class="account-section" aria-labelledby="accountHistoryTitle"><h3 class="account-section-title" id="accountHistoryTitle">Tahmin geçmişi</h3>${accountHistoryHTML(u.id)}</section>
     <section class="account-section" aria-labelledby="accountBadgesTitle"><h3 class="account-section-title" id="accountBadgesTitle">Rozetler</h3>${badges.length?`<div class="account-badges">${badges.map(badge=>`<span class="account-badge">${escapeHTML(badge)}</span>`).join('')}</div>`:'<p class="account-empty">Henüz kazanılmış rozet bulunmuyor.</p>'}</section>
-    <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><p class="account-empty">Takip edilen takım ve futbolcu verisi için bağlı bir profil kaydı bulunmuyor.</p></section>
-    <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><p class="account-empty">Bildirim tercihleri henüz kullanıcı hesabına bağlı değil. Varsayılan tercih uydurulmadı.</p></section>
+    <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><div class="followed-team-list" id="followedTeamsList"><p class="account-empty">Yükleniyor…</p></div><div class="account-settings-row followed-team-add-row"><select id="followTeamSelect" aria-label="Takip edilecek takım seç"><option value="">Yükleniyor…</option></select><button class="btn ghost" id="followTeamAdd" type="button">Takip et</button></div></section>
+    <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><div id="notificationPrefsBody"><p class="account-empty">Yükleniyor…</p></div></section>
     <section class="account-section" aria-labelledby="accountSettingsTitle"><h3 class="account-section-title" id="accountSettingsTitle">Hesap ayarları</h3><div class="account-settings"><div class="account-settings-row"><label for="accountTeamSelect">Tuttuğun takım</label><select id="accountTeamSelect" ${u.team_changed?'disabled':''}>${TEAMS.map(team=>`<option ${team===u.team?'selected':''}>${escapeHTML(team)}</option>`).join('')}</select></div><button class="btn ghost" id="accountTeamSave" type="button" disabled>Takımı değiştir</button>${u.team_changed?'<p class="account-note">Bu sezon için tek takım değişikliği hakkını kullandın.</p>':'<p class="account-note">Takım sezonda yalnız bir kez değiştirilebilir.</p>'}</div></section>
     ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="memberAdminTitle">
       <div class="account-admin-title-row">
@@ -177,6 +255,8 @@ function renderAccountContent(){
   }
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
   if(u.is_admin) initMemberAdminConsole();
+  initFollowingSection();
+  initNotificationPreferences();
   document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
 }
 function openAccount(){

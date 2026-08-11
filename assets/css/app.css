@@ -6722,3 +6722,12 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
   opacity:.72;
   margin-top:2px;
 }
+
+/* v169: hesap panelinde Takip edilenler ve Bildirim tercihleri arayüzü */
+.followed-team-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.followed-team-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border:1px solid rgba(217,169,78,.35);border-radius:999px;background:rgba(217,169,78,.09);color:var(--ink);font:650 10px/1.2 var(--font-mono)}
+.followed-team-remove{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:var(--ink-dim);font-size:11px;line-height:1;cursor:pointer;padding:0}
+.followed-team-remove:hover{background:rgba(196,61,61,.25);color:#f39a9a}
+.notification-toggle-row{cursor:pointer}
+.notification-toggle-row span{color:var(--ink-dim);font-size:11px}
+.notification-toggle-row input[type="checkbox"]{width:17px;height:17px;accent-color:var(--gold)}
