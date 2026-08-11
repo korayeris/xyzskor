@@ -152,7 +152,7 @@ assert.match(html, /id="footballMatchesView"[^>]*hidden/i, 'Maçlar için ana sa
 assert.match(html, /id="footballNewsView"[^>]*hidden/i, 'Gündem için ana sayfadan ayrı tam detay görünümü bulunmalı.');
 assert.match(functionSource('openFootballSection'), /activeFootballSection!==['"]home['"]/, 'Yalnız Anasayfa özet görünümünü kullanmalı; diğer sekmeler ayrı ekran açmalı.');
 assert.match(functionSource('renderMatchesHub'), /openMatchCenter/, 'Tam maç akışındaki her kayıt kendi maç merkezini açmalı.');
-assert.match(functionSource('renderNewsHub'), /editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
+assert.match(functionSource('renderNewsHub'), /contextualEditorialEntries|editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
 assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe0e2,#d3d5d8/i, 'Maçlar ekranı göz yormayan gri portal yüzeyi kullanmalı.');
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
@@ -208,7 +208,7 @@ assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Sta
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
 assert.match(html, /id="editorialDesk"/, 'Ana sayfada profesyonel haber merkezi bulunmalı.');
 assert.match(html, /id="youtubeMediaGrid"/, 'Ana sayfada YouTube canlı ve program paneli bulunmalı.');
-assert.match(functionSource('renderEditorialNews'), /editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
+assert.match(functionSource('renderEditorialNews'), /contextualEditorialEntries|editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
 assert.match(functionSource('renderEditorialNews'), /editorial-portrait-shell/, 'Haber merkezi oyuncu görsellerini kesmeden dairesel portre içinde göstermeli.');
 assert.match(functionSource('renderEditorialNews'), /editorialMatchVisualHTML/, 'Görseli olmayan açılış maçı haberi gerçek maç eşleşmesiyle görselleştirilmeli.');
 assert.match(functionSource('editorialMatchVisualHTML'), /crestHTML\(match\.ev,'lg'\).*crestHTML\(match\.konuk,'lg'\)/s, 'Açılış maçı görseli iki gerçek takım armasını kullanmalı.');
@@ -229,7 +229,7 @@ assert.match(documentHtml, /id="clubSocialTitle">Kulüp Gündemi</, 'Kulüp sosy
 assert.match(documentHtml, /<h2>Süper Lig Maç Merkezi<\/h2>/, 'Canlı panel Süper Lig maç merkezi başlığı kullanmalı.');
 assert.match(html, /grid-template-columns:340px minmax\(0,1fr\) 290px/i, 'Masaüstü Futbol görünümü üç kolonlu portal düzenini kullanmalı.');
 assert.match(html, /prefers-reduced-motion:reduce/i, 'Yeni portal hareket azaltma tercihini desteklemeli.');
-assert.match(functionSource('selectFootballTeam'), /renderFootballQuickMatches\(\).*renderFootballNews\(\).*renderFootballTransfers\(\)/s, 'Takım filtresi maç, gündem ve transfer akışını birlikte yenilemeli.');
+assert.match(functionSource('selectFootballTeam'), /renderFootballQuickMatches\(\).*renderNewsHub\(\).*renderFootballTransfers\(\)/s, 'Takım filtresi maç, gündem ve transfer akışını birlikte yenilemeli.');
 assert.doesNotMatch(functionSource('renderPortalSponsor'), /\d\s*TL\b|fiyat|satın al/i, 'Portal sponsor alanı fiyat veya satın alma çağrısı üretmemeli.');
 assert.match(functionSource('loadAllData'), /moduleQuery\(/, 'Bir modül hatası bütün Futbol ekranını durdurmamalı.');
 assert.doesNotMatch(functionSource('renderAll'), /renderMarketPulse|renderMythosProducts|startTransferCountdown/, 'Yerel transfer ve sponsor örnekleri production render zincirine girmemeli.');

@@ -1985,7 +1985,7 @@ async function handleMultisportToday(request, env, context) {
   const cacheKey = new Request(new URL(`/api/sports/today-v8?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
-  const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport !== "mma").map(async ([sport, feed]) => {
+  const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
     const latestKey = new Request(new URL(`/api/sports/latest-v1/${sport}`, request.url), { method: "GET" });
     const latestCached = await readEdgeCache(cache, latestKey);
     try {
