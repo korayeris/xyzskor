@@ -6588,3 +6588,9 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
 .multi-event-empty:after{content:"VERI AKISI";position:absolute;right:24px;bottom:20px;color:#ffffff30;font:900 10px monospace;letter-spacing:.2em}
 .multi-event-empty strong{font-size:24px!important;color:#fff!important}.multi-event-empty span{max-width:520px;color:#bcc6cf!important}
 @media(max-width:680px){.multisport-view-nav button{padding:0 12px!important}.multi-team-card{min-height:180px!important}.multi-event-empty{min-height:240px!important}}
+
+/* Requested primary sport order v1 */
+.sport-branch-nav-compact>.sport-branch-main{justify-content:center!important;gap:5px!important;flex-wrap:nowrap!important}
+.sport-branch-nav-compact .sport-branch-button{padding-left:12px!important;padding-right:12px!important;white-space:nowrap!important}
+.sport-branch-button[data-branch="americanFootball"]{font-size:10px!important}
+@media(max-width:1050px){.sport-branch-nav-compact>.sport-branch-main{justify-content:flex-start!important;overflow-x:auto!important;scrollbar-width:none!important}.sport-branch-nav-compact>.sport-branch-main::-webkit-scrollbar{display:none!important}}

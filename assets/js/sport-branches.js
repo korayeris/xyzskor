@@ -3,15 +3,15 @@
     ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
-    ["motorsports", "Motor Sporlari", "/motorsports/"]
+    ["motorsports", "Motor Sporlari", "/motorsports/"],
+    ["mma", "UFC", "/ufc/"],
+    ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"]
   ];
   const secondary = [
-    ["mma", "UFC", "/ufc/"],
     ["hockey", "Buz Hokeyi", "/buz-hokeyi/"],
     ["rugby", "Rugby", "/rugby/"],
     ["baseball", "Beyzbol", "/beyzbol/"],
     ["handball", "Hentbol", "/hentbol/"],
-    ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"],
     ["australianFootball", "Avustralya Futbolu", "/avustralya-futbolu/"]
   ];
   const routeMap = {
@@ -78,13 +78,13 @@
     nav.setAttribute("aria-label", "Spor branslari");
     nav.innerHTML = `<div class="sport-branch-main">
       ${primary.map(([key, label, url]) => `<button class="sport-branch-button ${key === active ? "active" : ""}" data-branch="${key}" data-url="${url}">${label}</button>`).join("")}
-      <button class="sport-branch-button sport-predict-button" data-action="predict">Predict</button>
       <div class="sport-more-wrap">
         <button class="sport-branch-button sport-more-button ${activeSecondary ? "active" : ""}" aria-expanded="false">${activeSecondary ? activeSecondary[1] : "Diger"}<span>+</span></button>
         <div class="sport-more-menu" hidden>
           ${secondary.map(([key, label, url]) => `<button class="sport-more-item ${key === active ? "active" : ""}" data-url="${url}">${label}</button>`).join("")}
         </div>
       </div>
+      <button class="sport-branch-button sport-predict-button" data-action="predict">Predict</button>
     </div>`;
     header.after(nav);
 
