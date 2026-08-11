@@ -330,7 +330,13 @@
         const payload = await gameApi('/api/predict-game/complete', body);
         game.state = STATES.REWARD_CLAIMED;
         renderEnd(finalState, rewardText(payload));
-        if(payload.reward?.claimed) track('predict_game_reward_claimed', { reward_points:payload.reward.points });
+        if(payload.reward?.claimed){
+          track('predict_game_reward_claimed', { reward_points:payload.reward.points });
+          // Hesap panelini yeniden açmadan da toplam puana anında yansısın diye
+          // global bonus değerini optimistik olarak güncelle (sunraki loadAllData()
+          // çağrısı zaten sunucudan doğru değeri getirip üzerine yazacak).
+          if(typeof PREDICT_GAME_BONUS === 'number') PREDICT_GAME_BONUS += Number(payload.reward.points) || 0;
+        }
         if(payload.reward?.blocked === 'daily_limit') track('predict_game_reward_blocked_daily_limit');
       }catch(_error){
         renderEnd(finalState, currentUserSafe()?.id ? 'Puanın henüz hesabına eklenemedi. Tekrar deneyebilirsin.' : guestText());

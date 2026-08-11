@@ -459,6 +459,15 @@ let activeFootballLeague = 'super-lig';
 let SERVER_LEADERBOARDS = new Map();
 let serverLeaderboardMode = 'unknown';
 let seasonFixturesReady = new Set();
+// Predict mini oyunundan (predict-game.js) biriken, oturum sahibine ait toplam
+// bonus puan. Yalnızca kendi kullanıcısı için doludur (RLS: predict_point_transactions
+// tablosunda başkasının satırı okunamaz) — bu yüzden lifetimeStats() bunu sadece
+// aktif kullanıcının kendi satırına ekler, başka kullanıcıların toplamına asla
+// eklenmez. Sunucu tarafı genel sıralama (get_leaderboard RPC, season modu) bu
+// puanı zaten HERKES için doğru şekilde security definer olarak hesaplıyor;
+// bu client-side değer sadece "legacy" (RPC olmayan) yedek mod ve hesap panelindeki
+// anlık görünürlük için.
+let PREDICT_GAME_BONUS = 0;
 
 function toSafeUserObject(authUser){
   if(!authUser) return null;
@@ -663,6 +672,12 @@ async function primeServerLeaderboards(hafta){
     return false;
   }
 }
+async function fetchPredictGameBonus(uid){
+  if(!uid || !SUPABASE_READY) return 0;
+  const { data, error } = await sb.from('predict_point_transactions').select('amount').eq('user_id', uid);
+  if(error){ console.warn('[XYZSkor mini oyun puanı]', error.message || error); return 0; }
+  return (data || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+}
 async function loadAllData(){
   DATA_ERRORS = {};
   SERVER_LEADERBOARDS = new Map();
@@ -719,6 +734,7 @@ async function loadAllData(){
     }
     currentUser = mergeProfileWithSession(profile, session.user);
   } else currentUser = null;
+  PREDICT_GAME_BONUS = currentUser ? await fetchPredictGameBonus(currentUser.id) : 0;
   const serverReady = await primeServerLeaderboards(activeWeek);
   if(!serverReady){
     const [legacyProfiles, legacyPredictions] = await Promise.all([
@@ -875,8 +891,12 @@ function lifetimeStats(uid){
   const weeks = [...new Set(MATCHES.map(m=>m.hafta))];
   let toplam=0, sonuc=0, kesinSkor=0, tahmin=0, sonuclananTahmin=0, katilimHafta=0, tamamlaZaman=0;
   weeks.forEach(h=>{ const s = userStatsForWeek(uid, h); if(s.tahminSayisi>0) katilimHafta++; toplam+=s.toplam; sonuc+=s.sonucSayisi; kesinSkor+=s.kesinSkorSayisi; tahmin+=s.tahminSayisi; sonuclananTahmin+=s.sonuclananTahminSayisi; tamamlaZaman=Math.max(tamamlaZaman,s.tamamlaZaman); });
+  // Predict mini oyunundan gelen bonus puan, RLS nedeniyle sadece aktif
+  // kullanıcının kendi hesabı için biliniyor, başka bir kullanıcıya asla eklenmez.
+  const oyunBonusu = (getCurrentUser() && getCurrentUser().id===uid) ? PREDICT_GAME_BONUS : 0;
+  toplam += oyunBonusu;
   const dogruYuzde = sonuclananTahmin>0 ? Math.round((sonuc/sonuclananTahmin)*100) : 0;
-  return {toplam, sonuc, kesinSkor, tahmin, sonuclananTahmin, katilimHafta, dogruYuzde, tamamlaZaman};
+  return {toplam, sonuc, kesinSkor, tahmin, sonuclananTahmin, katilimHafta, dogruYuzde, tamamlaZaman, oyunBonusu};
 }
 function leaderboardFor(team, hafta){
   if(serverLeaderboardMode==='server'){

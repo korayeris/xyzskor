@@ -73,7 +73,12 @@ const testContext = vm.createContext({
     m1: { u1:{ pick:'1', scoreHome:2, scoreAway:1, submittedAt:100 } },
     m2: { u1:{ pick:'2', scoreHome:null, scoreAway:null, submittedAt:200 } }
   },
-  ALL_RESULTS: { m1:{ home:2, away:1 } }
+  ALL_RESULTS: { m1:{ home:2, away:1 } },
+  // lifetimeStats() artık Predict mini oyunu bonus puanını da topluyor; bu
+  // izole test bağlamında oturum yok, bu yüzden getCurrentUser() null döner
+  // ve bonus hep 0 kalır (dogruYuzde testini etkilemez).
+  getCurrentUser: () => null,
+  PREDICT_GAME_BONUS: 0
 });
 
 for (const name of ['computeMatchPoints','weekMatchIds','userStatsForWeek','lifetimeStats','sortRows','escapeHTML']) {
