@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
-const root = resolve(new URL('..', import.meta.url).pathname);
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cfg = await readFile(resolve(root,'assets/legal/legal-config.js'),'utf8');
 const required = ['TİCARİ UNVAN','ALAN-ADINIZ','AÇIK TEBLİGAT ADRESİ','KVKK BAŞVURU','YAYINDAN ÖNCE HUKUKİ MEKANİZMAYI','YETKİLİ MAHKEME'];
 const unresolved = required.filter((token)=>cfg.includes(`[${token}`));

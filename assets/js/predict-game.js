@@ -352,7 +352,7 @@
     }
 
     function guestText(){
-      return `Bravo! ${pointValue(game.goals)} Predict Puanı topladın. Bu puanları kullanmak veya hesabına eklemek için giriş yap veya kayıt ol.`;
+      return `Bravo! Bu tur antrenmandı. ${pointValue(game.goals)} puanlık performansının hesaba katılması için önce giriş yap, sonra tekrar oyna.`;
     }
 
     function renderEnd(finalState, text){

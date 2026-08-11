@@ -21,6 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="preload" href="/assets/css/app.css" as="style">
 <link rel="stylesheet" href="/assets/css/app.css">
+<link rel="stylesheet" href="/assets/css/membership.css">
 
 </head>
 <body>
@@ -572,6 +573,10 @@
           <option value="Trabzonspor">Trabzonspor</option>
           <option value="Diğer">Diğer</option>
         </select>
+      </div>
+      <div class="auth-consents">
+        <label class="auth-consent-row"><input type="checkbox" id="regConsent" required> <span><a href="/legal/kullanim-kosullari.html" target="_blank" rel="noopener">Kullanım Koşulları</a>, <a href="/legal/gizlilik-politikasi.html" target="_blank" rel="noopener">Gizlilik Politikası</a> ve <a href="/legal/kvkk-aydinlatma.html" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a>ni okudum ve kabul ediyorum.</span></label>
+        <label class="auth-consent-row"><input type="checkbox" id="regMarketing"> <span>Kampanya ve ödül duyurularını e-posta ile almak istiyorum. İsteğe bağlıdır.</span></label>
       </div>
     </div>
     <div class="field"><label>E-posta</label><input id="authEmail" type="email" placeholder="ornek@mail.com"></div>

@@ -759,14 +759,38 @@ function authErrTR(error){
   if(m.includes('duplicate') || m.includes('username')) return 'Bu kullanıcı adı alınmış.';
   return m || 'Bir hata oluştu.';
 }
-async function registerUser(username, email, pass, team){
-  const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ username, team } } });
+const REQUIRED_LEGAL_CONSENTS = [
+  { documentKey:'terms', version:'2026-08-06', scope:'required' },
+  { documentKey:'privacy', version:'2026-08-06', scope:'required' },
+  { documentKey:'kvkk_notice', version:'2026-08-06', scope:'kvkk_notice' }
+];
+async function acceptConsent(documentKey, version, scope='required'){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const { error } = await sb.rpc('accept_user_consent', { p_document_key:documentKey, p_version:version, p_consent_scope:scope, p_metadata:{ source:'web_membership' } });
+  return { ok:!error, err:error && (error.message || 'Yasal onay kaydedilemedi.') };
+}
+async function acceptRequiredConsents(marketing=false){
+  for(const item of REQUIRED_LEGAL_CONSENTS){
+    const result = await acceptConsent(item.documentKey,item.version,item.scope);
+    if(!result.ok) return result;
+  }
+  if(marketing){
+    const result = await acceptConsent('marketing','2026-08-06','marketing');
+    if(!result.ok) return result;
+  }
+  return { ok:true };
+}
+async function registerUser(username, email, pass, team, consent={}){
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ username, team, legal_consent_declared:true, marketing_opt_in:!!consent.marketing } } });
   if(error) return { ok:false, err: authErrTR(error) };
   const uid = data.user ? data.user.id : null;
   if(!uid) return { ok:false, err:'Kullanıcı hesabı oluşturulamadı.' };
-  if(!data.session) return { ok:true, pending:true, message:'Kayıt alındı. E-postana gelen doğrulama linkine tıklayıp giriş yap.' };
+  if(!data.session) return { ok:true, pending:true, message:'Kayıt alındı. E-postana gelen doğrulama linkine tıklayıp giriş yap. Yasal onayın ilk girişinde güvenli biçimde kaydedilecek.' };
   try{ await ensureOwnProfile(data.user); }
   catch(pErr){ return { ok:false, err: authErrTR(pErr) }; }
+  const consentResult = await acceptRequiredConsents(!!consent.marketing);
+  if(!consentResult.ok) return consentResult;
+  await logAccountSecurityEvent('signup',{ source:'web' });
   return { ok:true };
 }
 async function ensureOwnProfile(user){
@@ -788,9 +812,15 @@ async function loginUser(email, pass){
   }
   try{ await ensureOwnProfile(data.user); }
   catch(e){ await sb.auth.signOut(); return { ok:false, err:'Profil hazırlanamadı: '+authErrTR(e) }; }
+  const meta = data.user?.user_metadata || {};
+  if(meta.legal_consent_declared){
+    const consentResult = await acceptRequiredConsents(!!meta.marketing_opt_in);
+    if(!consentResult.ok){ await sb.auth.signOut(); return { ok:false, err:'Yasal onay kaydı tamamlanamadı: '+consentResult.err }; }
+  }
+  await logAccountSecurityEvent('login',{ source:'web' });
   return { ok:true };
 }
-async function logoutUser(){ await sb.auth.signOut(); }
+async function logoutUser(){ await logAccountSecurityEvent('logout',{ source:'web' }); await sb.auth.signOut(); }
 /* ===================== ŞİFRE SIFIRLAMA / E-POSTA DOĞRULAMA ===================== */
 async function requestPasswordReset(email){
   if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
@@ -809,6 +839,48 @@ async function resendSignupConfirmation(email){
   const { error } = await sb.auth.resend({ type:'signup', email });
   if(error) return { ok:false, err: authErrTR(error) };
   return { ok:true };
+}
+async function logAccountSecurityEvent(eventType, metadata={}, riskScore=0){
+  if(!SUPABASE_READY) return { ok:false };
+  const { error } = await sb.rpc('log_account_security_event', { p_event_type:eventType, p_risk_score:riskScore, p_metadata:metadata });
+  return { ok:!error, err:error && error.message };
+}
+async function fetchMyLegalStatus(){
+  const { data, error } = await sb.rpc('get_my_legal_status');
+  return { ok:!error, rows:data||[], err:error && error.message };
+}
+async function updateMyProfileSettings(payload){
+  const { data, error } = await sb.rpc('update_my_profile', { p_display_name:payload.displayName||null, p_city:payload.city||null, p_birth_year:payload.birthYear||null, p_favorite_league:payload.favoriteLeague||null, p_marketing_opt_in:!!payload.marketingOptIn });
+  return { ok:!error, row:Array.isArray(data)?data[0]:data, err:error && error.message };
+}
+async function fetchOwnPrivacyRequests(){
+  const u=getCurrentUser(); if(!u) return [];
+  const { data,error }=await sb.from('user_privacy_requests').select('id,request_type,status,details,response_summary,created_at,updated_at').eq('user_id',u.id).order('created_at',{ascending:false});
+  return error?[]:(data||[]);
+}
+async function submitPrivacyRequest(requestType,details){
+  const { data,error }=await sb.rpc('submit_privacy_request',{p_request_type:requestType,p_details:details||null});
+  return {ok:!error,row:data,err:error&&error.message};
+}
+async function fetchPrivacyRequestsAdmin(status=null){
+  const {data,error}=await sb.rpc('list_privacy_requests_admin',{p_status:status||null,p_limit:100});
+  return {ok:!error,rows:data||[],err:error&&error.message};
+}
+async function reviewPrivacyRequest(id,status,summary){
+  const {error}=await sb.rpc('review_privacy_request',{p_request_id:id,p_status:status,p_response_summary:summary||null});
+  return {ok:!error,err:error&&error.message};
+}
+async function setMemberAccountStatus(userId,status,reason,until=null){
+  const {error}=await sb.rpc('set_member_account_status',{p_user_id:userId,p_status:status,p_reason:reason||null,p_suspended_until:until||null});
+  return {ok:!error,err:error&&error.message};
+}
+async function fetchMemberSecurityEvents(userId=null){
+  const {data,error}=await sb.rpc('list_member_security_events',{p_user_id:userId||null,p_limit:100});
+  return {ok:!error,rows:data||[],err:error&&error.message};
+}
+async function fetchMemberAccountStatusesAdmin(){
+  const {data,error}=await sb.rpc('list_member_account_statuses_admin');
+  return {ok:!error,rows:data||[],err:error&&error.message};
 }
 async function changeTeam(newTeam){
   const u = getCurrentUser();
@@ -868,7 +940,9 @@ async function saveNotificationPreferences(prefs){
 /* ===================== ÖDÜL KAMPANYALARI (kullanıcı) ===================== */
 async function fetchActiveRewardCampaigns(){
   if(!SUPABASE_READY) return [];
-  const { data, error } = await sb.from('reward_campaigns').select('*').eq('status','active').order('starts_at',{ascending:false});
+  const { data, error } = getCurrentUser()
+    ? await sb.rpc('get_my_reward_campaigns')
+    : await sb.from('reward_campaigns').select('*').eq('status','active').eq('eligibility_mode','open').order('starts_at',{ascending:false});
   if(error){ console.warn('[XYZSkor ödül kampanyaları]', error.message||error); return []; }
   return data || [];
 }
@@ -882,6 +956,7 @@ async function claimRewardCampaign(campaignId){
   const u = getCurrentUser(); if(!u) return { ok:false, err:'Giriş gerekli.' };
   const { data, error } = await sb.rpc('request_reward_claim', { p_campaign_id:campaignId, p_source_type:'manual_admin', p_source_id:'self_service' });
   if(error) return { ok:false, err:error.message || 'Talep gönderilemedi.' };
+  await logAccountSecurityEvent('reward_claim',{ campaign_id:campaignId });
   return { ok:true, claim:data };
 }
 async function submitRewardShipping(claimId, shipping){
@@ -909,7 +984,7 @@ async function createRewardCampaign(payload){
   const row = {
     code: slugifyCampaignCode(payload.title) + '-' + Math.random().toString(36).slice(2,6),
     title: payload.title, sponsor_name: payload.sponsorName || null, description: payload.description || null,
-    starts_at: payload.startsAt || null, ends_at: payload.endsAt || null, status: 'draft'
+    starts_at: payload.startsAt || null, ends_at: payload.endsAt || null, status: 'draft', eligibility_mode:payload.eligibilityMode==='open'?'open':'admin_grant'
   };
   const { data, error } = await sb.from('reward_campaigns').insert(row).select().single();
   return { ok: !error, err: error && error.message, row:data };
@@ -927,6 +1002,10 @@ async function fetchCampaignClaimsAdmin(campaignId){
 async function reviewRewardClaim(claimId, status, note){
   const { error } = await sb.from('reward_claims').update({ status, review_note: note || null, reviewed_at: new Date().toISOString() }).eq('id', claimId);
   return { ok: !error, err: error && error.message };
+}
+async function grantRewardEntitlement(campaignId,userId){
+  const {error}=await sb.rpc('grant_reward_entitlement',{p_campaign_id:campaignId,p_user_id:userId,p_source_type:'manual_admin',p_source_id:'admin_panel'});
+  return {ok:!error,err:error&&error.message};
 }
 
 async function fetchMemberAdminConsole(search=''){  if(!SUPABASE_READY) return { ok:false, rows:[], err:SUPABASE_UNAVAILABLE_MESSAGE };
@@ -958,6 +1037,7 @@ function getPrediction(matchId, uid){ return (ALL_PREDICTIONS[matchId] && ALL_PR
 function getResult(matchId){ return ALL_RESULTS[matchId] || null; }
 async function savePrediction(matchId, payload){
   const u = getCurrentUser(); if(!u) return { ok:false };
+  if(u.account_status && u.account_status!=='active') return { ok:false, err:'Hesabın aktif olmadığı için tahmin kaydedemezsin.' };
   const match = MATCHES.find(m=>m.id===matchId);
   if(!match) return { ok:false, err:'Maç bulunamadı.' };
   if(match.status==='iptal' || match.status==='ertelendi') return { ok:false, err:'Bu maç için tahmin alınmıyor.' };
@@ -977,6 +1057,7 @@ async function savePrediction(matchId, payload){
   if(!error){
     if(!ALL_PREDICTIONS[matchId]) ALL_PREDICTIONS[matchId]={};
     ALL_PREDICTIONS[matchId][u.id]={pick:payload.pick,scoreHome:payload.scoreHome,scoreAway:payload.scoreAway,submittedAt:submittedAt.getTime()};
+    await logAccountSecurityEvent('prediction_submit',{ match_id:matchId });
   }
   return { ok: !error, err: error && error.message };
 }

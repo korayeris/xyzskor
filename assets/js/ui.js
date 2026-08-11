@@ -174,6 +174,7 @@ async function initRewardCampaignsSection(){
 }
 
 /* ===================== ÖDÜL KAMPANYALARI (admin) ===================== */
+let rewardAdminCampaigns = [];
 function rewardCampaignAdminRowHTML(campaign){
   const statusOptions = ['draft','active','paused','completed','cancelled'];
   return `<article class="account-member-card" data-campaign-admin="${escapeHTML(campaign.id)}">
@@ -201,6 +202,7 @@ async function loadRewardCampaignsAdmin(){
   if(!list) return;
   list.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
   const rows = await fetchAllRewardCampaignsAdmin();
+  rewardAdminCampaigns = rows;
   list.innerHTML = rows.length ? rows.map(rewardCampaignAdminRowHTML).join('') : '<p class="account-empty">Henüz kampanya oluşturulmadı.</p>';
   bindRewardCampaignAdminActions();
 }
@@ -246,7 +248,8 @@ function initRewardCampaignAdmin(){
     await createRewardCampaign({
       title,
       sponsorName: document.getElementById('newCampaignSponsor').value.trim(),
-      description: document.getElementById('newCampaignDesc').value.trim()
+      description: document.getElementById('newCampaignDesc').value.trim(),
+      eligibilityMode: document.getElementById('newCampaignEligibility').value
     });
     submitBtn.disabled = false; submitBtn.textContent = 'Kampanya oluştur (taslak)';
     form.reset();
@@ -285,6 +288,12 @@ function memberAdminRowHTML(row){
       </select>
       <button class="btn ghost" type="button" data-member-save>${isSelf?'Rolü kaydet':'Yetkiyi kaydet'}</button>
     </div>
+    <div class="member-status-controls">
+      <select data-account-status aria-label="Hesap durumu" ${isSelf?'disabled':''}><option value="active" ${row.account_status==='active'?'selected':''}>Aktif</option><option value="suspended" ${row.account_status==='suspended'?'selected':''}>Askıda</option><option value="closed" ${row.account_status==='closed'?'selected':''}>Kapalı</option></select>
+      <input data-status-reason placeholder="Durum değişikliği nedeni" value="${escapeHTML(row.suspended_reason||'')}" ${isSelf?'disabled':''}>
+      <button class="btn ghost" type="button" data-status-save ${isSelf?'disabled':''}>Hesap durumunu kaydet</button>
+    </div>
+    <div class="member-reward-controls"><select data-entitlement-campaign aria-label="Üyeye tanımlanacak ödül kampanyası"><option value="">Ödül hakkı seç…</option>${rewardAdminCampaigns.filter(c=>c.eligibility_mode==='admin_grant'&&['draft','active'].includes(c.status)).map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.title)}</option>`).join('')}</select><button class="btn ghost" type="button" data-entitlement-grant>Ödül hakkı tanımla</button></div>
     <div class="account-member-foot">${role ? escapeHTML(adminRoleLabel(role)) : 'Editoryal rol pasif'}${isSelf?' · kendi admin yetkini buradan kapatamazsın':''}</div>
   </article>`;
 }
@@ -308,13 +317,15 @@ async function loadMemberAdminConsole(search=''){
   if(!list || !status) return;
   status.textContent = 'Üyeler yükleniyor…';
   status.style.display = 'block';
-  const result = await fetchMemberAdminConsole(search);
+  const [result,statusResult,campaigns] = await Promise.all([fetchMemberAdminConsole(search),fetchMemberAccountStatusesAdmin(),fetchAllRewardCampaignsAdmin()]);
   if(!result.ok){
     status.textContent = result.err || 'Üye listesi alınamadı.';
     list.innerHTML = '';
     return;
   }
-  memberAdminRows = result.rows || [];
+  rewardAdminCampaigns=campaigns||[];
+  const statuses=new Map((statusResult.rows||[]).map(row=>[row.user_id,row]));
+  memberAdminRows = (result.rows || []).map(row=>({...row,...(statuses.get(row.id)||{account_status:'active'})}));
   renderMemberAdminRows(memberAdminRows);
 }
 function bindMemberAdminActions(){
@@ -322,6 +333,10 @@ function bindMemberAdminActions(){
     const save = card.querySelector('[data-member-save]');
     const adminToggle = card.querySelector('[data-admin-toggle]');
     const roleSelect = card.querySelector('[data-role-select]');
+    const statusSelect = card.querySelector('[data-account-status]');
+    const statusSave = card.querySelector('[data-status-save]');
+    const entitlementSelect=card.querySelector('[data-entitlement-campaign]');
+    const entitlementGrant=card.querySelector('[data-entitlement-grant]');
     if(!save || !adminToggle || !roleSelect) return;
     save.onclick = async () => {
       const userId = card.getAttribute('data-member-admin');
@@ -342,6 +357,16 @@ function bindMemberAdminActions(){
         await loadMemberAdminConsole(document.getElementById('memberAdminSearch')?.value || '');
       }
     };
+    if(statusSelect && statusSave) statusSave.onclick=async()=>{
+      const userId=card.getAttribute('data-member-admin');
+      const reason=card.querySelector('[data-status-reason]')?.value.trim()||'';
+      statusSave.disabled=true; statusSave.textContent='Kaydediliyor…';
+      const result=await setMemberAccountStatus(userId,statusSelect.value,reason);
+      statusSave.disabled=false; statusSave.textContent='Hesap durumunu kaydet';
+      if(result.ok) await loadMemberAdminConsole(document.getElementById('memberAdminSearch')?.value||'');
+      else { const status=document.getElementById('memberAdminStatus'); if(status){status.textContent=result.err||'Hesap durumu güncellenemedi.';status.style.display='block';} }
+    };
+    if(entitlementSelect&&entitlementGrant) entitlementGrant.onclick=async()=>{if(!entitlementSelect.value)return;entitlementGrant.disabled=true;const granted=await grantRewardEntitlement(entitlementSelect.value,card.getAttribute('data-member-admin'));entitlementGrant.disabled=false;entitlementGrant.textContent=granted.ok?'Ödül hakkı tanımlandı':(granted.err||'Tanımlanamadı');};
   });
 }
 function initMemberAdminConsole(){
@@ -355,6 +380,46 @@ function initMemberAdminConsole(){
   };
   refresh.onclick = () => loadMemberAdminConsole(search.value);
   loadMemberAdminConsole('');
+}
+
+const PRIVACY_REQUEST_LABELS={access:'Verilerime erişim',correction:'Düzeltme',deletion:'Hesap ve veri silme',restriction:'İşlemeyi kısıtlama',objection:'İtiraz',export:'Veri dışa aktarma',consent_withdrawal:'Onayı geri çekme'};
+async function initProfileSettings(){
+  const form=document.getElementById('profileSettingsForm'); if(!form) return;
+  form.onsubmit=async event=>{
+    event.preventDefault(); const button=form.querySelector('button[type="submit"]'); const status=document.getElementById('profileSettingsStatus');
+    button.disabled=true;
+    const result=await updateMyProfileSettings({displayName:document.getElementById('profileDisplayName').value.trim(),city:document.getElementById('profileCity').value.trim(),birthYear:Number(document.getElementById('profileBirthYear').value)||null,favoriteLeague:document.getElementById('profileFavoriteLeague').value,marketingOptIn:document.getElementById('profileMarketing').checked});
+    button.disabled=false; status.textContent=result.ok?'Profil bilgilerin kaydedildi.':(result.err||'Profil kaydedilemedi.');
+    if(result.ok){await loadAllData();renderAll();}
+  };
+}
+async function initLegalConsentSection(){
+  const holder=document.getElementById('legalConsentBody'); if(!holder) return;
+  const result=await fetchMyLegalStatus();
+  if(!result.ok){holder.innerHTML=`<p class="account-empty">${escapeHTML(result.err||'Yasal durum alınamadı.')}</p>`;return;}
+  const missing=result.rows.filter(row=>!row.accepted_at);
+  holder.innerHTML=`<div class="legal-status-list">${result.rows.map(row=>`<div class="legal-status-row"><a href="${escapeHTML(row.url_path)}" target="_blank" rel="noopener">${escapeHTML(row.title)}</a><span class="${row.accepted_at?'is-ok':'is-missing'}">${row.accepted_at?'Kabul edildi':'Onay gerekli'}</span></div>`).join('')}</div>${missing.length?'<label class="auth-consent-row"><input type="checkbox" id="accountLegalConfirm"> <span>Yukarıdaki zorunlu metinleri okudum ve kabul ediyorum.</span></label><button class="btn ghost" id="accountLegalAccept" type="button">Onayları kaydet</button>':'<p class="account-note">Zorunlu yasal onayların güncel.</p>'}`;
+  const button=document.getElementById('accountLegalAccept'); if(button) button.onclick=async()=>{
+    if(!document.getElementById('accountLegalConfirm').checked) return;
+    button.disabled=true; const saved=await acceptRequiredConsents(document.getElementById('profileMarketing')?.checked||false);
+    if(saved.ok) initLegalConsentSection(); else {button.disabled=false;button.textContent=saved.err||'Kaydedilemedi';}
+  };
+}
+async function initPrivacyCenter(){
+  const form=document.getElementById('privacyRequestForm'); const list=document.getElementById('privacyRequestList'); if(!form||!list)return;
+  const render=async()=>{const rows=await fetchOwnPrivacyRequests();list.innerHTML=rows.length?rows.map(row=>`<article class="privacy-request-row"><b>${escapeHTML(PRIVACY_REQUEST_LABELS[row.request_type]||row.request_type)}</b><span>${escapeHTML(row.status)} · ${escapeHTML(new Date(row.created_at).toLocaleDateString('tr-TR'))}</span>${row.response_summary?`<p>${escapeHTML(row.response_summary)}</p>`:''}</article>`).join(''):'<p class="account-empty">Henüz gizlilik talebin yok.</p>';};
+  form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;const result=await submitPrivacyRequest(document.getElementById('privacyRequestType').value,document.getElementById('privacyRequestDetails').value.trim());button.disabled=false;if(result.ok){form.reset();await render();}else document.getElementById('privacyRequestStatus').textContent=result.err||'Talep gönderilemedi.';};
+  await render();
+}
+async function initPrivacyAdmin(){
+  const holder=document.getElementById('privacyAdminList'); if(!holder)return;
+  const result=await fetchPrivacyRequestsAdmin(); if(!result.ok){holder.innerHTML=`<p class="account-empty">${escapeHTML(result.err||'Talepler alınamadı.')}</p>`;return;}
+  holder.innerHTML=result.rows.length?result.rows.map(row=>`<article class="account-member-card" data-privacy-admin="${escapeHTML(row.id)}"><div class="account-member-name">${escapeHTML(row.username||row.email||'Üye')}</div><div class="account-member-meta">${escapeHTML(PRIVACY_REQUEST_LABELS[row.request_type]||row.request_type)} · ${escapeHTML(row.status)}</div>${row.details?`<p class="account-admin-desc">${escapeHTML(row.details)}</p>`:''}<select data-privacy-status><option value="reviewing">İnceleniyor</option><option value="waiting_user">Üye yanıtı bekleniyor</option><option value="completed">Tamamlandı</option><option value="rejected">Reddedildi</option></select><input data-privacy-response placeholder="Üyeye gösterilecek yanıt özeti"><button class="btn ghost" data-privacy-save type="button">Talebi güncelle</button></article>`).join(''):'<p class="account-empty">Bekleyen gizlilik talebi yok.</p>';
+  holder.querySelectorAll('[data-privacy-admin]').forEach(card=>{card.querySelector('[data-privacy-save]').onclick=async()=>{const button=card.querySelector('[data-privacy-save]');button.disabled=true;const saved=await reviewPrivacyRequest(card.getAttribute('data-privacy-admin'),card.querySelector('[data-privacy-status]').value,card.querySelector('[data-privacy-response]').value.trim());if(saved.ok)initPrivacyAdmin();else{button.disabled=false;button.textContent=saved.err||'Güncellenemedi';}};});
+}
+async function initSecurityAdmin(){
+  const holder=document.getElementById('securityAdminList');if(!holder)return;const result=await fetchMemberSecurityEvents();
+  holder.innerHTML=result.ok&&result.rows.length?result.rows.map(row=>`<div class="security-event-row"><b>${escapeHTML(row.event_type)}</b><span>Risk ${Number(row.risk_score||0)} · ${escapeHTML(new Date(row.created_at).toLocaleString('tr-TR'))}</span></div>`).join(''):'<p class="account-empty">Güvenlik olayı bulunmuyor.</p>';
 }
 function renderAccountContent(){
   const area = document.getElementById('accountContent'); const u = getCurrentUser();
@@ -373,6 +438,9 @@ function renderAccountContent(){
     <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><div class="followed-team-list" id="followedTeamsList"><p class="account-empty">Yükleniyor…</p></div><div class="account-settings-row followed-team-add-row"><select id="followTeamSelect" aria-label="Takip edilecek takım seç"><option value="">Yükleniyor…</option></select><button class="btn ghost" id="followTeamAdd" type="button">Takip et</button></div></section>
     <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><div id="notificationPrefsBody"><p class="account-empty">Yükleniyor…</p></div></section>
     <section class="account-section" aria-labelledby="accountRewardsTitle"><h3 class="account-section-title" id="accountRewardsTitle">Ödüllerim</h3><div id="rewardCampaignsBody"><p class="account-empty">Yükleniyor…</p></div></section>
+    <section class="account-section" aria-labelledby="profileSettingsTitle"><h3 class="account-section-title" id="profileSettingsTitle">Profil bilgileri</h3><form class="membership-form" id="profileSettingsForm"><input id="profileDisplayName" placeholder="Görünen ad" value="${escapeHTML(u.display_name||'')}"><input id="profileCity" placeholder="Şehir" value="${escapeHTML(u.city||'')}"><input id="profileBirthYear" type="number" min="1900" max="2100" placeholder="Doğum yılı" value="${escapeHTML(u.birth_year||'')}"><select id="profileFavoriteLeague"><option value="">Favori lig seç</option>${['super-lig','champions-league','europa-league','premier-league','la-liga'].map(value=>`<option value="${value}" ${u.favorite_league===value?'selected':''}>${escapeHTML(competitionLabelBySlug(value))}</option>`).join('')}</select><label class="auth-consent-row"><input type="checkbox" id="profileMarketing" ${u.marketing_opt_in?'checked':''}> <span>Kampanya ve ödül duyurularını almak istiyorum.</span></label><button class="btn ghost" type="submit">Profili kaydet</button><p class="account-note" id="profileSettingsStatus"></p></form></section>
+    <section class="account-section" aria-labelledby="legalConsentTitle"><h3 class="account-section-title" id="legalConsentTitle">Yasal onaylar</h3><div id="legalConsentBody"><p class="account-empty">Yükleniyor…</p></div></section>
+    <section class="account-section" aria-labelledby="privacyCenterTitle"><h3 class="account-section-title" id="privacyCenterTitle">Gizlilik ve hesap hakları</h3><form class="membership-form" id="privacyRequestForm"><select id="privacyRequestType">${Object.entries(PRIVACY_REQUEST_LABELS).map(([value,label])=>`<option value="${value}">${escapeHTML(label)}</option>`).join('')}</select><textarea id="privacyRequestDetails" maxlength="2000" placeholder="Talebini kısaca açıkla"></textarea><button class="btn ghost" type="submit">Talep oluştur</button><p class="account-note" id="privacyRequestStatus"></p></form><div id="privacyRequestList"></div></section>
     <section class="account-section" aria-labelledby="accountSettingsTitle"><h3 class="account-section-title" id="accountSettingsTitle">Hesap ayarları</h3><div class="account-settings"><div class="account-settings-row"><label for="accountTeamSelect">Tuttuğun takım</label><select id="accountTeamSelect" ${u.team_changed?'disabled':''}>${TEAMS.map(team=>`<option ${team===u.team?'selected':''}>${escapeHTML(team)}</option>`).join('')}</select></div><button class="btn ghost" id="accountTeamSave" type="button" disabled>Takımı değiştir</button>${u.team_changed?'<p class="account-note">Bu sezon için tek takım değişikliği hakkını kullandın.</p>':'<p class="account-note">Takım sezonda yalnız bir kez değiştirilebilir.</p>'}</div></section>
     ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="rewardCampaignAdminTitle">
       <div class="account-admin-title-row">
@@ -386,6 +454,7 @@ function renderAccountContent(){
         <input id="newCampaignTitle" class="account-admin-search" placeholder="Kampanya başlığı" required>
         <input id="newCampaignSponsor" class="account-admin-search" placeholder="Sponsor (opsiyonel)">
         <input id="newCampaignDesc" class="account-admin-search" placeholder="Kısa açıklama (opsiyonel)">
+        <select id="newCampaignEligibility" class="account-admin-search"><option value="admin_grant">Yalnız hak tanımlanan üyeler</option><option value="open">Tüm aktif üyelere açık</option></select>
         <button class="btn ghost" id="newCampaignSubmit" type="submit">Kampanya oluştur (taslak)</button>
       </form>
       <div class="account-admin-list" id="rewardCampaignsAdminList"></div>
@@ -405,6 +474,7 @@ function renderAccountContent(){
       <p class="account-empty" id="memberAdminStatus">Üye listesi yükleniyor…</p>
       <div class="account-admin-list" id="memberAdminList"></div>
     </section>`:''}
+    ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="privacyAdminTitle"><div class="account-admin-title-row"><div><h3 class="account-section-title" id="privacyAdminTitle">Gizlilik Talepleri</h3><p class="account-admin-desc">KVKK ve hesap hakkı taleplerini incele, üyeye yanıt özeti bırak.</p></div><span class="account-admin-secure">Admin RPC</span></div><div class="account-admin-list" id="privacyAdminList"></div></section><section class="account-section account-admin-console" aria-labelledby="securityAdminTitle"><div class="account-admin-title-row"><div><h3 class="account-section-title" id="securityAdminTitle">Hesap Güvenliği</h3><p class="account-admin-desc">Son üyelik güvenlik olaylarını ve risk puanlarını izle.</p></div><span class="account-admin-secure">Salt okunur</span></div><div class="account-admin-list" id="securityAdminList"></div></section>`:''}
     <div class="account-actions">${u.is_admin?'<button class="btn ghost" id="accountAdmin" type="button">Predict admin paneline git</button>':''}<button class="btn ghost account-danger" id="accountLogout" type="button">Çıkış yap</button></div>`;
   const teamSelect=document.getElementById('accountTeamSelect'); const teamSave=document.getElementById('accountTeamSave');
   if(teamSelect && teamSave && !u.team_changed){
@@ -414,9 +484,14 @@ function renderAccountContent(){
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
   if(u.is_admin) initMemberAdminConsole();
   if(u.is_admin) initRewardCampaignAdmin();
+  if(u.is_admin) initPrivacyAdmin();
+  if(u.is_admin) initSecurityAdmin();
   initFollowingSection();
   initNotificationPreferences();
   initRewardCampaignsSection();
+  initProfileSettings();
+  initLegalConsentSection();
+  initPrivacyCenter();
   document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
 }
 function openAccount(){
@@ -496,8 +571,11 @@ document.getElementById('authSubmit').onclick = async () => {
   if(authMode==='register'){
     const username = document.getElementById('regUsername').value.trim();
     const team = document.getElementById('regTeam').value;
+    const consent = document.getElementById('regConsent').checked;
+    const marketing = document.getElementById('regMarketing').checked;
     if(!username || !team){ errEl.textContent='Kullanıcı adı ve takım seçimi gerekli.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
-    res = await registerUser(username, email, pass, team);
+    if(!consent){ errEl.textContent='Üyelik için zorunlu yasal metinleri okuyup kabul etmelisin.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
+    res = await registerUser(username, email, pass, team, { marketing });
   } else if(authMode==='reset'){
     res = await requestPasswordReset(email);
     if(res.ok) res = { ok:true, pending:true, message:'Şifre sıfırlama bağlantısı e-postana gönderildi.' };
@@ -2056,7 +2134,8 @@ function setPredictionStatus(id, message, tone){
   status.textContent=message; status.className='predict-save-status'+(tone?' '+tone:'');
 }
 async function submitPrediction(id){
-  const u = getCurrentUser(); if(!u) return;
+  const u = getCurrentUser();
+  if(!u){ setPredictionStatus(id,'Tahmin kaydetmek için giriş yapmalısın.','error'); openAuth('login'); return; }
   const button=document.getElementById('savePrediction-'+id);
   const pick = pickState[id]; if(!pick){ setPredictionStatus(id,'Önce 1 / X / 2 seç.','error'); return; }
   const sh = document.getElementById('sh-'+id).value; const sa = document.getElementById('sa-'+id).value;

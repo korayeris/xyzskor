@@ -44,6 +44,7 @@ XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun ist
 | --- | --- |
 | `index.html` | Ana erişilebilir HTML kabuğu |
 | `assets/css/app.css` | Tasarım sistemi ve responsive düzen |
+| `assets/css/membership.css` | Üyelik, hesap merkezi ve admin paneli görsel katmanı |
 | `assets/js/data.js` | Veri, Supabase ve sağlayıcı adaptörleri |
 | `assets/js/live.js` | Canlı skor ve navigasyon akışı |
 | `assets/js/ui.js` | Futbol ve ana arayüz render zinciri |
@@ -151,9 +152,70 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 - Yetki ve ödül işlemleri audit loglarına yazılır.
 - Predict puanlama ve ödül talepleri yalnızca sunucu tarafında kesinleşir.
 
+## Üyelik ve yönetim merkezi
+
+Üyelik sistemi Supabase Auth üzerindeki `auth.users` kayıtlarını, RLS korumalı
+`public.profiles` ve üyelik operasyon tablolarıyla ilişkilendirir. Kullanıcı
+parolaları uygulama veritabanında tutulmaz ve admin arayüzüne açılmaz.
+
+Üye hesabında bulunan özellikler:
+
+- E-posta doğrulamalı kayıt, giriş, çıkış ve şifre sıfırlama
+- Kullanım Koşulları, Gizlilik Politikası ve KVKK Aydınlatma onayı
+- Profil bilgileri, takım seçimi, takip edilen takımlar ve bildirim tercihleri
+- Tahmin geçmişi, puanlar, rozetler ve hak kazanılmış ödüller
+- KVKK erişim, düzeltme, silme, kısıtlama, itiraz ve dışa aktarma talepleri
+
+Site içindeki admin yönetim merkezi:
+
+- Üye arama, aktivite özeti ve admin/editoryal rol yönetimi
+- Hesabı aktif, askıda veya kapalı duruma alma
+- Ödül kampanyası oluşturma ve talep inceleme
+- Herkese açık kampanya veya üyeye özel ödül hakkı tanımlama
+- KVKK taleplerini inceleme ve üyeye yanıt özeti bırakma
+- Hesap güvenliği olaylarını ve sınırlı risk puanlarını izleme
+
+Askıya alınmış üyelerin tahmin, haftalık oyun ve ödül talebi yazma işlemleri
+yalnız arayüzde değil, PostgreSQL RLS ve güvenli RPC katmanında da engellenir.
+Admin hesap durumu, rol, ödül hakkı ve gizlilik talebi işlemleri audit kayıtlarına
+yazılır. Süresi dolan ödül teslimat PII alanlarını temizleyen görev yalnız
+`service_role` tarafından çalıştırılabilir.
+
+### Veritabanını günlük yönetme
+
+Günlük üye, rol, kampanya, ödül ve KVKK işlemleri için sitenin admin panelini
+kullanın. Supabase Dashboard esas olarak teknik denetim içindir:
+
+- `Authentication → Users`: Auth kullanıcılarını ve doğrulama durumunu görüntüleme
+- `Table Editor`: RLS kapsamındaki operasyon tablolarını inceleme
+- `Logs`: Auth, API ve Worker hatalarını araştırma
+- `Backups`: Yedek durumunu kontrol etme
+
+Canlı şemayı Table Editor veya SQL Editor üzerinden elle değiştirmeyin. Tüm
+şema değişiklikleri `supabase/migrations/` altında sürümlenir ve tek sorumlu
+tarafından uygulanır.
+
+Bu üyelik sürümünün migration dosyası:
+
+```text
+supabase/migrations/20260811170000_membership_management_complete.sql
+```
+
+Yerel Supabase ortamında doğrulama ve bağlı canlı projeye uygulama:
+
+```powershell
+supabase db reset
+supabase db push
+```
+
+`db push` öncesinde doğru Supabase projesine bağlı olduğunuzu doğrulayın ve
+canlı yedek alın. Aynı anda yalnızca bir kişi migration uygulasın. Service-role
+anahtarını tarayıcıya, istemci JavaScript dosyalarına veya Git geçmişine yazmayın.
+
 ## Git ve yayın
 
-Kaynak dalı: `main`
+Kararlı kaynak dalı `main`'dir. Geliştirmeler konu dalında hazırlanıp pull
+request ile birleştirilir.
 
 ```powershell
 git add .
@@ -179,4 +241,3 @@ Production dağıtımı `.openai/hosting.json` içindeki mevcut Sites projesine 
 - Sosyal medya içeriğini platformun resmî API veya embed sistemiyle göster.
 - Oranları bahis çağrısı olarak değil, ücretsiz tahmin verisi olarak sun.
 - Kaynak, güncelleme zamanı ve veri durumu kullanıcıya görünür olmalıdır.
-
