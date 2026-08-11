@@ -287,10 +287,14 @@ function closeAuth(){ document.getElementById('authOverlay').classList.remove('s
 function openAuth(mode){
   if(!document.getElementById('authOverlay').classList.contains('show')) authReturnFocus=document.activeElement;
   authMode = mode;
-  document.getElementById('authTitle').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
+  const titles = { register:'Üye Ol', login:'Giriş Yap', reset:'Şifreni Sıfırla' };
+  document.getElementById('authTitle').textContent = titles[mode] || titles.login;
   document.getElementById('registerFields').style.display = mode==='register' ? 'block' : 'none';
-  document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
-  document.getElementById('authSwitch').textContent = mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol';
+  document.getElementById('authPassField').style.display = mode==='reset' ? 'none' : 'block';
+  document.getElementById('authForgotLink').style.display = mode==='login' ? 'inline' : 'none';
+  document.getElementById('authResend').style.display = 'none';
+  document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : mode==='reset' ? 'Sıfırlama Bağlantısı Gönder' : 'Giriş Yap';
+  document.getElementById('authSwitch').textContent = mode==='reset' ? 'Giriş ekranına dön' : (mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol');
   document.getElementById('authErr').classList.remove('show');
   document.getElementById('authErr').style.color = '';
   document.getElementById('authOverlay').classList.add('show');
@@ -298,7 +302,8 @@ function openAuth(mode){
   document.getElementById('authClose').focus();
 }
 document.getElementById('authClose').onclick = closeAuth;
-document.getElementById('authSwitch').onclick = () => openAuth(authMode==='register'?'login':'register');
+document.getElementById('authSwitch').onclick = () => openAuth(authMode==='reset' ? 'login' : (authMode==='register'?'login':'register'));
+document.getElementById('authForgotLink').onclick = () => openAuth('reset');
 document.getElementById('authOverlay').addEventListener('click', e => { if(e.target.id==='authOverlay') closeAuth(); });
 document.getElementById('authOverlay').addEventListener('keydown', e => {
   if(e.key==='Escape'){ closeAuth(); return; } if(e.key!=='Tab') return;
@@ -310,24 +315,76 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); e.target.click();
   }
 });
+document.getElementById('authResend').onclick = async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authErr'); const btn = document.getElementById('authResend');
+  if(!email) return;
+  btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+  const res = await resendSignupConfirmation(email);
+  btn.disabled = false; btn.textContent = 'Doğrulama e-postasını tekrar gönder';
+  errEl.style.color = res.ok ? 'var(--ok)' : '';
+  errEl.textContent = res.ok ? 'Doğrulama e-postası tekrar gönderildi.' : res.err;
+  errEl.classList.add('show');
+};
 document.getElementById('authSubmit').onclick = async () => {
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPass').value;
   const errEl = document.getElementById('authErr');
   const btn = document.getElementById('authSubmit');
-  if(!email || !pass){ errEl.textContent='E-posta ve şifre gerekli.'; errEl.classList.add('show'); return; }
+  if(!email || (authMode!=='reset' && !pass)){ errEl.textContent='E-posta ve şifre gerekli.'; errEl.classList.add('show'); return; }
   let res; btn.disabled = true; btn.textContent = '...';
   if(authMode==='register'){
     const username = document.getElementById('regUsername').value.trim();
     const team = document.getElementById('regTeam').value;
     if(!username || !team){ errEl.textContent='Kullanıcı adı ve takım seçimi gerekli.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
     res = await registerUser(username, email, pass, team);
+  } else if(authMode==='reset'){
+    res = await requestPasswordReset(email);
+    if(res.ok) res = { ok:true, pending:true, message:'Şifre sıfırlama bağlantısı e-postana gönderildi.' };
   } else { res = await loginUser(email, pass); }
-  btn.disabled = false; btn.textContent = authMode==='register' ? 'Üye Ol' : 'Giriş Yap';
-  if(!res.ok){ errEl.textContent = res.err; errEl.classList.add('show'); return; }
-  if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); return; }
+  btn.disabled = false; btn.textContent = authMode==='register' ? 'Üye Ol' : authMode==='reset' ? 'Sıfırlama Bağlantısı Gönder' : 'Giriş Yap';
+  if(!res.ok){
+    errEl.textContent = res.err; errEl.classList.add('show');
+    document.getElementById('authResend').style.display = (authMode==='login' && res.unconfirmed) ? 'block' : 'none';
+    return;
+  }
+  if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); if(authMode==='register') document.getElementById('authResend').style.display='block'; return; }
   errEl.style.color = '';
   closeAuth();
+  await loadAllData(); renderAll();
+};
+
+/* ===================== ŞİFRE SIFIRLAMA (E-POSTADAKİ BAĞLANTIYLA AÇILIR) ===================== */
+let recoveryReturnFocus = null;
+function closeRecovery(){ document.getElementById('recoveryOverlay').classList.remove('show'); document.body.classList.remove('modal-open'); if(recoveryReturnFocus&&recoveryReturnFocus.focus) recoveryReturnFocus.focus(); }
+function openRecovery(){
+  if(!document.getElementById('recoveryOverlay').classList.contains('show')) recoveryReturnFocus=document.activeElement;
+  document.getElementById('authOverlay').classList.remove('show');
+  document.getElementById('recoveryErr').classList.remove('show');
+  document.getElementById('recoveryPass').value=''; document.getElementById('recoveryPass2').value='';
+  document.getElementById('recoveryOverlay').classList.add('show');
+  document.body.classList.add('modal-open');
+  document.getElementById('recoveryClose').focus();
+}
+document.getElementById('recoveryClose').onclick = closeRecovery;
+document.getElementById('recoveryOverlay').addEventListener('click', e => { if(e.target.id==='recoveryOverlay') closeRecovery(); });
+document.getElementById('recoveryOverlay').addEventListener('keydown', e => {
+  if(e.key==='Escape'){ closeRecovery(); return; } if(e.key!=='Tab') return;
+  const focusable=[...e.currentTarget.querySelectorAll('button:not([disabled]),input:not([disabled])')].filter(el=>el.offsetParent!==null); if(!focusable.length) return;
+  const first=focusable[0],last=focusable[focusable.length-1]; if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
+document.getElementById('recoverySubmit').onclick = async () => {
+  const pass = document.getElementById('recoveryPass').value;
+  const pass2 = document.getElementById('recoveryPass2').value;
+  const errEl = document.getElementById('recoveryErr');
+  const btn = document.getElementById('recoverySubmit');
+  if(!pass || pass.length<6){ errEl.textContent='Şifre en az 6 karakter olmalı.'; errEl.classList.add('show'); return; }
+  if(pass!==pass2){ errEl.textContent='Şifreler eşleşmiyor.'; errEl.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = '...';
+  const res = await updateOwnPassword(pass);
+  btn.disabled = false; btn.textContent = 'Şifreyi güncelle';
+  if(!res.ok){ errEl.textContent = res.err; errEl.classList.add('show'); return; }
+  closeRecovery();
   await loadAllData(); renderAll();
 };
 

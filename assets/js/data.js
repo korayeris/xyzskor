@@ -44,6 +44,9 @@ function createSupabaseFallbackClient(reason){
       async signUp(){ return authPayload; },
       async signInWithPassword(){ return authPayload; },
       async signOut(){ return { error: null }; },
+      async resetPasswordForEmail(){ return { data:null, error }; },
+      async updateUser(){ return { data:{ user:null }, error }; },
+      async resend(){ return { data:null, error }; },
       onAuthStateChange(){ return { data: { subscription: { unsubscribe(){} } } } ; },
     },
   };
@@ -504,6 +507,7 @@ function bindAuthStateSync(){
         currentUser = null;
         if(typeof renderAll === 'function') renderAll();
       }
+      if(_event === 'PASSWORD_RECOVERY' && typeof openRecovery === 'function') openRecovery();
       refreshAuthState();
     });
     authStateUnsubscribe = data?.subscription?.unsubscribe || null;
@@ -778,12 +782,34 @@ async function ensureOwnProfile(user){
 }
 async function loginUser(email, pass){
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if(error) return { ok:false, err:'E-posta veya şifre hatalı.' };
+  if(error){
+    if(/not confirmed|not verified/i.test(error.message||'')) return { ok:false, err:'E-posta adresini henüz doğrulamadın. Gelen kutunu kontrol et.', unconfirmed:true };
+    return { ok:false, err:'E-posta veya şifre hatalı.' };
+  }
   try{ await ensureOwnProfile(data.user); }
   catch(e){ await sb.auth.signOut(); return { ok:false, err:'Profil hazırlanamadı: '+authErrTR(e) }; }
   return { ok:true };
 }
 async function logoutUser(){ await sb.auth.signOut(); }
+/* ===================== ŞİFRE SIFIRLAMA / E-POSTA DOĞRULAMA ===================== */
+async function requestPasswordReset(email){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/' });
+  if(error) return { ok:false, err: authErrTR(error) };
+  return { ok:true };
+}
+async function updateOwnPassword(newPass){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const { error } = await sb.auth.updateUser({ password:newPass });
+  if(error) return { ok:false, err: authErrTR(error) };
+  return { ok:true };
+}
+async function resendSignupConfirmation(email){
+  if(!SUPABASE_READY) return { ok:false, err:SUPABASE_UNAVAILABLE_MESSAGE };
+  const { error } = await sb.auth.resend({ type:'signup', email });
+  if(error) return { ok:false, err: authErrTR(error) };
+  return { ok:true };
+}
 async function changeTeam(newTeam){
   const u = getCurrentUser();
   if(!u || u.team_changed || !TEAMS.includes(newTeam) || newTeam===u.team) return false;

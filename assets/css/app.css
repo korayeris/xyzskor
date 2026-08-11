@@ -6731,3 +6731,7 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
 .notification-toggle-row{cursor:pointer}
 .notification-toggle-row span{color:var(--ink-dim);font-size:11px}
 .notification-toggle-row input[type="checkbox"]{width:17px;height:17px;accent-color:var(--gold)}
+
+/* v170: şifremi unuttum bağlantısı + yeni şifre sıfırlama modalı */
+.auth-forgot-link{display:inline-block;margin-top:6px;font-size:10.5px;cursor:pointer;color:var(--ink-dim);text-decoration:underline}
+.auth-forgot-link:hover{color:var(--gold)}
