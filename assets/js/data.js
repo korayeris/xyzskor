@@ -865,6 +865,70 @@ async function saveNotificationPreferences(prefs){
   return { ok:true, prefs: row };
 }
 
+/* ===================== ÖDÜL KAMPANYALARI (kullanıcı) ===================== */
+async function fetchActiveRewardCampaigns(){
+  if(!SUPABASE_READY) return [];
+  const { data, error } = await sb.from('reward_campaigns').select('*').eq('status','active').order('starts_at',{ascending:false});
+  if(error){ console.warn('[XYZSkor ödül kampanyaları]', error.message||error); return []; }
+  return data || [];
+}
+async function fetchOwnRewardClaims(uid){
+  if(!uid || !SUPABASE_READY) return [];
+  const { data, error } = await sb.from('reward_claims').select('*').eq('user_id', uid);
+  if(error){ console.warn('[XYZSkor ödül talepleri]', error.message||error); return []; }
+  return data || [];
+}
+async function claimRewardCampaign(campaignId){
+  const u = getCurrentUser(); if(!u) return { ok:false, err:'Giriş gerekli.' };
+  const { data, error } = await sb.rpc('request_reward_claim', { p_campaign_id:campaignId, p_source_type:'manual_admin', p_source_id:'self_service' });
+  if(error) return { ok:false, err:error.message || 'Talep gönderilemedi.' };
+  return { ok:true, claim:data };
+}
+async function submitRewardShipping(claimId, shipping){
+  const { error } = await sb.from('reward_claims').update({
+    shipping_name: shipping.name || null,
+    shipping_phone: shipping.phone || null,
+    shipping_address: (shipping.address || shipping.city) ? { adres:shipping.address||'', sehir:shipping.city||'' } : null
+  }).eq('id', claimId);
+  return { ok: !error, err: error && error.message };
+}
+
+/* ===================== ÖDÜL KAMPANYALARI (admin) ===================== */
+async function fetchAllRewardCampaignsAdmin(){
+  const u = getCurrentUser(); if(!u || !u.is_admin) return [];
+  const { data, error } = await sb.from('reward_campaigns').select('*').order('created_at',{ascending:false});
+  if(error){ console.warn('[XYZSkor admin kampanya listesi]', error.message||error); return []; }
+  return data || [];
+}
+function slugifyCampaignCode(title){
+  return String(title||'').toLocaleLowerCase('tr')
+    .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60) || ('kampanya-'+Date.now());
+}
+async function createRewardCampaign(payload){
+  const row = {
+    code: slugifyCampaignCode(payload.title) + '-' + Math.random().toString(36).slice(2,6),
+    title: payload.title, sponsor_name: payload.sponsorName || null, description: payload.description || null,
+    starts_at: payload.startsAt || null, ends_at: payload.endsAt || null, status: 'draft'
+  };
+  const { data, error } = await sb.from('reward_campaigns').insert(row).select().single();
+  return { ok: !error, err: error && error.message, row:data };
+}
+async function updateRewardCampaignStatus(id, status){
+  const { error } = await sb.from('reward_campaigns').update({ status }).eq('id', id);
+  return { ok: !error, err: error && error.message };
+}
+async function fetchCampaignClaimsAdmin(campaignId){
+  const u = getCurrentUser(); if(!u || !u.is_admin) return [];
+  const { data, error } = await sb.from('reward_claims').select('*').eq('campaign_id', campaignId).order('claimed_at',{ascending:false});
+  if(error){ console.warn('[XYZSkor admin talep listesi]', error.message||error); return []; }
+  return data || [];
+}
+async function reviewRewardClaim(claimId, status, note){
+  const { error } = await sb.from('reward_claims').update({ status, review_note: note || null, reviewed_at: new Date().toISOString() }).eq('id', claimId);
+  return { ok: !error, err: error && error.message };
+}
+
 async function fetchMemberAdminConsole(search=''){  if(!SUPABASE_READY) return { ok:false, rows:[], err:SUPABASE_UNAVAILABLE_MESSAGE };
   const u = getCurrentUser();
   if(!u || !u.is_admin) return { ok:false, rows:[], err:'Bu alan için admin girişi gerekli.' };

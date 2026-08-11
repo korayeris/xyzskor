@@ -114,6 +114,147 @@ async function initNotificationPreferences(){
   });
 }
 
+/* ===================== ÖDÜLLERİM (kullanıcı) ===================== */
+function rewardClaimStatusLabel(status){
+  const map = { pending:'İnceleniyor', identity_check:'Kimlik doğrulaması bekleniyor', approved:'Onaylandı', rejected:'Reddedildi', fulfilled:'Gönderildi', expired:'Süresi doldu', cancelled:'İptal edildi' };
+  return map[status] || status;
+}
+function rewardCampaignCardHTML(campaign, claim){
+  const needsShipping = claim && ['pending','identity_check','approved'].includes(claim.status) && !claim.shipping_name;
+  return `<article class="reward-campaign-card" data-reward-campaign="${escapeHTML(campaign.id)}">
+    <div class="reward-campaign-head">
+      <div><b>${escapeHTML(campaign.title)}</b>${campaign.sponsor_name?`<span class="reward-campaign-sponsor"> · ${escapeHTML(campaign.sponsor_name)}</span>`:''}</div>
+      ${claim?`<span class="reward-claim-chip">${escapeHTML(rewardClaimStatusLabel(claim.status))}</span>`:''}
+    </div>
+    ${campaign.description?`<p class="reward-campaign-desc">${escapeHTML(campaign.description)}</p>`:''}
+    <a class="reward-campaign-rules" href="${escapeHTML(campaign.rules_url||'/legal/oyun-odul-kurallari.html')}" target="_blank" rel="noopener">Kampanya kurallarını oku</a>
+    ${!claim?`<button class="btn ghost" type="button" data-reward-claim="${escapeHTML(campaign.id)}">Ödülü talep et</button>`:''}
+    ${needsShipping?`<div class="reward-shipping-form" data-shipping-form="${escapeHTML(claim.id)}">
+      <div class="field"><label>Ad Soyad</label><input data-ship-name placeholder="Teslimat için ad soyad"></div>
+      <div class="field"><label>Telefon</label><input data-ship-phone placeholder="05xx xxx xx xx"></div>
+      <div class="field"><label>Adres</label><input data-ship-address placeholder="Açık adres"></div>
+      <div class="field"><label>Şehir</label><input data-ship-city placeholder="Şehir"></div>
+      <button class="btn ghost" type="button" data-ship-save="${escapeHTML(claim.id)}">Teslimat bilgisini kaydet</button>
+    </div>`:''}
+  </article>`;
+}
+async function initRewardCampaignsSection(){
+  const holder = document.getElementById('rewardCampaignsBody');
+  if(!holder) return;
+  holder.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const u = getCurrentUser();
+  const [campaigns, claims] = await Promise.all([fetchActiveRewardCampaigns(), fetchOwnRewardClaims(u?.id)]);
+  if(!campaigns.length){ holder.innerHTML = '<p class="account-empty">Şu anda aktif bir ödül kampanyası yok.</p>'; return; }
+  const claimByCampaign = new Map(claims.map(c => [c.campaign_id, c]));
+  holder.innerHTML = campaigns.map(c => rewardCampaignCardHTML(c, claimByCampaign.get(c.id))).join('');
+  holder.querySelectorAll('[data-reward-claim]').forEach(btn=>{
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+      const result = await claimRewardCampaign(btn.getAttribute('data-reward-claim'));
+      if(!result.ok){ btn.disabled=false; btn.textContent='Ödülü talep et'; return; }
+      initRewardCampaignsSection();
+    };
+  });
+  holder.querySelectorAll('[data-ship-save]').forEach(btn=>{
+    btn.onclick = async () => {
+      const claimId = btn.getAttribute('data-ship-save');
+      const form = holder.querySelector(`[data-shipping-form="${claimId}"]`);
+      const shipping = {
+        name: form.querySelector('[data-ship-name]').value.trim(),
+        phone: form.querySelector('[data-ship-phone]').value.trim(),
+        address: form.querySelector('[data-ship-address]').value.trim(),
+        city: form.querySelector('[data-ship-city]').value.trim()
+      };
+      if(!shipping.name || !shipping.phone || !shipping.address){ return; }
+      btn.disabled = true; btn.textContent = 'Kaydediliyor…';
+      await submitRewardShipping(claimId, shipping);
+      initRewardCampaignsSection();
+    };
+  });
+}
+
+/* ===================== ÖDÜL KAMPANYALARI (admin) ===================== */
+function rewardCampaignAdminRowHTML(campaign){
+  const statusOptions = ['draft','active','paused','completed','cancelled'];
+  return `<article class="account-member-card" data-campaign-admin="${escapeHTML(campaign.id)}">
+    <div class="account-member-head">
+      <div><div class="account-member-name">${escapeHTML(campaign.title)}</div><div class="account-member-meta">${escapeHTML(campaign.code)}${campaign.sponsor_name?` · ${escapeHTML(campaign.sponsor_name)}`:''}</div></div>
+      <select class="account-role-select" data-campaign-status aria-label="Kampanya durumu">${statusOptions.map(s=>`<option value="${s}" ${s===campaign.status?'selected':''}>${escapeHTML(s)}</option>`).join('')}</select>
+    </div>
+    <div class="account-member-actions">
+      <button class="btn ghost" type="button" data-campaign-save>Durumu kaydet</button>
+      <button class="btn ghost" type="button" data-campaign-claims>Talepleri gör</button>
+    </div>
+    <div class="reward-admin-claims" data-campaign-claims-body="${escapeHTML(campaign.id)}" hidden></div>
+  </article>`;
+}
+function rewardClaimAdminRowHTML(claim){
+  const statusOptions = ['pending','identity_check','approved','rejected','fulfilled','expired','cancelled'];
+  return `<div class="reward-admin-claim-row" data-claim-admin="${escapeHTML(claim.id)}">
+    <div><b>${escapeHTML(claim.shipping_name || 'İsim girilmedi')}</b> <span class="account-member-meta">${escapeHTML(claim.shipping_phone||'')}</span></div>
+    <select class="account-role-select" data-claim-status>${statusOptions.map(s=>`<option value="${s}" ${s===claim.status?'selected':''}>${escapeHTML(rewardClaimStatusLabel(s))}</option>`).join('')}</select>
+    <button class="btn ghost" type="button" data-claim-save>Kaydet</button>
+  </div>`;
+}
+async function loadRewardCampaignsAdmin(){
+  const list = document.getElementById('rewardCampaignsAdminList');
+  if(!list) return;
+  list.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const rows = await fetchAllRewardCampaignsAdmin();
+  list.innerHTML = rows.length ? rows.map(rewardCampaignAdminRowHTML).join('') : '<p class="account-empty">Henüz kampanya oluşturulmadı.</p>';
+  bindRewardCampaignAdminActions();
+}
+function bindRewardCampaignAdminActions(){
+  document.querySelectorAll('[data-campaign-admin]').forEach(card=>{
+    const campaignId = card.getAttribute('data-campaign-admin');
+    const saveBtn = card.querySelector('[data-campaign-save]');
+    const statusSelect = card.querySelector('[data-campaign-status]');
+    const claimsBtn = card.querySelector('[data-campaign-claims]');
+    const claimsBody = card.querySelector('[data-campaign-claims-body]');
+    if(saveBtn) saveBtn.onclick = async () => {
+      saveBtn.disabled = true; saveBtn.textContent = 'Kaydediliyor…';
+      await updateRewardCampaignStatus(campaignId, statusSelect.value);
+      saveBtn.disabled = false; saveBtn.textContent = 'Durumu kaydet';
+    };
+    if(claimsBtn) claimsBtn.onclick = async () => {
+      if(!claimsBody.hidden){ claimsBody.hidden = true; return; }
+      claimsBody.hidden = false;
+      claimsBody.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+      const claims = await fetchCampaignClaimsAdmin(campaignId);
+      claimsBody.innerHTML = claims.length ? claims.map(rewardClaimAdminRowHTML).join('') : '<p class="account-empty">Henüz talep yok.</p>';
+      claimsBody.querySelectorAll('[data-claim-admin]').forEach(row=>{
+        const claimId = row.getAttribute('data-claim-admin');
+        const save = row.querySelector('[data-claim-save]'); const select = row.querySelector('[data-claim-status]');
+        save.onclick = async () => {
+          save.disabled = true; save.textContent = '…';
+          await reviewRewardClaim(claimId, select.value, null);
+          save.disabled = false; save.textContent = 'Kaydet';
+        };
+      });
+    };
+  });
+}
+function initRewardCampaignAdmin(){
+  const form = document.getElementById('newCampaignForm');
+  if(!form) return;
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const title = document.getElementById('newCampaignTitle').value.trim();
+    if(!title) return;
+    const submitBtn = document.getElementById('newCampaignSubmit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Oluşturuluyor…';
+    await createRewardCampaign({
+      title,
+      sponsorName: document.getElementById('newCampaignSponsor').value.trim(),
+      description: document.getElementById('newCampaignDesc').value.trim()
+    });
+    submitBtn.disabled = false; submitBtn.textContent = 'Kampanya oluştur (taslak)';
+    form.reset();
+    loadRewardCampaignsAdmin();
+  };
+  loadRewardCampaignsAdmin();
+}
+
 let memberAdminRows = [];
 function adminRoleLabel(role){
   const found = ADMIN_ROLE_OPTIONS.find(item=>item[0]===role);
@@ -231,7 +372,24 @@ function renderAccountContent(){
     <section class="account-section" aria-labelledby="accountBadgesTitle"><h3 class="account-section-title" id="accountBadgesTitle">Rozetler</h3>${badges.length?`<div class="account-badges">${badges.map(badge=>`<span class="account-badge">${escapeHTML(badge)}</span>`).join('')}</div>`:'<p class="account-empty">Henüz kazanılmış rozet bulunmuyor.</p>'}</section>
     <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><div class="followed-team-list" id="followedTeamsList"><p class="account-empty">Yükleniyor…</p></div><div class="account-settings-row followed-team-add-row"><select id="followTeamSelect" aria-label="Takip edilecek takım seç"><option value="">Yükleniyor…</option></select><button class="btn ghost" id="followTeamAdd" type="button">Takip et</button></div></section>
     <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><div id="notificationPrefsBody"><p class="account-empty">Yükleniyor…</p></div></section>
+    <section class="account-section" aria-labelledby="accountRewardsTitle"><h3 class="account-section-title" id="accountRewardsTitle">Ödüllerim</h3><div id="rewardCampaignsBody"><p class="account-empty">Yükleniyor…</p></div></section>
     <section class="account-section" aria-labelledby="accountSettingsTitle"><h3 class="account-section-title" id="accountSettingsTitle">Hesap ayarları</h3><div class="account-settings"><div class="account-settings-row"><label for="accountTeamSelect">Tuttuğun takım</label><select id="accountTeamSelect" ${u.team_changed?'disabled':''}>${TEAMS.map(team=>`<option ${team===u.team?'selected':''}>${escapeHTML(team)}</option>`).join('')}</select></div><button class="btn ghost" id="accountTeamSave" type="button" disabled>Takımı değiştir</button>${u.team_changed?'<p class="account-note">Bu sezon için tek takım değişikliği hakkını kullandın.</p>':'<p class="account-note">Takım sezonda yalnız bir kez değiştirilebilir.</p>'}</div></section>
+    ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="rewardCampaignAdminTitle">
+      <div class="account-admin-title-row">
+        <div>
+          <h3 class="account-section-title" id="rewardCampaignAdminTitle">Ödül Kampanyaları</h3>
+          <p class="account-admin-desc">Yeni kampanya oluştur, durumunu yönet, gelen talepleri incele.</p>
+        </div>
+        <span class="account-admin-secure">DB bağlı</span>
+      </div>
+      <form class="account-admin-toolbar reward-campaign-form" id="newCampaignForm">
+        <input id="newCampaignTitle" class="account-admin-search" placeholder="Kampanya başlığı" required>
+        <input id="newCampaignSponsor" class="account-admin-search" placeholder="Sponsor (opsiyonel)">
+        <input id="newCampaignDesc" class="account-admin-search" placeholder="Kısa açıklama (opsiyonel)">
+        <button class="btn ghost" id="newCampaignSubmit" type="submit">Kampanya oluştur (taslak)</button>
+      </form>
+      <div class="account-admin-list" id="rewardCampaignsAdminList"></div>
+    </section>`:''}
     ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="memberAdminTitle">
       <div class="account-admin-title-row">
         <div>
@@ -255,8 +413,10 @@ function renderAccountContent(){
   }
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
   if(u.is_admin) initMemberAdminConsole();
+  if(u.is_admin) initRewardCampaignAdmin();
   initFollowingSection();
   initNotificationPreferences();
+  initRewardCampaignsSection();
   document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
 }
 function openAccount(){
