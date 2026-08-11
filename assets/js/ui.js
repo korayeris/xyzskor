@@ -7,8 +7,12 @@ function escapeHTML(value){
 function renderNav(){
   const u = getCurrentUser(); const el = document.getElementById('navRight');
   el.innerHTML = `<button class="btn ghost notification-button" id="notificationBtn" type="button" aria-label="Hesap ve bildirim tercihlerini aç"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7Z"/><path d="M10 20h4"/></svg></button><button class="btn ghost account-button" id="accountBtn" type="button" aria-label="Hesap menüsünü aç"></button>`;
-  document.getElementById('accountBtn').textContent = u && u.username ? String(u.username).trim().slice(0,2).toLocaleUpperCase('tr-TR') : 'HE';
-  document.getElementById('accountBtn').onclick = openAccount;
+  const accountButton = document.getElementById('accountBtn');
+  accountButton.textContent = !u ? 'Giriş / Üye Ol' : u.is_admin ? 'Yönetim' : u.username ? String(u.username).trim().slice(0,2).toLocaleUpperCase('tr-TR') : 'Hesap';
+  accountButton.classList.toggle('is-guest', !u);
+  accountButton.classList.toggle('is-admin', !!u?.is_admin);
+  accountButton.setAttribute('aria-label', !u ? 'Giriş yap veya üye ol' : u.is_admin ? 'Üye ve admin yönetimini aç' : 'Profil ve hesap menüsünü aç');
+  accountButton.onclick = openAccount;
   document.getElementById('notificationBtn').onclick = openAccount;
 }
 

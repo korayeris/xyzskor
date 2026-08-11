@@ -6713,3 +6713,39 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
     font-size:10px!important;
   }
 }
+
+/* v169: make membership and admin entry points explicit */
+#navRight .account-button{
+  width:auto!important;
+  min-width:44px!important;
+  max-width:150px!important;
+  padding:0 13px!important;
+  white-space:nowrap!important;
+}
+#navRight .account-button.is-guest{
+  border-color:rgba(239,64,88,.58)!important;
+  background:linear-gradient(135deg,rgba(239,64,88,.2),rgba(239,64,88,.08))!important;
+  color:#fff!important;
+  font-size:10px!important;
+  letter-spacing:.01em!important;
+}
+#navRight .account-button.is-admin{
+  border-color:rgba(255,157,36,.62)!important;
+  background:linear-gradient(135deg,rgba(255,157,36,.2),rgba(255,157,36,.07))!important;
+  color:#ffd18a!important;
+  font-size:10px!important;
+}
+#navRight .account-button.is-admin::before{
+  content:'';
+  width:6px;
+  height:6px;
+  margin-right:7px;
+  border-radius:50%;
+  background:#ff9d24;
+  box-shadow:0 0 0 4px rgba(255,157,36,.12);
+}
+@media(max-width:560px){
+  #navRight .notification-button{display:none!important}
+  #navRight .account-button{max-width:118px!important;padding:0 10px!important}
+  #navRight .account-button.is-guest{font-size:9px!important}
+}
