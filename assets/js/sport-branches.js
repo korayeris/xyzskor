@@ -3,7 +3,7 @@
     ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
-    ["motorsports", "Motor Sporlari", "/motorsports/"],
+    ["motorsports", "Motor Sporları", "/motorsports/"],
     ["mma", "UFC", "/ufc/"],
     ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"]
   ];

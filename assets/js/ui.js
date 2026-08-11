@@ -2428,7 +2428,7 @@ function renderFootballNews(){
     if(opening){
       const firstDate=fmtEditorialDate(opening.kickoff);
       const lastDate=weekMatches.length>1?fmtEditorialDate(weekMatches[weekMatches.length-1].kickoff):firstDate;
-      const showcase=weekMatches.slice(0,3).map((match,index)=>`<button class="week-one-match" type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')"><span>${index===0?'AÇILIŞ':fmtKickoff(match.kickoff)}</span><b>${crestHTML(match.ev,'xs')}${escapeHTML(match.ev)}</b><i>vs</i><b>${crestHTML(match.konuk,'xs')}${escapeHTML(match.konuk)}</b></button>`).join('');
+      const showcase=weekMatches.slice(0,3).map((match,index)=>`<button class="week-one-match" type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')"><span>${index===0?'AÇILIŞ · ':''}${fmtKickoff(match.kickoff)}</span><b>${crestHTML(match.ev,'xs')}${escapeHTML(match.ev)}</b><i>vs</i><b>${crestHTML(match.konuk,'xs')}${escapeHTML(match.konuk)}</b></button>`).join('');
       area.innerHTML=`<div class="football-module-kicker">CANLI FİKSTÜR · ${escapeHTML(activeWeek)}. HAFTA</div><h2>${escapeHTML(opening.ev)} – ${escapeHTML(opening.konuk)} ile sezon başlıyor</h2><p>${escapeHTML(weekMatches.length)} maçlık ilk hafta programı ${escapeHTML(firstDate)} ile ${escapeHTML(lastDate)} arasında oynanacak. Vitrin, Sportmonks fikstürü değiştikçe otomatik güncellenir.</p><div class="week-one-showcase">${showcase}</div><div class="featured-source">Sportmonks canlı fikstür · ${escapeHTML(fmtEditorialDate(new Date().toISOString()))}</div><div class="headline-actions"><button type="button" onclick="openFootballSection('matches')">1. hafta maçlarını aç →</button></div>`;
       return;
     }

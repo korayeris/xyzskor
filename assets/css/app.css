@@ -6594,3 +6594,57 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
 .sport-branch-nav-compact .sport-branch-button{padding-left:12px!important;padding-right:12px!important;white-space:nowrap!important}
 .sport-branch-button[data-branch="americanFootball"]{font-size:10px!important}
 @media(max-width:1050px){.sport-branch-nav-compact>.sport-branch-main{justify-content:flex-start!important;overflow-x:auto!important;scrollbar-width:none!important}.sport-branch-nav-compact>.sport-branch-main::-webkit-scrollbar{display:none!important}}
+
+/* v166: compact live fixture headline */
+#footballOverviewView .headline-stage{
+  min-height:0!important;
+  padding:22px 24px!important;
+}
+#footballOverviewView .headline-stage h2{
+  max-width:680px;
+  font-size:clamp(26px,2.65vw,36px)!important;
+  line-height:1.04!important;
+}
+#footballOverviewView .headline-stage p{
+  margin-top:10px!important;
+  font-size:12px!important;
+  line-height:1.5!important;
+}
+#footballOverviewView .week-one-showcase{
+  gap:8px;
+  margin-top:15px;
+}
+#footballOverviewView .week-one-match{
+  min-height:68px;
+  padding:10px;
+  border-radius:13px;
+}
+#footballOverviewView .week-one-match>span{
+  font-size:7px;
+  letter-spacing:.11em;
+}
+#footballOverviewView .week-one-match>b{
+  font-size:10px;
+}
+#footballOverviewView .headline-stage .featured-source{
+  margin-top:14px;
+  padding-top:10px;
+}
+#footballOverviewView .headline-stage .headline-actions{
+  margin-top:12px;
+}
+#footballOverviewView .headline-stage .headline-actions button{
+  min-height:38px;
+  padding:0 14px;
+  font-size:11px;
+}
+@media(max-width:720px){
+  #footballOverviewView .headline-stage{padding:18px!important;border-radius:18px!important}
+  #footballOverviewView .headline-stage h2{font-size:clamp(25px,7.5vw,32px)!important}
+  #footballOverviewView .week-one-showcase{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #footballOverviewView .week-one-match:first-child{grid-column:1/-1}
+}
+@media(max-width:430px){
+  #footballOverviewView .week-one-showcase{grid-template-columns:1fr}
+  #footballOverviewView .week-one-match:first-child{grid-column:auto}
+}
