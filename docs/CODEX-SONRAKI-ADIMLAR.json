@@ -1,0 +1,555 @@
+{
+  "project": {
+    "name": "XYZSKOR",
+    "repository": "https://github.com/korayeris/xyzskor",
+    "branch": "main",
+    "workspace": "C:\\Users\\koray\\Documents\\xyzskor.com",
+    "production_url": "https://xyzskor-tr.korayeris2002.chatgpt.site",
+    "language": "tr-TR",
+    "timezone": "Europe/Istanbul"
+  },
+  "objective": "XYZSKOR'u tüm spor branşlarında güncel, otomatik, mobil uyumlu, görsel olarak tutarlı ve veri karışıklığı olmayan production seviyesinde bir canlı spor ve ücretsiz Predict platformuna dönüştür.",
+  "current_state": {
+    "latest_commit": "7afbf7c",
+    "latest_deployed_version": 167,
+    "git_sync": "up_to_date",
+    "production_health": "ok",
+    "configured_services": {
+      "sportmonks_live": true,
+      "sportmonks_season": true,
+      "sportmonks_clubs": true,
+      "x_feed": true,
+      "youtube_media": true,
+      "instagram": false
+    },
+    "known_problems": [
+      "Bazı branşlarda lig, takım, sporcu ve etkinlik alanları eksik.",
+      "Bazı sayfalarda başka branşa ait veriler görüntülenebiliyor.",
+      "API-Sports, Cito UFC ve OpenBlacktop sağlık durumu genel health endpoint'inde görünmüyor.",
+      "Bazı sporcu, sürücü ve takım görselleri eksik.",
+      "Branşlar arasında sayfa iskeleti ve navigasyon davranışı tam tutarlı değil.",
+      "Instagram production ortamında yapılandırılmamış.",
+      "Üyelik özelliklerinin arayüzdeki keşfedilebilirliği yetersiz."
+    ]
+  },
+  "product_navigation": [
+    {
+      "label": "Futbol",
+      "path": "/"
+    },
+    {
+      "label": "Basketbol",
+      "path": "/basketbol/"
+    },
+    {
+      "label": "Voleybol",
+      "path": "/voleybol/"
+    },
+    {
+      "label": "Motor Sporları",
+      "path": "/motorsports/"
+    },
+    {
+      "label": "UFC",
+      "path": "/ufc/"
+    },
+    {
+      "label": "Amerikan Futbolu",
+      "path": "/amerikan-futbolu/"
+    },
+    {
+      "label": "Diğer Branşlar +",
+      "path": null
+    },
+    {
+      "label": "Predict",
+      "path": "/predict/"
+    }
+  ],
+  "membership_handoff": {
+    "source_snapshot": {
+      "branch": "claude-development",
+      "commit": "8788044",
+      "commit_message": "feat: add member admin console",
+      "status": "merged_into_current_main_history",
+      "warning": "Bu commit üyelik özelliğinin kaynak snapshot'ıdır; çalışma dalı olarak güncel main kullanılmalıdır."
+    },
+    "completed_work": {
+      "summary": "Supabase bağlı üye ve admin yetkilendirme paneli eklendi, canlı DB migration uygulandı ve yetki değişiklikleri audit log ile güvenceye alındı.",
+      "features": [
+        "Hesap paneli içinde admin kullanıcıya özel üye yönetim arayüzü",
+        "Üye arama",
+        "Üye e-posta, kullanıcı adı ve takım bilgisi görüntüleme",
+        "Tahmin, haftalık oyun ve ödül talebi sayıları",
+        "Admin yetkisi verme ve kaldırma",
+        "Editoryal rol atama",
+        "Yetki değişikliklerini audit_logs tablosuna kaydetme"
+      ]
+    },
+    "database": {
+      "provider": "Supabase",
+      "project_id": "swhwmqbamzczztpfxctg",
+      "migration": "supabase/migrations/20260806173000_member_admin_console.sql",
+      "applied_to_live_database": true,
+      "objects": [
+        "admin_role",
+        "admin_memberships",
+        "audit_logs",
+        "is_editorial_admin",
+        "list_member_admin_console",
+        "set_member_admin_role"
+      ]
+    },
+    "frontend": {
+      "files": [
+        "assets/js/data.js",
+        "assets/js/ui.js",
+        "assets/css/app.css"
+      ],
+      "client_functions": [
+        "fetchMemberAdminConsole",
+        "setMemberAdminRole"
+      ],
+      "admin_ui_location": "Sağ üst hesap paneli",
+      "visibility_rule": "currentUser.is_admin === true",
+      "elements": [
+        "memberAdminSearch",
+        "memberAdminRefresh",
+        "memberAdminStatus",
+        "memberAdminList"
+      ]
+    },
+    "original_validation": {
+      "commands": [
+        "node scripts/check.mjs",
+        "node scripts/build.mjs"
+      ],
+      "check_passed": true,
+      "build_passed": true,
+      "output": "dist/"
+    },
+    "operator_steps": [
+      "Siteye admin hesabıyla giriş yap.",
+      "Sağ üst hesap panelini aç.",
+      "Üye Yetkilendirme bölümünden kullanıcıları kontrol et.",
+      "Admin alanı görünmüyorsa ilgili kullanıcının profiles.is_admin değerini güvenli Supabase yönetim akışıyla true yap."
+    ]
+  },
+  "membership": {
+    "existing_commits": {
+      "8788044": "Üye admin konsolu",
+      "4b14a91": "Üyelik veri altyapısı",
+      "29747a8": "Doğrulanmış üye sohbeti, RLS, moderasyon ve realtime",
+      "a658fda": "Sohbet ve RPC güvenlik sertleştirmesi"
+    },
+    "required_visible_flows": [
+      "Kayıt ol",
+      "Giriş yap",
+      "Çıkış yap",
+      "Şifre sıfırlama",
+      "Profil görüntüleme ve düzenleme",
+      "Favori takım seçimi",
+      "Predict puanı ve geçmişi",
+      "Rozetler ve ödüller",
+      "Ödül talebi",
+      "Doğrulanmış üye sohbeti",
+      "Admin ve editoryal yönetim paneli"
+    ],
+    "security_rules": [
+      "Supabase RLS bütün üye tablolarında aktif olmalı.",
+      "Service role key hiçbir zaman istemciye gönderilmemeli.",
+      "Admin işlemleri güvenli RPC veya Worker üzerinden yapılmalı.",
+      "Yetki değişiklikleri audit log'a yazılmalı.",
+      "Predict puanı ve ödül sonucu istemcide kesinleştirilmemeli."
+    ],
+    "acceptance_criteria": [
+      "Misafir kullanıcı kayıt ve giriş ekranına ulaşabilir.",
+      "Giriş yapan kullanıcı profil, puan, rozet ve tahmin geçmişini görebilir.",
+      "Admin olmayan kullanıcı admin RPC'lerine erişemez.",
+      "Mobilde üyelik akışlarında yatay taşma oluşmaz."
+    ]
+  },
+  "providers": {
+    "football": {
+      "provider": "Sportmonks Football API v3",
+      "environment_variables": [
+        "SPORTMONKS_API_TOKEN",
+        "SPORTMONKS_TOKEN"
+      ],
+      "data": [
+        "ligler",
+        "sezonlar",
+        "fikstür",
+        "sonuçlar",
+        "canlı skor",
+        "dakika",
+        "gol",
+        "kart",
+        "oyuncu değişikliği",
+        "VAR olayları",
+        "kadrolar",
+        "dizilişler",
+        "maç istatistikleri",
+        "puan durumu",
+        "takım ve lig görselleri",
+        "paket destekliyorsa oyuncu, hakem, hava ve sakatlık verileri"
+      ],
+      "routes": [
+        "/api/football/live",
+        "/api/football/season",
+        "/api/football/fixture",
+        "/api/football/club",
+        "/api/football/transfers"
+      ]
+    },
+    "multisport": {
+      "provider": "API-Sports",
+      "environment_variables": [
+        "API_SPORTS_KEY"
+      ],
+      "sports": [
+        "basketbol",
+        "voleybol",
+        "buz hokeyi",
+        "hentbol",
+        "beyzbol",
+        "Amerikan futbolu",
+        "rugby",
+        "desteklenen diğer branşlar"
+      ],
+      "required_data": [
+        "ligler",
+        "fikstür",
+        "canlı maçlar",
+        "sonuçlar",
+        "puan durumu",
+        "takımlar",
+        "oyuncular",
+        "istatistikler",
+        "sağlayıcının lisansladığı görseller"
+      ]
+    },
+    "ufc": {
+      "provider": "Cito UFC API",
+      "environment_variables": [
+        "CITO_API_KEY"
+      ],
+      "data": [
+        "yaklaşan etkinlikler",
+        "son etkinlikler",
+        "UFC numaralı event sayfaları",
+        "dövüş kartları",
+        "bout detayları",
+        "dövüşçü profilleri",
+        "boy",
+        "kilo",
+        "reach",
+        "stance",
+        "record",
+        "dövüş geçmişi",
+        "striking istatistikleri",
+        "grappling istatistikleri",
+        "sıralamalar",
+        "round istatistikleri",
+        "plan uygunsa canlı state, SSE veya WebSocket"
+      ],
+      "odds_policy": "Oranlar yalnız ücretsiz Predict ve model girdisi olarak kullanılabilir; bahis akışı oluşturulamaz."
+    },
+    "motorsports": {
+      "provider": "OpenBlacktop",
+      "environment_variables": [
+        "OCBLACKTOP_API_KEY"
+      ],
+      "series": [
+        "Formula 1",
+        "Formula E",
+        "IndyCar",
+        "MotoGP",
+        "Moto2",
+        "Moto3",
+        "WRC",
+        "WEC",
+        "Le Mans",
+        "NASCAR Cup Series"
+      ],
+      "data": [
+        "takvim",
+        "sonuçlar",
+        "sıralamalar",
+        "sürücüler",
+        "takımlar",
+        "paket destekliyorsa canlı yarış verileri"
+      ],
+      "quota_rule": "Önce tam snapshot al; tarihsel veriyi tekrar çekme. Yaklaşan yarış haftasında yalnız gerekli endpoint'leri yenile."
+    },
+    "social_media": {
+      "x": {
+        "environment_variable": "X_BEARER_TOKEN",
+        "status": "configured",
+        "rule": "Lig başına sınırlı resmî hesap ve 24 saat cache kullan."
+      },
+      "youtube": {
+        "environment_variable": "YOUTUBE_API_KEY",
+        "status": "configured",
+        "rule": "Yalnız resmî kanal videolarını ve kapaklarını kontrollü aralıkla yenile."
+      },
+      "instagram": {
+        "environment_variables": [
+          "INSTAGRAM_ACCESS_TOKEN",
+          "INSTAGRAM_BUSINESS_ACCOUNT_ID"
+        ],
+        "status": "not_configured",
+        "rule": "Yalnız izinli Business/Creator hesabı, bağlı Facebook sayfası ve Graph API'nin izin verdiği medya kullanılabilir."
+      }
+    }
+  },
+  "polling_and_cache": [
+    {
+      "data": "Futbol canlı skor",
+      "refresh": "5 saniye",
+      "cache": "5 saniye ortak edge cache"
+    },
+    {
+      "data": "Futbol canlı olay ve istatistik",
+      "refresh": "5-10 saniye",
+      "cache": "fixture ID bazlı"
+    },
+    {
+      "data": "Futbol fikstür ve sezon",
+      "refresh": "2-15 dakika",
+      "cache": "lig ve sezon bazlı"
+    },
+    {
+      "data": "Puan durumu",
+      "refresh": "5-15 dakika ve maç sonrası zorunlu yenileme",
+      "cache": "lig ve sezon bazlı"
+    },
+    {
+      "data": "Takım ve sporcu profili",
+      "refresh": "12-24 saat",
+      "cache": "provider ID bazlı"
+    },
+    {
+      "data": "Basketbol ve voleybol canlı",
+      "refresh": "15-30 saniye",
+      "cache": "yalnız canlı liglerde"
+    },
+    {
+      "data": "Diğer branşlar canlı",
+      "refresh": "30-60 saniye",
+      "cache": "yalnız etkinlik sürerken"
+    },
+    {
+      "data": "Motor sporları takvim",
+      "refresh": "6-24 saat",
+      "cache": "seri ve sezon bazlı"
+    },
+    {
+      "data": "UFC yaklaşan etkinlik",
+      "refresh": "6 saat",
+      "cache": "event slug bazlı"
+    },
+    {
+      "data": "UFC canlı",
+      "refresh": "WebSocket/SSE veya 5-15 saniye REST",
+      "cache": "yalnız event night"
+    },
+    {
+      "data": "X",
+      "refresh": "24 saat",
+      "cache": "lig ve hesap bazlı"
+    },
+    {
+      "data": "YouTube",
+      "refresh": "6-24 saat",
+      "cache": "kanal ve playlist bazlı"
+    },
+    {
+      "data": "Instagram",
+      "refresh": "1-6 saat",
+      "cache": "hesap veya hashtag bazlı"
+    }
+  ],
+  "implementation_phases": [
+    {
+      "id": 1,
+      "name": "API sağlık kontrolleri",
+      "priority": "critical",
+      "tasks": [
+        "API-Sports, Cito UFC ve OpenBlacktop durumlarını /api/health yanıtına ekle.",
+        "Her sağlayıcı için configured, unavailable, restricted ve rate_limited durumlarını ayır.",
+        "Secret değerlerini hiçbir yanıtta gösterme.",
+        "Admin operasyon ekranında sağlayıcı ve son başarılı senkron zamanını göster."
+      ],
+      "acceptance_criteria": [
+        "/api/health tüm aktif sağlayıcıları güvenli biçimde listeler.",
+        "Eksik key siteyi çökertmez.",
+        "Provider hatası kullanıcıya sahte veri olarak yansımaz."
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Branş veri izolasyonu",
+      "priority": "critical",
+      "tasks": [
+        "Ortak etkinlik şemasına zorunlu sport ve provider alanları ekle.",
+        "Route ve API sorgularında branş filtresini zorunlu yap.",
+        "Futbol, basketbol, voleybol, UFC ve motor sporları cache anahtarlarını ayır.",
+        "Başka branştan fallback yapan tüm kodu kaldır.",
+        "[object Object] üreten değerleri normalize et."
+      ],
+      "acceptance_criteria": [
+        "UFC sayfasında basketbol, voleybol veya hokey kaydı görünmez.",
+        "Amerikan futbolu sayfasında voleybol verisi görünmez.",
+        "Boş branş açık veri bekleniyor durumu gösterir.",
+        "Hiçbir kartta [object Object] görünmez."
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Ortak lig ve sayfa iskeleti",
+      "priority": "high",
+      "tasks": [
+        "Her takım sporunda Genel, Maçlar, Ligler, Takımlar, Puan Durumu ve Predict sekmelerini kullan.",
+        "Bireysel sporlarda Genel, Takvim, Sonuçlar, Sıralama, Sporcular/Takımlar ve Canlı sekmelerini kullan.",
+        "İç içe yatay kaydırılan menüleri kaldır.",
+        "Masaüstü ve mobilde tek responsive bileşen sistemi kullan."
+      ],
+      "acceptance_criteria": [
+        "Dikey scroll sırasında menüler üst üste binmez.",
+        "Mobilde yatay sayfa taşması oluşmaz.",
+        "Lig seçimi bütün takım sporlarında aynı davranır."
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Üyelik deneyimini görünür hale getirme",
+      "priority": "high",
+      "tasks": [
+        "Kayıt, giriş, şifre sıfırlama ve profil akışını ana navigasyondan erişilebilir yap.",
+        "Profilde Predict puanı, rozet, ödül ve tahmin geçmişini göster.",
+        "Admin konsolunu yalnız yetkili kullanıcıya göster.",
+        "Doğrulanmış üye sohbeti ile misafir durumunu açıkça ayır."
+      ],
+      "acceptance_criteria": [
+        "Misafir ve üye durumları anlaşılır.",
+        "Giriş sonrası profil verileri otomatik yüklenir.",
+        "Yetkisiz kullanıcı admin alanını göremez veya çağıramaz."
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Canlı veri otomasyonu",
+      "priority": "high",
+      "tasks": [
+        "Canlı etkinlik algılanınca polling aralığını otomatik hızlandır.",
+        "Canlı etkinlik yokken uzun cache kullan.",
+        "Maçtan 15 dakika önce live-ready durumuna geç.",
+        "Maç bitince sonucu, puan durumunu ve Predict puanını güvenli sırayla güncelle.",
+        "Son doğrulanmış cache ve provider timestamp bilgisini kullanıcıya göster."
+      ],
+      "acceptance_criteria": [
+        "Sportmonks kapsamındaki Galatasaray - Çorum FK karşılaşması fixture ID üzerinden canlı eşleşir.",
+        "Canlı etiketi yalnız provider live state varsa görünür.",
+        "Kullanıcı sayısı arttığında her tarayıcı doğrudan sağlayıcıya istek göndermez."
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Görsel tamamlama ve lisans",
+      "priority": "medium",
+      "tasks": [
+        "Önce sağlayıcının lisanslı görsel URL'sini kullan.",
+        "Eksik görselde resmî embed, açık lisanslı medya veya projeye ait branş görseli kullan.",
+        "Gerçek kişi ve marka taklidi yapan generatif görseller üretme.",
+        "Her görselin kaynağını ve lisans durumunu metadata ile izle.",
+        "Sportradar Images gibi ayrı paketleri lisans doğrulanmadan aktif gösterme."
+      ],
+      "acceptance_criteria": [
+        "Boş veya kırık görsel alanı kalmaz.",
+        "Lisanssız görsel indirilmez veya yeniden dağıtılmaz.",
+        "Placeholder her branşa özel ve estetik görünür."
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Kalite kontrol ve production yayın",
+      "priority": "high",
+      "tasks": [
+        "Tüm ana route'larda veri, responsive düzen ve hata durumlarını kontrol et.",
+        "Boş alan, yanlış branş, kırık görsel ve [object Object] regresyonlarını kontrol et.",
+        "Production build oluştur.",
+        "Kaynak kodu main dalına pushla.",
+        "Sites üzerinde yeni sürümü yayınla.",
+        "Production health ve temel route'ları doğrula."
+      ],
+      "acceptance_criteria": [
+        "Production deployment succeeded durumunda olmalı.",
+        "Ana sayfa ve tüm ana branş route'ları açılmalı.",
+        "Mobil ve masaüstünde navigasyon kullanılabilir olmalı."
+      ]
+    }
+  ],
+  "budget_plan_usd": {
+    "target_monthly_envelope": 220,
+    "note": "Fiyatlar ve kur değişebilir; satın alımdan önce sağlayıcı panellerinde tekrar doğrulanmalıdır.",
+    "allocation": [
+      {
+        "category": "Geniş futbol canlı veri paketi",
+        "target_usd": "80-100"
+      },
+      {
+        "category": "Çoklu spor paketi",
+        "target_usd": "30-50"
+      },
+      {
+        "category": "UFC profil, istatistik ve canlı eklentileri",
+        "target_usd": "20-40"
+      },
+      {
+        "category": "Motor sporları Hobby",
+        "target_usd": "yaklaşık 9"
+      },
+      {
+        "category": "Görsel, medya veya ek kota",
+        "target_usd": "0-40"
+      },
+      {
+        "category": "Kota ve kur tamponu",
+        "target_usd": "kalan bütçe"
+      }
+    ]
+  },
+  "legal_and_security_constraints": [
+    "Bahis oynatma, para yatırma, kupon veya ödeme akışı oluşturma.",
+    "Oranları yalnız ücretsiz Predict ve istatistiksel analiz için kullan.",
+    "Secret ve token değerlerini Git'e, istemciye veya loglara yazma.",
+    "Sağlayıcı sözleşmesinin izin vermediği veriyi cache'leme veya yeniden dağıtma.",
+    "Sosyal içeriği yalnız resmî API veya izinli embed ile göster.",
+    "Oyuncu, takım ve sürücü görsellerini yalnız lisanslı veya açıkça izinli kaynaktan kullan.",
+    "Kullanıcı ve admin verilerinde Supabase RLS ve audit log kurallarını koru.",
+    "Uydurma canlı skor, maç, sporcu, takım, istatistik veya görsel üretme."
+  ],
+  "codex_execution_rules": {
+    "first_action": "Phase 1 API sağlık kontrolleri ve Phase 2 branş veri izolasyonunu birlikte uygula.",
+    "working_style": [
+      "Mevcut tasarım dilini koru.",
+      "Küçük, geri alınabilir commitler oluştur.",
+      "Kullanıcının mevcut değişikliklerini geri alma.",
+      "Her sağlayıcı adaptörünü ayrı tut.",
+      "Yeni ücretli servis satın alma veya abonelik başlatma.",
+      "Gerçek secret istemci koduna ekleme.",
+      "Yayın öncesinde kullanıcıya değişiklik özetini bildir."
+    ],
+    "definition_of_done": [
+      "Sağlayıcı health bilgileri eksiksiz ve güvenli.",
+      "Branşlar arasında veri karışıklığı yok.",
+      "Üyelik akışları görünür ve güvenli.",
+      "Canlı veri düşük kota tüketimiyle otomatik.",
+      "Görseller yasal, estetik ve eksiksiz.",
+      "Mobil ve masaüstü arayüz tutarlı.",
+      "Kaynak GitHub main dalında.",
+      "Production Sites sürümü başarılı."
+    ]
+  }
+}

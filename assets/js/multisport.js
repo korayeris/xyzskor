@@ -136,7 +136,8 @@
       button.hidden = false;
       button.classList.toggle('active', key === activeSport);
     });
-    const allItems = sports[activeSport] || [];
+    const branchItems = Array.isArray(sports[activeSport]) ? sports[activeSport] : [];
+    const allItems = branchItems.filter((item) => item && (!item.sport || item.sport === activeSport));
     updateBranchTicker(allItems);
     hub.dataset.sport = activeSport;
     grid.dataset.sport = activeSport;

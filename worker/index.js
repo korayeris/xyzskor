@@ -1890,6 +1890,8 @@ function normalizeMultisportItem(sport, row) {
   const firstScore = scoreValue(row?.scores?.home);
   const secondScore = scoreValue(row?.scores?.away);
   return {
+    sport,
+    provider: "api-sports",
     id: row?.id,
     league: mma ? row?.slug : row?.league?.name,
     leagueLogo: row?.league?.logo || null,
@@ -2034,7 +2036,19 @@ async function handleMultisportToday(request, env, context) {
       return [sport, []];
     }
   }));
-  const payload = { source: env.CITO_API_KEY ? "api-sports-and-citoapi" : "api-sports-free", date, updatedAt: new Date().toISOString(), sports: Object.fromEntries(entries) };
+  const isolatedEntries = entries.map(([sport, items]) => [
+    sport,
+    (Array.isArray(items) ? items : [])
+      .map((item) => ({ ...item, sport: item?.sport || sport, provider: item?.provider || "api-sports" }))
+      .filter((item) => item.sport === sport)
+  ]);
+  const payload = {
+    source: env.CITO_API_KEY ? "api-sports-and-citoapi" : "api-sports-free",
+    date,
+    updatedAt: new Date().toISOString(),
+    sports: Object.fromEntries(isolatedEntries),
+    coverage: Object.fromEntries(isolatedEntries.map(([sport, items]) => [sport, items.length]))
+  };
   const response = jsonResponse(payload, 200, { "Cache-Control": "public, max-age=0, s-maxage=900, stale-while-revalidate=21600" });
   writeEdgeCache(cache, cacheKey, response, context);
   return response;
@@ -2048,7 +2062,18 @@ function handleHealth(request, env) {
     status: "ok",
     service: "xyzskor-web",
     timestamp: new Date().toISOString(),
-    checks: { static_delivery: "ok", x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured", youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured", sportmonks_live: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_season: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured", instagram: env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_BUSINESS_ACCOUNT_ID ? "configured" : "not_configured" },
+    checks: {
+      static_delivery: "ok",
+      x_feed: env.X_BEARER_TOKEN ? "configured" : "not_configured",
+      youtube_media: env.YOUTUBE_API_KEY ? "configured" : "not_configured",
+      sportmonks_live: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured",
+      sportmonks_season: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured",
+      sportmonks_clubs: env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN ? "configured" : "not_configured",
+      api_sports_multisport: env.API_SPORTS_KEY ? "configured" : "not_configured",
+      cito_ufc: env.CITO_API_KEY ? "configured" : "not_configured",
+      openblacktop_motorsports: env.OCBLACKTOP_API_KEY ? "configured" : "not_configured",
+      instagram: env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_BUSINESS_ACCOUNT_ID ? "configured" : "not_configured"
+    },
   };
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: jsonResponse(payload, 200, { "Cache-Control": "no-store" }).headers });
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
