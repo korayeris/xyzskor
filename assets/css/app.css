@@ -6570,3 +6570,21 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .footbal
 body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .football-league-command{display:grid!important}
 body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ticker{display:block!important}
 @media(max-width:680px){.sport-branch-nav-compact{top:58px!important}.football-league-command{display:flex!important}}
+
+/* Complete visual multisport content system v1 */
+.multisport-hub[data-sport="basketball"],.multisport-hub[data-sport="volleyball"],.multisport-hub[data-sport="handball"]{--sport-cover:url("/assets/images/sports/heroes/arena-hero-v1.webp")}
+.multisport-hub[data-sport="rugby"],.multisport-hub[data-sport="baseball"],.multisport-hub[data-sport="americanFootball"],.multisport-hub[data-sport="australianFootball"]{--sport-cover:url("/assets/images/sports/heroes/field-hero-v1.webp")}
+.multisport-hub[data-sport="hockey"],.multisport-hub[data-sport="mma"]{--sport-cover:url("/assets/images/sports/heroes/ice-combat-hero-v1.webp")}
+.multisport-view-nav{gap:5px!important;padding:7px!important;border:1px solid #2e3a44!important;border-radius:12px!important;background:#0c1217!important}
+.multisport-view-nav button{min-height:40px!important;padding:0 16px!important;border-radius:8px!important}
+.multi-team-card{position:relative;isolation:isolate;min-height:210px!important;padding:20px!important;overflow:hidden!important}
+.multi-team-card:before{content:"";position:absolute;z-index:-2;inset:0;background-image:linear-gradient(180deg,#09101620,#091016f5),var(--sport-cover);background-position:center;background-size:cover;opacity:.48}
+.multi-team-card:after{content:"";position:absolute;z-index:-1;inset:auto 0 0;height:75%;background:linear-gradient(transparent,#091016)}
+.multi-team-card>span{display:grid!important;place-items:center!important;width:82px!important;height:82px!important;margin-bottom:18px!important;border:1px solid #ffffff25!important;border-radius:22px!important;background:#0b1219d9!important;backdrop-filter:blur(8px)}
+.multi-team-card img{width:68px!important;height:68px!important;object-fit:contain!important}
+.multi-team-card strong{font-size:18px!important}.multi-team-card small{color:#aeb9c3!important}
+.multi-event-empty{position:relative;isolation:isolate;min-height:300px!important;overflow:hidden!important;border:1px solid #34414c!important;border-radius:16px!important;background:#0a1015!important}
+.multi-event-empty:before{content:""!important;position:absolute;z-index:-2;inset:0;background-image:linear-gradient(90deg,#071015f3,#0710158c),var(--sport-cover);background-position:center;background-size:cover;filter:none!important}
+.multi-event-empty:after{content:"VERI AKISI";position:absolute;right:24px;bottom:20px;color:#ffffff30;font:900 10px monospace;letter-spacing:.2em}
+.multi-event-empty strong{font-size:24px!important;color:#fff!important}.multi-event-empty span{max-width:520px;color:#bcc6cf!important}
+@media(max-width:680px){.multisport-view-nav button{padding:0 12px!important}.multi-team-card{min-height:180px!important}.multi-event-empty{min-height:240px!important}}
