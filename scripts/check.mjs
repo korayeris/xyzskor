@@ -14,6 +14,7 @@ const coreMigration = await readFile(new URL('../supabase/migrations/20260802180
 const leaderboardMigration = await readFile(new URL('../supabase/migrations/20260802181000_server_leaderboard.sql', import.meta.url), 'utf8');
 const editorialMigration = await readFile(new URL('../supabase/migrations/20260802182000_editorial_operations.sql', import.meta.url), 'utf8');
 const membershipMigration = await readFile(new URL('../supabase/migrations/20260806165000_membership_data_foundation.sql', import.meta.url), 'utf8');
+const membershipManagementMigration = await readFile(new URL('../supabase/migrations/20260811170000_membership_management_complete.sql', import.meta.url), 'utf8');
 const migrationFiles = (await readdir(new URL('../supabase/migrations/', import.meta.url))).filter((file) => file.endsWith('.sql'));
 const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
 assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
@@ -73,7 +74,12 @@ const testContext = vm.createContext({
     m1: { u1:{ pick:'1', scoreHome:2, scoreAway:1, submittedAt:100 } },
     m2: { u1:{ pick:'2', scoreHome:null, scoreAway:null, submittedAt:200 } }
   },
-  ALL_RESULTS: { m1:{ home:2, away:1 } }
+  ALL_RESULTS: { m1:{ home:2, away:1 } },
+  // lifetimeStats() artık Predict mini oyunu bonus puanını da topluyor; bu
+  // izole test bağlamında oturum yok, bu yüzden getCurrentUser() null döner
+  // ve bonus hep 0 kalır (dogruYuzde testini etkilemez).
+  getCurrentUser: () => null,
+  PREDICT_GAME_BONUS: 0
 });
 
 for (const name of ['computeMatchPoints','weekMatchIds','userStatsForWeek','lifetimeStats','sortRows','escapeHTML']) {
@@ -152,7 +158,7 @@ assert.match(html, /id="footballMatchesView"[^>]*hidden/i, 'Maçlar için ana sa
 assert.match(html, /id="footballNewsView"[^>]*hidden/i, 'Gündem için ana sayfadan ayrı tam detay görünümü bulunmalı.');
 assert.match(functionSource('openFootballSection'), /activeFootballSection!==['"]home['"]/, 'Yalnız Anasayfa özet görünümünü kullanmalı; diğer sekmeler ayrı ekran açmalı.');
 assert.match(functionSource('renderMatchesHub'), /openMatchCenter/, 'Tam maç akışındaki her kayıt kendi maç merkezini açmalı.');
-assert.match(functionSource('renderNewsHub'), /editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
+assert.match(functionSource('renderNewsHub'), /contextualEditorialEntries|editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
 assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe0e2,#d3d5d8/i, 'Maçlar ekranı göz yormayan gri portal yüzeyi kullanmalı.');
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
@@ -208,7 +214,7 @@ assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Sta
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
 assert.match(html, /id="editorialDesk"/, 'Ana sayfada profesyonel haber merkezi bulunmalı.');
 assert.match(html, /id="youtubeMediaGrid"/, 'Ana sayfada YouTube canlı ve program paneli bulunmalı.');
-assert.match(functionSource('renderEditorialNews'), /editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
+assert.match(functionSource('renderEditorialNews'), /contextualEditorialEntries|editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
 assert.match(functionSource('renderEditorialNews'), /editorial-portrait-shell/, 'Haber merkezi oyuncu görsellerini kesmeden dairesel portre içinde göstermeli.');
 assert.match(functionSource('renderEditorialNews'), /editorialMatchVisualHTML/, 'Görseli olmayan açılış maçı haberi gerçek maç eşleşmesiyle görselleştirilmeli.');
 assert.match(functionSource('editorialMatchVisualHTML'), /crestHTML\(match\.ev,'lg'\).*crestHTML\(match\.konuk,'lg'\)/s, 'Açılış maçı görseli iki gerçek takım armasını kullanmalı.');
@@ -229,7 +235,7 @@ assert.match(documentHtml, /id="clubSocialTitle">Kulüp Gündemi</, 'Kulüp sosy
 assert.match(documentHtml, /<h2>Süper Lig Maç Merkezi<\/h2>/, 'Canlı panel Süper Lig maç merkezi başlığı kullanmalı.');
 assert.match(html, /grid-template-columns:340px minmax\(0,1fr\) 290px/i, 'Masaüstü Futbol görünümü üç kolonlu portal düzenini kullanmalı.');
 assert.match(html, /prefers-reduced-motion:reduce/i, 'Yeni portal hareket azaltma tercihini desteklemeli.');
-assert.match(functionSource('selectFootballTeam'), /renderFootballQuickMatches\(\).*renderFootballNews\(\).*renderFootballTransfers\(\)/s, 'Takım filtresi maç, gündem ve transfer akışını birlikte yenilemeli.');
+assert.match(functionSource('selectFootballTeam'), /renderFootballQuickMatches\(\).*renderNewsHub\(\).*renderFootballTransfers\(\)/s, 'Takım filtresi maç, gündem ve transfer akışını birlikte yenilemeli.');
 assert.doesNotMatch(functionSource('renderPortalSponsor'), /\d\s*TL\b|fiyat|satın al/i, 'Portal sponsor alanı fiyat veya satın alma çağrısı üretmemeli.');
 assert.match(functionSource('loadAllData'), /moduleQuery\(/, 'Bir modül hatası bütün Futbol ekranını durdurmamalı.');
 assert.doesNotMatch(functionSource('renderAll'), /renderMarketPulse|renderMythosProducts|startTransferCountdown/, 'Yerel transfer ve sponsor örnekleri production render zincirine girmemeli.');
@@ -248,7 +254,23 @@ assert.match(html, /class="predict-match"/i, 'Tahmin maçları kompakt satır ya
 assert.doesNotMatch(html, /aria-label="XYZSkor matematik formülleri"/i, 'Predict ilk görünümü formül paneliyle başlamamalı.');
 assert.match(functionSource('submitPrediction'), /Kaydediliyor/, 'Tahmin kaydı kaydediliyor durumunu göstermeli.');
 assert.match(functionSource('submitPrediction'), /Kaydetme başarısız/, 'Tahmin kayıt hatası görünür olmalı.');
+assert.match(functionSource('submitPrediction'), /openAuth\('login'\)/, 'Girişsiz tahmin kaydı kullanıcıyı giriş akışına yönlendirmeli.');
 assert.doesNotMatch(functionSource('submitPrediction'), /alert\(/, 'Tahmin geri bildirimi tarayıcı alert kutusuna bağlı olmamalı.');
+assert.match(functionSource('guestText'), /Bu tur antrenmandı/, 'Misafir mini oyun metni puanın hesaba geçmediğini açıkça söylemeli.');
+assert.doesNotMatch(functionSource('guestText'), /hesabına eklemek için giriş yap/, 'Misafir mini oyun metni geçmiş turun sonradan hesaba ekleneceğini vadetmemeli.');
+assert.match(documentHtml, /id="regConsent"[^>]*required/, 'Kayıt formunda zorunlu yasal onay bulunmalı.');
+assert.match(functionSource('acceptRequiredConsents'), /acceptConsent/, 'Zorunlu yasal metinler oturum açıldıktan sonra DB kaydına dönüşmeli.');
+assert.match(functionSource('initPrivacyCenter'), /submitPrivacyRequest/, 'Üye gizlilik talepleri hesap panelinden gönderilebilmeli.');
+assert.match(functionSource('initPrivacyAdmin'), /reviewPrivacyRequest/, 'Admin gizlilik taleplerini yönetebilmeli.');
+assert.match(membershipManagementMigration, /account_status text not null default 'active'/i, 'Üye hesap durumu DB şemasında tutulmalı.');
+assert.match(membershipManagementMigration, /create or replace function public\.set_member_account_status/i, 'Hesap durumu yalnız güvenli admin RPC ile değiştirilmeli.');
+assert.match(membershipManagementMigration, /create or replace function public\.list_member_security_events/i, 'Admin güvenlik olaylarını kontrollü RPC ile okuyabilmeli.');
+assert.match(membershipManagementMigration, /revoke all on function public\.set_member_account_status/i, 'Üye yönetim RPC yetkisi PUBLIC rolünden kaldırılmalı.');
+assert.match(membershipManagementMigration, /create table if not exists public\.reward_entitlements/i, 'Ödül hakkı üyeye kampanyadan ayrı ve denetlenebilir kaydedilmeli.');
+assert.match(membershipManagementMigration, /campaign\.eligibility_mode='admin_grant'/i, 'Hak tanımlı kampanyalar yetkisiz ödül talebini reddetmeli.');
+assert.match(functionSource('grantRewardEntitlement'), /grant_reward_entitlement/, 'Admin paneli üyeye DB üzerinden ödül hakkı tanımlayabilmeli.');
+assert.match(membershipManagementMigration, /p_event_type not in \('signup','login','logout','prediction_submit','game_submit','reward_claim'\)/i, 'İstemci sahte yüksek riskli güvenlik olayı yazamamalı.');
+assert.match(membershipManagementMigration, /grant execute on function public\.purge_expired_reward_claim_pii\(\) to service_role/i, 'Süresi dolan ödül PII verisi yalnız servis göreviyle temizlenebilmeli.');
 assert.match(functionSource('predictionActionHTML'), /aria-live="polite"/, 'Tahmin kaydı sonucu erişilebilir canlı bölgede duyurulmalı.');
 assert.match(functionSource('renderAccountContent'), /Tahmin geçmişi/, 'Hesap paneli tahmin geçmişini içermeli.');
 assert.match(functionSource('renderAccountContent'), /Bildirim tercihleri/, 'Bildirim tercihleri hesap panelinde kalmalı.');

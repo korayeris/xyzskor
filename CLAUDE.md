@@ -8,9 +8,10 @@ tuzakları içerir; görmezden gelmek sessiz hatalara yol açar.
 
 ## 1. Proje nedir
 
-XYZSKOR: Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League
-için canlı skor, fikstür, puan durumu, transfer akışı, editoryal içerik ve
-**ücretsiz tahmin yarışması (Predict)** sunan bir futbol platformu.
+XYZSKOR: Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga, Premier League ve
+artık futbol dışı dallarda da (motorsport, UFC/MMA, basketbol/voleybol/hokey/rugby
+gibi çoklu spor) canlı skor, fikstür, puan durumu, transfer akışı, editoryal içerik
+ve **ücretsiz tahmin yarışması (Predict)** sunan bir spor platformu.
 
 Mythos Cards yalnızca **ödül sponsorudur**. Sitede ürün satışı, sepet veya ödeme
 akışı yoktur. **Bahis, oran ve para yatırma yoktur** — bu bir ürün taahhüdüdür ve
@@ -20,17 +21,40 @@ sayfa metinlerinde yazılıdır.
 
 ```
 Tarayıcı (vanilla JS SPA, framework YOK, bundler YOK)
-   │  index.html + assets/js/{data,live,match-center,ui,chat}.js + assets/css/app.css
+   │  index.html + assets/js/{data,live,match-center,predict-game,ui,chat,
+   │  multisport,sport-branches,motorsports,ufc-hub}.js + assets/css/app.css
    │
-   ├─→ Cloudflare Worker (worker/index.js)  ── SportMonks v3 / X API / YouTube / Instagram Graph
+   ├─→ worker/index.js  ── SportMonks v3 / X API / YouTube / Instagram Graph /
+   │      CitoAPI (UFC) / API-Sports (çoklu spor) / Orange Cat Blacktop (motorsport)
    │      statik dosya sunumu + /api/* proxy + edge cache + güvenlik başlıkları
    │
    └─→ Supabase (doğrudan tarayıcıdan)  ── Auth, Postgres, RLS, Realtime
           supabase/migrations/*.sql
 ```
 
+**Deployment gerçeği (önemli, karıştırılmasın):** `worker/index.js` gerçek bir
+Cloudflare Workers projesine `wrangler` ile deploy edilmiyor. `.openai/hosting.json`
+ve `docs/professional-handoff-2026-08-03.md`'nin doğruladığı üzere, üretim ortamı
+**OpenAI "Sites" hosting platformu** ve onun sağladığı, Cloudflare Workers
+`fetch(request, env, context)` imzasıyla **uyumlu** bir çalışma zamanı. Yani kod
+stili Cloudflare Worker'a benzer (`env.ASSETS`, `caches.default` vb. kullanır) ama
+gerçek bir Cloudflare hesabı/`wrangler.toml` yoktur. Bu dosyada "Worker" derken bu
+kastedilir — gerçek Cloudflare'e taşınacaksa `caches.default` davranışı ayrıca
+doğrulanmalı.
+
+**Kasıtlı ikili veri yolu (bug değil):** Canlı futbol verisi için hem
+`supabase/functions/football-live` (Supabase Edge Function) hem de Worker'ın
+`/api/football/live` rotası var. Bu bir kararsızlık değil, **kasıtlı dayanıklılık
+katmanı**: `live.js` önce Worker rotasını (SportMonks'a doğrudan, lig bazlı) dener,
+o başarısız olursa Supabase fonksiyonuna (cache'lenmiş, daha az taze ama daha
+dayanıklı) düşer. Bu sıra `scripts/check.mjs`'te regresyon testiyle korunuyor
+(`loadLiveFeed` fonksiyonu için). Sırayı değiştirme; Supabase fonksiyonunu
+"gereksiz" diye kaldırma.
+
 **Script yükleme sırası önemlidir** (index.html sonunda, hepsi `defer`):
-`supabase-js` → `data.js` → `live.js` → `match-center.js` → `ui.js` → `chat.js`
+`supabase-js` → `data.js` → `analytics.js` → `live.js` → `match-center.js` →
+`predict-game.js` → `ui.js` → `chat.js` → `multisport.js` → `sport-branches.js` →
+`motorsports.js` → `ufc-hub.js`
 
 Bunlar **klasik script**, ES module DEĞİL. Global scope paylaşırlar. `let`/`const`
 ile tanımlı globaller `window`'a eklenmez — test yazarken buna dikkat et.
@@ -72,13 +96,10 @@ uygulanması **kullanıcı onayı olmadan yapılmaz**.
 ```bash
 npm run check     # Ürün, güvenlik ve mimari regresyon kontrolleri — HER değişiklikten sonra
 npm run build     # Production build (dist/) — minify + cache busting dahil
-npm run dev       # SADECE WINDOWS (PowerShell). Linux/macOS'ta: node scripts/dev-server.mjs
+npm run dev       # SADECE WINDOWS (PowerShell). Linux/macOS'ta: npm run dev:node
+npm run dev:node  # http://127.0.0.1:4173 (platform bağımsız, doğrudan Node)
 ```
 
-`npm run dev` PowerShell script'i çağırır. Linux/macOS'ta doğrudan:
-```bash
-node scripts/dev-server.mjs        # http://127.0.0.1:4173
-```
 `/api/*` istekleri `XYZSKOR_EDGE_ORIGIN` adresine proxy'lenir (varsayılan uzak sunucu).
 
 `XYZSKOR_NO_MINIFY=1 npm run build` — hata ayıklama için minify'ı kapatır.
@@ -87,14 +108,18 @@ node scripts/dev-server.mjs        # http://127.0.0.1:4173
 
 ## 5. TUZAKLAR — bunları bilmeden kod yazma
 
-### 5.1 `ui.js`'te fonksiyonlar 2–3 kez tanımlı
-`renderClubSocial`, `renderFootballNews`, `renderEditorialNews`, `renderNewsHub`,
-`renderPreseasonSocial`, `renderFootballFeatured`, `renderFootballTransfers`,
-`renderFootballStandingsCompact`, `renderPortalSponsor` — bunların hepsi
-dosyada birden fazla kez tanımlı. **Tarayıcıda SON tanım kazanır.**
-İlk tanımı değiştirirsen hiçbir etkisi olmaz. Değişiklik yapmadan önce
-`grep -n "function <ad>" assets/js/ui.js` çalıştır ve **en sondakini** düzenle
-(genelde ~2300+ satırdaki IIFE bloğu).
+### 5.1 (ÇÖZÜLDÜ — 2026-08-11) `ui.js`'te çift fonksiyon tanımı tuzağı
+Bu dosyada uzun süre `renderFootballNews`, `renderEditorialNews`, `renderNewsHub`,
+`renderPreseasonSocial`, `xPostMediaHTML`, `xPostCardHTML`, `preseasonCardHTML`,
+`openEditorialEntry` fonksiyonlarının **birden fazla tanımı** vardı; tarayıcıda son
+tanım kazandığı için ilk tanımlar tamamen ölü koddu. Bu durum ayrıca
+`scripts/check.mjs`'in `functionSource()` yardımcısını da yanıltıyordu (ilk/ölü
+tanımı okuyup gerçek davranışı hiç test etmiyordu). 2026-08-11'de tüm ölü tanımlar
+kaldırıldı, `check.mjs` gerçek/canlı fonksiyona karşı doğrulanacak şekilde güncellendi
+ve tamamen atıl kalmış `renderFootballNews` (hedef DOM elemanı `index.html`'de
+zaten yoktu) tümüyle silindi. **Yeni bir fonksiyon eklerken önce
+`grep -c "^function <ad>(" assets/js/ui.js` ile tekilliği doğrula** — bu tuzak
+tekrar oluşabilir, disiplin dosyanın kendisinde değil alışkanlıkta.
 
 ### 5.2 `scripts/check.mjs` fonksiyon ayıklayıcısı kırılgan
 `functionSource()` fonksiyon gövdesini süslü parantez sayarak ayıklar ama
@@ -259,5 +284,40 @@ Mevcut entegrasyon ikisini birden kullanır.
    `live.js` hiç kullanmıyor — canlı kartta gol/kart/istatistik ücretsiz duruyor.
 3. `/api/football/coverage` frontend'de hiç çağrılmıyor; lig seçilirken çağrılıp
    "bu lig abonelikte yok" mesajı net verilebilir.
-4. `ui.js`'teki mükerrer fonksiyon tanımlarını temizle (5.1) — her değişikliği
-   güvenli hale getirir.
+4. **`assets/css/app.css` (6700+ satır, 1200+ `!important`)** — projenin en
+   sağlıksız alanı. Aynı bileşen 4-6 kez farklı katmanlarda yeniden tanımlanmış.
+   Görsel regresyon testi (Playwright ekran görüntüsü karşılaştırması) kurulmadan
+   buna dokunma; elle "temizlemeye" çalışmak sessizce görünümü bozar.
+5. `docs/` altında 17 farklı planlama/rapor dosyası var; bir kısmı farklı
+   tarihlerde yazılmış, birbiriyle örtüşen veya artık güncelliğini kaybetmiş
+   "mevcut durum/plan" anlatıyor (örn. `platform-architecture-2026-08-04.md`,
+   `professional-handoff-2026-08-03.md`, `advanced-upgrade-roadmap-2026-08-04.md`
+   aynı konuları farklı anlarda farklı ayrıntı seviyesiyle ele alıyor). Bunları
+   arşivleyip tek bir güncel mimari dokümanında birleştirmek gerekiyor — bu bir
+   ürün/insan kararı, bu turda otomatik silinmedi/birleştirilmedi.
+
+### 2026-08-11 düzeltmeleri (mimari sağlık turu)
+- **CI pipeline'ı kırıktı, düzeltildi:** `.github/workflows/production-checks.yml`
+  `npm ci` çalıştırmadan doğrudan `node scripts/build.mjs` çağırıyordu; ama
+  `build.mjs` `node_modules/esbuild`'i import ediyor. Taze bir GitHub Actions
+  runner'ında bu adım **her seferinde** `ERR_MODULE_NOT_FOUND` ile patlıyor
+  olmalıydı (yerelde aynı senaryo simüle edilip doğrulandı). `npm ci` adımı
+  eklendi.
+- **Çifte paket yöneticisi kafa karışıklığı temizlendi:** repoda hem
+  `package-lock.json` (npm) hem `pnpm-lock.yaml`+`pnpm-workspace.yaml` (pnpm)
+  aynı anda vardı — muhtemelen farklı ajanların farklı araçlar kullanmasından.
+  Proje her yerde (`CLAUDE.md`, `README`, CI) npm kullanıyor; pnpm dosyaları
+  kaldırıldı. **Bundan sonra sadece `npm`/`npm ci` kullan.**
+- **`checkpoints/predict-game-v111-direct-shoot/`** kaldırıldı — reddedilmiş
+  bir özellik denemesinin elle alınmış yedeğiydi (~400KB), hiçbir kod
+  tarafından referans edilmiyordu, git geçmişinde zaten korunuyor.
+- **`ui.js`'teki 5.1 tuzağı çözüldü** (yukarıya bakın) + `check.mjs`'teki iki
+  kör nokta düzeltildi + `worker/index.js`'te `handleMultisportToday` içinde
+  MMA/UFC verisini kalıcı olarak eleyen kendi kendini geçersiz kılan bir filtre
+  bulunup düzeltildi (detaylar önceki oturumun teslim raporunda).
+- **Mimari doküman düzeltmesi:** Bu dosyanın 2. bölümü artık üretim ortamının
+  gerçek Cloudflare değil, Cloudflare-Worker-uyumlu bir "Sites" platformu
+  olduğunu ve Supabase/Worker canlı veri ikili yolunun kasıtlı bir dayanıklılık
+  deseni (kararsızlık değil) olduğunu açıkça belirtiyor.
+- `npm run dev:node` eklendi — Linux/macOS'ta artık `node scripts/dev-server.mjs`
+  yazmaya gerek yok, tek komutla çalışıyor.

@@ -36,6 +36,228 @@ const ADMIN_ROLE_OPTIONS = [
   ['source_manager','Kaynak yöneticisi'],
   ['football_data','Futbol veri sorumlusu']
 ];
+/* ===================== TAKİP EDİLENLER ===================== */
+let followedTeamsCache = [];
+function followedTeamChipHTML(team){
+  return `<span class="followed-team-chip" data-followed-team="${escapeHTML(team)}">${escapeHTML(team)}<button type="button" class="followed-team-remove" data-unfollow="${escapeHTML(team)}" aria-label="${escapeHTML(team)} takibini bırak">×</button></span>`;
+}
+function renderFollowedTeamsUI(){
+  const list = document.getElementById('followedTeamsList');
+  const select = document.getElementById('followTeamSelect');
+  if(!list || !select) return;
+  list.innerHTML = followedTeamsCache.length
+    ? followedTeamsCache.map(followedTeamChipHTML).join('')
+    : '<p class="account-empty">Henüz takip ettiğin ek bir takım yok.</p>';
+  const already = new Set(followedTeamsCache);
+  const options = followableTeamList().filter(team => team !== getCurrentUser()?.team && !already.has(team));
+  select.innerHTML = options.length
+    ? `<option value="">Takım seç…</option>${options.map(team=>`<option value="${escapeHTML(team)}">${escapeHTML(team)}</option>`).join('')}`
+    : '<option value="">Takip edilebilecek yeni takım yok</option>';
+  select.disabled = !options.length;
+  list.querySelectorAll('[data-unfollow]').forEach(btn=>{
+    btn.onclick = async () => {
+      const team = btn.getAttribute('data-unfollow');
+      btn.disabled = true;
+      const result = await unfollowTeam(team);
+      if(result.ok){ followedTeamsCache = followedTeamsCache.filter(t=>t!==team); renderFollowedTeamsUI(); }
+      else btn.disabled = false;
+    };
+  });
+}
+async function initFollowingSection(){
+  const list = document.getElementById('followedTeamsList');
+  const select = document.getElementById('followTeamSelect');
+  const addBtn = document.getElementById('followTeamAdd');
+  if(!list || !select || !addBtn) return;
+  list.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const u = getCurrentUser();
+  followedTeamsCache = u ? await fetchFollowedTeams(u.id) : [];
+  renderFollowedTeamsUI();
+  addBtn.onclick = async () => {
+    const team = select.value; if(!team) return;
+    addBtn.disabled = true;
+    const result = await followTeam(team);
+    addBtn.disabled = false;
+    if(result.ok){ followedTeamsCache = [...followedTeamsCache, team]; renderFollowedTeamsUI(); }
+  };
+}
+
+/* ===================== BİLDİRİM TERCİHLERİ ===================== */
+function notificationToggleRowHTML(key, label, checked){
+  return `<label class="account-settings-row notification-toggle-row"><span>${escapeHTML(label)}</span><input type="checkbox" data-notif-pref="${key}" ${checked?'checked':''}></label>`;
+}
+async function initNotificationPreferences(){
+  const holder = document.getElementById('notificationPrefsBody');
+  if(!holder) return;
+  holder.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const result = await fetchNotificationPreferences();
+  if(!result.ok){ holder.innerHTML = `<p class="account-empty">${escapeHTML(result.err||'Bildirim tercihleri alınamadı.')}</p>`; return; }
+  const p = result.prefs;
+  holder.innerHTML = `
+    ${notificationToggleRowHTML('match_reminders','Maç tahmin hatırlatması (kilit öncesi)', p.match_reminders)}
+    ${notificationToggleRowHTML('weekly_digest','Haftalık özet ve sıralama bildirimi', p.weekly_digest)}
+    ${notificationToggleRowHTML('reward_alerts','Ödül ve kampanya bildirimi', p.reward_alerts)}
+    <p class="account-note" id="notificationPrefsStatus">Değişiklik anında kaydedilir. Gönderim servisi henüz devrede değil; tercihin şimdiden kaydediliyor.</p>`;
+  holder.querySelectorAll('[data-notif-pref]').forEach(input=>{
+    input.onchange = async () => {
+      const status = document.getElementById('notificationPrefsStatus');
+      const current = {
+        match_reminders: holder.querySelector('[data-notif-pref="match_reminders"]').checked,
+        weekly_digest: holder.querySelector('[data-notif-pref="weekly_digest"]').checked,
+        reward_alerts: holder.querySelector('[data-notif-pref="reward_alerts"]').checked
+      };
+      input.disabled = true;
+      const saved = await saveNotificationPreferences(current);
+      input.disabled = false;
+      if(status) status.textContent = saved.ok ? 'Kaydedildi.' : (saved.err || 'Kaydedilemedi, tekrar dene.');
+    };
+  });
+}
+
+/* ===================== ÖDÜLLERİM (kullanıcı) ===================== */
+function rewardClaimStatusLabel(status){
+  const map = { pending:'İnceleniyor', identity_check:'Kimlik doğrulaması bekleniyor', approved:'Onaylandı', rejected:'Reddedildi', fulfilled:'Gönderildi', expired:'Süresi doldu', cancelled:'İptal edildi' };
+  return map[status] || status;
+}
+function rewardCampaignCardHTML(campaign, claim){
+  const needsShipping = claim && ['pending','identity_check','approved'].includes(claim.status) && !claim.shipping_name;
+  return `<article class="reward-campaign-card" data-reward-campaign="${escapeHTML(campaign.id)}">
+    <div class="reward-campaign-head">
+      <div><b>${escapeHTML(campaign.title)}</b>${campaign.sponsor_name?`<span class="reward-campaign-sponsor"> · ${escapeHTML(campaign.sponsor_name)}</span>`:''}</div>
+      ${claim?`<span class="reward-claim-chip">${escapeHTML(rewardClaimStatusLabel(claim.status))}</span>`:''}
+    </div>
+    ${campaign.description?`<p class="reward-campaign-desc">${escapeHTML(campaign.description)}</p>`:''}
+    <a class="reward-campaign-rules" href="${escapeHTML(campaign.rules_url||'/legal/oyun-odul-kurallari.html')}" target="_blank" rel="noopener">Kampanya kurallarını oku</a>
+    ${!claim?`<button class="btn ghost" type="button" data-reward-claim="${escapeHTML(campaign.id)}">Ödülü talep et</button>`:''}
+    ${needsShipping?`<div class="reward-shipping-form" data-shipping-form="${escapeHTML(claim.id)}">
+      <div class="field"><label>Ad Soyad</label><input data-ship-name placeholder="Teslimat için ad soyad"></div>
+      <div class="field"><label>Telefon</label><input data-ship-phone placeholder="05xx xxx xx xx"></div>
+      <div class="field"><label>Adres</label><input data-ship-address placeholder="Açık adres"></div>
+      <div class="field"><label>Şehir</label><input data-ship-city placeholder="Şehir"></div>
+      <button class="btn ghost" type="button" data-ship-save="${escapeHTML(claim.id)}">Teslimat bilgisini kaydet</button>
+    </div>`:''}
+  </article>`;
+}
+async function initRewardCampaignsSection(){
+  const holder = document.getElementById('rewardCampaignsBody');
+  if(!holder) return;
+  holder.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const u = getCurrentUser();
+  const [campaigns, claims] = await Promise.all([fetchActiveRewardCampaigns(), fetchOwnRewardClaims(u?.id)]);
+  if(!campaigns.length){ holder.innerHTML = '<p class="account-empty">Şu anda aktif bir ödül kampanyası yok.</p>'; return; }
+  const claimByCampaign = new Map(claims.map(c => [c.campaign_id, c]));
+  holder.innerHTML = campaigns.map(c => rewardCampaignCardHTML(c, claimByCampaign.get(c.id))).join('');
+  holder.querySelectorAll('[data-reward-claim]').forEach(btn=>{
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+      const result = await claimRewardCampaign(btn.getAttribute('data-reward-claim'));
+      if(!result.ok){ btn.disabled=false; btn.textContent='Ödülü talep et'; return; }
+      initRewardCampaignsSection();
+    };
+  });
+  holder.querySelectorAll('[data-ship-save]').forEach(btn=>{
+    btn.onclick = async () => {
+      const claimId = btn.getAttribute('data-ship-save');
+      const form = holder.querySelector(`[data-shipping-form="${claimId}"]`);
+      const shipping = {
+        name: form.querySelector('[data-ship-name]').value.trim(),
+        phone: form.querySelector('[data-ship-phone]').value.trim(),
+        address: form.querySelector('[data-ship-address]').value.trim(),
+        city: form.querySelector('[data-ship-city]').value.trim()
+      };
+      if(!shipping.name || !shipping.phone || !shipping.address){ return; }
+      btn.disabled = true; btn.textContent = 'Kaydediliyor…';
+      await submitRewardShipping(claimId, shipping);
+      initRewardCampaignsSection();
+    };
+  });
+}
+
+/* ===================== ÖDÜL KAMPANYALARI (admin) ===================== */
+let rewardAdminCampaigns = [];
+function rewardCampaignAdminRowHTML(campaign){
+  const statusOptions = ['draft','active','paused','completed','cancelled'];
+  return `<article class="account-member-card" data-campaign-admin="${escapeHTML(campaign.id)}">
+    <div class="account-member-head">
+      <div><div class="account-member-name">${escapeHTML(campaign.title)}</div><div class="account-member-meta">${escapeHTML(campaign.code)}${campaign.sponsor_name?` · ${escapeHTML(campaign.sponsor_name)}`:''}</div></div>
+      <select class="account-role-select" data-campaign-status aria-label="Kampanya durumu">${statusOptions.map(s=>`<option value="${s}" ${s===campaign.status?'selected':''}>${escapeHTML(s)}</option>`).join('')}</select>
+    </div>
+    <div class="account-member-actions">
+      <button class="btn ghost" type="button" data-campaign-save>Durumu kaydet</button>
+      <button class="btn ghost" type="button" data-campaign-claims>Talepleri gör</button>
+    </div>
+    <div class="reward-admin-claims" data-campaign-claims-body="${escapeHTML(campaign.id)}" hidden></div>
+  </article>`;
+}
+function rewardClaimAdminRowHTML(claim){
+  const statusOptions = ['pending','identity_check','approved','rejected','fulfilled','expired','cancelled'];
+  return `<div class="reward-admin-claim-row" data-claim-admin="${escapeHTML(claim.id)}">
+    <div><b>${escapeHTML(claim.shipping_name || 'İsim girilmedi')}</b> <span class="account-member-meta">${escapeHTML(claim.shipping_phone||'')}</span></div>
+    <select class="account-role-select" data-claim-status>${statusOptions.map(s=>`<option value="${s}" ${s===claim.status?'selected':''}>${escapeHTML(rewardClaimStatusLabel(s))}</option>`).join('')}</select>
+    <button class="btn ghost" type="button" data-claim-save>Kaydet</button>
+  </div>`;
+}
+async function loadRewardCampaignsAdmin(){
+  const list = document.getElementById('rewardCampaignsAdminList');
+  if(!list) return;
+  list.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+  const rows = await fetchAllRewardCampaignsAdmin();
+  rewardAdminCampaigns = rows;
+  list.innerHTML = rows.length ? rows.map(rewardCampaignAdminRowHTML).join('') : '<p class="account-empty">Henüz kampanya oluşturulmadı.</p>';
+  bindRewardCampaignAdminActions();
+}
+function bindRewardCampaignAdminActions(){
+  document.querySelectorAll('[data-campaign-admin]').forEach(card=>{
+    const campaignId = card.getAttribute('data-campaign-admin');
+    const saveBtn = card.querySelector('[data-campaign-save]');
+    const statusSelect = card.querySelector('[data-campaign-status]');
+    const claimsBtn = card.querySelector('[data-campaign-claims]');
+    const claimsBody = card.querySelector('[data-campaign-claims-body]');
+    if(saveBtn) saveBtn.onclick = async () => {
+      saveBtn.disabled = true; saveBtn.textContent = 'Kaydediliyor…';
+      await updateRewardCampaignStatus(campaignId, statusSelect.value);
+      saveBtn.disabled = false; saveBtn.textContent = 'Durumu kaydet';
+    };
+    if(claimsBtn) claimsBtn.onclick = async () => {
+      if(!claimsBody.hidden){ claimsBody.hidden = true; return; }
+      claimsBody.hidden = false;
+      claimsBody.innerHTML = '<p class="account-empty">Yükleniyor…</p>';
+      const claims = await fetchCampaignClaimsAdmin(campaignId);
+      claimsBody.innerHTML = claims.length ? claims.map(rewardClaimAdminRowHTML).join('') : '<p class="account-empty">Henüz talep yok.</p>';
+      claimsBody.querySelectorAll('[data-claim-admin]').forEach(row=>{
+        const claimId = row.getAttribute('data-claim-admin');
+        const save = row.querySelector('[data-claim-save]'); const select = row.querySelector('[data-claim-status]');
+        save.onclick = async () => {
+          save.disabled = true; save.textContent = '…';
+          await reviewRewardClaim(claimId, select.value, null);
+          save.disabled = false; save.textContent = 'Kaydet';
+        };
+      });
+    };
+  });
+}
+function initRewardCampaignAdmin(){
+  const form = document.getElementById('newCampaignForm');
+  if(!form) return;
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const title = document.getElementById('newCampaignTitle').value.trim();
+    if(!title) return;
+    const submitBtn = document.getElementById('newCampaignSubmit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Oluşturuluyor…';
+    await createRewardCampaign({
+      title,
+      sponsorName: document.getElementById('newCampaignSponsor').value.trim(),
+      description: document.getElementById('newCampaignDesc').value.trim(),
+      eligibilityMode: document.getElementById('newCampaignEligibility').value
+    });
+    submitBtn.disabled = false; submitBtn.textContent = 'Kampanya oluştur (taslak)';
+    form.reset();
+    loadRewardCampaignsAdmin();
+  };
+  loadRewardCampaignsAdmin();
+}
+
 let memberAdminRows = [];
 function adminRoleLabel(role){
   const found = ADMIN_ROLE_OPTIONS.find(item=>item[0]===role);
@@ -66,6 +288,12 @@ function memberAdminRowHTML(row){
       </select>
       <button class="btn ghost" type="button" data-member-save>${isSelf?'Rolü kaydet':'Yetkiyi kaydet'}</button>
     </div>
+    <div class="member-status-controls">
+      <select data-account-status aria-label="Hesap durumu" ${isSelf?'disabled':''}><option value="active" ${row.account_status==='active'?'selected':''}>Aktif</option><option value="suspended" ${row.account_status==='suspended'?'selected':''}>Askıda</option><option value="closed" ${row.account_status==='closed'?'selected':''}>Kapalı</option></select>
+      <input data-status-reason placeholder="Durum değişikliği nedeni" value="${escapeHTML(row.suspended_reason||'')}" ${isSelf?'disabled':''}>
+      <button class="btn ghost" type="button" data-status-save ${isSelf?'disabled':''}>Hesap durumunu kaydet</button>
+    </div>
+    <div class="member-reward-controls"><select data-entitlement-campaign aria-label="Üyeye tanımlanacak ödül kampanyası"><option value="">Ödül hakkı seç…</option>${rewardAdminCampaigns.filter(c=>c.eligibility_mode==='admin_grant'&&['draft','active'].includes(c.status)).map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.title)}</option>`).join('')}</select><button class="btn ghost" type="button" data-entitlement-grant>Ödül hakkı tanımla</button></div>
     <div class="account-member-foot">${role ? escapeHTML(adminRoleLabel(role)) : 'Editoryal rol pasif'}${isSelf?' · kendi admin yetkini buradan kapatamazsın':''}</div>
   </article>`;
 }
@@ -89,13 +317,15 @@ async function loadMemberAdminConsole(search=''){
   if(!list || !status) return;
   status.textContent = 'Üyeler yükleniyor…';
   status.style.display = 'block';
-  const result = await fetchMemberAdminConsole(search);
+  const [result,statusResult,campaigns] = await Promise.all([fetchMemberAdminConsole(search),fetchMemberAccountStatusesAdmin(),fetchAllRewardCampaignsAdmin()]);
   if(!result.ok){
     status.textContent = result.err || 'Üye listesi alınamadı.';
     list.innerHTML = '';
     return;
   }
-  memberAdminRows = result.rows || [];
+  rewardAdminCampaigns=campaigns||[];
+  const statuses=new Map((statusResult.rows||[]).map(row=>[row.user_id,row]));
+  memberAdminRows = (result.rows || []).map(row=>({...row,...(statuses.get(row.id)||{account_status:'active'})}));
   renderMemberAdminRows(memberAdminRows);
 }
 function bindMemberAdminActions(){
@@ -103,6 +333,10 @@ function bindMemberAdminActions(){
     const save = card.querySelector('[data-member-save]');
     const adminToggle = card.querySelector('[data-admin-toggle]');
     const roleSelect = card.querySelector('[data-role-select]');
+    const statusSelect = card.querySelector('[data-account-status]');
+    const statusSave = card.querySelector('[data-status-save]');
+    const entitlementSelect=card.querySelector('[data-entitlement-campaign]');
+    const entitlementGrant=card.querySelector('[data-entitlement-grant]');
     if(!save || !adminToggle || !roleSelect) return;
     save.onclick = async () => {
       const userId = card.getAttribute('data-member-admin');
@@ -123,6 +357,16 @@ function bindMemberAdminActions(){
         await loadMemberAdminConsole(document.getElementById('memberAdminSearch')?.value || '');
       }
     };
+    if(statusSelect && statusSave) statusSave.onclick=async()=>{
+      const userId=card.getAttribute('data-member-admin');
+      const reason=card.querySelector('[data-status-reason]')?.value.trim()||'';
+      statusSave.disabled=true; statusSave.textContent='Kaydediliyor…';
+      const result=await setMemberAccountStatus(userId,statusSelect.value,reason);
+      statusSave.disabled=false; statusSave.textContent='Hesap durumunu kaydet';
+      if(result.ok) await loadMemberAdminConsole(document.getElementById('memberAdminSearch')?.value||'');
+      else { const status=document.getElementById('memberAdminStatus'); if(status){status.textContent=result.err||'Hesap durumu güncellenemedi.';status.style.display='block';} }
+    };
+    if(entitlementSelect&&entitlementGrant) entitlementGrant.onclick=async()=>{if(!entitlementSelect.value)return;entitlementGrant.disabled=true;const granted=await grantRewardEntitlement(entitlementSelect.value,card.getAttribute('data-member-admin'));entitlementGrant.disabled=false;entitlementGrant.textContent=granted.ok?'Ödül hakkı tanımlandı':(granted.err||'Tanımlanamadı');};
   });
 }
 function initMemberAdminConsole(){
@@ -137,6 +381,46 @@ function initMemberAdminConsole(){
   refresh.onclick = () => loadMemberAdminConsole(search.value);
   loadMemberAdminConsole('');
 }
+
+const PRIVACY_REQUEST_LABELS={access:'Verilerime erişim',correction:'Düzeltme',deletion:'Hesap ve veri silme',restriction:'İşlemeyi kısıtlama',objection:'İtiraz',export:'Veri dışa aktarma',consent_withdrawal:'Onayı geri çekme'};
+async function initProfileSettings(){
+  const form=document.getElementById('profileSettingsForm'); if(!form) return;
+  form.onsubmit=async event=>{
+    event.preventDefault(); const button=form.querySelector('button[type="submit"]'); const status=document.getElementById('profileSettingsStatus');
+    button.disabled=true;
+    const result=await updateMyProfileSettings({displayName:document.getElementById('profileDisplayName').value.trim(),city:document.getElementById('profileCity').value.trim(),birthYear:Number(document.getElementById('profileBirthYear').value)||null,favoriteLeague:document.getElementById('profileFavoriteLeague').value,marketingOptIn:document.getElementById('profileMarketing').checked});
+    button.disabled=false; status.textContent=result.ok?'Profil bilgilerin kaydedildi.':(result.err||'Profil kaydedilemedi.');
+    if(result.ok){await loadAllData();renderAll();}
+  };
+}
+async function initLegalConsentSection(){
+  const holder=document.getElementById('legalConsentBody'); if(!holder) return;
+  const result=await fetchMyLegalStatus();
+  if(!result.ok){holder.innerHTML=`<p class="account-empty">${escapeHTML(result.err||'Yasal durum alınamadı.')}</p>`;return;}
+  const missing=result.rows.filter(row=>!row.accepted_at);
+  holder.innerHTML=`<div class="legal-status-list">${result.rows.map(row=>`<div class="legal-status-row"><a href="${escapeHTML(row.url_path)}" target="_blank" rel="noopener">${escapeHTML(row.title)}</a><span class="${row.accepted_at?'is-ok':'is-missing'}">${row.accepted_at?'Kabul edildi':'Onay gerekli'}</span></div>`).join('')}</div>${missing.length?'<label class="auth-consent-row"><input type="checkbox" id="accountLegalConfirm"> <span>Yukarıdaki zorunlu metinleri okudum ve kabul ediyorum.</span></label><button class="btn ghost" id="accountLegalAccept" type="button">Onayları kaydet</button>':'<p class="account-note">Zorunlu yasal onayların güncel.</p>'}`;
+  const button=document.getElementById('accountLegalAccept'); if(button) button.onclick=async()=>{
+    if(!document.getElementById('accountLegalConfirm').checked) return;
+    button.disabled=true; const saved=await acceptRequiredConsents(document.getElementById('profileMarketing')?.checked||false);
+    if(saved.ok) initLegalConsentSection(); else {button.disabled=false;button.textContent=saved.err||'Kaydedilemedi';}
+  };
+}
+async function initPrivacyCenter(){
+  const form=document.getElementById('privacyRequestForm'); const list=document.getElementById('privacyRequestList'); if(!form||!list)return;
+  const render=async()=>{const rows=await fetchOwnPrivacyRequests();list.innerHTML=rows.length?rows.map(row=>`<article class="privacy-request-row"><b>${escapeHTML(PRIVACY_REQUEST_LABELS[row.request_type]||row.request_type)}</b><span>${escapeHTML(row.status)} · ${escapeHTML(new Date(row.created_at).toLocaleDateString('tr-TR'))}</span>${row.response_summary?`<p>${escapeHTML(row.response_summary)}</p>`:''}</article>`).join(''):'<p class="account-empty">Henüz gizlilik talebin yok.</p>';};
+  form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;const result=await submitPrivacyRequest(document.getElementById('privacyRequestType').value,document.getElementById('privacyRequestDetails').value.trim());button.disabled=false;if(result.ok){form.reset();await render();}else document.getElementById('privacyRequestStatus').textContent=result.err||'Talep gönderilemedi.';};
+  await render();
+}
+async function initPrivacyAdmin(){
+  const holder=document.getElementById('privacyAdminList'); if(!holder)return;
+  const result=await fetchPrivacyRequestsAdmin(); if(!result.ok){holder.innerHTML=`<p class="account-empty">${escapeHTML(result.err||'Talepler alınamadı.')}</p>`;return;}
+  holder.innerHTML=result.rows.length?result.rows.map(row=>`<article class="account-member-card" data-privacy-admin="${escapeHTML(row.id)}"><div class="account-member-name">${escapeHTML(row.username||row.email||'Üye')}</div><div class="account-member-meta">${escapeHTML(PRIVACY_REQUEST_LABELS[row.request_type]||row.request_type)} · ${escapeHTML(row.status)}</div>${row.details?`<p class="account-admin-desc">${escapeHTML(row.details)}</p>`:''}<select data-privacy-status><option value="reviewing">İnceleniyor</option><option value="waiting_user">Üye yanıtı bekleniyor</option><option value="completed">Tamamlandı</option><option value="rejected">Reddedildi</option></select><input data-privacy-response placeholder="Üyeye gösterilecek yanıt özeti"><button class="btn ghost" data-privacy-save type="button">Talebi güncelle</button></article>`).join(''):'<p class="account-empty">Bekleyen gizlilik talebi yok.</p>';
+  holder.querySelectorAll('[data-privacy-admin]').forEach(card=>{card.querySelector('[data-privacy-save]').onclick=async()=>{const button=card.querySelector('[data-privacy-save]');button.disabled=true;const saved=await reviewPrivacyRequest(card.getAttribute('data-privacy-admin'),card.querySelector('[data-privacy-status]').value,card.querySelector('[data-privacy-response]').value.trim());if(saved.ok)initPrivacyAdmin();else{button.disabled=false;button.textContent=saved.err||'Güncellenemedi';}};});
+}
+async function initSecurityAdmin(){
+  const holder=document.getElementById('securityAdminList');if(!holder)return;const result=await fetchMemberSecurityEvents();
+  holder.innerHTML=result.ok&&result.rows.length?result.rows.map(row=>`<div class="security-event-row"><b>${escapeHTML(row.event_type)}</b><span>Risk ${Number(row.risk_score||0)} · ${escapeHTML(new Date(row.created_at).toLocaleString('tr-TR'))}</span></div>`).join(''):'<p class="account-empty">Güvenlik olayı bulunmuyor.</p>';
+}
 function renderAccountContent(){
   const area = document.getElementById('accountContent'); const u = getCurrentUser();
   if(!u){
@@ -146,13 +430,35 @@ function renderAccountContent(){
     return;
   }
   const life = lifetimeStats(u.id); const week = userStatsForWeek(u.id, activeWeek); const rank=accountGeneralRank(u.id); const badges=computeBadges(u.id);
+  const oyunBonusuNotu = life.oyunBonusu>0 ? (' <small class="account-metric-note">('+life.oyunBonusu+' mini oyundan)</small>') : '';
   area.innerHTML = `<div class="account-summary"><div class="account-name">${escapeHTML(u.username)}</div><div class="account-team">${escapeHTML(u.team||'Takım seçilmedi')}</div>${u.email?`<div class="account-email">${escapeHTML(u.email)}</div>`:''}</div>
-    <div class="account-metrics" aria-label="Kullanıcı performansı"><div class="account-metric"><b>${week.toplam}</b><span>Haftalık puan</span></div><div class="account-metric"><b>${life.toplam}</b><span>Toplam puan</span></div><div class="account-metric"><b>${rank||'—'}</b><span>Genel sıralama</span></div><div class="account-metric"><b>${life.sonuclananTahmin?`%${life.dogruYuzde}`:'—'}</b><span>Doğru tahmin oranı</span></div><div class="account-metric"><b>${life.kesinSkor}</b><span>Kesin skor</span></div><div class="account-metric"><b>${life.tahmin}</b><span>Toplam tahmin</span></div></div>
+    <div class="account-metrics" aria-label="Kullanıcı performansı"><div class="account-metric"><b>${week.toplam}</b><span>Haftalık puan</span></div><div class="account-metric"><b>${life.toplam}</b><span>Toplam puan${oyunBonusuNotu}</span></div><div class="account-metric"><b>${rank||'—'}</b><span>Genel sıralama</span></div><div class="account-metric"><b>${life.sonuclananTahmin?`%${life.dogruYuzde}`:'—'}</b><span>Doğru tahmin oranı</span></div><div class="account-metric"><b>${life.kesinSkor}</b><span>Kesin skor</span></div><div class="account-metric"><b>${life.tahmin}</b><span>Toplam tahmin</span></div></div>
     <section class="account-section" aria-labelledby="accountHistoryTitle"><h3 class="account-section-title" id="accountHistoryTitle">Tahmin geçmişi</h3>${accountHistoryHTML(u.id)}</section>
     <section class="account-section" aria-labelledby="accountBadgesTitle"><h3 class="account-section-title" id="accountBadgesTitle">Rozetler</h3>${badges.length?`<div class="account-badges">${badges.map(badge=>`<span class="account-badge">${escapeHTML(badge)}</span>`).join('')}</div>`:'<p class="account-empty">Henüz kazanılmış rozet bulunmuyor.</p>'}</section>
-    <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><p class="account-empty">Takip edilen takım ve futbolcu verisi için bağlı bir profil kaydı bulunmuyor.</p></section>
-    <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><p class="account-empty">Bildirim tercihleri henüz kullanıcı hesabına bağlı değil. Varsayılan tercih uydurulmadı.</p></section>
+    <section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><div class="followed-team-list" id="followedTeamsList"><p class="account-empty">Yükleniyor…</p></div><div class="account-settings-row followed-team-add-row"><select id="followTeamSelect" aria-label="Takip edilecek takım seç"><option value="">Yükleniyor…</option></select><button class="btn ghost" id="followTeamAdd" type="button">Takip et</button></div></section>
+    <section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><div id="notificationPrefsBody"><p class="account-empty">Yükleniyor…</p></div></section>
+    <section class="account-section" aria-labelledby="accountRewardsTitle"><h3 class="account-section-title" id="accountRewardsTitle">Ödüllerim</h3><div id="rewardCampaignsBody"><p class="account-empty">Yükleniyor…</p></div></section>
+    <section class="account-section" aria-labelledby="profileSettingsTitle"><h3 class="account-section-title" id="profileSettingsTitle">Profil bilgileri</h3><form class="membership-form" id="profileSettingsForm"><input id="profileDisplayName" placeholder="Görünen ad" value="${escapeHTML(u.display_name||'')}"><input id="profileCity" placeholder="Şehir" value="${escapeHTML(u.city||'')}"><input id="profileBirthYear" type="number" min="1900" max="2100" placeholder="Doğum yılı" value="${escapeHTML(u.birth_year||'')}"><select id="profileFavoriteLeague"><option value="">Favori lig seç</option>${['super-lig','champions-league','europa-league','premier-league','la-liga'].map(value=>`<option value="${value}" ${u.favorite_league===value?'selected':''}>${escapeHTML(competitionLabelBySlug(value))}</option>`).join('')}</select><label class="auth-consent-row"><input type="checkbox" id="profileMarketing" ${u.marketing_opt_in?'checked':''}> <span>Kampanya ve ödül duyurularını almak istiyorum.</span></label><button class="btn ghost" type="submit">Profili kaydet</button><p class="account-note" id="profileSettingsStatus"></p></form></section>
+    <section class="account-section" aria-labelledby="legalConsentTitle"><h3 class="account-section-title" id="legalConsentTitle">Yasal onaylar</h3><div id="legalConsentBody"><p class="account-empty">Yükleniyor…</p></div></section>
+    <section class="account-section" aria-labelledby="privacyCenterTitle"><h3 class="account-section-title" id="privacyCenterTitle">Gizlilik ve hesap hakları</h3><form class="membership-form" id="privacyRequestForm"><select id="privacyRequestType">${Object.entries(PRIVACY_REQUEST_LABELS).map(([value,label])=>`<option value="${value}">${escapeHTML(label)}</option>`).join('')}</select><textarea id="privacyRequestDetails" maxlength="2000" placeholder="Talebini kısaca açıkla"></textarea><button class="btn ghost" type="submit">Talep oluştur</button><p class="account-note" id="privacyRequestStatus"></p></form><div id="privacyRequestList"></div></section>
     <section class="account-section" aria-labelledby="accountSettingsTitle"><h3 class="account-section-title" id="accountSettingsTitle">Hesap ayarları</h3><div class="account-settings"><div class="account-settings-row"><label for="accountTeamSelect">Tuttuğun takım</label><select id="accountTeamSelect" ${u.team_changed?'disabled':''}>${TEAMS.map(team=>`<option ${team===u.team?'selected':''}>${escapeHTML(team)}</option>`).join('')}</select></div><button class="btn ghost" id="accountTeamSave" type="button" disabled>Takımı değiştir</button>${u.team_changed?'<p class="account-note">Bu sezon için tek takım değişikliği hakkını kullandın.</p>':'<p class="account-note">Takım sezonda yalnız bir kez değiştirilebilir.</p>'}</div></section>
+    ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="rewardCampaignAdminTitle">
+      <div class="account-admin-title-row">
+        <div>
+          <h3 class="account-section-title" id="rewardCampaignAdminTitle">Ödül Kampanyaları</h3>
+          <p class="account-admin-desc">Yeni kampanya oluştur, durumunu yönet, gelen talepleri incele.</p>
+        </div>
+        <span class="account-admin-secure">DB bağlı</span>
+      </div>
+      <form class="account-admin-toolbar reward-campaign-form" id="newCampaignForm">
+        <input id="newCampaignTitle" class="account-admin-search" placeholder="Kampanya başlığı" required>
+        <input id="newCampaignSponsor" class="account-admin-search" placeholder="Sponsor (opsiyonel)">
+        <input id="newCampaignDesc" class="account-admin-search" placeholder="Kısa açıklama (opsiyonel)">
+        <select id="newCampaignEligibility" class="account-admin-search"><option value="admin_grant">Yalnız hak tanımlanan üyeler</option><option value="open">Tüm aktif üyelere açık</option></select>
+        <button class="btn ghost" id="newCampaignSubmit" type="submit">Kampanya oluştur (taslak)</button>
+      </form>
+      <div class="account-admin-list" id="rewardCampaignsAdminList"></div>
+    </section>`:''}
     ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="memberAdminTitle">
       <div class="account-admin-title-row">
         <div>
@@ -168,6 +474,7 @@ function renderAccountContent(){
       <p class="account-empty" id="memberAdminStatus">Üye listesi yükleniyor…</p>
       <div class="account-admin-list" id="memberAdminList"></div>
     </section>`:''}
+    ${u.is_admin?`<section class="account-section account-admin-console" aria-labelledby="privacyAdminTitle"><div class="account-admin-title-row"><div><h3 class="account-section-title" id="privacyAdminTitle">Gizlilik Talepleri</h3><p class="account-admin-desc">KVKK ve hesap hakkı taleplerini incele, üyeye yanıt özeti bırak.</p></div><span class="account-admin-secure">Admin RPC</span></div><div class="account-admin-list" id="privacyAdminList"></div></section><section class="account-section account-admin-console" aria-labelledby="securityAdminTitle"><div class="account-admin-title-row"><div><h3 class="account-section-title" id="securityAdminTitle">Hesap Güvenliği</h3><p class="account-admin-desc">Son üyelik güvenlik olaylarını ve risk puanlarını izle.</p></div><span class="account-admin-secure">Salt okunur</span></div><div class="account-admin-list" id="securityAdminList"></div></section>`:''}
     <div class="account-actions">${u.is_admin?'<button class="btn ghost" id="accountAdmin" type="button">Predict admin paneline git</button>':''}<button class="btn ghost account-danger" id="accountLogout" type="button">Çıkış yap</button></div>`;
   const teamSelect=document.getElementById('accountTeamSelect'); const teamSave=document.getElementById('accountTeamSave');
   if(teamSelect && teamSave && !u.team_changed){
@@ -176,6 +483,15 @@ function renderAccountContent(){
   }
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
   if(u.is_admin) initMemberAdminConsole();
+  if(u.is_admin) initRewardCampaignAdmin();
+  if(u.is_admin) initPrivacyAdmin();
+  if(u.is_admin) initSecurityAdmin();
+  initFollowingSection();
+  initNotificationPreferences();
+  initRewardCampaignsSection();
+  initProfileSettings();
+  initLegalConsentSection();
+  initPrivacyCenter();
   document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
 }
 function openAccount(){
@@ -206,10 +522,14 @@ function closeAuth(){ document.getElementById('authOverlay').classList.remove('s
 function openAuth(mode){
   if(!document.getElementById('authOverlay').classList.contains('show')) authReturnFocus=document.activeElement;
   authMode = mode;
-  document.getElementById('authTitle').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
+  const titles = { register:'Üye Ol', login:'Giriş Yap', reset:'Şifreni Sıfırla' };
+  document.getElementById('authTitle').textContent = titles[mode] || titles.login;
   document.getElementById('registerFields').style.display = mode==='register' ? 'block' : 'none';
-  document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
-  document.getElementById('authSwitch').textContent = mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol';
+  document.getElementById('authPassField').style.display = mode==='reset' ? 'none' : 'block';
+  document.getElementById('authForgotLink').style.display = mode==='login' ? 'inline' : 'none';
+  document.getElementById('authResend').style.display = 'none';
+  document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : mode==='reset' ? 'Sıfırlama Bağlantısı Gönder' : 'Giriş Yap';
+  document.getElementById('authSwitch').textContent = mode==='reset' ? 'Giriş ekranına dön' : (mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol');
   document.getElementById('authErr').classList.remove('show');
   document.getElementById('authErr').style.color = '';
   document.getElementById('authOverlay').classList.add('show');
@@ -217,7 +537,8 @@ function openAuth(mode){
   document.getElementById('authClose').focus();
 }
 document.getElementById('authClose').onclick = closeAuth;
-document.getElementById('authSwitch').onclick = () => openAuth(authMode==='register'?'login':'register');
+document.getElementById('authSwitch').onclick = () => openAuth(authMode==='reset' ? 'login' : (authMode==='register'?'login':'register'));
+document.getElementById('authForgotLink').onclick = () => openAuth('reset');
 document.getElementById('authOverlay').addEventListener('click', e => { if(e.target.id==='authOverlay') closeAuth(); });
 document.getElementById('authOverlay').addEventListener('keydown', e => {
   if(e.key==='Escape'){ closeAuth(); return; } if(e.key!=='Tab') return;
@@ -229,24 +550,79 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); e.target.click();
   }
 });
+document.getElementById('authResend').onclick = async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authErr'); const btn = document.getElementById('authResend');
+  if(!email) return;
+  btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+  const res = await resendSignupConfirmation(email);
+  btn.disabled = false; btn.textContent = 'Doğrulama e-postasını tekrar gönder';
+  errEl.style.color = res.ok ? 'var(--ok)' : '';
+  errEl.textContent = res.ok ? 'Doğrulama e-postası tekrar gönderildi.' : res.err;
+  errEl.classList.add('show');
+};
 document.getElementById('authSubmit').onclick = async () => {
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPass').value;
   const errEl = document.getElementById('authErr');
   const btn = document.getElementById('authSubmit');
-  if(!email || !pass){ errEl.textContent='E-posta ve şifre gerekli.'; errEl.classList.add('show'); return; }
+  if(!email || (authMode!=='reset' && !pass)){ errEl.textContent='E-posta ve şifre gerekli.'; errEl.classList.add('show'); return; }
   let res; btn.disabled = true; btn.textContent = '...';
   if(authMode==='register'){
     const username = document.getElementById('regUsername').value.trim();
     const team = document.getElementById('regTeam').value;
+    const consent = document.getElementById('regConsent').checked;
+    const marketing = document.getElementById('regMarketing').checked;
     if(!username || !team){ errEl.textContent='Kullanıcı adı ve takım seçimi gerekli.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
-    res = await registerUser(username, email, pass, team);
+    if(!consent){ errEl.textContent='Üyelik için zorunlu yasal metinleri okuyup kabul etmelisin.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
+    res = await registerUser(username, email, pass, team, { marketing });
+  } else if(authMode==='reset'){
+    res = await requestPasswordReset(email);
+    if(res.ok) res = { ok:true, pending:true, message:'Şifre sıfırlama bağlantısı e-postana gönderildi.' };
   } else { res = await loginUser(email, pass); }
-  btn.disabled = false; btn.textContent = authMode==='register' ? 'Üye Ol' : 'Giriş Yap';
-  if(!res.ok){ errEl.textContent = res.err; errEl.classList.add('show'); return; }
-  if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); return; }
+  btn.disabled = false; btn.textContent = authMode==='register' ? 'Üye Ol' : authMode==='reset' ? 'Sıfırlama Bağlantısı Gönder' : 'Giriş Yap';
+  if(!res.ok){
+    errEl.textContent = res.err; errEl.classList.add('show');
+    document.getElementById('authResend').style.display = (authMode==='login' && res.unconfirmed) ? 'block' : 'none';
+    return;
+  }
+  if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); if(authMode==='register') document.getElementById('authResend').style.display='block'; return; }
   errEl.style.color = '';
   closeAuth();
+  await loadAllData(); renderAll();
+};
+
+/* ===================== ŞİFRE SIFIRLAMA (E-POSTADAKİ BAĞLANTIYLA AÇILIR) ===================== */
+let recoveryReturnFocus = null;
+function closeRecovery(){ document.getElementById('recoveryOverlay').classList.remove('show'); document.body.classList.remove('modal-open'); if(recoveryReturnFocus&&recoveryReturnFocus.focus) recoveryReturnFocus.focus(); }
+function openRecovery(){
+  if(!document.getElementById('recoveryOverlay').classList.contains('show')) recoveryReturnFocus=document.activeElement;
+  document.getElementById('authOverlay').classList.remove('show');
+  document.getElementById('recoveryErr').classList.remove('show');
+  document.getElementById('recoveryPass').value=''; document.getElementById('recoveryPass2').value='';
+  document.getElementById('recoveryOverlay').classList.add('show');
+  document.body.classList.add('modal-open');
+  document.getElementById('recoveryClose').focus();
+}
+document.getElementById('recoveryClose').onclick = closeRecovery;
+document.getElementById('recoveryOverlay').addEventListener('click', e => { if(e.target.id==='recoveryOverlay') closeRecovery(); });
+document.getElementById('recoveryOverlay').addEventListener('keydown', e => {
+  if(e.key==='Escape'){ closeRecovery(); return; } if(e.key!=='Tab') return;
+  const focusable=[...e.currentTarget.querySelectorAll('button:not([disabled]),input:not([disabled])')].filter(el=>el.offsetParent!==null); if(!focusable.length) return;
+  const first=focusable[0],last=focusable[focusable.length-1]; if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
+document.getElementById('recoverySubmit').onclick = async () => {
+  const pass = document.getElementById('recoveryPass').value;
+  const pass2 = document.getElementById('recoveryPass2').value;
+  const errEl = document.getElementById('recoveryErr');
+  const btn = document.getElementById('recoverySubmit');
+  if(!pass || pass.length<6){ errEl.textContent='Şifre en az 6 karakter olmalı.'; errEl.classList.add('show'); return; }
+  if(pass!==pass2){ errEl.textContent='Şifreler eşleşmiyor.'; errEl.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = '...';
+  const res = await updateOwnPassword(pass);
+  btn.disabled = false; btn.textContent = 'Şifreyi güncelle';
+  if(!res.ok){ errEl.textContent = res.err; errEl.classList.add('show'); return; }
+  closeRecovery();
   await loadAllData(); renderAll();
 };
 
@@ -793,7 +1169,7 @@ function renderFootballTeamStrip(){
 }
 function selectFootballTeam(team){
   activeFootballTeam=team||'Tümü';
-  renderFootballTeamStrip(); renderFootballQuickMatches(); renderMatchesHub(); renderFootballNews(); renderNewsHub(); renderFootballTransfers(); renderEditorialNews();
+  renderFootballTeamStrip(); renderFootballQuickMatches(); renderMatchesHub(); renderNewsHub(); renderFootballTransfers(); renderEditorialNews();
 }
 function renderMatchesLeagueFilters(){
   renderFootballLeaguePickerInto(document.getElementById('footballTopLeagueStrip'));
@@ -854,40 +1230,6 @@ function xPostDisplayText(post){
 }
 function xPostHasMedia(post){
   return Array.isArray(post?.media) && post.media.some(item=>xMediaPreviewURL(item));
-}
-function xPostMediaHTML(club,post,targetURL){
-  const media=(Array.isArray(post?.media)?post.media:[]).map(item=>({item,url:xMediaPreviewURL(item)})).filter(entry=>entry.url).slice(0,4);
-  if(!media.length) return '';
-  const countClass=`items-${media.length}`;
-  return `<div class="club-social-media ${countClass}" aria-label="${escapeHTML(club.team)} paylaşım medyası">${media.map(({item,url})=>{
-    const label=item.alt_text||`${club.team} resmî paylaşım görseli`;
-    const kind=item.type==='video'?'Video':item.type==='animated_gif'?'GIF':'';
-    const ratio=Number(item.width)&&Number(item.height)?Number(item.width)/Number(item.height):1.6;
-    const shape=ratio<.86?'is-portrait':ratio>1.45?'is-wide':'is-balanced';
-    return `<a class="club-social-media-item ${shape}" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(label)}"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">${kind?`<span class="club-social-media-kind"><b aria-hidden="true">${item.type==='video'?'▶':'GIF'}</b>${escapeHTML(kind)}</span>`:''}</a>`;
-  }).join('')}</div>`;
-}
-function xPostCardHTML(club){
-  const rankLabel=club.leagueRank?`${escapeHTML(competitionShortBySlug(activeFootballLeague))} ${escapeHTML(club.leagueRank)}. · `:'';
-  const post=club.post||null;
-  const metrics=post&&post.metrics?post.metrics:{};
-  const targetURL=post?.url||club.url;
-  const mediaBody=xPostMediaHTML(club,post,targetURL);
-  const pendingTitle=club.upstream_error==='x_feed_paused'?'X akışı geçici olarak kapatıldı':club.upstream_error==='x_credits_depleted'?'X API kredisi gerekiyor':club.account_found===false?'Resmî sosyal hesap doğrulanıyor':'Henüz yeni paylaşım yok';
-  const pendingText=club.upstream_error==='x_feed_paused'?'X çağrıları güvenlik nedeniyle durduruldu. Yeniden açmak için URL query ile ?x_feeds=on kullan.':club.upstream_error==='x_credits_depleted'?'Bearer token aktif ama X sağlayıcısı 402 Payment Required döndürüyor. Kredi/plan yenilenince gerçek post otomatik akar.':club.account_found===false?'Hesap kataloğu güncellenirken bu kulüp için akış bağlantısı hazırlanıyor.':'Resmî hesap bağlı; yeni gönderi geldiğinde burada yayınlanır.';
-  const postBody=post?`<p class="club-social-copy">${escapeHTML(xPostDisplayText(post))}</p>${mediaBody}
-    <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
-      <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
-    </div>`:`<div class="club-social-pending ${club.upstream_error==='x_credits_depleted'?'is-credit-warning':''}"><strong>${escapeHTML(pendingTitle)}</strong><span>${escapeHTML(pendingText)}</span></div>`;
-  const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
-  const accountLabel=club.publisher?'Genel resmî akış':club.leagueRank?`${competitionShortBySlug(activeFootballLeague)} ${club.leagueRank}.`:'';
-  return `<article class="club-social-card ${club.publisher?'publisher-card ':''}${mediaBody?'has-media':''}">
-    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${accountLabel}${accountLabel?' · ':''}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-label="X platformu" aria-hidden="true">𝕏</span></header>
-    <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
-  </article>`;
 }
 const X_FEED_TOGGLE_KEY = "xyzskor.xFeedEnabled.v2";
 let xFeedsEnabled = true;
@@ -976,25 +1318,6 @@ function scrollClubSocial(direction){
   const step=card?card.getBoundingClientRect().width+1:stage.clientWidth*.82;
   stage.scrollBy({left:(direction<0?-1:1)*step,behavior:'smooth'});
 }
-function preseasonCardHTML(club){
-  const post=club.preseason_post||null;
-  const targetURL=post?.url||club.url;
-  const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
-  const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
-  const pendingTitle=club.upstream_error==='x_feed_paused'?'X akışı geçici olarak kapatıldı':club.upstream_error==='x_credits_depleted'?'X API kredisi gerekiyor':'Hazırlık maçı paylaşımı bulunamadı';
-  const pendingText=club.upstream_error==='x_feed_paused'?'X çağrıları güvenlik nedeniyle durduruldu. Yeniden açmak için URL query ile ?x_feeds=on kullan.':club.upstream_error==='x_credits_depleted'?'X sağlayıcısı 402 Payment Required döndürüyor. Kredi/plan yenilenince hazırlık postları otomatik akar.':'Resmî hesapta son kamp veya hazırlık maçı gönderisi düştüğünde burada görünür.';
-  const body=post?`<div class="preseason-social-topline"><span class="preseason-social-label">${escapeHTML(post.label||'Hazırlık')}</span>${post.scoreline?`<strong class="preseason-social-score">${escapeHTML(post.scoreline)}</strong>`:''}</div><p class="club-social-copy preseason-social-copy">${escapeHTML(xPostDisplayText(post))}</p>${mediaBody}
-    <div class="club-social-meta preseason-social-meta" aria-label="Paylaşım etkileşimleri">
-      <span aria-label="${escapeHTML(xMetric(post.metrics?.reply_count))} yanıt"><i aria-hidden="true">○</i>${escapeHTML(xMetric(post.metrics?.reply_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(post.metrics?.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(post.metrics?.retweet_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(post.metrics?.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(post.metrics?.like_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(post.metrics?.impression_count))} görüntülenme"><i aria-hidden="true">◔</i>${escapeHTML(xMetric(post.metrics?.impression_count))}</span>
-    </div>`:`<div class="club-social-pending preseason-social-pending ${club.upstream_error==='x_credits_depleted'?'is-credit-warning':''}"><strong>${escapeHTML(pendingTitle)}</strong><span>${escapeHTML(pendingText)}</span></div>`;
-  return `<article class="club-social-card preseason-social-card ${mediaBody?'has-media':''}">
-    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · @${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-hidden="true">◎</span></header>
-    <div class="club-social-post preseason-social-post">${body}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük taranır'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
-  </article>`;
-}
 let preseasonPostsRequest=null;
 async function loadPreseasonPosts(){
   const stage=document.getElementById('preseasonSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
@@ -1024,15 +1347,6 @@ async function loadPreseasonPosts(){
     const code=/credit|402|payment/i.test(String(error?.message||''))?'x_credits_depleted':'unavailable';
     stage.innerHTML=clubs.map(club=>preseasonCardHTML({...club,preseason_post:null,account_found:true,upstream_error:code})).join('');
   }
-}
-function renderPreseasonSocial(){
-  if(!document.getElementById('preseasonSocialSection')) return;
-  const label=competitionLabelBySlug(activeFootballLeague);
-  const clubs=rankedXClubs();
-  const title=document.getElementById('preseasonSocialTitle'); if(title) title.textContent=`${label} hazırlık maçı akışı`;
-  const kicker=document.getElementById('preseasonSocialKicker'); if(kicker) kicker.textContent=`HAZIRLIK MAÇLARI · ${competitionShortBySlug(activeFootballLeague)}`;
-  const description=document.getElementById('preseasonSocialDescription'); if(description) description.textContent=`${clubs.length} kulübün resmî hesaplarından kamp, hazırlık maçı ve son skor paylaşımları.`;
-  loadPreseasonPosts();
 }
 function scrollPreseasonSocial(direction){
   const stage=document.getElementById('preseasonSocialStage'); if(!stage) return;
@@ -1291,16 +1605,6 @@ function footballNewsCardHTML(item,index){
   const action=item.matchId?`<button class="football-module-action" type="button" data-news-match="${escapeHTML(item.matchId)}">Maça bak →</button>`:'';
   return `<article class="football-news-card ${visual?'has-media':''}" tabindex="0" role="button" data-editorial-index="${index}" aria-label="${escapeHTML(item.title||'Gündem kaydı')} kaydını aç">${visual}<div class="football-news-card-copy"><div class="football-news-identity"><span class="football-news-avatar">${escapeHTML((item.label||'G').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><span class="football-news-byline"><b>${escapeHTML(item.source||'XYZSKOR yayın masası')}</b><span>${escapeHTML(item.label||'Güncel')}${item.time?` · ${escapeHTML(item.time.includes('T')?fmtEditorialDate(item.time):item.time)}`:''}</span></span></div><h3>${escapeHTML(item.title||'Bağlam kaydı')}</h3>${item.text?`<p>${escapeHTML(item.text)}</p>`:''}<div class="football-news-meta"><span class="confidence-chip neutral">${escapeHTML(item.label||'Güncel')}</span>${item.source?`<span>${escapeHTML(item.source)}</span>`:''}${action}</div></div></article>`;
 }
-function openEditorialEntry(index){
-  const entry=EDITORIAL_NEWS_CACHE[index]; if(!entry) return;
-  if(entry.kind==='story'){ openNewsDetail(entry.index); return; }
-  if(entry.matchId){ openMatchCenter(entry.matchId); return; }
-  if(entry.routeTarget){ openFootballSection(entry.routeTarget); }
-  if(entry.sourceUrl){
-    const opened=window.open(entry.sourceUrl,'_blank','noopener,noreferrer');
-    if(opened) opened.opener=null;
-  }
-}
 function renderFootballFeatured(){
   const area=document.getElementById('footballFeaturedDevelopment'); if(!area) return;
   if(activeFootballLeague!=='super-lig'){
@@ -1326,31 +1630,6 @@ function renderFootballFeatured(){
   const source = story?.source ? `Kaynak: ${escapeHTML(story.source)}` : '';
   const checked = story?.verified_at || story?.published_at || story?.updated_at;
   area.innerHTML=`<div class="football-module-kicker">Haftanın Manşeti · ${escapeHTML(activeWeek)}. Hafta</div><h2>${escapeHTML(story?.title || (activeWeek+'. Hafta'))}</h2>${story?.intro?`<p>${escapeHTML(story.intro)}</p>`:''}${source || checked?`<div class="featured-source">${source}${source&&checked?' · ':''}${checked?escapeHTML(fmtEditorialDate(checked)):''}</div>`:''}<div class="headline-actions"><button type="button" onclick="openFootballSection('news')">Gündemi takip et →</button></div>`;
-}
-function renderEditorialNews(){
-  const lead=document.getElementById('editorialLeadNews'); const list=document.getElementById('editorialHighlights'); if(!lead||!list) return;
-  const baseEditorial=editorialNewsEntries();
-  EDITORIAL_NEWS_CACHE=activeFootballLeague==='super-lig' ? baseEditorial : contextualEditorialEntries();
-  if(!EDITORIAL_NEWS_CACHE.length) EDITORIAL_NEWS_CACHE=leagueEditorialEntries();
-  const primary=EDITORIAL_NEWS_CACHE[0];
-  if(!primary){ lead.innerHTML=footballEmpty('Yayın masası hazır değil','Doğrulanmış ilk kayıt geldiğinde burada görünür.'); list.innerHTML=''; return; }
-  const leadMedia=primary.image?`<span class="editorial-portrait-shell"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-portrait-shell').remove()"></span>`:(primary.matchId?editorialMatchVisualHTML({relatedMatch:MATCHES.find(match=>match.id===primary.matchId)}):'<div class="editorial-media-fallback"><span>●</span><small>Kaynaklı yayın</small></div>');
-  const leadMediaType=primary.imageType==='portrait'?'portrait':primary.matchId?'match':'photo';
-  lead.innerHTML=`<article class="editorial-lead-card" tabindex="0" role="button" data-editorial-index="0" aria-label="${escapeHTML(primary.title)} kaydını aç"><div class="editorial-lead-media ${leadMediaType}">${leadMedia}</div><div class="editorial-lead-copy"><span class="editorial-news-label">${escapeHTML(primary.label||'Güncel')}</span><h3>${escapeHTML(primary.title)}</h3><p>${escapeHTML(primary.text||'')}</p><footer><strong>${escapeHTML(primary.source||'XYZSKOR yayın masası')}</strong>${primary.time?`<time>${escapeHTML(primary.time.includes('T')?fmtEditorialDate(primary.time):primary.time)}</time>`:''}</footer></div></article>`;
-  list.innerHTML=`<div class="editorial-highlights-title">Öne çıkanlar</div>${EDITORIAL_NEWS_CACHE.slice(1,6).map((item,index)=>`<article class="editorial-highlight-row" tabindex="0" role="button" data-editorial-index="${index+1}" aria-label="${escapeHTML(item.title)} kaydını aç"><span class="editorial-highlight-rank">${index+1}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.source||'XYZSKOR yayın masası')}${item.time?` · ${escapeHTML(item.time.includes('T')?fmtEditorialDate(item.time):item.time)}`:''}</p></div>${item.image?`<span class="editorial-highlight-image ${item.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">●</span>'}</article>`).join('')}`;
-  bindEditorialEntries(lead); bindEditorialEntries(list);
-}
-function renderNewsHub(){
-  const area=document.getElementById('footballNewsFullStream'); const sidebar=document.getElementById('footballNewsHubSidebar'); if(!area||!sidebar) return;
-  const baseEditorial=editorialNewsEntries();
-  EDITORIAL_NEWS_CACHE=activeFootballLeague==='super-lig' ? baseEditorial : contextualEditorialEntries();
-  if(!EDITORIAL_NEWS_CACHE.length) EDITORIAL_NEWS_CACHE=leagueEditorialEntries();
-  if(!EDITORIAL_NEWS_CACHE.length){ area.innerHTML=footballEmpty('Gündem alınamadı','Kaynaklı içerik akışı şu anda kullanılamıyor.'); sidebar.innerHTML=''; return; }
-  area.innerHTML=`<div class="news-hub-list">${EDITORIAL_NEWS_CACHE.map((item,index)=>`<article class="news-hub-card" tabindex="0" role="button" data-editorial-index="${index}" aria-label="${escapeHTML(item.title)} kaydını aç"><div class="news-hub-card-media ${item.imageType==='portrait'?'portrait':'photo'}">${item.image?`<img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span>●</span>'}</div><div class="news-hub-card-copy"><div class="news-hub-card-meta"><span>${escapeHTML(item.label||'Güncel')}</span><b>${escapeHTML(item.source||'XYZSKOR yayın masası')}</b>${item.time?`<time>${escapeHTML(item.time.includes('T')?fmtEditorialDate(item.time):item.time)}</time>`:''}</div><h3>${escapeHTML(item.title)}</h3>${item.text?`<p>${escapeHTML(item.text)}</p>`:''}<small>Kaydı aç <b aria-hidden="true">→</b></small></div></article>`).join('')}</div>`;
-  const sourced=EDITORIAL_NEWS_CACHE.filter(item=>item.source).length;
-  const transferCount=EDITORIAL_NEWS_CACHE.filter(item=>item.kind==='transfer'||item.kind==='rumour').length;
-  sidebar.innerHTML=`<section class="news-hub-count"><span>YAYIN MASASI</span><strong>${escapeHTML(EDITORIAL_NEWS_CACHE.length)}</strong><p>güncel kayıt</p><dl><div><dt>Kaynaklı</dt><dd>${escapeHTML(sourced)}</dd></div><div><dt>Transfer</dt><dd>${escapeHTML(transferCount)}</dd></div></dl></section><section class="news-standard-card"><span>AKIŞ BİLEŞENLERİ</span><ul><li><b>Sezon özeti</b><small>Resmî lig veya UEFA sezon kaydı</small></li><li><b>Tablo</b><small>Son doğrulanmış puan durumu verisi</small></li><li><b>Fikstür</b><small>Yayınlanmış maç takvimi</small></li><li><b>Transfer</b><small>İşlem ve söylenti hatları</small></li></ul></section><button type="button" onclick="openFootballSection('home')">Anasayfa özetine dön <span aria-hidden="true">→</span></button>`;
-  bindEditorialEntries(area);
 }
 function renderClubSocial(){
   if(!document.getElementById('clubSocialSection')) return;
@@ -1696,7 +1975,7 @@ async function renderInstagramFeed(){
   }
 }
 
-function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderInstagramFeed(); renderFootballDataViews(); startTransferCountdown(); }
+function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderInstagramFeed(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
@@ -1855,7 +2134,8 @@ function setPredictionStatus(id, message, tone){
   status.textContent=message; status.className='predict-save-status'+(tone?' '+tone:'');
 }
 async function submitPrediction(id){
-  const u = getCurrentUser(); if(!u) return;
+  const u = getCurrentUser();
+  if(!u){ setPredictionStatus(id,'Tahmin kaydetmek için giriş yapmalısın.','error'); openAuth('login'); return; }
   const button=document.getElementById('savePrediction-'+id);
   const pick = pickState[id]; if(!pick){ setPredictionStatus(id,'Önce 1 / X / 2 seç.','error'); return; }
   const sh = document.getElementById('sh-'+id).value; const sa = document.getElementById('sa-'+id).value;
@@ -2348,19 +2628,6 @@ function preseasonCardHTML(club){
     <div class="club-social-post preseason-social-post">${body}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük taranır'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;
 }
-function renderFootballNews(){
-  const area=document.getElementById('footballNewsStream'); if(!area) return;
-  EDITORIAL_NEWS_CACHE=contextualEditorialEntries();
-  if(DATA_ERRORS.weekly_stories && !EDITORIAL_NEWS_CACHE.length){ area.innerHTML=footballEmpty('Gelişmeler alınamadı','Bu modüldeki hata maç listesi ve puan durumundan bağımsızdır.'); return; }
-  if(!EDITORIAL_NEWS_CACHE.length){
-    const label=competitionLabelBySlug(activeFootballLeague);
-    area.innerHTML=footballEmpty(`${label} gündemi hazırlanıyor`,'Bu lig için doğrulanmış haber, fikstür ve transfer kayıtları burada akacak.');
-    return;
-  }
-  area.innerHTML=`<div class="football-news-list">${EDITORIAL_NEWS_CACHE.slice(0,5).map((item,index)=>footballNewsCardHTML(item,index)).join('')}</div>`;
-  area.querySelectorAll('[data-editorial-index]').forEach(article=>{ article.onclick=event=>{ if(!event.target.closest('[data-news-match]')) openEditorialEntry(Number(article.dataset.editorialIndex)); }; article.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openEditorialEntry(Number(article.dataset.editorialIndex));} }; });
-  area.querySelectorAll('[data-news-match]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.newsMatch); });
-}
 (() => {
   const leagueProviderHealth = (leagueKey=activeFootballLeague) => {
     const standings = standingRowsForActiveLeague();
@@ -2433,24 +2700,6 @@ function renderFootballNews(){
       return;
     }
     area.innerHTML=footballEmpty('1. hafta fikstürü yükleniyor','Sportmonks canlı fikstürü geldiğinde vitrin otomatik güncellenecek.');
-  };
-
-  renderFootballNews = function(){
-    const area=document.getElementById('footballNewsStream'); if(!area) return;
-    if(leagueProviderUnavailable(activeFootballLeague)){
-      area.innerHTML=footballEmpty(`${competitionLabelBySlug(activeFootballLeague)} gündemi hazırlanıyor`, providerUnavailableMessage(activeFootballLeague));
-      return;
-    }
-    EDITORIAL_NEWS_CACHE=contextualEditorialEntries();
-    if(DATA_ERRORS.weekly_stories && !EDITORIAL_NEWS_CACHE.length){ area.innerHTML=footballEmpty('Gelişmeler alınamadı','Bu modüldeki hata maç listesi ve puan durumundan bağımsızdır.'); return; }
-    if(!EDITORIAL_NEWS_CACHE.length){
-      const label=competitionLabelBySlug(activeFootballLeague);
-      area.innerHTML=footballEmpty(`${label} gündemi hazırlanıyor`,'Bu lig için doğrulanmış haber, fikstür ve transfer kayıtları burada akacak.');
-      return;
-    }
-    area.innerHTML=`<div class="football-news-list">${EDITORIAL_NEWS_CACHE.slice(0,5).map((item,index)=>footballNewsCardHTML(item,index)).join('')}</div>`;
-    area.querySelectorAll('[data-editorial-index]').forEach(article=>{ article.onclick=event=>{ if(!event.target.closest('[data-news-match]')) openEditorialEntry(Number(article.dataset.editorialIndex)); }; article.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openEditorialEntry(Number(article.dataset.editorialIndex));} }; });
-    area.querySelectorAll('[data-news-match]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.newsMatch); });
   };
 
   function editorialHighlightVisualHTML(item){

@@ -462,6 +462,97 @@ async function handleAnalyticsEvent(request, env) {
   return jsonResponse({ ok: true }, 200, { "Cache-Control": "no-store" });
 }
 
+/* ===================== BİLDİRİM GÖNDERİM KUYRUĞU ===================== */
+// Bu handler e-posta/push GÖNDERMEZ — sadece hangi kullanıcıya hangi olay
+// için bildirim borçlu olduğumuzu notification_deliveries tablosuna
+// (status='pending') yazar. Gerçek gönderim ayrı bir tüketici gerektirir
+// (bir e-posta sağlayıcısı entegrasyonu — henüz karar verilmedi, bkz.
+// docs/xyzskor-uyelik-durum-ve-codex-devir raporu, Paket C). Bu tasarım
+// bilinçli: gönderim sağlayıcısı değişse bile kuyruk üretme mantığı sabit
+// kalır, sadece tüketici taraf değişir.
+//
+// Tetikleme: bu route korumasız değil, POST + X-Job-Secret header'ı
+// (NOTIFICATIONS_JOB_SECRET secret'ıyla eşleşmeli) gerektirir. Cloudflare
+// Cron Triggers ile ya da harici bir zamanlayıcıyla (GitHub Actions
+// scheduled workflow dahil) periyodik POST edilmesi beklenir.
+async function handleNotificationsDispatch(request, env) {
+  if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "POST" });
+  const configuredSecret = env.NOTIFICATIONS_JOB_SECRET || "";
+  if (!configuredSecret) return jsonResponse({ error: "notifications_job_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const providedSecret = request.headers.get("X-Job-Secret") || "";
+  if (!providedSecret || providedSecret !== configuredSecret) return jsonResponse({ error: "unauthorized" }, 401, { "Cache-Control": "no-store" });
+
+  const windowMinutesAhead = 30;
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + windowMinutesAhead * 60000);
+
+  let dueMatches;
+  try {
+    const matches = await supabaseRest(
+      env,
+      `matches?select=id,kickoff,status&kickoff=gte.${encodeURIComponent(now.toISOString())}&kickoff=lte.${encodeURIComponent(windowEnd.toISOString())}`
+    );
+    dueMatches = (matches || []).filter((m) => !["iptal", "ertelendi"].includes(m.status));
+  } catch (_error) {
+    return jsonResponse({ error: "matches_query_failed" }, 502, { "Cache-Control": "no-store" });
+  }
+  if (!dueMatches.length) return jsonResponse({ queued: 0, matches: 0 }, 200, { "Cache-Control": "no-store" });
+
+  const matchIdList = dueMatches.map((m) => `"${m.id}"`).join(",");
+  let predictions = [];
+  try {
+    predictions = await supabaseRest(env, `predictions?select=user_id,match_id&match_id=in.(${matchIdList})`);
+  } catch (_error) {
+    predictions = [];
+  }
+  const predictedByMatch = new Map();
+  for (const row of predictions || []) {
+    if (!predictedByMatch.has(row.match_id)) predictedByMatch.set(row.match_id, new Set());
+    predictedByMatch.get(row.match_id).add(row.user_id);
+  }
+
+  let profiles;
+  try {
+    profiles = await supabaseRest(env, `profiles?select=id&deleted_at=is.null`);
+  } catch (_error) {
+    return jsonResponse({ error: "profiles_query_failed" }, 502, { "Cache-Control": "no-store" });
+  }
+  const allUserIds = (profiles || []).map((p) => p.id).filter(Boolean);
+  if (!allUserIds.length) return jsonResponse({ queued: 0, matches: dueMatches.length }, 200, { "Cache-Control": "no-store" });
+
+  const userIdList = allUserIds.map((id) => `"${id}"`).join(",");
+  let prefRows = [];
+  try {
+    prefRows = await supabaseRest(env, `notification_preferences?select=user_id,match_reminders&user_id=in.(${userIdList})`);
+  } catch (_error) {
+    prefRows = [];
+  }
+  // Tercih satırı yoksa varsayılan (açık) kabul edilir — set_my_notification_preferences
+  // RPC'sinin varsayılanıyla aynı davranış (bkz. supabase/migrations/20260811150000...).
+  const optedOut = new Set((prefRows || []).filter((r) => r.match_reminders === false).map((r) => r.user_id));
+
+  const rows = [];
+  for (const match of dueMatches) {
+    const predicted = predictedByMatch.get(match.id) || new Set();
+    for (const userId of allUserIds) {
+      if (predicted.has(userId) || optedOut.has(userId)) continue;
+      rows.push({ channel: "email", event_key: `match_reminder:${match.id}`, recipient_key: userId, status: "pending" });
+    }
+  }
+  if (!rows.length) return jsonResponse({ queued: 0, matches: dueMatches.length }, 200, { "Cache-Control": "no-store" });
+
+  try {
+    await supabaseRest(env, "notification_deliveries?on_conflict=channel,event_key,recipient_key", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+      body: JSON.stringify(rows),
+    });
+  } catch (_error) {
+    return jsonResponse({ error: "queue_insert_failed" }, 502, { "Cache-Control": "no-store" });
+  }
+  return jsonResponse({ queued: rows.length, matches: dueMatches.length }, 200, { "Cache-Control": "no-store" });
+}
+
 async function xRequest(pathname, token) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), X_TIMEOUT_MS);
@@ -1985,7 +2076,7 @@ async function handleMultisportToday(request, env, context) {
   const cacheKey = new Request(new URL(`/api/sports/today-v8?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
-  const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport !== "mma").map(async ([sport, feed]) => {
+  const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).map(async ([sport, feed]) => {
     const latestKey = new Request(new URL(`/api/sports/latest-v1/${sport}`, request.url), { method: "GET" });
     const latestCached = await readEdgeCache(cache, latestKey);
     try {
@@ -2138,6 +2229,7 @@ export default {
     if (url.pathname === "/api/predict-game/complete") return handlePredictGameComplete(request, env);
     if (url.pathname === "/api/predict-game/claim") return handlePredictGameComplete(request, env);
     if (url.pathname === "/api/analytics/event") return handleAnalyticsEvent(request, env);
+    if (url.pathname === "/api/notifications/dispatch") return handleNotificationsDispatch(request, env);
     if (["/api/social/x", "/api/social/x-media-v2", "/api/social/x-media-v3", "/api/social/x-media-v4"].includes(url.pathname)) return handleXClubFeed(request, env, context);
     if (["/api/social/x-preseason-v1", "/api/social/x-preseason-v2", "/api/social/x-preseason-v3"].includes(url.pathname)) return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/football/x-media") return handleXClubFeed(request, env, context);

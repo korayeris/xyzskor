@@ -20,6 +20,7 @@ const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
 const CLIENT_JS_FILES = ["data.js", "analytics.js", "live.js", "match-center.js", "predict-game.js", "ui.js", "chat.js", "multisport.js", "sport-branches.js", "motorsports.js", "ufc-hub.js"];
 const clientFingerprintSources = await Promise.all([
   resolve(root, "assets", "css", "app.css"),
+  resolve(root, "assets", "css", "membership.css"),
   ...CLIENT_JS_FILES.map((file) => resolve(root, "assets", "js", file)),
 ].map((file) => readFile(file, "utf8")));
 const buildVersion = createHash("sha256").update([sourceHtml, ...clientFingerprintSources].join("\n")).digest("hex").slice(0, 10);
