@@ -6648,3 +6648,68 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
   #footballOverviewView .week-one-showcase{grid-template-columns:1fr}
   #footballOverviewView .week-one-match:first-child{grid-column:auto}
 }
+
+/* v167: unified, non-overlapping league navigation */
+#footballOverviewView .portal-league-strip{
+  position:relative!important;
+  inset:auto!important;
+  z-index:1!important;
+  display:grid!important;
+  grid-template-columns:132px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:14px!important;
+  margin:0 0 12px!important;
+  padding:12px 14px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(124,139,158,.22)!important;
+  border-radius:14px!important;
+  background:#171b20!important;
+  box-shadow:none!important;
+}
+#footballOverviewView .portal-league-list{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:8px!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:visible!important;
+  scroll-snap-type:none!important;
+}
+#footballOverviewView .portal-league-list button{
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  min-height:44px!important;
+  padding:8px 10px!important;
+  white-space:normal!important;
+  scroll-snap-align:none!important;
+}
+#footballOverviewView .portal-league-list button strong,
+#footballOverviewView .portal-league-list button span{
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+@media(max-width:920px){
+  #footballOverviewView .portal-league-strip{
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+  #footballOverviewView .portal-league-list{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+@media(max-width:520px){
+  #footballOverviewView .portal-league-strip{
+    margin:0 10px 10px!important;
+    padding:10px!important;
+  }
+  #footballOverviewView .portal-league-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+  }
+  #footballOverviewView .portal-league-list button{
+    min-height:42px!important;
+    font-size:10px!important;
+  }
+}
