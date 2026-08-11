@@ -5,6 +5,9 @@
 Thumbs.db
 *.log
 *.tar.gz
+.openai/*.tar
+.openai/*.zip
+.openai/package-*/
 .idea/
 .vscode/
 dist/
