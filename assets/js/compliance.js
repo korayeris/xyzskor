@@ -16,7 +16,7 @@
     if(isLocalUrl(raw)) return;
     let host='';
     try{ host=new URL(raw, location.href).hostname.toLowerCase(); }catch(_){ host=''; }
-    if(ALLOWED_EXTERNAL_IMAGE_HOSTS.has(host) || host.endsWith('.sportmonks.com') || host.endsWith('.sportmonks.io')){
+    if(ALLOWED_EXTERNAL_IMAGE_HOSTS.has(host) || host.endsWith('.sportmonks.com') || host.endsWith('.sportmonks.io') || host.endsWith('.api-sports.io') || host.endsWith('.api-football.com')){
       img.referrerPolicy='no-referrer';
       return;
     }

@@ -26,6 +26,12 @@
     const initials = String(name || SPORT_LABELS[sport] || 'XYZ').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
     return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${colors[sport] || '#ef4058'}"/><stop offset="1" stop-color="#091118"/></linearGradient></defs><rect width="160" height="160" rx="32" fill="url(#g)"/><circle cx="80" cy="68" r="34" fill="rgba(255,255,255,.14)"/><path d="M30 150c5-36 24-54 50-54s45 18 50 54" fill="rgba(255,255,255,.12)"/><text x="80" y="88" text-anchor="middle" font-family="Arial" font-size="40" font-weight="800" fill="white">${initials}</text></svg>`)}`;
   };
+  const imageOf = (item = {}) => {
+    const candidate = item.proxiedImageUrl || item.logo || item.logoUrl || item.logo_url || item.image || item.imageUrl || item.image_url || item.photo || item.photoUrl || item.avatar || item.headshot || item.headshotUrl || item.badge || item.crest;
+    if(typeof candidate === 'string') return candidate;
+    if(candidate && typeof candidate === 'object') return candidate.url || candidate.src || candidate.href || '';
+    return '';
+  };
   const visual = (name, src) => `<img src="${escapeHTML(src || visualFallback(name))}" data-fallback="${escapeHTML(visualFallback(name))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHTML(name || '')}" loading="lazy">`;  const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
   const scoreText = (score) => {
     if(score == null || score === '') return 'VS';
@@ -56,7 +62,7 @@
   }
 
   function teamCardHTML(team){
-    return `<article class="multi-team-card"><span>${visual(team.name, team.logo)}</span><strong>${escapeHTML(team.name || 'Takim')}</strong><small>Gunun programinda</small></article>`;
+    return `<article class="multi-team-card"><span>${visual(team.name, imageOf(team))}</span><strong>${escapeHTML(team.name || 'Takim')}</strong><small>Gunun programinda</small></article>`;
   }
 
   function predictCardHTML(item){
@@ -74,9 +80,9 @@
     const score = scoreText(item.score);
     return `<article class="multi-event-card sport-${activeSport}">
       <header><span>${item.leagueLogo ? `<img class="multi-league-logo" src="${escapeHTML(item.leagueLogo)}" alt="">` : ''}${escapeHTML(item.league || item.category || SPORT_LABELS[activeSport])}</span><time>${escapeHTML(item.feedDate || item.date || item.time || '')}</time></header>
-      <div class="multi-event-side"><span>${visual(first.name, first.logo)}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
+      <div class="multi-event-side"><span>${visual(first.name, imageOf(first))}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
       <div class="multi-event-score"><b>${escapeHTML(score)}</b><small>${escapeHTML(item.status || 'Yaklasan') + (item.archived ? ' · Son gerceklesen' : '')}</small></div>
-      <div class="multi-event-side away"><strong>${escapeHTML(second.name || 'TBA')}</strong><span>${visual(second.name, second.logo)}</span></div>
+      <div class="multi-event-side away"><strong>${escapeHTML(second.name || 'TBA')}</strong><span>${visual(second.name, imageOf(second))}</span></div>
     </article>`;
   }
 
@@ -97,7 +103,7 @@
     items.forEach((item) => [item.first || item.home, item.second || item.away].forEach((team) => {
       if(team?.name && !teams.has(team.name)) teams.set(team.name, team);
     }));
-    const teamStrip = [...teams.values()].slice(0,10).map((team) => `<button type="button" class="basket-team-chip">${visual(team.name, team.logo)}<span>${escapeHTML(team.name)}</span></button>`).join('');
+    const teamStrip = [...teams.values()].slice(0,10).map((team) => `<button type="button" class="basket-team-chip">${visual(team.name, imageOf(team))}<span>${escapeHTML(team.name)}</span></button>`).join('');
     const schedule = items.slice(0,8).map((item) => {
       const first = item.first || item.home || {};
       const second = item.second || item.away || {};
@@ -108,7 +114,7 @@
       const second = featured.second || featured.away || {};
       return `<article class="basket-feature-card">
         <span>GUNUN VITRINI</span><h2>${escapeHTML(featured.league || 'Basketbol')}</h2>
-        <div class="basket-feature-match"><figure>${visual(first.name, first.logo)}<figcaption>${escapeHTML(first.name || 'TBA')}</figcaption></figure><strong>${escapeHTML(scoreText(featured.score))}</strong><figure>${visual(second.name, second.logo)}<figcaption>${escapeHTML(second.name || 'TBA')}</figcaption></figure></div>
+        <div class="basket-feature-match"><figure>${visual(first.name, imageOf(first))}<figcaption>${escapeHTML(first.name || 'TBA')}</figcaption></figure><strong>${escapeHTML(scoreText(featured.score))}</strong><figure>${visual(second.name, imageOf(second))}<figcaption>${escapeHTML(second.name || 'TBA')}</figcaption></figure></div>
         <p>${escapeHTML(featured.status || 'Programda')} · ${escapeHTML(featured.feedDate || featured.date || featured.time || '')}</p>
       </article>`;
     })() : '<article class="basket-feature-card"><h2>Basketbol vitrini hazırlanıyor</h2></article>';
