@@ -6931,3 +6931,15 @@ body.account-open>.live-ticker{z-index:70!important}
  #footballOverviewView .week-one-footer{align-items:flex-start;flex-direction:column}
  #footballOverviewView .week-one-footer button{width:100%}
 }
+/* One clear football filter area: remove duplicate league command. */
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open)>.football-league-command{display:none!important}
+#footballOverviewView .portal-league-strip{display:grid!important;margin-bottom:0!important;border-radius:14px 14px 0 0!important;border-bottom-color:#343a40!important}
+#footballOverviewView .portal-team-strip{margin-top:0!important;border-top:0!important;border-radius:0 0 14px 14px!important}
+#footballOverviewView .portal-league-strip .portal-team-strip-copy strong,
+#footballOverviewView .portal-team-strip .portal-team-strip-copy strong{font-size:11px!important;letter-spacing:.04em}
+#footballOverviewView .portal-league-strip .portal-team-strip-copy span,
+#footballOverviewView .portal-team-strip .portal-team-strip-copy span{font-size:8px!important}
+@media(max-width:767px){
+ #footballOverviewView .portal-league-strip{border-radius:14px 14px 0 0!important;margin-bottom:0!important}
+ #footballOverviewView .portal-team-strip{border-radius:0 0 14px 14px!important}
+}
