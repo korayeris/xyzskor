@@ -137,6 +137,14 @@ async function ensureMcData(matchId){
 }
 async function openMatchCenter(matchId, updateUrl){
   const m = MATCHES.find(x=>x.id===matchId); if(!m) return;
+  const fixtureCandidate = m.provider_fixture_id || m.fixture_id || m.provider_id || matchId;
+  const fixtureMatch = String(fixtureCandidate || '').match(/(?:sportmonks:)?(\d{5,})/);
+  if(fixtureMatch){
+    const target = new URL('/', location.origin);
+    target.searchParams.set('fixture', fixtureMatch[1]);
+    location.assign(target.toString());
+    return;
+  }
   if(!mcMatchId){
     mcReturnFocus = document.activeElement;
     mcOriginHash = location.hash || '#football';
