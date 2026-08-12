@@ -6822,3 +6822,14 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
 .matchday-card--lineups{border-right:0}.matchday-lineups{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding-top:18px}.matchday-lineup{border:1px solid #302d34;background:#0c0f12}.matchday-lineup h4{margin:0;padding:14px 16px;border-bottom:1px solid #302d34;font-size:18px}.matchday-lineup h5{margin:0;padding:10px 16px;color:#ef7180;font:800 9px/1 "IBM Plex Mono",monospace;letter-spacing:.13em}.matchday-lineup ul{margin:0;padding:0;list-style:none}.matchday-lineup li{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:9px;padding:9px 16px;border-top:1px solid #242228}.matchday-lineup li>span{color:#ef7180;font:900 11px/1 "IBM Plex Mono",monospace}.matchday-lineup li>b{font-size:11px}.matchday-lineup li>small{color:#817b86;font-size:9px}
 @media(max-width:767px){.matchday-command{margin-top:10px;padding:0 10px}.matchday-command__head{align-items:start;padding:16px}.matchday-command__head>strong{display:none}.matchday-scoreboard{grid-template-columns:1fr 90px 1fr;min-height:165px;padding:18px 10px}.matchday-team{display:flex;flex-direction:column;gap:8px;text-align:center}.matchday-team--away{display:flex;text-align:center}.matchday-team>span,.matchday-team--away>span{width:48px;height:48px;font-size:13px}.matchday-team strong{font-size:14px}.matchday-team small{font-size:9px}.matchday-score b{font-size:32px}.matchday-score small{font-size:8px}.matchday-grid,.matchday-lineups{grid-template-columns:1fr}.matchday-card{padding:17px;border-right:0}.matchday-lineups{gap:12px}.matchday-lineup li{grid-template-columns:28px 1fr}.matchday-lineup li>small{display:none}}
 
+
+/* Dedicated full-page match view */
+body.matchday-detail-open{overflow-x:hidden}
+body.matchday-detail-open #matchdayCommand~:not(script){display:none!important}
+body.matchday-detail-open .matchday-command{width:100%;max-width:none;min-height:calc(100vh - 118px);margin:0;padding:0 max(18px,calc((100vw - 1340px)/2)) 42px;background:radial-gradient(circle at 50% 0,rgba(113,24,39,.14),transparent 430px),#28242a}
+body.matchday-detail-open .matchday-command__head{position:relative;padding-top:28px}
+.matchday-back{align-self:center;min-height:34px;padding:0 13px;border:1px solid #5a535e;border-radius:3px;background:#f2f0ec;color:#171419;font:800 10px/1 "IBM Plex Mono",monospace;cursor:pointer;white-space:nowrap}
+.matchday-back:hover{background:#fff}
+body.matchday-detail-open .matchday-live-root{min-height:calc(100vh - 250px)}
+@media(max-width:767px){body.matchday-detail-open .matchday-command{min-height:calc(100vh - 96px);margin:0;padding:0 0 28px}.matchday-command__head{display:grid;grid-template-columns:1fr auto}.matchday-command__head>div{min-width:0}.matchday-back{grid-column:2;grid-row:1;align-self:start;padding:0 9px;font-size:8px}.matchday-command__head h2{font-size:22px}.matchday-command__head p{font-size:9px}}
+

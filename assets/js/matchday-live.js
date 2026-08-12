@@ -6,11 +6,31 @@
   let kickoff = Date.parse("2026-08-14T18:30:00.000Z");
   const root = document.getElementById("matchdayLiveRoot");
   const sync = document.getElementById("matchdaySync");
+  const command = document.getElementById("matchdayCommand");
   if (!root) return;
   let timer = 0;
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
+  function setDetailMode(active) {
+    document.body.classList.toggle("matchday-detail-open", active);
+    command.hidden = !active;
+    if (!active) clearTimeout(timer);
+  }
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "matchday-back";
+  backButton.textContent = "Ana sayfaya dön";
+  document.querySelector(".matchday-command__head")?.appendChild(backButton);
+  backButton.addEventListener("click", () => {
+    const homeUrl = new URL(location.href);
+    homeUrl.searchParams.delete("fixture");
+    homeUrl.searchParams.set("view", "home");
+    homeUrl.hash = "";
+    history.pushState({ view: "home" }, "", homeUrl);
+    setDetailMode(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
   function interval() { const delta = kickoff - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < kickoff + 4 * 3600000 ? 10000 : 300000; }
   function stateLabel(fixture) { const minute = Number(fixture?.minute); return Number.isFinite(minute) && minute > 0 ? `${minute}' CANLI` : fixture?.status || "PROGRAMLANDI"; }
   function eventTitle(event) { const type = String(event?.type || "").toLowerCase(); return /goal/.test(type) ? "GOL" : /yellow/.test(type) ? "SARI KART" : /red/.test(type) ? "KIRMIZI KART" : /substitution/.test(type) ? "OYUNCU DEĞİŞİKLİĞİ" : String(event?.type || "MAÇ OLAYI").toUpperCase(); }
@@ -81,15 +101,23 @@
     fixtureId = selected;
     const nextUrl = new URL(location.href);
     nextUrl.searchParams.set("fixture", fixtureId);
+    nextUrl.searchParams.delete("view");
     nextUrl.hash = "matchdayCommand";
     history.pushState({ fixtureId }, "", nextUrl);
+    setDetailMode(true);
     root.innerHTML = '<div class="matchday-loading">Seçilen maçın resmî verileri hazırlanıyor...</div>';
     document.getElementById("matchdayCommand")?.scrollIntoView({ behavior: "smooth", block: "start" });
     refresh();
   }, true);
   window.addEventListener("popstate", () => {
-    const selected = String(new URLSearchParams(location.search).get("fixture") || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
-    if (selected !== fixtureId) { fixtureId = selected; refresh(); }
+    const current = new URLSearchParams(location.search);
+    const isHome = current.get("view") === "home";
+    setDetailMode(!isHome);
+    if (isHome) return;
+    const selected = String(current.get("fixture") || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
+    if (selected !== fixtureId) fixtureId = selected;
+    refresh();
   });
-  refresh();
+  if (params.get("view") === "home") setDetailMode(false);
+  else { setDetailMode(true); refresh(); }
 })();
