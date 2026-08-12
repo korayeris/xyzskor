@@ -1,7 +1,9 @@
 (function () {
   "use strict";
-  const FIXTURE_ID = "19746648";
-  const KICKOFF = Date.parse("2026-08-14T18:30:00.000Z");
+  const DEFAULT_FIXTURE_ID = "19746648";
+  const params = new URLSearchParams(location.search);
+  let fixtureId = String(params.get("fixture") || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
+  let kickoff = Date.parse("2026-08-14T18:30:00.000Z");
   const root = document.getElementById("matchdayLiveRoot");
   const sync = document.getElementById("matchdaySync");
   if (!root) return;
@@ -9,7 +11,7 @@
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
-  function interval() { const delta = KICKOFF - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < KICKOFF + 4 * 3600000 ? 10000 : 300000; }
+  function interval() { const delta = kickoff - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < kickoff + 4 * 3600000 ? 10000 : 300000; }
   function stateLabel(fixture) { const minute = Number(fixture?.minute); return Number.isFinite(minute) && minute > 0 ? `${minute}' CANLI` : fixture?.status || "PROGRAMLANDI"; }
   function eventTitle(event) { const type = String(event?.type || "").toLowerCase(); return /goal/.test(type) ? "GOL" : /yellow/.test(type) ? "SARI KART" : /red/.test(type) ? "KIRMIZI KART" : /substitution/.test(type) ? "OYUNCU DEĞİŞİKLİĞİ" : String(event?.type || "MAÇ OLAYI").toUpperCase(); }
   function renderEvents(events) {
@@ -33,6 +35,11 @@
   function render(payload) {
     const f = payload.fixture || {}, d = payload.details || {}, events = rows(d.events), stats = rows(d.statistics), lineups = rows(d.lineups), formations = rows(d.formations);
     const homeName = f.home_name || "Galatasaray", awayName = f.away_name || "Çorum FK";
+    kickoff = Date.parse(f.kickoff_utc || "") || kickoff;
+    const title = document.getElementById("matchdayTitle");
+    const intro = title?.nextElementSibling;
+    if (title) title.textContent = `${homeName} - ${awayName}`;
+    if (intro) intro.textContent = `${localTime(f.kickoff_utc)} · Resmî veri geldikçe otomatik güncellenir`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
     const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
@@ -41,10 +48,48 @@
   }
   async function refresh() {
     clearTimeout(timer);
-    try { const response = await fetch(`/api/football/matchday?fixture=${FIXTURE_ID}`, { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.message || payload.error || "Veri alınamadı"); render(payload); }
+    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.message || payload.error || "Veri alınamadı"); render(payload); }
     catch (error) { sync.textContent = "Canlı bağlantı yeniden deneniyor"; root.innerHTML = `<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>${esc(error.message)}</span></div>`; }
     timer = setTimeout(refresh, interval());
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  function fixtureFromElement(element) {
+    if (!element) return "";
+    const values = [element.dataset?.fixtureId, element.dataset?.fixture, element.dataset?.matchId, element.dataset?.providerId, element.getAttribute?.("href")];
+    for (const value of values) {
+      const match = String(value || "").match(/(?:fixture=|sportmonks:)?(\d{5,})/);
+      if (match) return match[1];
+    }
+    const markupMatch = String(element.outerHTML || "").slice(0, 1600).match(/(?:fixture|match|sportmonks)[^0-9]{0,20}(\d{5,})/i);
+    if (markupMatch) return markupMatch[1];
+    const container = element?.closest?.("article,li,.football-match-row,.match-card,.fixture-card,.score-card,.panel") || element;
+    const text = String(container?.textContent || "").toLocaleLowerCase("tr-TR").replace(/\s+/g, " ");
+    const fixtures = typeof MATCHES !== "undefined" && Array.isArray(MATCHES) ? MATCHES : Array.isArray(window.MATCHES) ? window.MATCHES : [];
+    const found = fixtures.find((item) => {
+      const home = String(item.home_name || item.home || item.homeTeam || "").toLocaleLowerCase("tr-TR");
+      const away = String(item.away_name || item.away || item.awayTeam || "").toLocaleLowerCase("tr-TR");
+      return home && away && text.includes(home) && text.includes(away);
+    });
+    const candidate = found?.provider_fixture_id || found?.fixture_id || found?.provider_id || found?.id || "";
+    return String(candidate).replace(/^sportmonks:/, "").match(/^\d{5,}$/)?.[0] || "";
+  }
+  document.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-fixture-id],[data-fixture],[data-match-id],[data-provider-id],a[href*='fixture='],.football-match-row,.match-card,.fixture-card,.score-card");
+    const selected = fixtureFromElement(card);
+    if (!selected || selected === fixtureId) return;
+    event.preventDefault();
+    fixtureId = selected;
+    const nextUrl = new URL(location.href);
+    nextUrl.searchParams.set("fixture", fixtureId);
+    nextUrl.hash = "matchdayCommand";
+    history.pushState({ fixtureId }, "", nextUrl);
+    root.innerHTML = '<div class="matchday-loading">Seçilen maçın resmî verileri hazırlanıyor...</div>';
+    document.getElementById("matchdayCommand")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    refresh();
+  }, true);
+  window.addEventListener("popstate", () => {
+    const selected = String(new URLSearchParams(location.search).get("fixture") || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
+    if (selected !== fixtureId) { fixtureId = selected; refresh(); }
+  });
   refresh();
 })();
