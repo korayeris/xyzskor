@@ -97,16 +97,10 @@
     const selected = fixtureFromElement(card);
     if (!selected || (selected === fixtureId && document.body.classList.contains("matchday-detail-open"))) return;
     event.preventDefault();
-    fixtureId = selected;
-    const nextUrl = new URL(location.href);
-    nextUrl.searchParams.set("fixture", fixtureId);
-    nextUrl.searchParams.delete("view");
-    nextUrl.hash = "matchdayCommand";
-    history.pushState({ fixtureId }, "", nextUrl);
-    setDetailMode(true);
-    root.innerHTML = '<div class="matchday-loading">Seçilen maçın resmî verileri hazırlanıyor...</div>';
-    document.getElementById("matchdayCommand")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    refresh();
+    event.stopImmediatePropagation();
+    const nextUrl = new URL("/", location.origin);
+    nextUrl.searchParams.set("fixture", selected);
+    location.assign(nextUrl.toString());
   }, true);
   window.addEventListener("popstate", () => {
     const current = new URLSearchParams(location.search);
