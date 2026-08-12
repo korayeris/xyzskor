@@ -2,7 +2,7 @@
   'use strict';
 
   const BLOCKED_COMMERCE = /(?:^|[.\/-])(bet|betting|bookmaker|casino|draftkings|fanduel|betonline|iddaa)(?:[.\/-]|$)/i;
-  const ALLOWED_EXTERNAL_IMAGE_HOSTS = new Set(['i.ytimg.com','img.youtube.com','cdn.sportmonks.com','cdn.sportmonks.io','images.sportmonks.com']);
+  const ALLOWED_EXTERNAL_IMAGE_HOSTS = new Set(['i.ytimg.com','img.youtube.com','cdn.sportmonks.com','cdn.sportmonks.io','images.sportmonks.com','api.citoapi.com','ufc.com','www.ufc.com']);
 
   function isLocalUrl(raw){
     if(!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return true;
