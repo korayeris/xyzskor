@@ -6877,3 +6877,16 @@ body.ufc-premium-open .ufcx-shell>.ufcx-nav{position:relative!important;top:auto
  body.ufc-premium-open>.live-ticker{top:112px!important}
  body.ufc-premium-open .ufcx-shell>.ufcx-nav{position:relative!important;top:auto!important}
 }
+
+/* Site-wide stable stacked navigation for every sport branch. */
+body>.global-header{position:sticky!important;top:0!important;z-index:120!important}
+body>.sport-branch-nav-compact{position:sticky!important;top:65px!important;z-index:119!important}
+body>.live-ticker{position:sticky!important;top:119px!important;z-index:118!important;min-height:28px!important;background:#0b0f12!important;border-bottom:1px solid #242b30!important}
+body>.account-overlay{z-index:300!important}
+body.account-open>.global-header,
+body.account-open>.sport-branch-nav-compact,
+body.account-open>.live-ticker{z-index:70!important}
+@media(max-width:680px){
+ body>.sport-branch-nav-compact{top:58px!important}
+ body>.live-ticker{top:112px!important}
+}
