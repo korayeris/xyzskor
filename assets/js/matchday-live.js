@@ -2,7 +2,8 @@
   "use strict";
   const DEFAULT_FIXTURE_ID = "19746648";
   const params = new URLSearchParams(location.search);
-  let fixtureId = String(params.get("fixture") || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
+  const requestedFixture = params.get("fixture");
+  let fixtureId = String(requestedFixture || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
   let kickoff = Date.parse("2026-08-14T18:30:00.000Z");
   const root = document.getElementById("matchdayLiveRoot");
   const sync = document.getElementById("matchdaySync");
@@ -23,14 +24,12 @@
   backButton.textContent = "Ana sayfaya dön";
   document.querySelector(".matchday-command__head")?.appendChild(backButton);
   backButton.addEventListener("click", () => {
-    const homeUrl = new URL(location.href);
-    homeUrl.searchParams.delete("fixture");
-    homeUrl.searchParams.set("view", "home");
-    homeUrl.hash = "";
-    history.pushState({ view: "home" }, "", homeUrl);
-    setDetailMode(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    location.assign("/?view=home");
   });
+  document.querySelectorAll(".brand-lockup,.brand-copy .logo").forEach((brand) => brand.addEventListener("click", (event) => {
+    event.preventDefault();
+    location.assign("/?view=home");
+  }));
   function interval() { const delta = kickoff - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < kickoff + 4 * 3600000 ? 10000 : 300000; }
   function stateLabel(fixture) { const minute = Number(fixture?.minute); return Number.isFinite(minute) && minute > 0 ? `${minute}' CANLI` : fixture?.status || "PROGRAMLANDI"; }
   function eventTitle(event) { const type = String(event?.type || "").toLowerCase(); return /goal/.test(type) ? "GOL" : /yellow/.test(type) ? "SARI KART" : /red/.test(type) ? "KIRMIZI KART" : /substitution/.test(type) ? "OYUNCU DEĞİŞİKLİĞİ" : String(event?.type || "MAÇ OLAYI").toUpperCase(); }
@@ -96,7 +95,7 @@
   document.addEventListener("click", (event) => {
     const card = event.target.closest("[data-fixture-id],[data-fixture],[data-match-id],[data-provider-id],a[href*='fixture='],.football-match-row,.match-card,.fixture-card,.score-card");
     const selected = fixtureFromElement(card);
-    if (!selected || selected === fixtureId) return;
+    if (!selected || (selected === fixtureId && document.body.classList.contains("matchday-detail-open"))) return;
     event.preventDefault();
     fixtureId = selected;
     const nextUrl = new URL(location.href);
@@ -111,13 +110,14 @@
   }, true);
   window.addEventListener("popstate", () => {
     const current = new URLSearchParams(location.search);
-    const isHome = current.get("view") === "home";
-    setDetailMode(!isHome);
-    if (isHome) return;
-    const selected = String(current.get("fixture") || DEFAULT_FIXTURE_ID).replace(/^sportmonks:/, "");
+    const selectedParam = current.get("fixture");
+    const detailOpen = Boolean(selectedParam) && current.get("view") !== "home";
+    setDetailMode(detailOpen);
+    if (!detailOpen) return;
+    const selected = String(selectedParam).replace(/^sportmonks:/, "");
     if (selected !== fixtureId) fixtureId = selected;
     refresh();
   });
-  if (params.get("view") === "home") setDetailMode(false);
+  if (!requestedFixture || params.get("view") === "home") setDetailMode(false);
   else { setDetailMode(true); refresh(); }
 })();
