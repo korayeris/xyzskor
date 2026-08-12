@@ -6913,3 +6913,21 @@ body.account-open>.live-ticker{z-index:70!important}
  #footballOverviewView .week-one-footer{align-items:flex-start;flex-direction:column}
  #footballOverviewView .week-one-footer button{width:100%}
 }
+/* Responsive fixture showcase based on its own card width, not the viewport. */
+#footballOverviewView .headline-stage{container-type:inline-size}
+@container (max-width:620px){
+ #footballOverviewView .week-one-heading{display:block}
+ #footballOverviewView .week-one-heading h2{font-size:clamp(23px,7cqi,28px)!important;line-height:1.05!important;white-space:nowrap}
+ #footballOverviewView .week-one-heading>span{display:inline-flex;margin-top:9px}
+ #footballOverviewView .week-one-showcase{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ #footballOverviewView .week-one-match:first-child{grid-column:1/-1!important}
+ #footballOverviewView .week-one-match{min-width:0}
+ #footballOverviewView .week-one-teams b{overflow:visible;white-space:normal;line-height:1.15}
+}
+@container (max-width:420px){
+ #footballOverviewView .week-one-heading h2{font-size:22px!important;white-space:normal}
+ #footballOverviewView .week-one-showcase{grid-template-columns:1fr!important}
+ #footballOverviewView .week-one-match:first-child{grid-column:auto!important}
+ #footballOverviewView .week-one-footer{align-items:flex-start;flex-direction:column}
+ #footballOverviewView .week-one-footer button{width:100%}
+}
