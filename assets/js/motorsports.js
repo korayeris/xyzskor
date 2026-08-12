@@ -188,11 +188,11 @@
     const slug = parts()[1] || '';
     document.body.classList.add('motorsport-open');
     document.body.dataset.motorsport = slug || 'hub';
-    document.querySelectorAll('.xms-primary').forEach(element => element.remove());
     document.getElementById('miniGoalGame')?.remove();
     if(!slug) updateMotorTicker('formula-1', []);
     document.querySelectorAll('body > .wrap, #multiSportHub, .sport-branch-nav').forEach(element => { element.hidden = true; });
     nav.insertAdjacentHTML('afterend', shell(slug));
+    document.querySelectorAll('.xms-primary').forEach(element => element.remove());
     if (!series[slug]) return;
     const activate = view => {
       const button = document.querySelector(`[data-xms-view="${view}"]`);
