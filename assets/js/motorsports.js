@@ -176,7 +176,7 @@
   async function loadHub() {
     const host = document.getElementById('xmsHubData');
     if (!host) return;
-    const featured = [['formula-1', 'Formula 1'], ['motogp', 'MotoGP'], ['wec', 'WEC'], ['nascar', 'NASCAR']];
+    const featured = Object.entries(series).map(([slug, config]) => [slug, config[0]]);
     const blocks = await Promise.all(featured.map(async ([slug, label]) => {
       const payload = await api(slug, 'events').catch(() => ({ data: [] }));
       const events = rows(payload?.data).slice(0, 3);

@@ -121,3 +121,13 @@
   if (!requestedFixture || params.get("view") === "home") setDetailMode(false);
   else { setDetailMode(true); refresh(); }
 })();
+function syncMatchSummaryChrome() {
+  document.body.classList.toggle('match-summary-open', /^#match\//i.test(window.location.hash));
+}
+
+window.addEventListener('hashchange', syncMatchSummaryChrome);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', syncMatchSummaryChrome, { once: true });
+} else {
+  syncMatchSummaryChrome();
+}

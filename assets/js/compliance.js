@@ -2,7 +2,7 @@
   'use strict';
 
   const BLOCKED_COMMERCE = /(?:^|[.\/-])(bet|betting|bookmaker|casino|draftkings|fanduel|betonline|iddaa)(?:[.\/-]|$)/i;
-  const ALLOWED_EXTERNAL_IMAGE_HOSTS = new Set(['i.ytimg.com','img.youtube.com']);
+  const ALLOWED_EXTERNAL_IMAGE_HOSTS = new Set(['i.ytimg.com','img.youtube.com','cdn.sportmonks.com','cdn.sportmonks.io','images.sportmonks.com']);
 
   function isLocalUrl(raw){
     if(!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return true;
@@ -16,7 +16,7 @@
     if(isLocalUrl(raw)) return;
     let host='';
     try{ host=new URL(raw, location.href).hostname.toLowerCase(); }catch(_){ host=''; }
-    if(ALLOWED_EXTERNAL_IMAGE_HOSTS.has(host)){
+    if(ALLOWED_EXTERNAL_IMAGE_HOSTS.has(host) || host.endsWith('.sportmonks.com') || host.endsWith('.sportmonks.io')){
       img.referrerPolicy='no-referrer';
       return;
     }

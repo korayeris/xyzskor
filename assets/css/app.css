@@ -6849,3 +6849,8 @@ body.motorsport-open>nav.sport-branch-nav{display:none!important}
 .xms-hub-placeholder{display:grid;gap:7px;min-height:110px;padding:22px;border:1px solid #2b3741;color:#fff;text-decoration:none}.xms-hub-placeholder span{color:#81909c;font-size:11px}
 @media(max-width:760px){.xms-hub-feed{margin-top:10px}.xms-hub-feed-title,.xms-hub-series{padding:17px}.xms-hub-feed-title h2{font-size:25px}.xms-hub-races{grid-template-columns:1fr}.xms-hub-series>header{align-items:center}.xms-hub-series>header>a{font-size:9px}}
 
+
+/* Match summary owns the viewport; global branch navigation must not overlap it. */
+body.match-summary-open .sport-branch-nav,
+body.match-summary-open .sport-branch-nav-compact,
+body.match-summary-open .xms-primary{display:none!important}
