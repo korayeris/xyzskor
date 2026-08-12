@@ -171,7 +171,18 @@
   function shell(slug) {
     const [label, accent, discipline] = series[slug] || ['Motor Sporlari', '#ef3e4f', 'hub'];
     const detail = Boolean(series[slug]);
-    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><div class="xms-hero-copy"><span>XYZSKOR / SPORTS INTELLIGENCE</span><h1>${detail ? label : 'Hizin veriye donustugu merkez.'}</h1><p>${detail ? 'Seriye ozel takvim, sonuc, siralama ve canli veri deneyimi.' : 'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>PROVIDER DATA</b></div><div class="xms-hero-visual" aria-hidden="true"><i></i><strong>${detail ? label : 'MOTORSPORT'}</strong><em>${discipline === 'rally' ? 'STAGE' : discipline === 'endurance' ? '24H' : discipline === 'moto' ? 'RACE' : discipline === 'stock' ? 'STAGE 01' : 'P1'}</em></div></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a data-mobile-view="live" href="#live">Live</a><a data-mobile-view="calendar" href="#calendar">Calendar</a><a data-mobile-view="standings" href="#standings">Standings</a><a href="#more">More</a></nav></main>`;
+    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><div class="xms-hero-copy"><span>XYZSKOR / SPORTS INTELLIGENCE</span><h1>${detail ? label : 'Hizin veriye donustugu merkez.'}</h1><p>${detail ? 'Seriye ozel takvim, sonuc, siralama ve canli veri deneyimi.' : 'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>PROVIDER DATA</b></div><div class="xms-hero-visual" aria-hidden="true"><i></i><strong>${detail ? label : 'MOTORSPORT'}</strong><em>${discipline === 'rally' ? 'STAGE' : discipline === 'endurance' ? '24H' : discipline === 'moto' ? 'RACE' : discipline === 'stock' ? 'STAGE 01' : 'P1'}</em></div></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section><section class="xms-hub-feed" id="xmsHubData" aria-live="polite"><div class="xms-loading"><i></i><span>Sezon vitrini hazırlanıyor</span></div></section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a data-mobile-view="live" href="#live">Live</a><a data-mobile-view="calendar" href="#calendar">Calendar</a><a data-mobile-view="standings" href="#standings">Standings</a><a href="#more">More</a></nav></main>`;
+  }
+  async function loadHub() {
+    const host = document.getElementById('xmsHubData');
+    if (!host) return;
+    const featured = [['formula-1', 'Formula 1'], ['motogp', 'MotoGP'], ['wec', 'WEC'], ['nascar', 'NASCAR']];
+    const blocks = await Promise.all(featured.map(async ([slug, label]) => {
+      const payload = await api(slug, 'events').catch(() => ({ data: [] }));
+      const events = rows(payload?.data).slice(0, 3);
+      return `<article class="xms-hub-series"><header><div><small>SEZON VİTRİNİ</small><h2>${label}</h2></div><a href="/motorsports/${slug}">Seriyi aç →</a></header><div class="xms-hub-races">${events.length ? events.map((event, index) => itemCard(event, index, 'EVENT')).join('') : `<a class="xms-hub-placeholder" href="/motorsports/${slug}"><b>${label}</b><span>Takvim, sonuç ve sıralamayı görüntüle</span></a>`}</div></article>`;
+    }));
+    host.innerHTML = `<header class="xms-hub-feed-title"><small>GÜNCEL PROGRAM</small><h2>Yaklaşan yarışlar</h2><p>Seçili serilerin takvimi tek ekranda. Ayrıntılar için seri merkezini aç.</p></header>${blocks.join('')}`;
   }
   function init() {
     const header = document.querySelector('.global-header');
@@ -193,6 +204,7 @@
     document.querySelectorAll('body > .wrap, #multiSportHub, .sport-branch-nav').forEach(element => { element.hidden = true; });
     nav.insertAdjacentHTML('afterend', shell(slug));
     document.querySelectorAll('.xms-primary').forEach(element => element.remove());
+    if (!slug) loadHub();
     if (!series[slug]) return;
     const activate = view => {
       const button = document.querySelector(`[data-xms-view="${view}"]`);
