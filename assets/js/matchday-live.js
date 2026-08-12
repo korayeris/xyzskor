@@ -1,0 +1,50 @@
+(function () {
+  "use strict";
+  const FIXTURE_ID = "19746648";
+  const KICKOFF = Date.parse("2026-08-14T18:30:00.000Z");
+  const root = document.getElementById("matchdayLiveRoot");
+  const sync = document.getElementById("matchdaySync");
+  if (!root) return;
+  let timer = 0;
+  const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+  const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
+  const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
+  function interval() { const delta = KICKOFF - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < KICKOFF + 4 * 3600000 ? 10000 : 300000; }
+  function stateLabel(fixture) { const minute = Number(fixture?.minute); return Number.isFinite(minute) && minute > 0 ? `${minute}' CANLI` : fixture?.status || "PROGRAMLANDI"; }
+  function eventTitle(event) { const type = String(event?.type || "").toLowerCase(); return /goal/.test(type) ? "GOL" : /yellow/.test(type) ? "SARI KART" : /red/.test(type) ? "KIRMIZI KART" : /substitution/.test(type) ? "OYUNCU DEĞİŞİKLİĞİ" : String(event?.type || "MAÇ OLAYI").toUpperCase(); }
+  function renderEvents(events) {
+    if (!events.length) return '<div class="matchday-empty">Gol, asist, kart ve değişiklikler maç başladığında burada görünecek.</div>';
+    return `<ol class="matchday-timeline">${events.map((event) => `<li><time>${esc(event.minute || "-")}'</time><div><b>${esc(eventTitle(event))}</b><span>${esc(event.player || "")} ${event.relatedPlayer ? `· ${esc(event.relatedPlayer)}` : ""}</span></div></li>`).join("")}</ol>`;
+  }
+  function renderStats(stats) {
+    if (!stats.length) return '<div class="matchday-empty">Şut, topa sahip olma, korner ve oyuncu istatistikleri sağlayıcının kapsamına göre açılacak.</div>';
+    const grouped = new Map();
+    stats.forEach((stat) => { const label = String(stat.label || "İstatistik"); if (!grouped.has(label)) grouped.set(label, []); grouped.get(label).push(stat.value); });
+    return `<div class="matchday-stats">${Array.from(grouped.entries()).slice(0, 10).map(([label, values]) => `<div><span>${esc(values[0] ?? "-")}</span><b>${esc(label)}</b><span>${esc(values[1] ?? "-")}</span></div>`).join("")}</div>`;
+  }
+  function renderTeamLineup(title, members) {
+    if (!members.length) return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-empty">Resmî kadro henüz açıklanmadı.</div></section>`;
+    const marked = members.filter((item) => item.type_id === 11 || /starter|lineup/i.test(String(item.type || ""))).slice(0, 11);
+    const starters = marked.length ? marked : members.slice(0, 11);
+    const substitutes = members.filter((item) => !starters.includes(item));
+    const list = (items) => items.map((item) => `<li><span>${esc(item.number || "-")}</span><b>${esc(item.player || "Oyuncu")}</b><small>${esc(item.position || "")}${item.is_captain ? " · Kaptan" : ""}</small></li>`).join("");
+    return `<section class="matchday-lineup"><h4>${esc(title)}</h4><h5>İlk 11</h5><ul>${list(starters)}</ul>${substitutes.length ? `<h5>Yedekler</h5><ul>${list(substitutes)}</ul>` : ""}</section>`;
+  }
+  function render(payload) {
+    const f = payload.fixture || {}, d = payload.details || {}, events = rows(d.events), stats = rows(d.statistics), lineups = rows(d.lineups), formations = rows(d.formations);
+    const homeName = f.home_name || "Galatasaray", awayName = f.away_name || "Çorum FK";
+    const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
+    const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
+    const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
+    sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
+    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team"><span>GS</span><strong>${esc(homeName)}</strong><small>${esc(formations[0]?.formation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(localTime(f.kickoff_utc))}</small></div><div class="matchday-team matchday-team--away"><span>ÇFK</span><strong>${esc(awayName)}</strong><small>${esc(formations[1]?.formation || "Diziliş bekleniyor")}</small></div></div><div class="matchday-grid"><section class="matchday-card"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events)}</section><section class="matchday-card"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats)}</section></div><section class="matchday-card matchday-card--lineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup)}${renderTeamLineup(awayName, awayLineup)}</div></section>`;
+  }
+  async function refresh() {
+    clearTimeout(timer);
+    try { const response = await fetch(`/api/football/matchday?fixture=${FIXTURE_ID}`, { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.message || payload.error || "Veri alınamadı"); render(payload); }
+    catch (error) { sync.textContent = "Canlı bağlantı yeniden deneniyor"; root.innerHTML = `<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>${esc(error.message)}</span></div>`; }
+    timer = setTimeout(refresh, interval());
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  refresh();
+})();

@@ -1490,6 +1490,44 @@ async function handleFootballSeason(request, env, context) {
   }
 }
 
+async function handleFootballMatchday(request, env) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
+  const fixtureId = String(new URL(request.url).searchParams.get("fixture") || "").replace(/^sportmonks:/, "");
+  if (!/^\d+$/.test(fixtureId)) return jsonResponse({ error: "invalid_fixture" }, 400, { "Cache-Control": "no-store" });
+
+  try {
+    const providerResult = await sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token);
+    const row = providerResult?.data?.data || providerResult?.data || {};
+    const fixture = normalizeProviderFixture(row, "sportmonks");
+    const details = normalizeSportmonksFixtureDetails(row);
+    const participants = relationRows(row.participants);
+    const home = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "home") || participants[0] || {};
+    const away = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "away") || participants[1] || {};
+    const scores = relationRows(row.scores);
+    const scoreFor = (participant) => {
+      const matching = scores.filter((score) => String(score?.participant_id || "") === String(participant?.id || ""));
+      const preferred = matching.find((score) => /current|total|2nd_half/i.test(String(score?.description || score?.type?.name || ""))) || matching.at(-1);
+      const value = preferred?.score?.goals ?? preferred?.score ?? preferred?.goals;
+      return Number.isFinite(Number(value)) ? Number(value) : null;
+    };
+    const kickoff = Date.parse(fixture?.kickoff_utc || row?.starting_at || "");
+    const distance = Number.isFinite(kickoff) ? kickoff - Date.now() : Infinity;
+    const maxAge = distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
+    return jsonResponse({
+      source: "Sportmonks Football API",
+      provider: "sportmonks",
+      updatedAt: new Date().toISOString(),
+      degraded: Boolean(providerResult?.degraded),
+      fixture: { ...fixture, score: { home: scoreFor(home), away: scoreFor(away) } },
+      details
+    }, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=15` });
+  } catch (error) {
+    return jsonResponse({ error: "matchday_fetch_failed", message: safeErrorMessage(error), provider: "sportmonks" }, 502, { "Cache-Control": "no-store" });
+  }
+}
+
 async function handleFootballLive(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
@@ -2169,6 +2207,7 @@ export default {
     if (url.pathname === "/api/football/x-preseason") return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/football/coverage") return handleFootballCoverage(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
+    if (url.pathname === "/api/football/matchday") return handleFootballMatchday(request, env);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);

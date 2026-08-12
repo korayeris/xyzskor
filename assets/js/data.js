@@ -42,6 +42,7 @@ function createSupabaseFallbackClient(reason){
       async getSession(){ return authPayload; },
       async getUser(){ return authPayload; },
       async signUp(){ return authPayload; },
+      async resend(){ return authPayload; },
       async signInWithPassword(){ return authPayload; },
       async signOut(){ return { error: null }; },
       onAuthStateChange(){ return { data: { subscription: { unsubscribe(){} } } } ; },
@@ -739,8 +740,24 @@ function authErrTR(error){
   if(m.includes('duplicate') || m.includes('username')) return 'Bu kullanıcı adı alınmış.';
   return m || 'Bir hata oluştu.';
 }
-async function registerUser(username, email, pass, team){
-  const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ username, team } } });
+async function registerUser(username, email, pass, team, marketingOptIn=false){
+  const acceptedAt = new Date().toISOString();
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password: pass,
+    options:{
+      emailRedirectTo: `${location.origin}/`,
+      data:{
+        username,
+        team,
+        terms_version:'2026-08-11',
+        terms_accepted_at:acceptedAt,
+        privacy_notice_version:'2026-08-11',
+        marketing_opt_in:Boolean(marketingOptIn),
+        marketing_opt_in_at:marketingOptIn ? acceptedAt : null,
+      },
+    },
+  });
   if(error) return { ok:false, err: authErrTR(error) };
   const uid = data.user ? data.user.id : null;
   if(!uid) return { ok:false, err:'Kullanıcı hesabı oluşturulamadı.' };
@@ -748,6 +765,15 @@ async function registerUser(username, email, pass, team){
   try{ await ensureOwnProfile(data.user); }
   catch(pErr){ return { ok:false, err: authErrTR(pErr) }; }
   return { ok:true };
+}
+async function resendSignupConfirmation(email){
+  if(!email) return { ok:false, err:'E-posta adresi gerekli.' };
+  const { error } = await sb.auth.resend({
+    type:'signup',
+    email,
+    options:{ emailRedirectTo:`${location.origin}/` },
+  });
+  return error ? { ok:false, err:authErrTR(error) } : { ok:true, message:'Doğrulama e-postası yeniden gönderildi. Spam klasörünü de kontrol et.' };
 }
 async function ensureOwnProfile(user){
   if(!user) return null;

@@ -212,10 +212,12 @@ function openAuth(mode){
   authMode = mode;
   document.getElementById('authTitle').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
   document.getElementById('registerFields').style.display = mode==='register' ? 'block' : 'none';
+  const consentFields=document.getElementById('authConsentFields'); if(consentFields) consentFields.style.display = mode==='register' ? 'grid' : 'none';
   document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
   document.getElementById('authSwitch').textContent = mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol';
   document.getElementById('authErr').classList.remove('show');
   document.getElementById('authErr').style.color = '';
+  const resendButton=document.getElementById('authResend'); if(resendButton) resendButton.hidden=true;
   document.getElementById('authOverlay').classList.add('show');
   document.body.classList.add('modal-open');
   document.getElementById('authClose').focus();
@@ -243,15 +245,28 @@ document.getElementById('authSubmit').onclick = async () => {
   if(authMode==='register'){
     const username = document.getElementById('regUsername').value.trim();
     const team = document.getElementById('regTeam').value;
+    const termsAccepted = document.getElementById('authTermsConsent')?.checked;
+    const marketingOptIn = document.getElementById('authMarketingConsent')?.checked;
     if(!username || !team){ errEl.textContent='Kullanıcı adı ve takım seçimi gerekli.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
-    res = await registerUser(username, email, pass, team);
+    if(!termsAccepted){ errEl.textContent='Üyelik için Kullanım Koşulları ve KVKK Aydınlatma Metni kabul edilmeli.'; errEl.classList.add('show'); btn.disabled=false; btn.textContent='Üye Ol'; return; }
+    res = await registerUser(username, email, pass, team, Boolean(marketingOptIn));
   } else { res = await loginUser(email, pass); }
   btn.disabled = false; btn.textContent = authMode==='register' ? 'Üye Ol' : 'Giriş Yap';
   if(!res.ok){ errEl.textContent = res.err; errEl.classList.add('show'); return; }
-  if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); return; }
+  if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); const resendButton=document.getElementById('authResend'); if(resendButton) resendButton.hidden=false; return; }
   errEl.style.color = '';
   closeAuth();
   await loadAllData(); renderAll();
+};
+document.getElementById('authResend').onclick = async () => {
+  const button=document.getElementById('authResend');
+  const errEl=document.getElementById('authErr');
+  button.disabled=true;
+  const result=await resendSignupConfirmation(document.getElementById('authEmail').value.trim());
+  button.disabled=false;
+  errEl.textContent=result.ok ? result.message : result.err;
+  errEl.style.color=result.ok ? 'var(--ok)' : '';
+  errEl.classList.add('show');
 };
 
 /* ===================== HAFTANIN HİKAYESİ: HERO + LİSTE ===================== */

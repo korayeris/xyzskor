@@ -21,6 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="preload" href="/assets/css/app.css" as="style">
 <link rel="stylesheet" href="/assets/css/app.css">
+<script defer src="/assets/js/compliance.js"></script>
 
 </head>
 <body>
@@ -37,7 +38,21 @@
   <div class="navright" id="navRight"></div>
 </nav>
 
+<aside class="legal-beta-notice" role="status" aria-label="Beta ve veri lisansı bildirimi">
+  <strong>Güvenli Beta</strong>
+  <span>Bahis ve para yatırma yoktur. Veriler bilgilendirme amaçlıdır; lisansı doğrulanmayan görseller otomatik gizlenir.</span>
+  <a href="legal/icerik-ve-kaynak-politikasi.html">Kaynak politikası</a>
+</aside>
+
 <div class="live-ticker"><div class="ticker-inner" id="liveTicker"></div></div>
+
+<section class="matchday-command" id="matchdayCommand" aria-labelledby="matchdayTitle">
+  <div class="matchday-command__head">
+    <div><span>CANLI MAÇ MERKEZİ</span><h2 id="matchdayTitle">Galatasaray - Çorum FK</h2><p>14 Ağustos 2026 · 21:30 · Resmî veri geldikçe otomatik güncellenir</p></div>
+    <strong id="matchdaySync">Maç verisi hazırlanıyor</strong>
+  </div>
+  <div id="matchdayLiveRoot" class="matchday-live-root" aria-live="polite"><div class="matchday-loading">Canlı maç merkezi hazırlanıyor...</div></div>
+</section>
 
 <nav class="football-context-nav" id="footballContextNav" aria-label="Futbol bölümleri">
   <button class="football-context-tab active" data-football-route="home" type="button" onclick="openFootballSection('home',this)">Anasayfa</button>
@@ -530,6 +545,7 @@
   <a href="legal/kullanim-kosullari.html">Kullanım Koşulları</a>
   <a href="legal/kvkk-aydinlatma.html">KVKK Aydınlatma</a>
   <a href="legal/gizlilik-politikasi.html">Gizlilik</a>
+  <a href="legal/icerik-ve-kaynak-politikasi.html">İçerik ve Kaynaklar</a>
   <a href="legal/cerez-politikasi.html">Çerezler</a>
 </footer>
 
@@ -579,7 +595,12 @@
     <div class="err-msg" id="authErr"></div>
     <div class="modal-foot">
       <span class="switch-link" id="authSwitch">Zaten üye misin? Giriş yap</span>
+      <div class="auth-consent" id="authConsentFields">
+        <label><input id="authTermsConsent" type="checkbox"> <span><a href="legal/kullanim-kosullari.html" target="_blank" rel="noopener">Kullanım Koşulları</a> ve <a href="legal/kvkk-aydinlatma.html" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a>'ni okudum, kabul ediyorum.</span></label>
+        <label><input id="authMarketingConsent" type="checkbox"> <span>İsteğe bağlı: ürün duyuruları ve kampanya e-postaları almak istiyorum.</span></label>
+      </div>
       <button class="btn" id="authSubmit">Üye Ol</button>
+      <button class="btn ghost auth-resend" id="authResend" type="button" hidden>Doğrulama e-postasını tekrar gönder</button>
     </div>
   </div>
 </div>
@@ -603,6 +624,7 @@
 <script defer src="/assets/js/analytics.js"></script>
 <script defer src="/assets/js/live.js"></script>
 <script defer src="/assets/js/match-center.js"></script>
+<script defer src="/assets/js/matchday-live.js"></script>
 <script defer src="/assets/js/predict-game.js"></script>
 <script defer src="/assets/js/ui.js"></script>
 
