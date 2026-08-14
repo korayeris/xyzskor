@@ -331,11 +331,12 @@ async function loadLiveFeed(force){
     }
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
     LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
+    const normalizeMatchId=id=>String(id??'').replace(/^sportmonks:/i,'');
     data.matches.forEach(liveMatch=>{
-      const stored=MATCHES.find(match=>match.id===liveMatch.id); if(!stored) return;
+      const stored=MATCHES.find(match=>normalizeMatchId(match.id)===normalizeMatchId(liveMatch.id)); if(!stored) return;
       stored.status=liveMatch.status==='halftime'?'devre_arasi':(liveMatch.status==='live'?'canlı':(liveMatch.status==='finished'?'bitti':stored.status));
       if(liveMatch.status==='finished' && liveMatch.home && liveMatch.away && liveMatch.home.score!=null && liveMatch.away.score!=null){
-        ALL_RESULTS[liveMatch.id]={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score), scoredAt:Date.now() };
+        ALL_RESULTS[stored.id]={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score), scoredAt:Date.now() };
       }
     });
   }catch(error){
