@@ -230,8 +230,18 @@
 
   async function renderFighters(id) {
     if (!id) {
-      const searchResult = await api('search?q=a&limit=80').catch(() => ({ data: [] }));
-      const fighters = rowsOf(searchResult).filter(item => fighterNameOf(item));
+      const [searchResult, rankingResult] = await Promise.all([
+        api('search?q=a&limit=80').catch(() => ({ data: [] })),
+        api('rankings?limit=120').catch(() => ({ data: [] })),
+      ]);
+      const seen = new Set();
+      const fighters = [...rowsOf(searchResult), ...rowsOf(rankingResult)].filter(item => {
+        const name = fighterNameOf(item);
+        const key = String(item.id || item.slug || item.fighterSlug || name).toLowerCase();
+        if (!name || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       host.innerHTML = `${head('FIGHTER ROSTER', 'UFC Dövüşçüleri', 'Sıklet, ülke, kilo ve kayıt bilgileri.')}
         <div class="ufcx-grid">${fighters.length ? fighters.slice(0, 60).map(fighterCard).join('') : emptyState('Dövüşçü bulunamadi')}
       `;
@@ -314,7 +324,7 @@
         <article class="ufcx-module">
           <header><span>SIKLET</span><h2>${escapeHtml(division)}</h2></header>
           <h3 style="margin:10px 0">Sampiyon: ${escapeHtml(val(champion.fighterName || champion.name || champion.fighter?.name, 'Vacant'))}</h3>
-          ${sorted.map((row, index) => `
+          ${sorted.filter(row => fighterNameOf(row)).map((row, index) => `
             <p><b>${escapeHtml(val(row.rank || row.rankText || index + 1))}</b> ${escapeHtml(val(row.fighterName || row.name || row.fighter?.name, 'Dövüşçü'))} · ${escapeHtml(val(row.recordText || row.record, ''))}</p>
           `).join('')}
         </article>`);
