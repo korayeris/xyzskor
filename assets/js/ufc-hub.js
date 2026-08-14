@@ -346,7 +346,7 @@
     return list.find(item => item.slug === value || item.fighterSlug === value || item.id === value) || list[0] || { name: fallbackName || value };
   }
 
-  async function renderCompare() {
+  async function renderCompareLegacy() {
     const [_, __, section, rawA, rawB] = location.pathname.split('/').filter(Boolean);
     const query = new URLSearchParams(location.search);
     const aName = query.get('a') || rawA || 'islam machado';
@@ -459,6 +459,104 @@
         ${rightFights.slice(0, 4).map(fight => fightCard(fight)).join('') || emptyState('Gecmis goruntulenemedi')}
       </div>
     `;
+  }
+
+  async function renderCompare() {
+    const query = new URLSearchParams(location.search);
+    const requestedA = query.get('a') || 'islam-makhachev';
+    const requestedB = query.get('b') || 'ian-machado-garry';
+    const legendQueries = ['jon jones', 'nate diaz', 'georges st-pierre', 'anderson silva', 'khabib nurmagomedov', 'conor mcgregor'];
+    const catalogPayloads = await Promise.all([
+      api('fighters?page=1&limit=500').catch(() => ({ data: [] })),
+      api('rankings?limit=200').catch(() => ({ data: [] })),
+      ...legendQueries.map(name => api(`search?q=${encodeURIComponent(name)}&limit=6`).catch(() => ({ data: [] })))
+    ]);
+    const optionMap = new Map();
+    catalogPayloads.flatMap(rowsOf).forEach(item => {
+      const source = item?.fighter && typeof item.fighter === 'object' ? { ...item.fighter, ...item } : item;
+      const name = fighterNameOf(source);
+      const id = source?.slug || source?.fighterSlug || source?.id;
+      if (name && id && !optionMap.has(String(id))) optionMap.set(String(id), { id:String(id), label:name, item:source });
+    });
+    const options = [...optionMap.values()].sort((a,b) => a.label.localeCompare(b.label, 'tr'));
+    const fallbackA = options.find(x => /islam makhachev/i.test(x.label))?.id || options[0]?.id || requestedA;
+    const fallbackB = options.find(x => /ian.*garry/i.test(x.label))?.id || options.find(x => x.id !== fallbackA)?.id || requestedB;
+    const idA = optionMap.has(requestedA) ? requestedA : fallbackA;
+    const idB = optionMap.has(requestedB) ? requestedB : fallbackB;
+
+    const optionHtml = selected => options.map(item => `<option value="${escapeHtml(item.id)}" ${item.id===selected?'selected':''}>${escapeHtml(item.label)}</option>`).join('');
+    const selector = `
+      <section class="ufcx-compare-picker">
+        <div><label for="ufcxCompareA">Dövüşçü A</label><select id="ufcxCompareA">${optionHtml(idA)}</select></div>
+        <b>VS</b>
+        <div><label for="ufcxCompareB">Dövüşçü B</label><select id="ufcxCompareB">${optionHtml(idB)}</select></div>
+        <button type="button" id="ufcxCompareRun">KARŞILAŞTIR</button>
+      </section>`;
+
+    const [fighterA, fighterB, statsA, statsB] = await Promise.all([
+      api(`fighters/${encodeURIComponent(idA)}`).catch(() => ({ data: optionMap.get(idA)?.item || {} })),
+      api(`fighters/${encodeURIComponent(idB)}`).catch(() => ({ data: optionMap.get(idB)?.item || {} })),
+      api(`fighters/${encodeURIComponent(idA)}/stats`).catch(() => ({ data: {} })),
+      api(`fighters/${encodeURIComponent(idB)}/stats`).catch(() => ({ data: {} }))
+    ]);
+    const left = { ...(optionMap.get(idA)?.item || {}), ...(unwrap(fighterA) || {}) };
+    const right = { ...(optionMap.get(idB)?.item || {}), ...(unwrap(fighterB) || {}) };
+    const stA = unwrap(statsA) || {};
+    const stB = unwrap(statsB) || {};
+    const numberOf = value => {
+      const parsed = parseFloat(String(value ?? '').replace(',', '.').replace('%',''));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const pick = (obj, keys) => keys.map(key => obj?.[key]).find(value => value !== null && value !== undefined && value !== '');
+    const metrics = [
+      { label:'Kariyer galibiyeti', a:pick(left,['recordWins','wins']) ?? stA.wins, b:pick(right,['recordWins','wins']) ?? stB.wins, unit:'', high:true, group:'Kariyer' },
+      { label:'Kariyer mağlubiyeti', a:pick(left,['recordLosses','losses']) ?? stA.losses, b:pick(right,['recordLosses','losses']) ?? stB.losses, unit:'', high:false, group:'Kariyer' },
+      { label:'Boy', a:pick(left,['heightInches','height']), b:pick(right,['heightInches','height']), unit:' in', high:true, group:'Fizik' },
+      { label:'Reach', a:pick(left,['reachInches','reach']), b:pick(right,['reachInches','reach']), unit:' in', high:true, group:'Fizik' },
+      { label:'Kilo', a:pick(left,['weightLbs','weight']), b:pick(right,['weightLbs','weight']), unit:' lb', high:true, group:'Fizik' },
+      { label:'Striking doğruluğu', a:pick(stA,['strikeAccuracy','significantStrikeAccuracy','sigStrikeAccuracy']), b:pick(stB,['strikeAccuracy','significantStrikeAccuracy','sigStrikeAccuracy']), unit:'%', high:true, group:'Striking' },
+      { label:'Dakika başı isabet', a:pick(stA,['sigStrikesLandedPerMin','significantStrikesLandedPerMinute','slpm']), b:pick(stB,['sigStrikesLandedPerMin','significantStrikesLandedPerMinute','slpm']), unit:'', high:true, group:'Striking' },
+      { label:'Striking savunması', a:pick(stA,['strikeDefense','significantStrikeDefense']), b:pick(stB,['strikeDefense','significantStrikeDefense']), unit:'%', high:true, group:'Striking' },
+      { label:'Takedown / 15 dk', a:pick(stA,['takedownAvgPer15Min','takedownAverage','takedownsPer15Min']), b:pick(stB,['takedownAvgPer15Min','takedownAverage','takedownsPer15Min']), unit:'', high:true, group:'Güreş' },
+      { label:'Takedown doğruluğu', a:pick(stA,['takedownAccuracy','tdAccuracy']), b:pick(stB,['takedownAccuracy','tdAccuracy']), unit:'%', high:true, group:'Güreş' },
+      { label:'Takedown savunması', a:pick(stA,['takedownDefense','tdDefense']), b:pick(stB,['takedownDefense','tdDefense']), unit:'%', high:true, group:'Güreş' },
+      { label:'Submission / 15 dk', a:pick(stA,['submissionAvgPer15Min','submissionAverage','submissionsPer15Min']), b:pick(stB,['submissionAvgPer15Min','submissionAverage','submissionsPer15Min']), unit:'', high:true, group:'Yer Oyunu' }
+    ].map(metric => ({ ...metric, na:numberOf(metric.a), nb:numberOf(metric.b) }));
+    let scoreA = 0, scoreB = 0;
+    metrics.forEach(metric => {
+      if (metric.na === metric.nb) return;
+      const aWins = metric.high ? metric.na > metric.nb : metric.na < metric.nb;
+      if (aWins) scoreA++; else scoreB++;
+    });
+    const nameA = fighterNameOf(left) || optionMap.get(idA)?.label || 'Dövüşçü A';
+    const nameB = fighterNameOf(right) || optionMap.get(idB)?.label || 'Dövüşçü B';
+    const winner = scoreA === scoreB ? null : scoreA > scoreB ? nameA : nameB;
+    const loser = scoreA === scoreB ? null : scoreA > scoreB ? nameB : nameA;
+    const reachDiff = numberOf(pick(left,['reachInches','reach'])) - numberOf(pick(right,['reachInches','reach']));
+    const wrestlingA = metrics.filter(m=>m.group==='Güreş').reduce((n,m)=>n+(m.na>m.nb),0);
+    const wrestlingB = metrics.filter(m=>m.group==='Güreş').reduce((n,m)=>n+(m.nb>m.na),0);
+    const physicalLeader = reachDiff === 0 ? null : reachDiff > 0 ? nameA : nameB;
+    const technicalLeader = wrestlingA === wrestlingB ? null : wrestlingA > wrestlingB ? nameA : nameB;
+    const note = winner
+      ? `${winner}, ölçülebilen ${scoreA + scoreB} başlığın ${Math.max(scoreA,scoreB)} tanesinde önde. ${physicalLeader && physicalLeader !== winner ? `${physicalLeader} fiziksel erişim avantajına sahip olsa da ` : ''}${technicalLeader === winner ? `${winner} güreş ve yer oyunu göstergeleriyle bu farkı kapatıyor. ` : ''}${loser} için maçın anahtarı mesafeyi kendi güçlü olduğu alanda tutmak.`
+      : `${nameA} ve ${nameB} ölçülebilen başlıklarda dengede. Sonuç; tempo, oyun planı ve maç içi uyarlamaya daha fazla bağlı görünüyor.`;
+    const resultClassA = scoreA === scoreB ? 'draw' : scoreA > scoreB ? 'winner' : 'loser';
+    const resultClassB = scoreA === scoreB ? 'draw' : scoreB > scoreA ? 'winner' : 'loser';
+    const profile = (fighter, name, score, tone) => `<article class="ufcx-compare-fighter ${tone}"><img src="${escapeHtml(fighterImage(fighter))}" data-fallback="${escapeHtml(fallbackImage(fighter))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHtml(name)}"><div><span>${escapeHtml(val(fighter.division || fighter.weightClass,'UFC'))}</span><h2>${escapeHtml(name)}</h2><p>${escapeHtml(val(fighter.recordText || fighter.fighter?.recordText,'Kayıt bekleniyor'))}</p><strong>${score} METRİK</strong></div></article>`;
+    const metricHtml = metrics.map(metric => {
+      const max = Math.max(metric.na, metric.nb, 1);
+      const aBetter = metric.na !== metric.nb && (metric.high ? metric.na > metric.nb : metric.na < metric.nb);
+      const bBetter = metric.na !== metric.nb && (metric.high ? metric.nb > metric.na : metric.nb < metric.na);
+      return `<div class="ufcx-compare-metric"><header><span>${escapeHtml(metric.group)}</span><b>${escapeHtml(metric.label)}</b></header><div class="ufcx-compare-values"><strong class="${aBetter?'better':bBetter?'behind':''}">${escapeHtml(val(metric.a,'—'))}${metric.a!==undefined?metric.unit:''}</strong><i><b class="left ${aBetter?'better':'behind'}" style="width:${Math.max(4,metric.na/max*100)}%"></b><b class="right ${bBetter?'better':'behind'}" style="width:${Math.max(4,metric.nb/max*100)}%"></b></i><strong class="${bBetter?'better':aBetter?'behind':''}">${escapeHtml(val(metric.b,'—'))}${metric.b!==undefined?metric.unit:''}</strong></div></div>`;
+    }).join('');
+
+    host.innerHTML = `${head('FIGHT LAB', 'Dövüşçü Karşılaştırma', 'Aktif kadro ve UFC efsanelerini fizik, kariyer ve teknik yeteneklerle karşılaştır.')}${selector}<section class="ufcx-compare-stage">${profile(left,nameA,scoreA,resultClassA)}<div class="ufcx-compare-score"><b>${scoreA}</b><span>METRİK SKORU</span><b>${scoreB}</b></div>${profile(right,nameB,scoreB,resultClassB)}</section><section class="ufcx-compare-note"><span>XYZSKOR ANALİZ NOTU</span><h2>${winner ? `${escapeHtml(winner)} ölçülebilir üstünlükte` : 'Eşleşme dengede'}</h2><p>${escapeHtml(note)}</p><small>Bu değerlendirme mevcut istatistiklerden üretilir; kesin maç sonucu tahmini değildir.</small></section><section class="ufcx-compare-board">${metricHtml}</section>`;
+    const reroute = () => {
+      const a = document.getElementById('ufcxCompareA')?.value;
+      const b = document.getElementById('ufcxCompareB')?.value;
+      if (a && b) location.assign(`/ufc/compare/?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
+    };
+    document.getElementById('ufcxCompareRun')?.addEventListener('click', reroute);
   }
 
   async function renderLive() {
