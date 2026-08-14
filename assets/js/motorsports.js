@@ -33,6 +33,7 @@
   const unsupported = {
     stages: ['Etap verisi pakette bulunmuyor.', 'Saglayici ayri etap akisi verdiginde bu alan otomatik aktif olur.']
   };
+  const localTrackCatalogPath = '/assets/data/motorsport/tracks/motorsports-track-catalog.json';
   const parts = () => location.pathname.split('/').filter(Boolean);
   const isMotor = () => parts()[0] === 'motorsports';
   const esc = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -85,10 +86,71 @@
   };
   const menu = () => groups.map(([group, items]) => `<section class="xms-mega-group"><strong>${group}</strong>${items.map(([label, slug]) => `<a href="/motorsports/${slug}">${label}</a>`).join('')}</section>`).join('');
   const viewsFor = slug => viewRegistry[series[slug]?.[2] || 'formula'];
+  const getTrackFallback = async () => {
+    if (getTrackFallback.cache) return getTrackFallback.cache;
+    const response = await fetch(localTrackCatalogPath, { cache: 'force-cache' });
+    if (!response.ok) {
+      getTrackFallback.cache = { tracks: [] };
+      return getTrackFallback.cache;
+    }
+    const payload = await response.json().catch(() => ({ tracks: [] }));
+    const tracks = Array.isArray(payload?.tracks) ? payload.tracks : [];
+    getTrackFallback.cache = { tracks };
+    return getTrackFallback.cache;
+  };
+  const trackLookupForSeries = async slug => {
+    const catalog = await getTrackFallback();
+    return (catalog?.tracks || []).filter(track => Array.isArray(track?.series_ids) && track.series_ids.includes(slug));
+  };
+  const formatTrackMeta = item => {
+    const parts = [];
+    const length = item?.length_km ? `${Number(item.length_km).toLocaleString('tr-TR')} km` : null;
+    if (length) parts.push(length);
+    if (Number.isFinite(item?.turns)) parts.push(`${item.turns} viraj`);
+    if (item?.track_type) parts.push(item.track_type);
+    if (item?.direction) parts.push(item.direction);
+    return parts.join(' · ');
+  };
+  const trackImage = item => {
+    const asset = scalar(item, ['svg_asset', 'asset', 'logo', 'image']);
+    if (!asset) return '';
+    const normalized = String(asset).trim();
+    return normalized.startsWith('/assets/') ? normalized : '';
+  };
+  const trackCard = (item, index) => {
+    const verified = item?.geometry_verified === true && item?.status === 'active';
+    const statusClass = verified ? 'xms-track-badge verified' : 'xms-track-badge pending';
+    const statusLabel = verified ? 'DOĞRULANDI' : 'PENDING';
+    const visual = trackImage(item);
+    const name = esc(nameOf(item));
+    const fallback = fallbackOf(item, 'TRACK');
+    return `<article class="xms-data-card xms-data-track xms-track-${esc(item?.direction || 'track')}" data-track-id="${esc(item?.id || '')}">
+      <span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span>
+      <div class="xms-track-media" aria-hidden="true">${visual ? `<img src="${esc(visual)}" data-fallback="${esc(fallback)}" loading="lazy" alt="" onerror="this.onerror=null;this.src=this.dataset.fallback">` : `<div class=\"xms-track-fallback\">${esc(item?.short_name || item?.configuration || item?.name || 'Track')}</div>`}</div>
+      <div>
+        <small>PİST</small>
+        <h3>${name}</h3>
+        <p>${esc(formatTrackMeta(item) || '—')}</p>
+        <div class="xms-track-meta">${esc(item?.city || '—')} • ${esc(item?.country || '—')}</div>
+      </div>
+      <b><span class="${statusClass}">${statusLabel}</span></b>
+    </article>`;
+  };
+  const trackSummary = tracks => {
+    if (!Array.isArray(tracks) || tracks.length === 0) return '';
+    const verifiedCount = tracks.filter(track => track?.geometry_verified === true && track?.status === 'active').length;
+    const pendingCount = tracks.length - verifiedCount;
+    if (pendingCount <= 0) return '';
+    return `<div class="xms-track-summary"><span>${verifiedCount} doğrulanmış konfigürasyon</span><span>${pendingCount} bekleyen konfigürasyon</span></div>`;
+  };
   const classSwitch = slug => {
     if (['motogp', 'moto2', 'moto3'].includes(slug)) return `<nav class="xms-class-switch" aria-label="Motosiklet sinifi">${['motogp', 'moto2', 'moto3'].map(key => `<a class="${key === slug ? 'active' : ''}" href="/motorsports/${key}">${series[key][0]}</a>`).join('')}</nav>`;
     if (['wec', 'le-mans'].includes(slug)) return '<nav class="xms-class-switch" aria-label="Endurance sinifi"><button class="active">Genel</button><button disabled>Hypercar</button><button disabled>LMGT3</button></nav>';
     return '';
+  };
+  const setSparseMotorsportMode = sparse => {
+    if (!document.body.classList.contains('motorsport-open')) return;
+    document.body.classList.toggle('xms-motor-sparse', Boolean(sparse));
   };
 
   let snapshotPromise;
@@ -130,14 +192,17 @@
   function renderList(host, payload, type, empty) {
     const list = rows(payload?.data);
     host.innerHTML = list.length ? `<div class="xms-data-list">${list.slice(0, 60).map((item, index) => itemCard(item, index, type)).join('')}</div>` : emptyState(empty, 'Bu seri icin kayit gelmediginde baska bir bransin verisi gosterilmez.');
+    setSparseMotorsportMode(list.length === 0);
   }
   async function loadView(slug, view) {
     const host = document.getElementById('xmsData');
     if (!host) return;
+    setSparseMotorsportMode(false);
     clearTimeout(liveTimer);
     host.innerHTML = '<div class="xms-loading"><i></i><span>Motor sporlari verisi yukleniyor</span></div>';
     if (unsupported[view]) {
       host.innerHTML = emptyState(...unsupported[view]);
+      setSparseMotorsportMode(true);
       return;
     }
     try {
@@ -149,6 +214,8 @@
           api(slug, teamResource).catch(() => ({ data: [] }))
         ]);
         updateMotorTicker(slug, rows(events.data));
+        const hasOverviewData = rows(events.data).length + rows(drivers.data).length + rows(teams.data).length > 0;
+        setSparseMotorsportMode(!hasOverviewData);
         host.innerHTML = `<section class="xms-overview-block"><header><small>NEXT / RECENT EVENTS</small><h2>Yaris merkezi</h2></header><div class="xms-data-list">${rows(events.data).slice(0, 8).map((item, index) => itemCard(item, index, 'EVENT')).join('') || emptyState('Etkinlik bulunamadi.', 'Saglayicidan yeni takvim kaydi bekleniyor.')}</div></section><section class="xms-overview-split"><div><h2>${series[slug][2] === 'moto' ? 'Surucu siralamasi' : 'Pilot siralamasi'}</h2>${rows(drivers.data).slice(0, 8).map((item, index) => itemCard(item, index, 'DRIVER')).join('') || '<p>Kayit bekleniyor.</p>'}</div><div><h2>Takim / Uretici</h2>${rows(teams.data).slice(0, 8).map((item, index) => itemCard(item, index, 'TEAM')).join('') || '<p>Kayit bekleniyor.</p>'}</div></section>`;
         return;
       }
@@ -157,15 +224,41 @@
         host.innerHTML = emptyState('Bu veri tipi pakette bulunmuyor.', 'Yanlis veya baska bir spor dalina ait veri gosterilmiyor.');
         return;
       }
+      if (view === 'circuits') {
+        const snapshotPayload = await api(slug, resource).catch(() => ({ data: [] }));
+        const snapshotCircuits = rows(snapshotPayload?.data);
+        const localTracks = await trackLookupForSeries(slug);
+        const verifiedLocal = localTracks.filter(item => item?.geometry_verified === true && item?.status === 'active');
+        const pendingLocal = localTracks.filter(item => !(item?.geometry_verified === true && item?.status === 'active'));
+        const combined = [
+          ...snapshotCircuits.filter(item => item && item.id && item?.id !== '__empty__'),
+          ...verifiedLocal.filter(item => !snapshotCircuits.some(circuit => scalar(circuit?.id) === item.id))
+        ];
+        const list = combined.slice(0, 60);
+        host.innerHTML = list.length
+          ? `<div class="xms-data-list xms-track-list">${list.map((item, index) => trackCard(item, index)).join('')}</div>${trackSummary(verifiedLocal.concat(snapshotCircuits))}`
+          : emptyState('Bu seride pist kaydı bulunamadi.', 'Doğrulanmış pist konfigürasyonu bekliyor.');
+        setSparseMotorsportMode(list.length === 0);
+        if (pendingLocal.length > 0) {
+          const summary = `<div class=\"xms-track-warning\">Veri doğrulama bekleyen ${pendingLocal.length} konfigürasyon listede gösterilmez.</div>`;
+          host.insertAdjacentHTML('beforeend', summary);
+        }
+        return;
+      }
       const payload = await api(slug, resource);
       if (view === 'live' && !payload.liveSupported && rows(payload?.data).length === 0) {
         host.innerHTML = emptyState('Canli timing bu seride saglayici tarafindan sunulmuyor.', 'Takvim, sonuclar ve siralamalar statik API snapshotindan gosterilmeye devam eder.');
+        setSparseMotorsportMode(true);
         return;
       }
       renderList(host, payload, view.toUpperCase(), `${series[slug][0]} icin ${view} kaydi bulunamadi.`);
+      if (rows(payload?.data).length === 0) {
+        setSparseMotorsportMode(true);
+      }
       if (view === 'live') liveTimer = window.setTimeout(() => loadView(slug, 'live'), 60000);
     } catch (error) {
       host.innerHTML = emptyState('Veri akisi su anda yenileniyor.', error.message);
+      setSparseMotorsportMode(true);
     }
   }
   function shell(slug) {
