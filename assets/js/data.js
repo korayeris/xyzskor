@@ -664,6 +664,11 @@ async function primeServerLeaderboards(hafta){
     return false;
   }
 }
+function isSafeTeamCrestURL(value){
+  if(!value) return false;
+  try{ const url=new URL(String(value),location.origin); return url.protocol==='https:' || url.origin===location.origin; }
+  catch(_error){ return false; }
+}
 async function loadAllData(){
   DATA_ERRORS = {};
   SERVER_LEADERBOARDS = new Map();
@@ -691,10 +696,10 @@ async function loadAllData(){
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];
   const providerResults = providerBundle?.results?.length ? providerBundle.results : [];
-  providerStandings.forEach(row=>{ if(row?.team && safeExternalURL(row.team_logo)) TEAM_CRESTS[row.team]=row.team_logo; });
+  providerStandings.forEach(row=>{ if(row?.team && isSafeTeamCrestURL(row.team_logo)) TEAM_CRESTS[row.team]=row.team_logo; });
   providerMatches.forEach(match=>{
-    if(match?.ev && safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo;
-    if(match?.konuk && safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo;
+    if(match?.ev && isSafeTeamCrestURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo;
+    if(match?.konuk && isSafeTeamCrestURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo;
   });
   MATCHES = providerMatches.length ? providerMatches : (scopedSuperLig ? matches : []);
   selectCurrentWeek(MATCHES);
