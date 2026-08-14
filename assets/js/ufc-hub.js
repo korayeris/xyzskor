@@ -53,6 +53,13 @@
     return data?.results ?? data?.events ?? data?.fighters ?? data?.bouts ?? data?.divisions ?? data?.items ?? data?.data ?? [];
   };
 
+  const fighterNameOf = item => val(
+    item?.name || item?.fighterName || item?.displayName || item?.fullName ||
+    item?.profile?.name || item?.profile?.displayName || item?.fighter?.name ||
+    item?.fighter?.fighterName || item?.athlete?.name,
+    ''
+  );
+
   const slugify = text => String(text || '')
     .toLowerCase()
     .normalize('NFKD')
