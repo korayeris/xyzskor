@@ -10,9 +10,9 @@
       <a href="/ufc/">UFC</a>
       <a href="/ufc/live/">Canli</a>
       <a href="/ufc/events/">Etkinlikler</a>
-      <a href="/ufc/fighters/">Dovuscular</a>
-      <a href="/ufc/rankings/">Siralama</a>
-      <a href="/ufc/compare/">Karsilastir</a>
+      <a href="/ufc/fighters/">Dövüşçüler</a>
+      <a href="/ufc/rankings/">Sıralama</a>
+      <a href="/ufc/compare/">Karşılaştır</a>
     </nav>
     <section id="ufcxContent">Octagon hazirlaniyor...</section>
   `;
@@ -61,7 +61,7 @@
     .replace(/(^-|-$)/g, '');
 
   const shortName = item => {
-    const raw = val(item?.name ?? item?.fighterName ?? item?.profile?.name ?? item?.fighter?.name, 'DOVUSCU');
+    const raw = val(item?.name ?? item?.fighterName ?? item?.profile?.name ?? item?.fighter?.name, 'DÖVÜŞÇÜ');
     return raw.split(' ').slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'F';
   };
 
@@ -88,7 +88,7 @@
     return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 300"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#ff405d"/><stop offset="1" stop-color="#090b0f"/></linearGradient></defs><rect width="240" height="300" fill="url(#g)"/><rect x="24" y="24" width="192" height="252" rx="12" fill="rgba(255,255,255,.06)"/><text x="120" y="138" text-anchor="middle" font-family="Arial" font-size="58" font-weight="900" fill="white">${initial}</text><text x="120" y="176" text-anchor="middle" font-family="Arial" font-size="18" fill="rgba(255,255,255,.55)">MMA</text></svg>`)}`;
   };
 
-  const emptyState = title => `<div class="ufcx-empty"><b>${escapeHtml(title)}</b><span>Veri olustugunda otomatik guncellenir.</span></div>`;
+  const emptyState = title => `<div class="ufcx-empty"><b>${escapeHtml(title)}</b><span>Veri oluştuğunda otomatik güncellenir.</span></div>`;
 
   const head = (kicker, title, subtitle) => `
     <header class="ufcx-head">
@@ -98,7 +98,7 @@
     </header>
   `;
 
-  const linkTo = path => `<a href="${escapeHtml(path)}">Goruntule ?</a>`;
+  const linkTo = path => `<a href="${escapeHtml(path)}">Görüntüle →</a>`;
 
   const fighterLink = id => `<a href="/ufc/fighters/${escapeHtml(id)}/">`;
 
@@ -118,11 +118,11 @@
   };
 
   const fighterCard = fighter => {
-    const name = val(fighter.name ?? fighter.fighterName ?? fighter.profile?.name, 'Dovuscu');
+    const name = val(fighter.name ?? fighter.fighterName ?? fighter.profile?.name, 'Dövüşçü');
     const image = fighterImage(fighter);
     return `<a class="ufcx-fighter" href="/ufc/fighters/${escapeHtml(fighter.slug || fighter.fighterSlug || fighter.id || slugify(name))}/">
       <img src="${escapeHtml(image)}" data-fallback="${escapeHtml(fallbackImage(fighter))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHtml(name)}">
-      <span><b>${escapeHtml(name)}</b><small>${escapeHtml(val(fighter.weightClass || fighter.division, 'UFC'))} � ${escapeHtml(val(fighter.recordText || [fighter.recordWins, fighter.recordLosses, fighter.recordDraws].filter(Boolean).join('-') || [0,0,0].join('-')))}</small></span>
+      <span><b>${escapeHtml(name)}</b><small>${escapeHtml(val(fighter.weightClass || fighter.division, 'UFC'))} · ${escapeHtml(val(fighter.recordText || fighter.record, 'Kayıt bekleniyor'))}</small></span>
     </a>`;
   };
 
@@ -176,7 +176,7 @@
         <div>
           <span>YAKLASAN BUYUK KART</span>
           <h1>${escapeHtml(eventTitle)}</h1>
-          <p>${escapeHtml(val(nextEvent.eventDateLabel || nextEvent.startsAt, 'Tarih'))} � ${escapeHtml(val(nextEvent.locationText || nextEvent.venue, 'UFC'))}</p>
+          <p>${escapeHtml(val(nextEvent.eventDateLabel || nextEvent.startsAt, 'Tarih'))} · ${escapeHtml(val(nextEvent.locationText || nextEvent.venue, 'UFC'))}</p>
           ${linkTo(`/ufc/events/${escapeHtml(nextEvent.slug || nextEvent.id || '')}/`)}
         </div>
       </section>
@@ -187,14 +187,14 @@
       </section>
       <div class="ufcx-grid">
         <article class="ufcx-module">
-          <header><span>GUVEN</span><h2>Toplu Dovuscular</h2></header>
-          ${(Array.isArray(rowsOf(athletes)) ? rowsOf(athletes) : []).map(fighterCard).slice(0, 4).join('') || emptyState('Dovuscu bulunamadi')}
+          <header><span>GUVEN</span><h2>Toplu Dövüşçüler</h2></header>
+          ${(Array.isArray(rowsOf(athletes)) ? rowsOf(athletes) : []).filter(item => val(item?.name || item?.fighterName || item?.profile?.name, '')).map(fighterCard).slice(0, 4).join('') || emptyState('Dövüşçü bulunamadi')}
         </article>
         <article class="ufcx-module">
           <header><span>RANKING</span><h2>Gunluk Zirve</h2></header>
           ${rankingList.length ? rankingList.slice(0, 6).map((row, index) => `
-            <p><b>${escapeHtml(val(row.rank, index + 1))}</b> ${escapeHtml(val(row.fighterName || row.name || row.fighter?.name, 'Dovuscu'))} � ${escapeHtml(val(row.division || row.weightClass || topDivision, 'UFC'))}</p>
-          `).join('') : emptyState('Siralama yuklenemedi')}
+            <p><b>${escapeHtml(val(row.rank, index + 1))}</b> ${escapeHtml(val(row.fighterName || row.name || row.fighter?.name, 'Dövüşçü'))} · ${escapeHtml(val(row.division || row.weightClass || topDivision, 'UFC'))}</p>
+          `).join('') : emptyState('Sıralama yuklenemedi')}
         </article>
       </div>
     `;
@@ -218,7 +218,7 @@
         <div>
           <span>UFC CARD</span>
           <h1>${escapeHtml(val(event.title || event.shortTitle, 'UFC'))}</h1>
-          <p>${escapeHtml(val(event.eventDateLabel || event.startsAt, 'Tarih'))} � ${escapeHtml(val(event.locationText || event.venue, 'UFC'))}</p>
+          <p>${escapeHtml(val(event.eventDateLabel || event.startsAt, 'Tarih'))} · ${escapeHtml(val(event.locationText || event.venue, 'UFC'))}</p>
         </div>
       </section>
       <section class="ufcx-fight-night">
@@ -231,9 +231,9 @@
   async function renderFighters(id) {
     if (!id) {
       const searchResult = await api('search?q=a&limit=80').catch(() => ({ data: [] }));
-      const fighters = rowsOf(searchResult);
-      host.innerHTML = `${head('FIGHTER ROSTER', 'UFC Dovusculeri', 'Siklet, ulke, kilo ve kayit bilgileri.')}
-        <div class="ufcx-grid">${fighters.length ? fighters.slice(0, 60).map(fighterCard).join('') : emptyState('Dovuscu bulunamadi')}
+      const fighters = rowsOf(searchResult).filter(item => val(item?.name || item?.fighterName || item?.profile?.name, ''));
+      host.innerHTML = `${head('FIGHTER ROSTER', 'UFC Dövüşçüleri', 'Sıklet, ülke, kilo ve kayıt bilgileri.')}
+        <div class="ufcx-grid">${fighters.length ? fighters.slice(0, 60).map(fighterCard).join('') : emptyState('Dövüşçü bulunamadi')}
       `;
       return;
     }
@@ -269,7 +269,7 @@
         <img src="${escapeHtml(fighterImage(fighter))}" data-fallback="${escapeHtml(fallbackImage(fighter))}" onerror="this.onerror=null;this.src=this.dataset.fallback">
         <div>
           <span>${escapeHtml(val(fighter.weightClass || fighter.division, 'UFC'))}</span>
-          <h1>${escapeHtml(val(fighter.name || fighter.fighterName, 'Dovuscu'))}</h1>
+          <h1>${escapeHtml(val(fighter.name || fighter.fighterName, 'Dövüşçü'))}</h1>
           <strong>${escapeHtml(record)} (W-L-D)</strong>
           <p>${escapeHtml(val(fighter.nickname, ''))}</p>
         </div>
@@ -284,7 +284,7 @@
         </article>
         <article class="ufcx-module">
           <header><span>MACLAR</span><h2>Son maclar</h2></header>
-          ${fights.length ? fights.slice(0, 8).map(bout => fightCard(bout)).join('') : emptyState('Ge�mis bekleniyor')}
+          ${fights.length ? fights.slice(0, 8).map(bout => fightCard(bout)).join('') : emptyState('Geçmis bekleniyor')}
         </article>
       </section>
     `;
@@ -296,7 +296,7 @@
     const sections = [];
 
     if (!parsed.length) {
-      host.innerHTML = `${head('OFFICIAL BOARD', 'UFC Siralamalari', 'Branslar ve resm� siralar.')}${emptyState('Siralama bulunamadi')}`;
+      host.innerHTML = `${head('OFFICIAL BOARD', 'UFC Sıralamalari', 'Branslar ve resmî siralar.')}${emptyState('Sıralama bulunamadi')}`;
       return;
     }
 
@@ -315,12 +315,12 @@
           <header><span>SIKLET</span><h2>${escapeHtml(division)}</h2></header>
           <h3 style="margin:10px 0">Sampiyon: ${escapeHtml(val(champion.fighterName || champion.name || champion.fighter?.name, 'Vacant'))}</h3>
           ${sorted.map((row, index) => `
-            <p><b>${escapeHtml(val(row.rank || row.rankText || index + 1))}</b> ${escapeHtml(val(row.fighterName || row.name || row.fighter?.name, 'Dovuscu'))} � ${escapeHtml(val(row.recordText || row.record, ''))}</p>
+            <p><b>${escapeHtml(val(row.rank || row.rankText || index + 1))}</b> ${escapeHtml(val(row.fighterName || row.name || row.fighter?.name, 'Dövüşçü'))} · ${escapeHtml(val(row.recordText || row.record, ''))}</p>
           `).join('')}
         </article>`);
     }
 
-    host.innerHTML = `${head('OFFICIAL BOARD', 'UFC Siralamalari', 'Sikletler ve resmi adaylar')}${sections.join('')}`;
+    host.innerHTML = `${head('OFFICIAL BOARD', 'UFC Sıralamalari', 'Sikletler ve resmi adaylar')}${sections.join('')}`;
   }
 
   async function resolveFighterBySlug(value, fallbackName) {
@@ -345,25 +345,25 @@
       .filter(item => item?.slug || item?.fighterSlug || item?.id || item?.name)
       .map(item => ({
         id: item.slug || item.fighterSlug || item.id,
-        label: val(item.name || item.fighterName, 'Dovuscu'),
+        label: val(item.name || item.fighterName, 'Dövüşçü'),
       }));
 
     const idA = escapeHtml(maybeA.slug || maybeA.fighterSlug || maybeA.id || aName);
     const idB = escapeHtml(maybeB.slug || maybeB.fighterSlug || maybeB.id || bName);
 
     if (!maybeA?.name && !maybeB?.name) {
-      host.innerHTML = `${head('FIGHTER COMPARISON', 'UFC Karsilastirma', 'Iki dovuscu arasinda teknik karsilastirma.')}
+      host.innerHTML = `${head('FIGHTER COMPARISON', 'UFC Karşılaştırma', 'Iki dovuscu arasinda teknik karsilastirma.')}
       <div class="ufcx-grid">
         <article class="ufcx-module">
-          <header><span>SE�IM</span><h2>D�v�s�� A se�</h2></header>
-          <label for="ufcxCompareA">D�v�s�� A</label>
+          <header><span>SEÇIM</span><h2>Dövüsçü A seç</h2></header>
+          <label for="ufcxCompareA">Dövüsçü A</label>
           <select id="ufcxCompareA" onchange="location.assign('/ufc/compare/?a=' + this.value);">
-            <option value="">Se�</option>
+            <option value="">Seç</option>
             ${options.map(item => `<option value="${escapeHtml(item.id)}" ${item.id===aName?'selected':''}>${escapeHtml(item.label)}</option>`).join('')}
           </select>
-          <label for="ufcxCompareB">D�v�s�� B</label>
+          <label for="ufcxCompareB">Dövüsçü B</label>
           <select id="ufcxCompareB" onchange="location.assign('/ufc/compare/?a=${escapeHtml(idA)}&b=' + this.value);">
-            <option value="">Se�</option>
+            <option value="">Seç</option>
             ${options.map(item => `<option value="${escapeHtml(item.id)}" ${item.id===bName?'selected':''}>${escapeHtml(item.label)}</option>`).join('')}
           </select>
         </article>
@@ -425,7 +425,7 @@
     ].map(([label, aVal, bVal]) => compareMetric(label, aVal, bVal));
 
     host.innerHTML = `
-      ${head('COMPARE', 'D�v�s�� Karsilastirma', `${val(left.name || left.fighterName)} vs ${val(right.name || right.fighterName)}`)}
+      ${head('COMPARE', 'Dövüsçü Karşılaştırma', `${val(left.name || left.fighterName)} vs ${val(right.name || right.fighterName)}`)}
       <div class="ufcx-grid">
         <article class="ufcx-module">
           ${fighterCard(left)}
@@ -466,12 +466,12 @@
     const stB = unwrap(stPayloadB) || {};
     const statLine = (item, st) => `
       <article class="ufcx-module">
-        <header><span>${escapeHtml(item.corner || 'Corner').toUpperCase()}</span><h2>${escapeHtml(val(item.fighterName || item.name || item.profile?.name, 'Dovuscu'))}</h2></header>
+        <header><span>${escapeHtml(item.corner || 'Corner').toUpperCase()}</span><h2>${escapeHtml(val(item.fighterName || item.name || item.profile?.name, 'Dövüşçü'))}</h2></header>
         <div class="ufcx-facts">
-          <div><small>Vurus/RA</small><b>${escapeHtml(val(st.significantStrikes || st.sigStrikesLanded, '�'))}</b></div>
-          <div><small>Yerdeki s�re</small><b>${escapeHtml(val(st.totalStrikesLanded || st.sigStrikesAttempted, '�'))}</b></div>
-          <div><small>Takla</small><b>${escapeHtml(val(st.takedowns || st.takedownAvgPer15Min, '�'))}</b></div>
-          <div><small>Submission</small><b>${escapeHtml(val(st.submissionAttempts || st.submissionAvgPer15Min, '�'))}</b></div>
+          <div><small>Vurus/RA</small><b>${escapeHtml(val(st.significantStrikes || st.sigStrikesLanded, '—'))}</b></div>
+          <div><small>Yerdeki süre</small><b>${escapeHtml(val(st.totalStrikesLanded || st.sigStrikesAttempted, '—'))}</b></div>
+          <div><small>Takla</small><b>${escapeHtml(val(st.takedowns || st.takedownAvgPer15Min, '—'))}</b></div>
+          <div><small>Submission</small><b>${escapeHtml(val(st.submissionAttempts || st.submissionAvgPer15Min, '—'))}</b></div>
         </div>
       </article>`;
 
