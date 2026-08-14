@@ -118,7 +118,7 @@
   };
 
   const fighterCard = fighter => {
-    const name = val(fighter.name ?? fighter.fighterName ?? fighter.profile?.name, 'Dövüşçü');
+    const name = fighterNameOf(fighter) || 'Dövüşçü';
     const image = fighterImage(fighter);
     return `<a class="ufcx-fighter" href="/ufc/fighters/${escapeHtml(fighter.slug || fighter.fighterSlug || fighter.id || slugify(name))}/">
       <img src="${escapeHtml(image)}" data-fallback="${escapeHtml(fallbackImage(fighter))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHtml(name)}">
@@ -188,7 +188,7 @@
       <div class="ufcx-grid">
         <article class="ufcx-module">
           <header><span>GUVEN</span><h2>Toplu Dövüşçüler</h2></header>
-          ${(Array.isArray(rowsOf(athletes)) ? rowsOf(athletes) : []).filter(item => val(item?.name || item?.fighterName || item?.profile?.name, '')).map(fighterCard).slice(0, 4).join('') || emptyState('Dövüşçü bulunamadi')}
+          ${(Array.isArray(rowsOf(athletes)) ? rowsOf(athletes) : []).filter(item => fighterNameOf(item)).map(fighterCard).slice(0, 4).join('') || emptyState('Dövüşçü bulunamadi')}
         </article>
         <article class="ufcx-module">
           <header><span>RANKING</span><h2>Gunluk Zirve</h2></header>
@@ -231,7 +231,7 @@
   async function renderFighters(id) {
     if (!id) {
       const searchResult = await api('search?q=a&limit=80').catch(() => ({ data: [] }));
-      const fighters = rowsOf(searchResult).filter(item => val(item?.name || item?.fighterName || item?.profile?.name, ''));
+      const fighters = rowsOf(searchResult).filter(item => fighterNameOf(item));
       host.innerHTML = `${head('FIGHTER ROSTER', 'UFC Dövüşçüleri', 'Sıklet, ülke, kilo ve kayıt bilgileri.')}
         <div class="ufcx-grid">${fighters.length ? fighters.slice(0, 60).map(fighterCard).join('') : emptyState('Dövüşçü bulunamadi')}
       `;
