@@ -520,6 +520,7 @@ assert.match(appCss, /v175[\s\S]*ski-hero-v1\.webp/, 'Kayak sinematik hero asset
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.match(readme, /4\. Kayak/, 'README Kayak bransini aktif navigasyonda gostermeli.');
 assert.match(appCss, /v176[\s\S]*grid-template-areas:"main live" "lower lower"/, 'Futbol ana sayfasi mac programini onceleyen iki seviyeli duzeni kullanmali.');
+assert.match(appCss, /v177[\s\S]*minmax\(400px,420px\)[\s\S]*max-width:1180px/, 'Futbol panelleri dar alanda sikismak yerine tek kolona gecmeli.');
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');
 assert.match(motorsportsSource, /Hızın veriye dönüştüğü merkez/, 'Motor sporlari basligi dogru Turkce metni kullanmali.');
 assert.match(appCss, /v174/, 'Guncel ana sayfa ve spor merkezleri CSS katmani bulunmali.');
