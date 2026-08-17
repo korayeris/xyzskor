@@ -1583,7 +1583,7 @@ async function handleFootballMatchday(request, env) {
 
   try {
     const providerResult = await sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token);
-    const row = providerResult?.data?.data || providerResult?.data || {};
+    const row = providerResult?.payload?.data || providerResult?.payload || {};
     const fixture = normalizeProviderFixture(row, "sportmonks");
     const details = normalizeSportmonksFixtureDetails(row);
     const participants = relationRows(row.participants);
