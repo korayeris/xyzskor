@@ -19,11 +19,11 @@
     nascar: ['NASCAR Cup Series', '#f0c83f', 'stock']
   };
   const viewRegistry = {
-    formula: [['overview', 'Overview'], ['calendar', 'Calendar'], ['results', 'Results'], ['standings', 'Standings'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['circuits', 'Circuits'], ['live', 'Live']],
-    moto: [['overview', 'Overview'], ['calendar', 'Calendar'], ['results', 'Results'], ['standings', 'Standings'], ['riders', 'Riders'], ['teams', 'Teams'], ['live', 'Live']],
-    rally: [['overview', 'Overview'], ['calendar', 'Calendar'], ['stages', 'Stages'], ['results', 'Results'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['live', 'Live']],
-    endurance: [['overview', 'Overview'], ['calendar', 'Calendar'], ['results', 'Results'], ['standings', 'Standings'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['live', 'Live']],
-    stock: [['overview', 'Overview'], ['calendar', 'Calendar'], ['stages', 'Stages'], ['results', 'Results'], ['standings', 'Standings'], ['drivers', 'Drivers'], ['teams', 'Teams'], ['live', 'Live']]
+    formula: [['overview', 'Genel'], ['calendar', 'Takvim'], ['results', 'Sonuçlar'], ['standings', 'Sıralama'], ['drivers', 'Pilotlar'], ['teams', 'Takımlar'], ['circuits', 'Pistler'], ['live', 'Canlı']],
+    moto: [['overview', 'Genel'], ['calendar', 'Takvim'], ['results', 'Sonuçlar'], ['standings', 'Sıralama'], ['riders', 'Sürücüler'], ['teams', 'Takımlar'], ['live', 'Canlı']],
+    rally: [['overview', 'Genel'], ['calendar', 'Takvim'], ['stages', 'Etaplar'], ['results', 'Sonuçlar'], ['drivers', 'Pilotlar'], ['teams', 'Takımlar'], ['live', 'Canlı']],
+    endurance: [['overview', 'Genel'], ['calendar', 'Takvim'], ['results', 'Sonuçlar'], ['standings', 'Sıralama'], ['drivers', 'Pilotlar'], ['teams', 'Takımlar'], ['live', 'Canlı']],
+    stock: [['overview', 'Genel'], ['calendar', 'Takvim'], ['stages', 'Etaplar'], ['results', 'Sonuçlar'], ['standings', 'Sıralama'], ['drivers', 'Pilotlar'], ['teams', 'Takımlar'], ['live', 'Canlı']]
   };
   const resourceMap = {
     calendar: 'events', results: 'events', standings: 'standings-drivers',
@@ -171,7 +171,7 @@
   function shell(slug) {
     const [label, accent, discipline] = series[slug] || ['Motor Sporlari', '#ef3e4f', 'hub'];
     const detail = Boolean(series[slug]);
-    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><div class="xms-hero-copy"><span>XYZSKOR / SPORTS INTELLIGENCE</span><h1>${detail ? label : 'Hizin veriye donustugu merkez.'}</h1><p>${detail ? 'Seriye ozel takvim, sonuc, siralama ve canli veri deneyimi.' : 'Formula, motosiklet, rally, endurance ve stock car serilerini tek teknik veri mimarisinde takip et.'}</p><b>PROVIDER DATA</b></div><div class="xms-hero-visual" aria-hidden="true"><i></i><strong>${detail ? label : 'MOTORSPORT'}</strong><em>${discipline === 'rally' ? 'STAGE' : discipline === 'endurance' ? '24H' : discipline === 'moto' ? 'RACE' : discipline === 'stock' ? 'STAGE 01' : 'P1'}</em></div></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuc / Siralama</span></a>`).join('')}</article>`).join('')}</section><section class="xms-hub-feed" id="xmsHubData" aria-live="polite"><div class="xms-loading"><i></i><span>Sezon vitrini hazırlanıyor</span></div></section>`}<nav class="xms-mobile"><a href="/motorsports">Home</a><a data-mobile-view="live" href="#live">Live</a><a data-mobile-view="calendar" href="#calendar">Calendar</a><a data-mobile-view="standings" href="#standings">Standings</a><a href="#more">More</a></nav></main>`;
+    return `<main class="xms-shell xms-${discipline}" style="--xms-accent:${accent}"><header class="xms-hero"><div class="xms-hero-copy"><span>XYZSKOR / MOTOR SPORLARI</span><h1>${detail ? label : 'Hızın veriye dönüştüğü merkez.'}</h1><p>${detail ? 'Seriye özel takvim, sonuç, sıralama ve canlı veri deneyimi.' : 'Formula, motosiklet, ralli, dayanıklılık ve stock car serilerini tek merkezden seç.'}</p><b>DOĞRULANMIŞ VERİ</b></div><div class="xms-hero-visual" aria-hidden="true"><i></i><strong>${detail ? label : 'MOTORSPORT'}</strong><em>${discipline === 'rally' ? 'ETAP' : discipline === 'endurance' ? '24H' : discipline === 'moto' ? 'YARIŞ' : discipline === 'stock' ? 'ETAP 01' : 'P1'}</em></div></header>${detail ? `${classSwitch(slug)}<nav class="xms-series-nav">${viewsFor(slug).map(([key, text], index) => `<button data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${text}</button>`).join('')}</nav><section id="xmsData" class="xms-data-stage" aria-live="polite"></section>` : `<section class="xms-catalog">${groups.map(([group, items]) => `<article><small>${group}</small>${items.map(([name, key]) => `<a href="/motorsports/${key}"><strong>${name}</strong><span>Takvim / Sonuç / Sıralama</span></a>`).join('')}</article>`).join('')}</section><section class="xms-hub-feed" id="xmsHubData" aria-live="polite"><div class="xms-loading"><i></i><span>Sezon vitrini hazırlanıyor</span></div></section>`}<nav class="xms-mobile"><a href="/motorsports">Merkez</a><a data-mobile-view="live" href="#live">Canlı</a><a data-mobile-view="calendar" href="#calendar">Takvim</a><a data-mobile-view="standings" href="#standings">Sıralama</a><a href="#more">Seriler</a></nav></main>`;
   }
   async function loadHub() {
     const host = document.getElementById('xmsHubData');
@@ -203,7 +203,6 @@
     if(!slug) updateMotorTicker('formula-1', []);
     document.querySelectorAll('body > .wrap, #multiSportHub, .sport-branch-nav').forEach(element => { element.hidden = true; });
     nav.insertAdjacentHTML('afterend', shell(slug));
-    document.querySelectorAll('.xms-primary').forEach(element => element.remove());
     if (!slug) loadHub();
     if (!series[slug]) return;
     const activate = view => {

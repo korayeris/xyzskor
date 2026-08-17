@@ -1,40 +1,27 @@
 # XYZSKOR
 
 XYZSKOR; koyu, teknik ve mobil uyumlu bir yayın deneyiminde canlı futbol
-skorları ve ücretsiz tahmin yarışması sunan bir platformdur. Basketbol, voleybol,
-motor sporları, UFC ve diğer branşlar için altyapı kodu depoda mevcuttur ancak
-**henüz yayında değildir** (bkz. "Yayında olmayan branşlar").
+skorları, ücretsiz tahmin yarışması ve doğrulanmış sağlayıcı kapsamındaki çoklu
+spor merkezlerini sunan bir platformdur.
 
 Canlı site: <https://xyzskor-tr.korayeris2002.chatgpt.site>
 
 ## Ürün kapsamı
 
-Ana navigasyon (yayında olan, `index.html` içindeki gerçek sekmeler):
+Ana navigasyon:
 
 1. Futbol
-2. Predict
+2. Basketbol
+3. Voleybol
+4. Motor Sporları
+5. UFC
+6. Amerikan Futbolu
+7. Diğer: Buz Hokeyi, Rugby, Beyzbol, Hentbol, Avustralya Futbolu
+8. Predict
 
-`switchMainTab()` yalnızca `football` ve `predict` değerlerini tanır; başka her
-değer Futbol ekranına düşer (`assets/js/live.js`).
-
-### Yayında olmayan branşlar
-
-Aşağıdaki branşlar için JS dosyaları depoda mevcut ve production paketine dahil
-ediliyor, ancak **kullanıcı bunlara erişemiyor**: `index.html` içinde bekledikleri
-DOM konteynerleri (`multiSportHub`, `xmsData`, `ufcHub`, `sportBranches`) yok, bu
-yüzden dosyalar guard'larında erken çıkıp sessizce atıl kalıyor.
-
-| Branş | Dosya | Durum |
-| --- | --- | --- |
-| Basketbol, voleybol, diğer branşlar | `assets/js/multisport.js` | Kod var, ekran yok |
-| Motor sporları (F1, MotoGP, WRC, WEC, NASCAR) | `assets/js/motorsports.js` | Kod var, ekran yok |
-| UFC | `assets/js/ufc-hub.js` | Kod var, ekran yok |
-| Branş seçici | `assets/js/sport-branches.js` | Kod var, ekran yok |
-
-Bu branşları yayına almak için DOM konteynerlerinin eklenmesi, `switchMainTab()`
-kapsamının genişletilmesi ve ilgili sağlayıcı anahtarlarının gerçek veri
-döndürdüğünün doğrulanması gerekir. Veri dönmeyen bir sekmeyi açmak, kapalı
-sekmeden kötüdür.
+Branş kabukları `sport-branches.js` tarafından oluşturulur. Çoklu spor sayfaları
+yalnızca kendi sağlayıcı verisini gösterir; veri bulunmazsa başka branştan fallback
+üretmek yerine açık bir “program bekleniyor” durumu yayınlar.
 
 Temel özellikler (yayında):
 
@@ -45,11 +32,11 @@ Temel özellikler (yayında):
 - Üye, admin ve editoryal yetkilendirme
 - Mobil ve masaüstü için ortak responsive tasarım
 
-Kod hazır, yayında değil:
+Branş merkezleri:
 
-- Formula 1, MotoGP, WRC, WEC ve NASCAR yarış takvimleri
+- Formula 1, Formula E, IndyCar, MotoGP, WRC, WEC, Le Mans ve NASCAR
 - UFC etkinlikleri, dövüş kartları, dövüşçü profilleri ve sıralamalar
-- Basketbol, voleybol ve diğer branş akışları
+- Basketbol, voleybol ve diğer branşların maç, lig ve takım görünümleri
 
 XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun istatistiksel girdisi ve karşılaştırma verisi olarak kullanılabilir. Para yatırma, kupon, bahis oynama veya ödeme akışı bulunmaz.
 
@@ -202,4 +189,3 @@ Production dağıtımı `.openai/hosting.json` içindeki mevcut Sites projesine 
 - Sosyal medya içeriğini platformun resmî API veya embed sistemiyle göster.
 - Oranları bahis çağrısı olarak değil, ücretsiz tahmin verisi olarak sun.
 - Kaynak, güncelleme zamanı ve veri durumu kullanıcıya görünür olmalıdır.
-

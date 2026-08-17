@@ -992,6 +992,13 @@ function explicitMatchState(m){
   if(getResult(m.id)) return { label:'Bitti', live:false };
   return { label:new Date(m.kickoff).getTime()>Date.now() ? 'Yaklaşan' : 'Durum bekleniyor', live:false };
 }
+function matchIsCurrentFixture(match){
+  if(!match) return false;
+  const status=String(match.status||match.state||'').toLocaleLowerCase('tr-TR');
+  if(/finished|ended|after|ft|tamamland/.test(status) || getResult(match.id)) return false;
+  const kickoff=new Date(match.kickoff).getTime();
+  return Number.isFinite(kickoff) && kickoff>Date.now()-3*60*60*1000;
+}
 function footballQuickMatchRows(){
   const base=MATCHES.filter(match=>matchInActiveLeague(match) && matchInActiveTeam(match));
   const live = base.filter(m=>m.status==='canlı' || m.status==='devre_arasi');
@@ -1119,7 +1126,7 @@ function leagueEditorialBaseEntries(){
   const label=competitionLabelBySlug(league);
   const summary=officialSeasonSummaryForLeague(league);
   const standings=standingRowsForActiveLeague().slice(0,5);
-  const upcoming=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,3);
+  const upcoming=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,3);
   const transfers=leagueTransferRecords('confirmed').slice(0,4);
   const rumours=leagueTransferRecords('rumours').slice(0,3);
   const entries=[];
@@ -1207,11 +1214,20 @@ function leagueEditorialEntries(){
   });
 }
 function contextualEditorialEntries(){
+  const currentOnly=entries=>entries.filter(item=>{
+    const match=item?.relatedMatch;
+    if(!match?.kickoff) return true;
+    const kickoff=new Date(match.kickoff).getTime();
+    if(!Number.isFinite(kickoff)) return true;
+    const status=String(match.status||match.state||'').toLocaleLowerCase('tr-TR');
+    if(/finished|ended|after|ft|tamamland/.test(status)) return false;
+    return kickoff>Date.now()-3*60*60*1000;
+  });
   if(activeFootballLeague==='super-lig'){
-    const primary=editorialNewsEntries();
+    const primary=currentOnly(editorialNewsEntries());
     return primary.length ? primary : leagueEditorialBaseEntries();
   }
-  return leagueEditorialEntries();
+  return currentOnly(leagueEditorialEntries());
 }
 function footballNewsCardHTML(item,index){
   const image=safeExternalURL(item.image);
@@ -1224,7 +1240,7 @@ function renderFootballFeatured(){
   if(activeFootballLeague!=='super-lig'){
     const ctx=activeLeagueContext();
     const summary=officialSeasonSummaryForLeague(activeFootballLeague);
-    const leadMatch=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
+    const leadMatch=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
     const supporting=[
       summary?`${summary.season} sezon şampiyonu ${summary.champion}`:'',
       summary?.standout?`${summary.standoutLabel}: ${summary.standout}`:'',
@@ -1234,12 +1250,17 @@ function renderFootballFeatured(){
     return;
   }
   const story=WEEKLY_STORIES[activeWeek];
-  if(!story || !story.is_published){
-    const fallback=leagueEditorialEntries()[0];
+  const storyMatch=publishedStoryCards().map(editorialRelatedMatch).find(Boolean);
+  const storyKickoff=storyMatch?.kickoff?new Date(storyMatch.kickoff).getTime():NaN;
+  const storyFinished=storyMatch && (/finished|ended|after|ft|tamamland/i.test(String(storyMatch.status||storyMatch.state||'')) || (Number.isFinite(storyKickoff) && storyKickoff<Date.now()-3*60*60*1000));
+  if(!story || !story.is_published || storyFinished){
+    const fallback=contextualEditorialEntries()[0];
     if(fallback){
       area.innerHTML=`<div class="football-module-kicker">${escapeHTML(competitionLabelBySlug(activeFootballLeague))} · GÜNCEL BAĞLAM</div><h2>${escapeHTML(fallback.title)}</h2><p>${escapeHTML(fallback.text||activeLeagueContext().copy)}</p><div class="featured-source">${escapeHTML(fallback.source||'XYZSKOR yayın masası')}</div><div class="headline-actions"><button type="button" onclick="openFootballSection(fallback.routeTarget||'news')">Detaya git →</button></div>`;
       return;
     }
+    area.innerHTML=footballEmpty('Güncel gündem bekleniyor','Oynanmış maçlar öne çıkanlardan kaldırıldı. Yeni doğrulanmış kayıt geldiğinde bu alan otomatik güncellenecek.');
+    return;
   }
   const source = story?.source ? `Kaynak: ${escapeHTML(story.source)}` : '';
   const checked = story?.verified_at || story?.published_at || story?.updated_at;
@@ -2288,7 +2309,7 @@ function renderFootballNews(){
     const label=competitionLabelBySlug(league);
     const summary=officialSeasonSummaryForLeague(league);
     const standings=standingRowsForActiveLeague().slice(0,5);
-    const upcoming=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,3);
+    const upcoming=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,3);
     const transfers=leagueTransferRecords('confirmed').slice(0,4);
     const rumours=leagueTransferRecords('rumours').slice(0,3);
     const entries=[];
@@ -2313,12 +2334,12 @@ function renderFootballNews(){
         return;
       }
       const summary=officialSeasonSummaryForLeague(activeFootballLeague);
-      const leadMatch=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
+      const leadMatch=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
       const supporting=[summary?`${summary.season} sezon şampiyonu ${summary.champion}`:'',summary?.standout?`${summary.standoutLabel}: ${summary.standout}`:'',leadMatch?`Sıradaki maç: ${leadMatch.ev} – ${leadMatch.konuk}`:''].filter(Boolean).join(' · ');
       area.innerHTML=`<div class="football-module-kicker">${escapeHTML(competitionLabelBySlug(activeFootballLeague))} · MERKEZ</div><h2>${escapeHTML(ctx.headline)}</h2><p>${escapeHTML(ctx.copy)}</p>${supporting?`<div class="featured-source">${escapeHTML(supporting)}</div>`:''}<div class="headline-actions"><button type="button" onclick="openFootballSection('matches')">Maçlara geç →</button><button type="button" onclick="openFootballSection('standings')">Tabloyu aç →</button></div>`;
       return;
     }
-    const weekMatches=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,9);
+    const weekMatches=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,9);
     const opening=weekMatches[0];
     if(opening){
       const firstDate=fmtEditorialDate(opening.kickoff);
@@ -2395,7 +2416,7 @@ function renderFootballNews(){
     const area=document.getElementById('footballTransferStream'); if(!area) return;
     const isHeadline=item=>item && !['transfer','rumour','transfer_development'].includes(String(item.kind||item.category||item.type||'').toLocaleLowerCase('tr-TR')) && !/salah/i.test(`${item.title||''} ${item.text||''}`);
     const apiEntries=editorialNewsEntries().filter(isHeadline);
-    const openingMatch=activeFootballLeague==='super-lig'?matchesForActiveLeague().filter(match=>matchInActiveTeam(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0]:null;
+    const openingMatch=activeFootballLeague==='super-lig'?matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0]:null;
     const liveOpening=openingMatch?{label:'1. HAFTA · CANLI FİKSTÜR',source:'Sportmonks Football API',title:`${openingMatch.ev} – ${openingMatch.konuk}: sezonun açılışı`,text:`${fmtKickoff(openingMatch.kickoff)} tarihinde oynanacak açılış karşılaşmasıyla Süper Lig'de yeni sezon başlıyor.`,time:openingMatch.kickoff,image:null,imageType:'none'}:null;
     const primary=liveOpening || apiEntries[0] || contextualEditorialEntries().find(isHeadline);
     if(!primary){

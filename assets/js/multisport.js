@@ -15,6 +15,9 @@
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
+  const SPORT_LEAGUE_CATALOG = {
+    volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi']
+  };
 
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -127,6 +130,16 @@
       </section>`;
   }
 
+  function volleyballPortalHTML(items, leagueNames){
+    const schedule=items.slice(0,10).map(cardHTML).join('');
+    const leagues=leagueNames.map(name=>{
+      const count=items.filter(item=>(item.league||item.category)===name).length;
+      return `<button type="button" data-volley-league="${escapeHTML(name)}"><span>${escapeHTML(name)}</span><b>${count?`${count} maç`:'Program bekleniyor'}</b></button>`;
+    }).join('');
+    return `<section class="volley-command"><div><span>VOLEYBOL MERKEZİ</span><h2>Ligler ve güncel program</h2><p>Yalnızca sağlayıcının doğruladığı karşılaşmalar gösterilir.</p></div><button type="button" data-volley-view="leagues">Tüm ligler →</button></section>
+      <section class="volley-layout"><aside class="volley-leagues"><header><span>LİGLER</span><h3>Organizasyon seç</h3></header>${leagues}</aside><div class="volley-schedule">${schedule||'<div class="multi-event-empty"><strong>Voleybol programı bekleniyor.</strong><span>Lig seçimi kullanılabilir; doğrulanmış maç verisi geldiğinde program otomatik dolacak.</span></div>'}</div></section>`;
+  }
+
   function render(payload){
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
@@ -160,7 +173,7 @@
       leagueStrip.className = 'multi-league-strip';
       viewNav.after(leagueStrip);
     }
-    const leagueNames = [...new Set(allItems.map(item => item.league || item.category).filter(Boolean))];
+    const leagueNames = [...new Set([...(SPORT_LEAGUE_CATALOG[activeSport]||[]),...allItems.map(item => item.league || item.category).filter(Boolean)])];
     leagueStrip.hidden = !leagueNames.length;
     leagueStrip.innerHTML = leagueNames.length ? [['all','Tumu'],...leagueNames.slice(0,14).map(name=>[name,name])].map(([key,label])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}">${escapeHTML(label)}</button>`).join('') : '';
     leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.league;render(payload)}));
@@ -171,6 +184,12 @@
         activeLeague = button.dataset.basketLeague;
         render(payload);
       }));
+      return;
+    }
+    if(activeSport === 'volleyball' && activeView === 'home'){
+      grid.innerHTML=volleyballPortalHTML(items,leagueNames);
+      grid.querySelectorAll('[data-volley-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.volleyLeague;render(payload)}));
+      grid.querySelector('[data-volley-view]')?.addEventListener('click',()=>openHub(activeSport,'leagues',true));
       return;
     }
     if(activeView === 'leagues'){
@@ -245,7 +264,7 @@
     const buttons = [
       ['basketball','Basketbol'],
       ['mma','UFC'],
-      ['volleyball','Diğer Sporlar']
+      ['volleyball','Voleybol']
     ];
     buttons.forEach(([key,label]) => {
       const button = document.createElement('button');
