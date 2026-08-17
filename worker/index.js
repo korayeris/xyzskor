@@ -1448,6 +1448,26 @@ function utcDateWithOffset(days) {
   return date.toISOString().slice(0, 10);
 }
 
+async function fetchFixtureTeamContext(team, fixtureId, token) {
+  if (!team?.id) return null;
+  try {
+    const path = `/fixtures/between/${utcDateWithOffset(-120)}/${utcDateWithOffset(60)}/${encodeURIComponent(team.id)}?include=participants;scores;league;state&per_page=50`;
+    const payload = await sportmonksRequest(path, token);
+    const now = Date.now();
+    const matches = relationRows(payload?.data).filter((item) => String(item?.id) !== String(fixtureId)).map((item) => {
+      const participants = relationRows(item?.participants);
+      const opponent = participants.find((participant) => String(participant?.id) !== String(team.id)) || {};
+      const ownScore = sportmonksScore(item?.scores, team.id), opponentScore = sportmonksScore(item?.scores, opponent.id);
+      const start = Date.parse(item?.starting_at || "");
+      const finished = Number.isFinite(ownScore) && Number.isFinite(opponentScore) && (start < now || /FT|AET|PEN/i.test(String(item?.state?.short_name || "")));
+      return { id:item?.id || null, kickoff:item?.starting_at || null, league:item?.league?.name || null, opponent:opponent?.name || "Rakip", opponent_logo:opponent?.image_path || null, score:finished ? { team:ownScore, opponent:opponentScore } : null, result:finished ? (ownScore > opponentScore ? "W" : ownScore < opponentScore ? "L" : "D") : null, finished, start };
+    }).filter((item) => Number.isFinite(item.start));
+    return { team_id:team.id, team:team.name || null, team_logo:team.image_path || null, recent:matches.filter((item) => item.finished).sort((a,b)=>b.start-a.start).slice(0,5).reverse(), next:matches.filter((item) => !item.finished && item.start > now).sort((a,b)=>a.start-b.start)[0] || null };
+  } catch (_) {
+    return { team_id:team.id, team:team.name || null, team_logo:team.image_path || null, recent:[], next:null, unavailable:true };
+  }
+}
+
 async function fetchSportmonksLeagueWindow(leagueKey, leagueId, token, priorErrors = []) {
   const windows = [[-150,-61],[-60,29],[30,119],[120,209],[210,299]];
   const requests = windows.map(([from,to]) => sportmonksRequest(`/fixtures/between/${utcDateWithOffset(from)}/${utcDateWithOffset(to)}?include=participants;scores;league.country;state;venue&filters=fixtureLeagues:${encodeURIComponent(leagueId)}&per_page=50`, token));
@@ -1579,13 +1599,14 @@ async function handleFootballMatchday(request, env) {
     const kickoff = Date.parse(fixture?.kickoff_utc || row?.starting_at || "");
     const distance = Number.isFinite(kickoff) ? kickoff - Date.now() : Infinity;
     const maxAge = distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
+    const teamContexts = await Promise.all([fetchFixtureTeamContext(home, fixtureId, token), fetchFixtureTeamContext(away, fixtureId, token)]);
     return jsonResponse({
       source: "Sportmonks Football API",
       provider: "sportmonks",
       updatedAt: new Date().toISOString(),
       degraded: Boolean(providerResult?.degraded),
       fixture: { ...fixture, score: { home: scoreFor(home), away: scoreFor(away) } },
-      details
+      details: { ...details, teamContexts:teamContexts.filter(Boolean) }
     }, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=15` });
   } catch (error) {
     return jsonResponse({ error: "matchday_fetch_failed", message: safeErrorMessage(error), provider: "sportmonks" }, 502, { "Cache-Control": "no-store" });
