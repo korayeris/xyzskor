@@ -458,6 +458,23 @@ assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|
 assert.match(matchdayLiveSource, /\/api\/football\/season\?league=super-lig/, 'Parametre yokken fixture sezon verisinden cozulmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
 assert.match(documentHtml, /<h2 id="matchdayTitle"><\/h2><p>Maç bilgisi yükleniyor<\/p>/, 'Kaynak HTML yalnizca notr mac placeholderi icermeli.');
+// Lisanssiz gorsel hotlink regresyonu. Kaynak agacinin tamaminda yasakli
+// hostlar aranir; boylece ayni portre baska bir bilesene tasinarak geri gelemez.
+const forbiddenImageHosts = /(?:img\.a\.transfermarkt\.technology|images\.fotmob\.com)/i;
+assert.doesNotMatch([documentHtml, appCss, appSource, workerSource].join('\n'), forbiddenImageHosts, 'Transfermarkt veya FotMob portre hotlinki kaynaklara girmemeli.');
+const imageDirective = workerSource.match(/"img-src ([^"]+)"/);
+assert.ok(imageDirective, 'Worker CSP img-src direktifi bulunmali.');
+assert.doesNotMatch(imageDirective[1], /(?:^|\s)https:(?:\s|$)/, 'CSP img-src genel https: wildcard icermemeli.');
+assert.match(appCss, /v172/, 'Tipografik gorsel placeholder CSS katmani bulunmali.');
+
+// Coverage istemcide uzun omurlu tek cache uzerinden okunur. Endpoint hatasi
+// fail-open kalmali; yardimci kontrol asil lig veri akisini bloke etmemeli.
+assert.match(dataSource, /FOOTBALL_COVERAGE_CACHE_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/, 'Coverage istemci cache suresi bir saat olmali.');
+assert.match(dataSource, /fetch\(['"]\/api\/football\/coverage['"]/, 'Coverage endpointi frontend tarafindan cagrilmali.');
+assert.match(dataSource, /catch\(_error\)[\s\S]*?return null/, 'Coverage hatasi fail-open davranmali.');
+assert.match(liveFunctionSource('selectFootballLeague'), /footballCoverageUnavailable\(activeFootballLeague\)/, 'Lig secimi kapsam disi durumu kontrol etmeli.');
+assert.match(liveFunctionSource('renderFootballLeaguePickerInto'), /is-unavailable/, 'Lig secici kapsam disi ligi tiklamadan once isaretlemeli.');
+assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.
 // Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim

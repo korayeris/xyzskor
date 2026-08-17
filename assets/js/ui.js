@@ -547,22 +547,9 @@ function setTransferClubFilter(team){
   activeTransferClub=clubs.includes(team)?team:'all';
   renderTransferCenter();
 }
-const TRANSFER_PLAYER_PHOTOS=Object.freeze({
-  'Mason Greenwood':'https://images.fotmob.com/image_resources/playerimages/950473.png',
-  'Orkun Kökçü':'https://images.fotmob.com/image_resources/playerimages/935409.png',
-  'Leandro Trossard':'https://images.fotmob.com/image_resources/playerimages/318615.png',
-  'Vedat Muriqi':'https://images.fotmob.com/image_resources/playerimages/517052.png',
-  'Nathan Aké':'https://images.fotmob.com/image_resources/playerimages/417068.png',
-  'Kassoum Ouattara':'https://images.fotmob.com/image_resources/playerimages/1387194.png',
-  'Alexander Nübel':'https://images.fotmob.com/image_resources/playerimages/554534.png',
-  'Metehan Mimaroğlu':'https://images.fotmob.com/image_resources/playerimages/389181.png',
-  'Julio Enciso':'https://images.fotmob.com/image_resources/playerimages/1073742.png',
-  'Can Uzun':'https://images.fotmob.com/image_resources/playerimages/1367924.png',
-  'Jhon Lucumí':'https://images.fotmob.com/image_resources/playerimages/860913.png',
-  'Mathys Tel':'https://images.fotmob.com/image_resources/playerimages/1288111.png',
-  'Bruno Fernandes':'https://images.fotmob.com/image_resources/playerimages/422685.png',
-  'Rafael Leão':'https://images.fotmob.com/image_resources/playerimages/848844.png'
-});
+// Sabit portre hotlinkleri tutulmaz. Saglayici lisansli photo alani dondururse
+// kullanilir; aksi halde transferPlayerPhotoHTML tipografik bas harf gosterir.
+const TRANSFER_PLAYER_PHOTOS=Object.freeze({});
 const leagueTransferCache=new Map();
 const leagueTransferRequests=new Map();
 function leagueTeamNamesForKey(leagueKey){
@@ -588,7 +575,7 @@ function leagueTeamNamesForKey(leagueKey){
 }
 function transferPlayerPhotoHTML(item){
   const initials=item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join('');
-  const photo=item.photo||TRANSFER_PLAYER_PHOTOS[item.name];
+  const photo=safeExternalURL(item.photo||TRANSFER_PLAYER_PHOTOS[item.name]);
   return `<span class="transfer-player-photo" aria-hidden="true"><span>${escapeHTML(initials)}</span>${photo?`<img src="${photo}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>`;
 }
 function transferRowsFromCache(leagueKey,tab){
@@ -747,10 +734,12 @@ function applyFootballLeagueTheme(){
 }
 function renderFootballLeaguePickerInto(area){
   if(!area) return;
+  const coverageWasLoaded=Boolean(FOOTBALL_COVERAGE_CACHE?.expiresAt>Date.now());
+  if(!coverageWasLoaded) loadFootballCoverage().then(result=>{ if(result) renderMatchesLeagueFilters(); });
   applyFootballLeagueTheme();
   const commandTitle=document.getElementById('footballLeagueCommandTitle');
   if(commandTitle) commandTitle.textContent=competitionLabelBySlug(activeFootballLeague);
-  area.innerHTML=SELECTED_COMPETITIONS.map(item=>`<button class="${item.key===activeFootballLeague?'active':''}" type="button" data-match-league="${escapeHTML(item.key)}" aria-pressed="${item.key===activeFootballLeague}"><span>${escapeHTML(item.short)}</span><small>${escapeHTML(item.label)}</small></button>`).join('');
+  area.innerHTML=SELECTED_COMPETITIONS.map(item=>{ const unavailable=footballCoverageUnavailable(item.key); return `<button class="${item.key===activeFootballLeague?'active ':''}${unavailable?'is-unavailable':''}" type="button" data-match-league="${escapeHTML(item.key)}" aria-pressed="${item.key===activeFootballLeague}" aria-label="${escapeHTML(item.label)}${unavailable?' · sağlayıcı kapsamı dışında':''}"><span>${escapeHTML(item.short)}</span><small>${escapeHTML(item.label)}${unavailable?' · kapsam dışı':''}</small></button>`; }).join('');
   area.querySelectorAll('[data-match-league]').forEach(button=>{ button.onclick=()=>selectFootballLeague(button.dataset.matchLeague); });
 }
 function updateLeagueScopedCopy(){
@@ -819,7 +808,8 @@ function renderMatchesLeagueFilters(){
   renderFootballLeaguePickerInto(document.getElementById('footballLeagueStrip'));
   renderFootballLeaguePickerInto(document.getElementById('matchesLeagueFilters'));
 }
-function selectFootballLeague(key){
+function selectFootballLeague(key, coverageChecked){
+  if(!coverageChecked){ loadFootballCoverage().then(()=>selectFootballLeague(key,true)); return; }
   const previousLeague=activeFootballLeague;
   activeFootballLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'super-lig';
   activeFootballTeam='Tümü';
@@ -833,6 +823,12 @@ function selectFootballLeague(key){
   ALL_RESULTS={};
   WEEKLY_STORIES={};
   DATA_ERRORS={};
+  if(footballCoverageUnavailable(activeFootballLeague)){
+    DATA_ERRORS.coverage=footballCoverageMessage(activeFootballLeague);
+    renderAll();
+    if(typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
+    return;
+  }
   renderAll();
   const requestedLeague=activeFootballLeague;
   loadAllData().then(()=>{
@@ -2297,11 +2293,13 @@ function renderFootballNews(){
     };
   };
   const leagueProviderUnavailable = (leagueKey=activeFootballLeague) => {
+    if(footballCoverageUnavailable(leagueKey)) return true;
     if(leagueKey==='super-lig' || leagueKey==='all') return false;
     const state = leagueProviderHealth(leagueKey);
     return !state.hasMatches && !state.hasStandings;
   };
   const providerUnavailableMessage = (leagueKey=activeFootballLeague) => {
+    if(footballCoverageUnavailable(leagueKey)) return footballCoverageMessage(leagueKey);
     const label = competitionLabelBySlug(leagueKey);
     const transferState = leagueTransferCache.get(leagueKey);
     const specificError = (transferState?.errors || []).find(item => item?.message)?.message || '';

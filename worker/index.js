@@ -24,7 +24,7 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' https: data:",
+  "img-src 'self' data: https://cdn.sportmonks.com https://swhwmqbamzczztpfxctg.supabase.co https://cdn.mythos.cards https://upload.wikimedia.org https://pbs.twimg.com https://video.twimg.com https://i.ytimg.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com",
   "connect-src 'self' https://swhwmqbamzczztpfxctg.supabase.co wss://swhwmqbamzczztpfxctg.supabase.co",
   "frame-src https://www.google.com",
   "object-src 'none'",

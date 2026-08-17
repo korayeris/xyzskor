@@ -154,6 +154,43 @@ const SELECTED_COMPETITIONS = [
   { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL', sportmonksId:'5' },
   { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
 ];
+const FOOTBALL_COVERAGE_CACHE_MS = 60 * 60 * 1000;
+let FOOTBALL_COVERAGE_CACHE = null;
+let footballCoverageRequest = null;
+function footballCoverageState(leagueKey){
+  if(!FOOTBALL_COVERAGE_CACHE || FOOTBALL_COVERAGE_CACHE.expiresAt<=Date.now()) return null;
+  if(leagueKey==='all'){
+    const rows=[...FOOTBALL_COVERAGE_CACHE.leagues.values()];
+    return { available:rows.some(row=>row.available), partial:rows.some(row=>!row.available) };
+  }
+  return FOOTBALL_COVERAGE_CACHE.leagues.get(leagueKey) || null;
+}
+function footballCoverageUnavailable(leagueKey){ return footballCoverageState(leagueKey)?.available===false; }
+function footballCoverageMessage(leagueKey){
+  const label=competitionLabelBySlug(leagueKey);
+  return `${label} mevcut veri sağlayıcı aboneliğinde yer almıyor. Kapsam açıldığında doğrulanmış maç ve tablo verileri burada otomatik yayınlanacak.`;
+}
+async function loadFootballCoverage(){
+  if(FOOTBALL_COVERAGE_CACHE?.expiresAt>Date.now()) return FOOTBALL_COVERAGE_CACHE;
+  if(footballCoverageRequest) return footballCoverageRequest;
+  footballCoverageRequest=(async()=>{
+    try{
+      const response=await fetch('/api/football/coverage',{headers:{Accept:'application/json'}});
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok || !Array.isArray(payload?.selected)) throw new Error('coverage_unavailable');
+      FOOTBALL_COVERAGE_CACHE={
+        leagues:new Map(payload.selected.map(row=>[String(row.league),{available:row.available===true,currentSeasonId:row.currentSeasonId||null}])),
+        updatedAt:payload.updatedAt||null,
+        expiresAt:Date.now()+FOOTBALL_COVERAGE_CACHE_MS
+      };
+      return FOOTBALL_COVERAGE_CACHE;
+    }catch(_error){
+      // Coverage yardimci bir katmandir. 5xx veya ag hatasi lig akisini engellemez.
+      return null;
+    }finally{ footballCoverageRequest=null; }
+  })();
+  return footballCoverageRequest;
+}
 const LEAGUE_CONTEXT = {
   all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
   'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'Süper Lig puan durumu',transfer:'Süper Lig transfer gelişmeleri'},
@@ -382,24 +419,24 @@ const SUPER_LIG_CLUBS_2026_27 = [
 const CLUB_MARKET_SOURCE_URL = 'https://www.transfermarkt.com.tr/super-lig/teilnehmer/pokalwettbewerb/TR1/saison_id/2026';
 const CLUB_COACH_SOURCE_URL = 'https://www.transfermarkt.com.tr/super-lig/trainer/pokalwettbewerb/TR1';
 const CLUB_INTELLIGENCE_2026_27 = Object.freeze({
-  Alanyaspor:{marketValue:'€31,83 Mn',squadSize:26,averageAge:'25,7',coach:{name:'João Pereira',age:42,nationality:'Portekiz',tenure:'1 yıl 4 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/93770-1743415038.jpg?lm=1'}},
-  'Amed Sportif Faaliyetler':{marketValue:'€21,95 Mn',squadSize:28,averageAge:'27,3',coach:{name:'Besnik Hasi',age:54,nationality:'Arnavutluk',tenure:'1 ay',contract:'2028',image:'https://img.a.transfermarkt.technology/portrait/big/6408-1472031405.jpg?lm=1'}},
-  Beşiktaş:{marketValue:'€202,40 Mn',squadSize:34,averageAge:'25,6',coach:{name:'Vincenzo Italiano',age:48,nationality:'İtalya',tenure:'1 ay',contract:'2028',image:'https://img.a.transfermarkt.technology/portrait/big/47288-1780919203.png?lm=1'}},
-  'Çaykur Rizespor':{marketValue:'€44,85 Mn',squadSize:27,averageAge:'25,3',coach:{name:'Recep Uçar',age:50,nationality:'Türkiye',tenure:'8 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/22369-1705402717.jpg?lm=1'}},
-  'Çorum FK':{marketValue:'€18,38 Mn',squadSize:28,averageAge:'27,6',coach:{name:'Uğur Uçar',age:39,nationality:'Türkiye',tenure:'5 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/114189-1730214751.jpg?lm=1'}},
-  'Erzurumspor FK':{marketValue:'€14,55 Mn',squadSize:29,averageAge:'27,2',coach:{name:'Serkan Özbalta',age:47,nationality:'Türkiye',tenure:'11 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/59420-1771454778.png?lm=1'}},
-  Eyüpspor:{marketValue:'€12,15 Mn',squadSize:27,averageAge:'24,3',coach:{name:'Özhan Pulat',age:41,nationality:'Türkiye',tenure:'1 ay',contract:'Açıklanmadı',image:'https://img.a.transfermarkt.technology/portrait/big/71537-1714988760.jpg?lm=1'}},
-  Fenerbahçe:{marketValue:'€332,15 Mn',squadSize:41,averageAge:'27,6',coach:{name:'İsmail Kartal',age:65,nationality:'Türkiye',tenure:'1 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/6366-1696013891.png?lm=1'}},
-  Galatasaray:{marketValue:'€323,15 Mn',squadSize:34,averageAge:'25,9',coach:{name:'Okan Buruk',age:52,nationality:'Türkiye',tenure:'4 yıl 1 ay',contract:'Açıklanmadı',image:'https://img.a.transfermarkt.technology/portrait/big/23531-1660089259.png?lm=1'}},
-  'Gaziantep FK':{marketValue:'€23,15 Mn',squadSize:30,averageAge:'25,1',coach:{name:'Mirel Rădoi',age:45,nationality:'Romanya',tenure:'3 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/40857-1776865687.jpg?lm=1'}},
-  Gençlerbirliği:{marketValue:'€14,55 Mn',squadSize:26,averageAge:'25,6',coach:{name:'Metin Diyadin',age:58,nationality:'Türkiye',tenure:'2 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/5199-1766412972.jpg?lm=1'}},
-  Göztepe:{marketValue:'€67,45 Mn',squadSize:28,averageAge:'24,6',coach:{name:'Stanimir Stoilov',age:59,nationality:'Bulgaristan',tenure:'2 yıl 8 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/2934-1715433152.png?lm=1'}},
-  Başakşehir:{marketValue:'€84,30 Mn',squadSize:42,averageAge:'26,0',coach:{name:'Nuri Şahin',age:37,nationality:'Türkiye',tenure:'10 ay',contract:'2028',image:'https://img.a.transfermarkt.technology/portrait/big/96813-1718279923.jpg?lm=1'}},
-  Kasımpaşa:{marketValue:'€30,65 Mn',squadSize:39,averageAge:'24,7',coach:{name:'Emre Belözoğlu',age:45,nationality:'Türkiye',tenure:'7 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/82796-1757670593.jpg?lm=1'}},
-  Kocaelispor:{marketValue:'€18,65 Mn',squadSize:26,averageAge:'25,9',coach:{name:'Selçuk İnan',age:41,nationality:'Türkiye',tenure:'1 yıl 1 ay',contract:'2028',image:'https://img.a.transfermarkt.technology/portrait/big/83535-1751676312.png?lm=1'}},
-  Konyaspor:{marketValue:'€29,38 Mn',squadSize:23,averageAge:'26,3',coach:{name:'İlhan Palut',age:49,nationality:'Türkiye',tenure:'5 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/41916-1729152468.jpg?lm=1'}},
-  Samsunspor:{marketValue:'€49,65 Mn',squadSize:37,averageAge:'24,0',coach:{name:'Thorsten Fink',age:58,nationality:'Almanya',tenure:'5 ay',contract:'2027',image:'https://img.a.transfermarkt.technology/portrait/big/3770-1771344831.png?lm=1'}},
-  Trabzonspor:{marketValue:'€135,40 Mn',squadSize:32,averageAge:'26,5',coach:{name:'Fatih Tekke',age:48,nationality:'Türkiye',tenure:'1 yıl 4 ay',contract:'2029',image:'https://img.a.transfermarkt.technology/portrait/big/29046-1744382082.jpg?lm=1'}}
+  Alanyaspor:{marketValue:'€31,83 Mn',squadSize:26,averageAge:'25,7',coach:{name:'João Pereira',age:42,nationality:'Portekiz',tenure:'1 yıl 4 ay',contract:'2027'}},
+  'Amed Sportif Faaliyetler':{marketValue:'€21,95 Mn',squadSize:28,averageAge:'27,3',coach:{name:'Besnik Hasi',age:54,nationality:'Arnavutluk',tenure:'1 ay',contract:'2028'}},
+  Beşiktaş:{marketValue:'€202,40 Mn',squadSize:34,averageAge:'25,6',coach:{name:'Vincenzo Italiano',age:48,nationality:'İtalya',tenure:'1 ay',contract:'2028'}},
+  'Çaykur Rizespor':{marketValue:'€44,85 Mn',squadSize:27,averageAge:'25,3',coach:{name:'Recep Uçar',age:50,nationality:'Türkiye',tenure:'8 ay',contract:'2027'}},
+  'Çorum FK':{marketValue:'€18,38 Mn',squadSize:28,averageAge:'27,6',coach:{name:'Uğur Uçar',age:39,nationality:'Türkiye',tenure:'5 ay',contract:'2027'}},
+  'Erzurumspor FK':{marketValue:'€14,55 Mn',squadSize:29,averageAge:'27,2',coach:{name:'Serkan Özbalta',age:47,nationality:'Türkiye',tenure:'11 ay',contract:'2027'}},
+  Eyüpspor:{marketValue:'€12,15 Mn',squadSize:27,averageAge:'24,3',coach:{name:'Özhan Pulat',age:41,nationality:'Türkiye',tenure:'1 ay',contract:'Açıklanmadı'}},
+  Fenerbahçe:{marketValue:'€332,15 Mn',squadSize:41,averageAge:'27,6',coach:{name:'İsmail Kartal',age:65,nationality:'Türkiye',tenure:'1 ay',contract:'2027'}},
+  Galatasaray:{marketValue:'€323,15 Mn',squadSize:34,averageAge:'25,9',coach:{name:'Okan Buruk',age:52,nationality:'Türkiye',tenure:'4 yıl 1 ay',contract:'Açıklanmadı'}},
+  'Gaziantep FK':{marketValue:'€23,15 Mn',squadSize:30,averageAge:'25,1',coach:{name:'Mirel Rădoi',age:45,nationality:'Romanya',tenure:'3 ay',contract:'2027'}},
+  Gençlerbirliği:{marketValue:'€14,55 Mn',squadSize:26,averageAge:'25,6',coach:{name:'Metin Diyadin',age:58,nationality:'Türkiye',tenure:'2 ay',contract:'2027'}},
+  Göztepe:{marketValue:'€67,45 Mn',squadSize:28,averageAge:'24,6',coach:{name:'Stanimir Stoilov',age:59,nationality:'Bulgaristan',tenure:'2 yıl 8 ay',contract:'2027'}},
+  Başakşehir:{marketValue:'€84,30 Mn',squadSize:42,averageAge:'26,0',coach:{name:'Nuri Şahin',age:37,nationality:'Türkiye',tenure:'10 ay',contract:'2028'}},
+  Kasımpaşa:{marketValue:'€30,65 Mn',squadSize:39,averageAge:'24,7',coach:{name:'Emre Belözoğlu',age:45,nationality:'Türkiye',tenure:'7 ay',contract:'2027'}},
+  Kocaelispor:{marketValue:'€18,65 Mn',squadSize:26,averageAge:'25,9',coach:{name:'Selçuk İnan',age:41,nationality:'Türkiye',tenure:'1 yıl 1 ay',contract:'2028'}},
+  Konyaspor:{marketValue:'€29,38 Mn',squadSize:23,averageAge:'26,3',coach:{name:'İlhan Palut',age:49,nationality:'Türkiye',tenure:'5 ay',contract:'2027'}},
+  Samsunspor:{marketValue:'€49,65 Mn',squadSize:37,averageAge:'24,0',coach:{name:'Thorsten Fink',age:58,nationality:'Almanya',tenure:'5 ay',contract:'2027'}},
+  Trabzonspor:{marketValue:'€135,40 Mn',squadSize:32,averageAge:'26,5',coach:{name:'Fatih Tekke',age:48,nationality:'Türkiye',tenure:'1 yıl 4 ay',contract:'2029'}}
 });
 SUPER_LIG_CLUBS_2026_27.forEach(club=>Object.assign(club,CLUB_INTELLIGENCE_2026_27[club.team]||{}, {
   marketSourceUrl:CLUB_MARKET_SOURCE_URL,
