@@ -98,7 +98,46 @@ const ANALYSIS_FIELDS = [
   ['hakem','Hakem ve eğilimleri'], ['hava','Hava durumu'], ['gecmisMaclar','Geçmiş karşılaşmalar']
 ];
 const ALL_BADGES = ['İlk Tahmin','Haftayı Eksiksiz Tamamladı','Kesin Skor Uzmanı','5 Doğru Tahmin','Taraftar Ligi İlk 10','Haftanın Şampiyonu','Veri Ustası'];
-const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', kontrol: '31 Temmuz 2026' };
+/* Fikstur tazelik kaynagi.
+   `manualCheck` YALNIZCA elle dogrulanmis seed veri icindir; saglayicidan gelen
+   fikstur icin kullanilmaz. Iki kaynagin ayni etiketle gosterilmesi kullaniciya
+   sahte tazelik sunar. Seed veri elle guncellendiginde manualCheck tarihini de
+   guncelle; aksi halde arayuz veriyi bayat olarak isaretler. */
+const VERIFIED = { kaynak: 'TFF (tff.org), Hürriyet Spor Arena', manualCheck: '2026-07-31' };
+const MANUAL_CHECK_STALE_DAYS = 7;
+/* Saglayici yaniti geldiginde gercek updatedAt buraya yazilir. */
+const DATA_FRESHNESS = { providerUpdatedAt: null, providerSource: null, fromProvider: false };
+
+function formatCheckDate(value){
+  const parsed = value ? new Date(value) : null;
+  if(!parsed || Number.isNaN(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('tr-TR',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Istanbul'}).format(parsed);
+}
+function formatCheckDateTime(value){
+  const parsed = value ? new Date(value) : null;
+  if(!parsed || Number.isNaN(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('tr-TR',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Istanbul'}).format(parsed);
+}
+function manualCheckAgeDays(){
+  const parsed = new Date(VERIFIED.manualCheck);
+  if(Number.isNaN(parsed.getTime())) return Infinity;
+  return Math.floor((Date.now()-parsed.getTime())/86400000);
+}
+/* Fikstur tazeligini DURUSTCE etiketler.
+   Saglayici verisi varsa gercek updatedAt gosterilir; yoksa elle kontrol tarihi
+   ve eskiyse bayatlik uyarisi verilir. Hicbir durumda uydurma tazelik yazilmaz. */
+function fixtureFreshness(){
+  if(DATA_FRESHNESS.fromProvider && DATA_FRESHNESS.providerUpdatedAt){
+    const stamp = formatCheckDateTime(DATA_FRESHNESS.providerUpdatedAt);
+    return { live:true, stale:false, text: stamp ? `Sağlayıcı verisi · Güncellendi: ${stamp}` : 'Sağlayıcı verisi' };
+  }
+  const age = manualCheckAgeDays();
+  const stale = age > MANUAL_CHECK_STALE_DAYS;
+  const stamp = formatCheckDate(VERIFIED.manualCheck) || VERIFIED.manualCheck;
+  return { live:false, stale, text: stale
+    ? `Elle doğrulanmış arşiv · Son kontrol: ${stamp} · güncelliği teyit edilmedi`
+    : `Elle doğrulanmış veri · Son kontrol: ${stamp}` };
+}
 const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
   scope: 'selected-leagues',
@@ -664,11 +703,6 @@ async function primeServerLeaderboards(hafta){
     return false;
   }
 }
-function isSafeTeamCrestURL(value){
-  if(!value) return false;
-  try{ const url=new URL(String(value),location.origin); return url.protocol==='https:' || url.origin===location.origin; }
-  catch(_error){ return false; }
-}
 async function loadAllData(){
   DATA_ERRORS = {};
   SERVER_LEADERBOARDS = new Map();
@@ -696,12 +730,16 @@ async function loadAllData(){
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];
   const providerResults = providerBundle?.results?.length ? providerBundle.results : [];
-  providerStandings.forEach(row=>{ if(row?.team && isSafeTeamCrestURL(row.team_logo)) TEAM_CRESTS[row.team]=row.team_logo; });
+  providerStandings.forEach(row=>{ if(row?.team && safeExternalURL(row.team_logo)) TEAM_CRESTS[row.team]=row.team_logo; });
   providerMatches.forEach(match=>{
-    if(match?.ev && isSafeTeamCrestURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo;
-    if(match?.konuk && isSafeTeamCrestURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo;
+    if(match?.ev && safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo;
+    if(match?.konuk && safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo;
   });
   MATCHES = providerMatches.length ? providerMatches : (scopedSuperLig ? matches : []);
+  /* Tazelik etiketi gercek kaynagi yansitsin (bkz. fixtureFreshness). */
+  DATA_FRESHNESS.fromProvider = providerMatches.length > 0;
+  DATA_FRESHNESS.providerUpdatedAt = providerMatches.length ? (providerBundle?.updatedAt || null) : null;
+  DATA_FRESHNESS.providerSource = providerMatches.length ? (providerBundle?.source || providerBundle?.provider || null) : null;
   selectCurrentWeek(MATCHES);
   ANALYSIS = {}; analysisRows.forEach(r => ANALYSIS[r.match_id] = r.data || {});
   cacheProfiles(ownProfiles);

@@ -21,7 +21,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="preload" href="/assets/css/app.css" as="style">
 <link rel="stylesheet" href="/assets/css/app.css">
-<link rel="stylesheet" href="/assets/css/ufc-compare.css">
 <script defer src="/assets/js/compliance.js"></script>
 
 </head>
@@ -107,21 +106,25 @@
   </div>
 </aside>
 
+<!-- PRODUCTION_STRIP_LEGACY_HTML_START -->
+<!-- Yalnizca gelistirme prototipi. Production build bu blogu tamamen kaldirir.
+     Kalici uye sohbeti chat.js + Supabase uzerinden "Gundem Sohbeti" panelinde
+     yayinlanir; bu panel onun yerine gecmez. Ornek mesaj tohumlamayin:
+     sahte kullanici icerigi urun taahhudune aykiridir. -->
 <aside class="side-chat-prototype" id="sideChatPrototype" aria-label="Kullanıcı sohbet prototipi">
   <header>
     <span>Canlı tribün</span>
     <strong>Üyeler konuşuyor</strong>
   </header>
   <div class="side-chat-feed" id="sideChatFeed">
-    <article><b>Koray</b><p>Bu hafta predictte banko skor var mı?</p></article>
-    <article><b>Emre</b><p>Önce kadrolar gelsin, sonra konuşalım.</p></article>
-    <article><b>XYZ Bot</b><p>Kalıcı sohbet için Supabase bağlantısı hazırlanacak.</p></article>
+    <article class="side-chat-empty"><p>Bu panel geliştirme prototipidir. Kalıcı sohbet Gündem Sohbeti bölümünde yayınlanır.</p></article>
   </div>
   <form class="side-chat-form" id="sideChatForm">
     <input id="sideChatInput" type="text" maxlength="90" autocomplete="off" placeholder="Kısa mesaj yaz..." aria-label="Sohbet mesajı">
     <button type="submit">Gönder</button>
   </form>
 </aside>
+<!-- PRODUCTION_STRIP_LEGACY_HTML_END -->
 
 <div class="wrap">
 

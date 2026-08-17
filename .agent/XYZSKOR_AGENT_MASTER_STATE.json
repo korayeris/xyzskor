@@ -1,0 +1,33 @@
+{
+  "schema": "xyzskor.agent-master-state.v1",
+  "updated_at": "2026-08-17T12:00:00+03:00",
+  "old_project_path": "C:\\Users\\koray\\Documents\\xyzskor.com",
+  "latest_zip_path": "C:\\Users\\koray\\Downloads\\files.zip",
+  "latest_zip_sha256": "C55CDBAF947E766902773E2DA2200DBBB9C9615DA3FC1F4C28CDAE1194858BC6",
+  "staging_path": "C:\\Users\\koray\\Documents\\xyzskor-zip-staging-2026-08-17\\latest\\xyzskor-main",
+  "remote_repository": "https://github.com/korayeris/xyzskor.git",
+  "previous_branch": "main",
+  "previous_commit": "5725b3f758c2c1d969264fe52d5924ad121ce115",
+  "backup_branch": "backup/last-successful-pre-zip-2026-08-17",
+  "backup_tag": "last-successful-pre-zip-2026-08-17",
+  "backup_push_status": "PASS_REMOTE_VERIFIED",
+  "previous_validation": { "check": "PASS", "build": "PASS" },
+  "latest_zip_validation": { "dependency_install": "PASS", "check": "PASS", "build": "PASS" },
+  "latest_integration_branch": "integration/latest-zip-2026-08-17",
+  "latest_import_commit": null,
+  "active_local_project_path": "C:\\Users\\koray\\Documents\\xyzskor.com",
+  "multi_agent_execution_status": "WAITING_FOR_IMPORT_COMMIT",
+  "production_deploy": "NOT_AUTHORIZED_NOT_RUN",
+  "production_migration": "NOT_AUTHORIZED_NOT_RUN",
+  "tasks": {
+    "1": "PENDING_REVALIDATION",
+    "2": "PENDING",
+    "3": "PENDING",
+    "4": "PENDING_REVALIDATION",
+    "5": "PENDING",
+    "6": "PENDING",
+    "7": "WAITING_FOR_TASK_2",
+    "8": "PENDING_REVALIDATION",
+    "9": "BLOCKED_USER_DECISION"
+  }
+}

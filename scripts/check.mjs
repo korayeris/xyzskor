@@ -42,9 +42,29 @@ assert.doesNotMatch(documentHtml, /<script>\s*[\s\S]+?<\/script>/i, 'Uygulama Ja
 for (const file of scriptFiles) assert.match(documentHtml, new RegExp(`assets/js/${file.replace('.', '\\.')}"`), `${file} sayfaya bağlanmalı.`);
 scriptSources.forEach((source, index) => new vm.Script(source, { filename: `assets/js/${scriptFiles[index]}` }));
 
+// Bir ismin GERCEKTEN calisan tanimini dondurur.
+// Neden gerekli: ui.js ayni ismi hem `function ad(` bildirimiyle hem daha sonra
+// `ad = function(` yeniden atamasiyla tanimliyor. Tarayicida SON tanim kazanir.
+// functionSource ilk eslesmeyi aldigi icin bazi kontroller hic calismayan olu
+// kodu dogruluyordu; yani yesil gecen test yanlis guven veriyordu.
+function liveFunctionSource(name) {
+  const patterns = [`function ${name}(`, `${name} = function(`];
+  let start = -1;
+  for (const pattern of patterns) {
+    let index = appSource.lastIndexOf(pattern);
+    if (index > start) start = index;
+  }
+  if (start < 0) throw new Error(`${name} fonksiyonunun canli tanimi bulunamadi.`);
+  return extractBody(name, start);
+}
+
 function functionSource(name) {
   const start = appSource.indexOf(`function ${name}(`);
   if (start < 0) throw new Error(`${name} fonksiyonu bulunamadı.`);
+  return extractBody(name, start);
+}
+
+function extractBody(name, start) {
   const bodyStart = appSource.indexOf('{', start);
   let depth = 0;
   let quote = null;
@@ -152,7 +172,7 @@ assert.match(html, /id="footballMatchesView"[^>]*hidden/i, 'Maçlar için ana sa
 assert.match(html, /id="footballNewsView"[^>]*hidden/i, 'Gündem için ana sayfadan ayrı tam detay görünümü bulunmalı.');
 assert.match(functionSource('openFootballSection'), /activeFootballSection!==['"]home['"]/, 'Yalnız Anasayfa özet görünümünü kullanmalı; diğer sekmeler ayrı ekran açmalı.');
 assert.match(functionSource('renderMatchesHub'), /openMatchCenter/, 'Tam maç akışındaki her kayıt kendi maç merkezini açmalı.');
-assert.match(functionSource('renderNewsHub'), /editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
+assert.match(liveFunctionSource('renderNewsHub'), /contextualEditorialEntries|editorialNewsEntries/, 'Tam gündem ekranı kaynaklı editoryal akıştan beslenmeli.');
 assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe0e2,#d3d5d8/i, 'Maçlar ekranı göz yormayan gri portal yüzeyi kullanmalı.');
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
@@ -176,7 +196,7 @@ assert.match(workerSource, /\/2\/users\/by\?usernames=/, 'Dört resmî kulüp te
 assert.match(workerSource, /cost_profile:\s*"daily-capped-safe-mode"/, 'X akışı günlük maliyet kontrollü profili yanıtta belirtmeli.');
 assert.match(workerSource, /expansions:\s*"attachments\.media_keys"/, 'X akışı gönderiye bağlı gerçek medyayı expansion ile istemeli.');
 assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image_url,width,height,alt_text"/, 'X medya görselleri, video kapakları ve erişilebilir açıklamaları istemeli.');
-assert.match(functionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
+assert.match(liveFunctionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
 assert.match(appCss, /club-social-card\.has-media \.club-social-copy\{height:82px;min-height:82px/, 'Masaüstü X kartlarında medya başlangıç çizgisi eşitlenmeli.');
 assert.match(appCss, /club-social-media\.items-3\{grid-template-columns:minmax\(0,1\.28fr\) minmax\(0,\.72fr\)/, 'Üç görselli X gönderisi dengeli bir ana görsel kompozisyonu kullanmalı.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
@@ -208,15 +228,15 @@ assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Sta
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
 assert.match(html, /id="editorialDesk"/, 'Ana sayfada profesyonel haber merkezi bulunmalı.');
 assert.match(html, /id="youtubeMediaGrid"/, 'Ana sayfada YouTube canlı ve program paneli bulunmalı.');
-assert.match(functionSource('renderEditorialNews'), /editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
-assert.match(functionSource('renderEditorialNews'), /editorial-portrait-shell/, 'Haber merkezi oyuncu görsellerini kesmeden dairesel portre içinde göstermeli.');
-assert.match(functionSource('renderEditorialNews'), /editorialMatchVisualHTML/, 'Görseli olmayan açılış maçı haberi gerçek maç eşleşmesiyle görselleştirilmeli.');
+assert.match(liveFunctionSource('renderEditorialNews'), /contextualEditorialEntries|editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
+assert.match(liveFunctionSource('renderEditorialNews'), /editorial-portrait-shell/, 'Haber merkezi oyuncu görsellerini kesmeden dairesel portre içinde göstermeli.');
+assert.match(liveFunctionSource('renderEditorialNews'), /editorialMatchVisualHTML/, 'Görseli olmayan açılış maçı haberi gerçek maç eşleşmesiyle görselleştirilmeli.');
 assert.match(functionSource('editorialMatchVisualHTML'), /crestHTML\(match\.ev,'lg'\).*crestHTML\(match\.konuk,'lg'\)/s, 'Açılış maçı görseli iki gerçek takım armasını kullanmalı.');
 assert.match(functionSource('renderClubProfile'), /club-coach-portrait/, 'Teknik direktör görseli profesyonel portre çerçevesinde gösterilmeli.');
 assert.match(appCss, /ELITE GRAPHITE FOOTBALL SYSTEM/, 'Futbol ürünü tek bir elit grafit tasarım sistemi kullanmalı.');
 assert.match(appCss, /club-coach-portrait\{[^}]*overflow:hidden[^}]*border-radius:50%/s, 'Teknik direktör fotoğrafı kesilmeyen dairesel portre çerçevesinde tutulmalı.');
 assert.match(appCss, /editorial-match-visual\{[^}]*grid-template-columns/s, 'Açılış maçı için iki kulüplü görsel kompozisyon bulunmalı.');
-assert.doesNotMatch(functionSource('renderEditorialNews'), /EDITORIAL_NEWS_CACHE\.slice\(0,3\).*filter\(item=>item\.image\)/s, 'Manşet haberi başka haberlerin ilgisiz oyuncu görsellerini ödünç almamalı.');
+assert.doesNotMatch(liveFunctionSource('renderEditorialNews'), /EDITORIAL_NEWS_CACHE\.slice\(0,3\).*filter\(item=>item\.image\)/s, 'Manşet haberi başka haberlerin ilgisiz oyuncu görsellerini ödünç almamalı.');
 assert.match(functionSource('editorialNewsEntries'), /imageType:editorialPhoto\?'photo':playerPortrait\?'portrait':'none'/, 'Editoryal fotoğraf ile oyuncu portresi ayrıştırılmalı.');
 assert.match(functionSource('renderYouTubeMedia'), /\/api\/media\/youtube/, 'YouTube paneli sunucu adaptörünü kullanmalı.');
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
@@ -230,7 +250,7 @@ assert.match(documentHtml, /<h2>Süper Lig Maç Merkezi<\/h2>/, 'Canlı panel S�
 assert.match(html, /grid-template-columns:340px minmax\(0,1fr\) 290px/i, 'Masaüstü Futbol görünümü üç kolonlu portal düzenini kullanmalı.');
 assert.match(html, /prefers-reduced-motion:reduce/i, 'Yeni portal hareket azaltma tercihini desteklemeli.');
 assert.match(functionSource('selectFootballTeam'), /renderFootballQuickMatches\(\).*renderFootballNews\(\).*renderFootballTransfers\(\)/s, 'Takım filtresi maç, gündem ve transfer akışını birlikte yenilemeli.');
-assert.doesNotMatch(functionSource('renderPortalSponsor'), /\d\s*TL\b|fiyat|satın al/i, 'Portal sponsor alanı fiyat veya satın alma çağrısı üretmemeli.');
+assert.doesNotMatch(liveFunctionSource('renderPortalSponsor'), /\d\s*TL\b|fiyat|satın al/i, 'Portal sponsor alanı fiyat veya satın alma çağrısı üretmemeli.');
 assert.match(functionSource('loadAllData'), /moduleQuery\(/, 'Bir modül hatası bütün Futbol ekranını durdurmamalı.');
 assert.doesNotMatch(functionSource('renderAll'), /renderMarketPulse|renderMythosProducts|startTransferCountdown/, 'Yerel transfer ve sponsor örnekleri production render zincirine girmemeli.');
 assert.match(functionSource('matchStatusLabel'), /Durum doğrulanıyor/, 'Saat tahmini doğrulanmış canlı etiketi üretmemeli.');
@@ -387,5 +407,69 @@ const crestBlock = html.match(/const TEAM_CRESTS = \{([\s\S]*?)\n\};/);
 assert.ok(crestBlock, 'Kulüp arması haritası bulunmalı.');
 const crestUrls = crestBlock[1].match(/https:\/\/upload\.wikimedia\.org[^'\"]+/g) || [];
 assert.equal(new Set(crestUrls).size, 18, 'Sitedeki 18 kulüp için 18 farklı gerçek arma bulunmalı.');
+
+// Prototip sohbet regresyonu.
+// Gecmis olay: side-chat-prototype blogu uc adet uydurma uye mesaji tasiyordu ve
+// PRODUCTION_STRIP isaretlerinin DISINDA kaldigi icin production paketine giriyordu.
+// Mesajlardan biri "banko skor" ifadesini kullaniyordu; site "bahis yoktur" taahhudu
+// verdigi icin bu hem urun sozunu hem 7258 sayili kanun sinirini zorluyordu.
+// Kaynak dosyaya bakmak yeterli DEGIL: blok gelistirmede kalabilir, onemli olan
+// strip sonrasi ciktinin temiz olmasi. Bu yuzden build.mjs ile ayni donusum
+// burada da uygulanip sonuc uzerinde kontrol edilir.
+const strippedProductionHtml = documentHtml
+  .replace(/\s*<!-- PRODUCTION_STRIP_LEGACY_HTML_START -->[\s\S]*?<!-- PRODUCTION_STRIP_LEGACY_HTML_END -->\s*/g, '\n');
+assert.doesNotMatch(strippedProductionHtml, /banko skor/i, 'Bahis dili iceren ornek sohbet mesaji production HTML’ine girmemeli.');
+assert.doesNotMatch(strippedProductionHtml, /XYZ Bot/, 'Sahte bot mesaji production HTML’ine girmemeli.');
+assert.doesNotMatch(strippedProductionHtml, /side-chat-prototype/, 'Sohbet prototipi production paketinden tamamen cikarilmali.');
+assert.doesNotMatch(strippedProductionHtml, /Supabase baglantisi hazirlanacak|Supabase bağlantısı hazırlanacak/, 'Ic gelistirme durumu kullaniciya gosterilmemeli.');
+// Prototip gelistirmede kalsa bile sahte uye mesaji tohumlanmamali.
+const prototypeBlock = documentHtml.match(/<div class="side-chat-feed"[\s\S]*?<\/div>/);
+if (prototypeBlock) {
+  const seededAuthors = prototypeBlock[0].match(/<b>[^<]+<\/b>/g) || [];
+  assert.equal(seededAuthors.length, 0, 'Sohbet prototipine ornek kullanici mesaji tohumlanmamali.');
+}
+
+// Tazelik etiketi regresyonu.
+// Gecmis olay: VERIFIED.kontrol elle yazilmis bir tarih stringiydi ('31 Temmuz 2026')
+// ve kullaniciya "Son kontrol" guven etiketi olarak gosteriliyordu. Tarih eskidiginde
+// arayuz bunu fark etmiyor, guven bileseni guven kiriyordu.
+const dataFreshnessSource = dataSource;
+assert.match(dataFreshnessSource, /manualCheck:\s*'\d{4}-\d{2}-\d{2}'/, 'Elle kontrol tarihi ISO formatinda tutulmali (yasi hesaplanabilsin).');
+assert.doesNotMatch(dataFreshnessSource, /kontrol:\s*'\d{1,2}\s+\p{L}+\s+\d{4}'/u, 'Elle yazilmis Turkce tarih stringi guven etiketi olarak kullanilmamali.');
+assert.match(dataFreshnessSource, /function fixtureFreshness\(/, 'Tazelik etiketi tek bir yardimci uzerinden uretilmeli.');
+assert.match(dataFreshnessSource, /DATA_FRESHNESS\.providerUpdatedAt\s*=/, 'Saglayici yanitinin gercek updatedAt degeri kaydedilmeli.');
+const liveSource = scriptSources[scriptFiles.indexOf('live.js')];
+const matchCenterSource = scriptSources[scriptFiles.indexOf('match-center.js')];
+for (const [label, source] of [['live.js', liveSource], ['match-center.js', matchCenterSource]]) {
+  assert.doesNotMatch(source, /VERIFIED\.kontrol/, `${label} artik sabit kontrol tarihini kullanmamali.`);
+  assert.match(source, /fixtureFreshness\(\)/, `${label} tazelik etiketini yardimci uzerinden almali.`);
+}
+assert.match(appCss, /v171/, 'Bayat veri gostergesi icin CSS katmani bulunmali.');
+
+// Mukerrer top-level fonksiyon bildirimi bekcisi.
+// Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim
+// kazandigi icin ilk tanimi duzenlemek hicbir sey yapmiyordu ve bu sessiz bir
+// zaman kaybi kaynagiydi. Ayrica check.mjs ilk tanimi test ettiginden bazi
+// kontroller olu kodu dogruluyordu.
+for (const [label, source] of scriptFiles.map((file, index) => [file, scriptSources[index]])) {
+  const declared = [...source.matchAll(/^function ([A-Za-z_$][\w$]*)\(/gm)].map((match) => match[1]);
+  const seen = new Set();
+  const duplicated = [...new Set(declared.filter((name) => seen.has(name) || (seen.add(name) && false)))];
+  assert.deepEqual(duplicated, [], `${label} icinde ayni fonksiyon birden fazla kez tanimlanmamali: ${duplicated.join(', ')}`);
+}
+
+// README ile gercek navigasyon tutarliligi.
+// Gecmis olay: README 8 ana brans listeliyordu (Basketbol, Voleybol, Motor
+// Sporlari, UFC, Amerikan Futbolu...), index.html'de ise yalnizca 2 sekme vardi.
+// Brans dosyalari depoda mevcut ama bekledikleri DOM konteynerleri olmadigi icin
+// atil durumda. Bu tutarsizlik devir teslimde yanlis beklenti yaratiyordu.
+const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+const mainTabCount = (documentHtml.match(/class="maintab/g) || []).length;
+assert.equal(mainTabCount, 2, 'Ana sekme sayisi degistiyse README navigasyon bolumu de guncellenmeli.');
+assert.match(readme, /^### Yayında olmayan branşlar$/m, 'README yayinda olmayan bransları ayri bir bolumde acikca isaretlemeli.');
+for (const container of ['multiSportHub', 'xmsData', 'ufcHub', 'sportBranches']) {
+  const present = documentHtml.includes(`id="${container}"`);
+  assert.equal(present, false, `${container} index.html'e eklendiyse README ve switchMainTab kapsami da guncellenmeli.`);
+}
 
 console.log('XYZSkor kontrolü başarılı.');

@@ -87,14 +87,25 @@ node scripts/dev-server.mjs        # http://127.0.0.1:4173
 
 ## 5. TUZAKLAR — bunları bilmeden kod yazma
 
-### 5.1 `ui.js`'te fonksiyonlar 2–3 kez tanımlı
-`renderClubSocial`, `renderFootballNews`, `renderEditorialNews`, `renderNewsHub`,
-`renderPreseasonSocial`, `renderFootballFeatured`, `renderFootballTransfers`,
-`renderFootballStandingsCompact`, `renderPortalSponsor` — bunların hepsi
-dosyada birden fazla kez tanımlı. **Tarayıcıda SON tanım kazanır.**
-İlk tanımı değiştirirsen hiçbir etkisi olmaz. Değişiklik yapmadan önce
-`grep -n "function <ad>" assets/js/ui.js` çalıştır ve **en sondakini** düzenle
-(genelde ~2300+ satırdaki IIFE bloğu).
+### 5.1 `ui.js`'te bazı fonksiyonlar yeniden atamayla eziliyor
+**Güncelleme (14 Ağustos 2026):** mükerrer `function` **bildirimleri** temizlendi.
+`scripts/check.mjs` artık aynı dosyada aynı ismin iki kez top-level tanımlanmasını
+hata olarak yakalıyor, yani bu tuzağın bildirim biçimi geri gelemez.
+
+Ama **yeniden atama deseni duruyor** ve hâlâ dikkat gerektiriyor:
+`renderEditorialNews`, `renderNewsHub`, `renderPortalSponsor`, `renderClubSocial`,
+`renderFootballNews`, `renderFootballTransfers` gibi isimler önce `function ad(`
+ile bildirilip sonra ~2385+ satırdaki IIFE içinde `ad = function(` ile
+**yeniden atanıyor.** Tarayıcıda çalışan sürüm bu son atamadır.
+
+Değişiklik yapmadan önce her ikisini de ara:
+
+```bash
+grep -n "function <ad>\|<ad> = function" assets/js/ui.js
+```
+
+ve **en sondakini** düzenle. Bildirimi silmeye çalışma — atamanın bağlanacağı
+binding kaybolur ve örtük global oluşur (bkz. 5.9, inline `onclick` bağımlılığı).
 
 ### 5.2 `scripts/check.mjs` fonksiyon ayıklayıcısı kırılgan
 `functionSource()` fonksiyon gövdesini süslü parantez sayarak ayıklar ama
@@ -102,6 +113,11 @@ dosyada birden fazla kez tanımlı. **Tarayıcıda SON tanım kazanır.**
 Sonuç: bir fonksiyonun içindeki yorumda Türkçe apostrof kullanırsan
 (`sn'de`, `TTL'i`) parser bozulur ve `"X fonksiyonu tamamlanmamış"` hatası alırsın.
 **Fonksiyon içi yorumlarda apostrof kullanma.**
+
+Ayrıca: `functionSource()` dosyadaki **ilk** eşleşmeyi alır. Yeniden atamayla
+ezilen isimlerde bu ölü kodu test etmek demektir — yeşil geçen test yanlış güven
+verir. Böyle isimler için **`liveFunctionSource()` kullan**; o son tanımı
+(`ad = function(` dahil) bulur.
 
 ### 5.3 `matches` tablosu tam kaynak değil
 Fikstür SportMonks'tan gelir (`/api/football/season`); `public.matches` yalnızca
@@ -135,11 +151,17 @@ grant execute on function public.fn_adi(...) to authenticated;
 `RETURNS TABLE (... position bigint)` **sözdizimi hatası** verir ve migration
 sessizce hiç uygulanmaz. Tırnakla: `"position" bigint`.
 
-### 5.8 CSS'te 870+ `!important`
-`assets/css/app.css` 4400+ satır, kronolojik yamalarla büyümüş, aynı bileşen 4–6
-kez tanımlı. **Mevcut kuralları değiştirme** — yeni katmanı dosyanın SONUNA
-`/* vNNN · başlık */` yorumuyla ekle. Mevcut katmanlar: v109 motion, v110 chat,
-v111 instagram, v112 maç merkezi consensus.
+### 5.8 CSS'te 1289 `!important`
+`assets/css/app.css` **6967 satır** (14 Ağustos 2026 ölçümü), kronolojik yamalarla
+büyümüş. Aynı seçici tekrar tekrar tanımlı: `.multisport-hub` 45,
+`.sport-branch-button` 25, `.transfer-signal-card` 22 kez.
+**Mevcut kuralları değiştirme** — yeni katmanı dosyanın SONUNA
+`/* vNNN · başlık */` yorumuyla ekle. Son katman: **v171** dürüst tazelik etiketi.
+
+**Uyarı:** bu strateji kısa vadede güvenli ama sürdürülemez. Bir kuralın nerede
+ezildiği artık takip edilemiyor; prototip sohbetin production'a sızması doğrudan
+bunun sonucuydu (`display:none` sonraki bir katmanda `display:grid!important` ile
+eziliyordu). Tasarım fazına girmeden önce bileşen bazlı konsolidasyon gerekiyor.
 
 ### 5.9 Inline `onclick` bağımlılığı
 `index.html`'de ~45 inline `onclick` global fonksiyon adlarına doğrudan referans
@@ -259,5 +281,6 @@ Mevcut entegrasyon ikisini birden kullanır.
    `live.js` hiç kullanmıyor — canlı kartta gol/kart/istatistik ücretsiz duruyor.
 3. `/api/football/coverage` frontend'de hiç çağrılmıyor; lig seçilirken çağrılıp
    "bu lig abonelikte yok" mesajı net verilebilir.
-4. `ui.js`'teki mükerrer fonksiyon tanımlarını temizle (5.1) — her değişikliği
-   güvenli hale getirir.
+4. ~~`ui.js`'teki mükerrer fonksiyon tanımlarını temizle~~ — **tamamlandı**
+   (14 Ağustos 2026). 7 ölü bildirim silindi, `check.mjs` bekçisi eklendi.
+   Yeniden atama deseni duruyor (5.1).

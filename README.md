@@ -1,32 +1,55 @@
 # XYZSKOR
 
-XYZSKOR; futbol, basketbol, voleybol, motor sporları, UFC ve diğer spor branşlarını tek bir koyu, teknik ve mobil uyumlu yayın deneyiminde birleştiren canlı spor ve ücretsiz tahmin platformudur.
+XYZSKOR; koyu, teknik ve mobil uyumlu bir yayın deneyiminde canlı futbol
+skorları ve ücretsiz tahmin yarışması sunan bir platformdur. Basketbol, voleybol,
+motor sporları, UFC ve diğer branşlar için altyapı kodu depoda mevcuttur ancak
+**henüz yayında değildir** (bkz. "Yayında olmayan branşlar").
 
 Canlı site: <https://xyzskor-tr.korayeris2002.chatgpt.site>
 
 ## Ürün kapsamı
 
-Ana navigasyon:
+Ana navigasyon (yayında olan, `index.html` içindeki gerçek sekmeler):
 
 1. Futbol
-2. Basketbol
-3. Voleybol
-4. Motor Sporları
-5. UFC
-6. Amerikan Futbolu
-7. Diğer Branşlar
-8. Predict
+2. Predict
 
-Temel özellikler:
+`switchMainTab()` yalnızca `football` ve `predict` değerlerini tanır; başka her
+değer Futbol ekranına düşer (`assets/js/live.js`).
 
-- Canlı skor, dakika, olay, kadro ve maç istatistikleri
+### Yayında olmayan branşlar
+
+Aşağıdaki branşlar için JS dosyaları depoda mevcut ve production paketine dahil
+ediliyor, ancak **kullanıcı bunlara erişemiyor**: `index.html` içinde bekledikleri
+DOM konteynerleri (`multiSportHub`, `xmsData`, `ufcHub`, `sportBranches`) yok, bu
+yüzden dosyalar guard'larında erken çıkıp sessizce atıl kalıyor.
+
+| Branş | Dosya | Durum |
+| --- | --- | --- |
+| Basketbol, voleybol, diğer branşlar | `assets/js/multisport.js` | Kod var, ekran yok |
+| Motor sporları (F1, MotoGP, WRC, WEC, NASCAR) | `assets/js/motorsports.js` | Kod var, ekran yok |
+| UFC | `assets/js/ufc-hub.js` | Kod var, ekran yok |
+| Branş seçici | `assets/js/sport-branches.js` | Kod var, ekran yok |
+
+Bu branşları yayına almak için DOM konteynerlerinin eklenmesi, `switchMainTab()`
+kapsamının genişletilmesi ve ilgili sağlayıcı anahtarlarının gerçek veri
+döndürdüğünün doğrulanması gerekir. Veri dönmeyen bir sekmeyi açmak, kapalı
+sekmeden kötüdür.
+
+Temel özellikler (yayında):
+
+- Canlı futbol skoru, dakika, olay, kadro ve maç istatistikleri
 - Fikstür, sonuç, puan durumu, takım ve sporcu profilleri
-- Formula 1, MotoGP, WRC, WEC ve NASCAR yarış takvimleri
-- UFC etkinlikleri, dövüş kartları, dövüşçü profilleri ve sıralamalar
 - Resmî sosyal medya ve video akışları
 - Ücretsiz Predict yarışması, puanlama ve ödül talepleri
 - Üye, admin ve editoryal yetkilendirme
 - Mobil ve masaüstü için ortak responsive tasarım
+
+Kod hazır, yayında değil:
+
+- Formula 1, MotoGP, WRC, WEC ve NASCAR yarış takvimleri
+- UFC etkinlikleri, dövüş kartları, dövüşçü profilleri ve sıralamalar
+- Basketbol, voleybol ve diğer branş akışları
 
 XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun istatistiksel girdisi ve karşılaştırma verisi olarak kullanılabilir. Para yatırma, kupon, bahis oynama veya ödeme akışı bulunmaz.
 

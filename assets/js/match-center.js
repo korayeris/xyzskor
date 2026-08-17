@@ -250,7 +250,7 @@ function renderMcOverview(m){
     document.getElementById('mcBody').innerHTML = `
       ${result ? `<div class="mc-result-card" style="text-align:center;"><div class="pts">${result.home} - ${result.away}</div><div style="font-size:13px;color:var(--ink-dim);margin-top:4px;">Maç sonucu doğrulandı</div></div>` : ''}
       <section class="mc-section"><div class="mc-section-title">Maç bilgileri</div><dl class="mc-info-list">${infoRows.map(row=>`<div class="mc-info-row"><dt>${escapeHTML(row.label)}</dt><dd>${escapeHTML(row.value)}</dd></div>`).join('')}</dl></section>
-      ${m.verified ? `<div class="source-line">${m.source||m.source_name?'Kaynak: '+escapeHTML(m.source||m.source_name)+' · ':''}Doğrulama kaydı mevcut · Son kontrol: ${escapeHTML(VERIFIED.kontrol)}</div>` : '<div class="mc-empty">Fikstür kaynağı için doğrulama bilgisi bulunmuyor.</div>'}
+      ${m.verified ? `<div class="source-line${fixtureFreshness().stale?' is-stale':''}">${m.source||m.source_name?'Kaynak: '+escapeHTML(m.source||m.source_name)+' · ':''}${escapeHTML(fixtureFreshness().text)}</div>` : '<div class="mc-empty">Fikstür kaynağı için doğrulama bilgisi bulunmuyor.</div>'}
     `;
   });
 }

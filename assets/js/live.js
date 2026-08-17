@@ -192,7 +192,11 @@ function renderWeekSelector(){
   const statusLine = document.getElementById('dataStatusLine');
   if(statusLine){
     if(DATA_ERRORS.matches) statusLine.textContent = 'Fikstür verisi şu anda alınamıyor; diğer modüller bağımsız çalışmaya devam ediyor.';
-    else if(MATCHES.length) statusLine.textContent = `Yayınlanmış fikstür verisi · Son kontrol: ${VERIFIED.kontrol}`;
+    else if(MATCHES.length){
+      const freshness = fixtureFreshness();
+      statusLine.textContent = freshness.text;
+      statusLine.classList.toggle('is-stale', freshness.stale);
+    }
     else statusLine.textContent = 'Yayınlanmış fikstür kaydı bulunmuyor.';
   }
 }
@@ -331,12 +335,11 @@ async function loadLiveFeed(force){
     }
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
     LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
-    const normalizeMatchId=id=>String(id??'').replace(/^sportmonks:/i,'');
     data.matches.forEach(liveMatch=>{
-      const stored=MATCHES.find(match=>normalizeMatchId(match.id)===normalizeMatchId(liveMatch.id)); if(!stored) return;
+      const stored=MATCHES.find(match=>match.id===liveMatch.id); if(!stored) return;
       stored.status=liveMatch.status==='halftime'?'devre_arasi':(liveMatch.status==='live'?'canlı':(liveMatch.status==='finished'?'bitti':stored.status));
       if(liveMatch.status==='finished' && liveMatch.home && liveMatch.away && liveMatch.home.score!=null && liveMatch.away.score!=null){
-        ALL_RESULTS[stored.id]={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score), scoredAt:Date.now() };
+        ALL_RESULTS[liveMatch.id]={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score), scoredAt:Date.now() };
       }
     });
   }catch(error){
