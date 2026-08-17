@@ -79,24 +79,22 @@
     stats.forEach((stat) => { const label = statisticLabel(stat.label); if (!grouped.has(label)) grouped.set(label, {home:null,away:null}); const side=stat.location === "home" || stat.team === homeName ? "home" : "away"; grouped.get(label)[side]=stat.value; });
     return `<div class="matchday-stats">${Array.from(grouped.entries()).slice(0, 12).map(([label, values]) => `<div><span>${esc(values.home ?? "-")}</span><b>${esc(label)}</b><span>${esc(values.away ?? "-")}</span></div>`).join("")}</div>`;
   }
-  function renderTeamLineup(title, members) {
+  function renderTeamLineup(title, members, formation) {
     if (!members.length) return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-empty">Resmî kadro henüz açıklanmadı.</div></section>`;
     const marked = members.filter((item) => item.type_id === 11 || /starter|lineup/i.test(String(item.type || ""))).slice(0, 11);
     const starters = marked.length ? marked : members.slice(0, 11);
     const substitutes = members.filter((item) => !starters.includes(item));
     const list = (items) => items.map((item) => `<li>${imageTag(item.player_image,item.player_name || "Oyuncu","matchday-player-photo")}<span>${esc(item.number || "-")}</span><b>${esc(item.player_name || item.player || "Oyuncu")}${item.is_captain ? " ©" : ""}</b><small>${esc(item.position || "")}</small></li>`).join("");
-    const fallbackRows = [1,4,3,3];
-    const positioned = starters.slice(0,11).map((item,index) => {
-      let row = Number(item.formation_field);
-      if (!Number.isFinite(row) || row < 1) {
-        let cursor = 0;
-        row = fallbackRows.findIndex((count) => { cursor += count; return index < cursor; }) + 1;
-      }
-      return { item, row, order:Number(item.formation_position) || index + 1 };
-    });
-    const pitchRows = Array.from(new Set(positioned.map((entry) => entry.row))).sort((a,b)=>b-a).map((row) => {
-      const players = positioned.filter((entry) => entry.row === row).sort((a,b)=>a.order-b.order);
-      return `<div class="matchday-pitch-row" style="--players:${players.length}">${players.map(({item}) => `<div class="matchday-pitch-player">${imageTag(item.player_image,item.player_name || "Oyuncu","matchday-pitch-photo") || `<i>${esc(teamAbbreviation(item.player_name || "?"))}</i>`}<b>${item.number ? `<span>${esc(item.number)}</span>` : ""}${esc(item.player_name || item.player || "Oyuncu")}${item.is_captain ? " ©" : ""}</b></div>`).join("")}</div>`;
+    const formationLines = String(formation || "").split("-").map(Number).filter((count) => Number.isInteger(count) && count > 0);
+    const keeperIndex = starters.findIndex((item) => item.is_keeper || /goal|keeper|kaleci/i.test(String(item.position || "")));
+    const keeper = keeperIndex >= 0 ? starters[keeperIndex] : null;
+    const outfield = starters.filter((_, index) => index !== keeperIndex).sort((a,b) => (Number(a.formation_position) || 99) - (Number(b.formation_position) || 99));
+    const validShape = keeper && formationLines.reduce((sum,count)=>sum+count,0) === outfield.length;
+    if (!validShape) return `<section class="matchday-lineup"><h4>${esc(title)}${formation ? ` <small>${esc(formation)}</small>` : ""}</h4><div class="matchday-empty">Sağlayıcı saha koordinatlarını yayınlamadı. Yanlış diziliş yerine resmî ilk 11 listeleniyor.</div><ul>${list(starters)}</ul>${substitutes.length ? `<h5>Yedekler</h5><ul>${list(substitutes)}</ul>` : ""}</section>`;
+    let cursor = 0;
+    const logicalRows = [[keeper], ...formationLines.map((count) => { const line = outfield.slice(cursor, cursor + count); cursor += count; return line; })];
+    const pitchRows = logicalRows.reverse().map((players) => {
+      return `<div class="matchday-pitch-row" style="--players:${players.length}">${players.map((item) => `<div class="matchday-pitch-player">${imageTag(item.player_image,item.player_name || "Oyuncu","matchday-pitch-photo") || `<i>${esc(teamAbbreviation(item.player_name || "?"))}</i>`}<b>${item.number ? `<span>${esc(item.number)}</span>` : ""}${esc(item.player_name || item.player || "Oyuncu")}${item.is_captain ? " ©" : ""}</b></div>`).join("")}</div>`;
     }).join("");
     return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-pitch" role="img" aria-label="${esc(title)} ilk 11 saha dizilişi"><div class="matchday-pitch-box"></div><div class="matchday-pitch-circle"></div><div class="matchday-pitch-formation">${pitchRows}</div></div>${substitutes.length ? `<h5>Yedekler</h5><ul>${list(substitutes)}</ul>` : ""}</section>`;
   }
@@ -125,9 +123,11 @@
     if (intro) intro.textContent = `${fixtureTimeLabel(f)} · Sportmonks tarafından doğrulanan maç verisi`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
     const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
+    const homeFormation = formations[0]?.formation || formations[0]?.name || "";
+    const awayFormation = formations[1]?.formation || formations[1]?.name || "";
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
-    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(formations[0]?.formation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(formations[1]?.formation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup)}${renderTeamLineup(awayName, awayLineup)}</div></section>`;
+    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
     if (teamContexts.length) root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderTeamContexts(teamContexts)}<nav class="matchday-jump"`);
     if (requestedFixture && params.get("view") !== "home") setDetailMode(true);
   }
