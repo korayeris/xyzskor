@@ -86,7 +86,7 @@
     const substitutes = members.filter((item) => !starters.includes(item));
     const list = (items) => items.map((item) => `<li>${imageTag(item.player_image,item.player_name || "Oyuncu","matchday-player-photo")}<span>${esc(item.number || "-")}</span><b>${esc(item.player_name || item.player || "Oyuncu")}${item.is_captain ? " ©" : ""}</b><small>${esc(item.position || "")}</small></li>`).join("");
     const formationLines = String(formation || "").split("-").map(Number).filter((count) => Number.isInteger(count) && count > 0);
-    const keeperIndex = starters.findIndex((item) => item.is_keeper || /goal|keeper|kaleci/i.test(String(item.position || "")));
+    const keeperIndex = starters.findIndex((item) => item.is_keeper || /goal|keeper|kaleci/i.test(String(item.position || "")) || /^1:/.test(String(item.formation_field || "")) || Number(item.formation_position) === 1);
     const keeper = keeperIndex >= 0 ? starters[keeperIndex] : null;
     const outfield = starters.filter((_, index) => index !== keeperIndex).sort((a,b) => (Number(a.formation_position) || 99) - (Number(b.formation_position) || 99));
     const validShape = keeper && formationLines.reduce((sum,count)=>sum+count,0) === outfield.length;
