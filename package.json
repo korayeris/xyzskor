@@ -19,6 +19,7 @@
     "qa:match-center": "node scripts/test-tools/mc_refresh_check.mjs",
     "qa:matchday": "node scripts/test-matchday-live.mjs",
     "qa:predict-security": "node scripts/test-tools/predict_game_security_test.mjs",
+    "qa:live-details": "node scripts/test-live-details.mjs",
     "qa:perf": "node scripts/test-tools/perf_check.mjs"
   },
   "devDependencies": {

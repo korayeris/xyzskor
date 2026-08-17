@@ -446,6 +446,11 @@ for (const [label, source] of [['live.js', liveSource], ['match-center.js', matc
 }
 assert.match(appCss, /v171/, 'Bayat veri gostergesi icin CSS katmani bulunmali.');
 
+assert.match(liveSource, /function renderLiveDetails\([\s\S]*?renderLiveEvents\(details\)[\s\S]*?renderLiveStats\(details,homeName,awayName\)/, 'Canli kart saglayici olay ve istatistiklerini islemeli.');
+assert.match(liveSource, /function renderLiveEvents\([\s\S]*?escapeLiveHTML\(/, 'Canli olay provider alanlari escape edilmeli.');
+assert.match(liveSource, /function renderLiveStats\([\s\S]*?escapeLiveHTML\(/, 'Canli istatistik provider alanlari escape edilmeli.');
+assert.match(liveSource, /function renderLiveFeed\([\s\S]*?renderLiveDetails\(match\)/, 'Canli detaylar her canli mac kartina baglanmali.');
+
 // Ana mac merkezi fixture/date/takim fallback'i tasimamali. Gercek secim
 // davranisi scripts/test-matchday-live.mjs ile ayrica calistirilir.
 const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')];

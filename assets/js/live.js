@@ -247,6 +247,56 @@ function liveStatusView(match){
   const kickoff = match.startedAt ? new Date(match.startedAt) : null;
   return { badge:kickoff && !Number.isNaN(kickoff.getTime()) ? kickoff.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) : '—', detail:'Başlamadı', live:false };
 }
+function liveDetailRows(value){
+  return Array.isArray(value) ? value : (Array.isArray(value && value.data) ? value.data : []);
+}
+function liveEventView(event){
+  const type = String(event && event.type || '').toLocaleLowerCase('tr-TR');
+  if(/goal|gol/.test(type)) return { label:'GOL', tone:'goal' };
+  if(/yellow|sarı/.test(type)) return { label:'SARI KART', tone:'yellow' };
+  if(/red|kırmızı/.test(type)) return { label:'KIRMIZI KART', tone:'red' };
+  if(/substitution|substitute|değişiklik/.test(type)) return { label:'OYUNCU DEĞİŞİKLİĞİ', tone:'substitution' };
+  return null;
+}
+function renderLiveEvents(details){
+  const events = liveDetailRows(details && details.events).map(event=>({ event, view:liveEventView(event) })).filter(item=>item.view);
+  if(!events.length) return '<div class="matchday-empty">Gol, kart ve oyuncu değişikliği akışı yayınlanmadı.</div>';
+  return `<ol class="matchday-timeline">${events.slice(-12).map(({event,view})=>{
+    const minute = event.minute===null || event.minute===undefined || event.minute==='' ? '—' : `${escapeLiveHTML(event.minute)}'`;
+    const player = event.player || event.player_name || '';
+    const related = event.relatedPlayer || event.related_player || event.related_player_name || '';
+    const team = event.team || '';
+    return `<li class="is-${view.tone}"><time>${minute}</time><div><b>${view.label}</b><span>${player?escapeLiveHTML(player):'Oyuncu bilgisi yayınlanmadı'}${related?` · ${escapeLiveHTML(related)}`:''}${team?` · ${escapeLiveHTML(team)}`:''}</span></div></li>`;
+  }).join('')}</ol>`;
+}
+function renderLiveStats(details, homeName, awayName){
+  const stats = liveDetailRows(details && details.statistics);
+  if(!stats.length) return '<div class="matchday-empty">Temel maç istatistikleri yayınlanmadı.</div>';
+  const grouped = new Map();
+  stats.forEach(stat=>{
+    const label = String(stat && (stat.label || stat.name) || '').trim();
+    if(!label) return;
+    if(!grouped.has(label)) grouped.set(label, { home:'—', away:'—', loose:[] });
+    const row = grouped.get(label), team = String(stat.team || '');
+    const value = stat.value===null || stat.value===undefined || stat.value==='' ? '—' : stat.value;
+    if(homeName && team.toLocaleLowerCase('tr-TR')===String(homeName).toLocaleLowerCase('tr-TR')) row.home=value;
+    else if(awayName && team.toLocaleLowerCase('tr-TR')===String(awayName).toLocaleLowerCase('tr-TR')) row.away=value;
+    else row.loose.push(value);
+  });
+  const statRows = Array.from(grouped.entries()).slice(0,8);
+  if(!statRows.length) return '<div class="matchday-empty">Temel maç istatistikleri yayınlanmadı.</div>';
+  return `<div class="matchday-stats">${statRows.map(([label,row])=>{
+    const home = row.home==='—' && row.loose.length ? row.loose.shift() : row.home;
+    const away = row.away==='—' && row.loose.length ? row.loose.shift() : row.away;
+    return `<div><span>${escapeLiveHTML(home)}</span><b>${escapeLiveHTML(label)}</b><span>${escapeLiveHTML(away)}</span></div>`;
+  }).join('')}</div>`;
+}
+function renderLiveDetails(match){
+  const details = match && match.details || {};
+  const homeName = match && match.home && match.home.name || '';
+  const awayName = match && match.away && match.away.name || '';
+  return `<div class="matchday-grid live-details"><section class="matchday-card"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderLiveEvents(details)}</section><section class="matchday-card"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderLiveStats(details,homeName,awayName)}</section></div>`;
+}
 function renderLiveFeed(){
   const list = document.getElementById('liveScoreList');
   const shell = document.getElementById('page-live');
@@ -284,6 +334,7 @@ function renderLiveFeed(){
         <div class="live-teams">
           <div class="live-team">${liveTeamMark(home)}<span>${escapeLiveHTML(home.name || 'Takım adı alınamadı')}</span><span class="live-score">${homeScore}</span></div>
           <div class="live-team">${liveTeamMark(away)}<span>${escapeLiveHTML(away.name || 'Takım adı alınamadı')}</span><span class="live-score">${awayScore}</span></div>
+          ${renderLiveDetails(match)}
         </div>
         <div class="live-state"><span class="live-minute">${view.live?'<span class="live-dot"></span>':''}${view.badge}</span><span class="live-state-label">${view.detail}</span></div>
       </article>`;
