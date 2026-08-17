@@ -141,25 +141,32 @@
     sync.textContent = "Fikstür bekleniyor";
     root.innerHTML = '<div class="matchday-loading"><b>Program bekleniyor.</b><span>Yeni fikstür yayınlandığında maç merkezi otomatik güncellenecek.</span></div>';
   }
+  async function readApiJSON(response, fallbackMessage) {
+    const contentType = String(response.headers?.get?.("content-type") || "").toLowerCase();
+    if (contentType && !contentType.includes("application/json")) throw new Error(fallbackMessage);
+    const payload = await response.json().catch(() => null);
+    if (!payload || typeof payload !== "object") throw new Error(fallbackMessage);
+    if (!response.ok) throw new Error(payload.message || payload.detail || payload.error || fallbackMessage);
+    return payload;
+  }
   async function refresh() {
     clearTimeout(timer);
-    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.message || payload.error || "Veri alınamadı"); render(payload); }
-    catch (error) { sync.textContent = "Canlı bağlantı yeniden deneniyor"; root.innerHTML = `<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>${esc(error.message)}</span></div>`; }
+    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); render(payload); }
+    catch (_error) { sync.textContent = "Canlı bağlantı yeniden deneniyor"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>Bağlantı otomatik olarak yeniden denenecek.</span></div>'; }
     timer = setTimeout(refresh, interval());
   }
   async function resolveFixture() {
     try {
-      const response = await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`, { cache:"no-store" });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.message || payload.detail || payload.error || "Fikstür alınamadı");
+      const response = await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`, { headers:{Accept:"application/json"}, cache:"no-store" });
+      const payload = await readApiJSON(response, "Fikstür kısa süreliğine alınamadı.");
       const selected = selectFixture(payload.matches);
       if (!selected) { renderEmpty(); timer = setTimeout(resolveFixture, 300000); return; }
       fixtureId = fixtureProviderId(selected);
       kickoff = Date.parse(fixtureKickoff(selected));
       await refresh();
-    } catch (error) {
+    } catch (_error) {
       sync.textContent = "Canlı bağlantı yeniden deneniyor";
-      root.innerHTML = `<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>${esc(error.message)}</span></div>`;
+      root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>Bağlantı otomatik olarak yeniden denenecek.</span></div>';
       timer = setTimeout(resolveFixture, 300000);
     }
   }

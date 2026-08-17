@@ -536,7 +536,10 @@ let lastLoadError = null;
 let DATA_ERRORS = {};
 let activeWeek = 1;
 let activeFootballTeam = 'Tümü';
-let activeFootballLeague = 'super-lig';
+let activeFootballLeague = (()=>{
+  const routed=typeof document!=='undefined' ? document.body?.dataset?.footballLeagueLoading : '';
+  return SELECTED_COMPETITIONS.some(item=>item.key===routed) ? routed : 'super-lig';
+})();
 let SERVER_LEADERBOARDS = new Map();
 let serverLeaderboardMode = 'unknown';
 let seasonFixturesReady = new Set();
