@@ -142,6 +142,7 @@ function nextWeek(){ goToWeek(activeWeek+1); }
 function onWeekPickerChange(sel){ goToWeek(parseInt(sel.value,10)); }
 async function loadFootballLeagueSelection(leagueKey){
   const requestedLeague=SELECTED_COMPETITIONS.some(item=>item.key===leagueKey) ? leagueKey : 'super-lig';
+  if(typeof document!=='undefined' && document.body) document.body.dataset.footballLeagueLoading=requestedLeague;
   activeFootballLeague=requestedLeague;
   activeFootballTeam='Tümü';
   MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
@@ -150,6 +151,7 @@ async function loadFootballLeagueSelection(leagueKey){
   if(activeFootballLeague!==requestedLeague) return false;
   if(footballCoverageUnavailable(requestedLeague)){
     DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
+    if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
     if(typeof renderAll==='function') renderAll();
     return false;
   }
@@ -158,12 +160,14 @@ async function loadFootballLeagueSelection(leagueKey){
     if(activeFootballLeague!==requestedLeague) return false;
     const weeks=getAvailableWeeks();
     if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
+    if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
     if(typeof renderAll==='function') renderAll();
     if(typeof loadLiveFeed==='function') loadLiveFeed(false);
     return true;
   }catch(error){
     if(activeFootballLeague!==requestedLeague) return false;
     DATA_ERRORS.provider=error&&error.message?error.message:'Lig verisi yenilenemedi.';
+    if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
     if(typeof renderAll==='function') renderAll();
     return false;
   }
@@ -227,7 +231,10 @@ function updateTickerCountdown(m){
   el.textContent = h>0 ? `${h} sa ${mnt} dk kaldı` : `${mnt} dk kaldı`;
 }
 function renderTicker(){
-  const el = document.getElementById('liveTicker'); const m = nextUpcomingMatch();
+  const el = document.getElementById('liveTicker');
+  const loadingLeague=document.body.dataset.footballLeagueLoading;
+  if(loadingLeague){ const label=competitionLabelBySlug(loadingLeague); el.innerHTML=`<span class="ticker-dot"></span><span class="ticker-label">${escapeHTML(label)}</span><span class="ticker-match">Fikstür yükleniyor</span>`; return; }
+  const m = nextUpcomingMatch();
   if(lastLoadError || DATA_ERRORS.matches){ el.innerHTML = `<span class="ticker-dot" style="background:var(--danger);"></span><span class="ticker-label" style="color:var(--danger);">HATA</span><span class="ticker-match">Fikstür verileri şu anda alınamıyor</span>`; return; }
   if(!MATCHES.length){ el.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">FİKSTÜR</span><span class="ticker-match">Henüz fikstür eklenmedi</span>`; return; }
   if(!m){ const lastW = getAvailableWeeks().slice(-1)[0]; el.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">FİKSTÜR</span><span class="ticker-match">${lastW}. haftaya kadar tüm maçlar tamamlandı</span>`; return; }
