@@ -506,13 +506,19 @@ for (const [label, source] of scriptFiles.map((file, index) => [file, scriptSour
 const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
 const mainTabCount = (documentHtml.match(/class="maintab/g) || []).length;
 assert.equal(mainTabCount, 2, 'Statik Futbol ve Predict sekmeleri korunmali; spor branslari dinamik kabuktan gelir.');
-assert.match(readme, /2\. Basketbol[\s\S]*3\. Voleybol[\s\S]*4\. Motor Sporları[\s\S]*5\. UFC/, 'README aktif spor branslarini listelemeli.');
+assert.match(readme, /2\. Basketbol[\s\S]*3\. Voleybol[\s\S]*4\. Kayak[\s\S]*5\. Motor Sporları[\s\S]*6\. UFC/, 'README aktif spor branslarini listelemeli.');
 assert.doesNotMatch(readme, /henüz yayında değildir|Kod hazır, yayında değil/, 'README erisilebilir spor merkezlerini kapali gostermemeli.');
 
 const multisportSource = await readFile(new URL('../assets/js/multisport.js', import.meta.url), 'utf8');
 const motorsportsSource = await readFile(new URL('../assets/js/motorsports.js', import.meta.url), 'utf8');
 assert.match(multisportSource, /SPORT_LEAGUE_CATALOG[\s\S]*Sultanlar Ligi[\s\S]*Efeler Ligi/, 'Voleybol merkezi lig secimi sunmali.');
 assert.match(multisportSource, /volleyballPortalHTML/, 'Voleybol ana gorunumu ayri lig ve program yerlesimi kullanmali.');
+assert.match(multisportSource, /ski:\s*'Kayak'[\s\S]*ski:\s*\['Alp Disiplini Dünya Kupası'/, 'Kayak merkezi ve disiplin secimleri tanimli olmali.');
+assert.match(multisportSource, /kayak:'ski'/, 'Dogrudan kayak rotasi kayak merkezini acmali.');
+assert.match(multisportSource, /skiPortalHTML/, 'Kayak ana gorunumu ayri disiplin ve program yerlesimi kullanmali.');
+assert.match(appCss, /v175[\s\S]*ski-hero-v1\.webp/, 'Kayak sinematik hero asseti CSS katmanina baglanmali.');
+assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
+assert.match(readme, /4\. Kayak/, 'README Kayak bransini aktif navigasyonda gostermeli.');
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');
 assert.match(motorsportsSource, /Hızın veriye dönüştüğü merkez/, 'Motor sporlari basligi dogru Turkce metni kullanmali.');
 assert.match(appCss, /v174/, 'Guncel ana sayfa ve spor merkezleri CSS katmani bulunmali.');

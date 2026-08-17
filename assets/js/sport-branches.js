@@ -3,6 +3,7 @@
     ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
+    ["ski", "Kayak", "/kayak/"],
     ["motorsports", "Motor Sporları", "/motorsports/"],
     ["mma", "UFC", "/ufc/"],
     ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"]
@@ -18,6 +19,7 @@
     basketbol: "basketball",
     ufc: "mma",
     voleybol: "volleyball",
+    kayak: "ski",
     "buz-hokeyi": "hockey",
     rugby: "rugby",
     beyzbol: "baseball",

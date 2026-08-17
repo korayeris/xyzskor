@@ -13,11 +13,12 @@ Ana navigasyon:
 1. Futbol
 2. Basketbol
 3. Voleybol
-4. Motor Sporları
-5. UFC
-6. Amerikan Futbolu
-7. Diğer: Buz Hokeyi, Rugby, Beyzbol, Hentbol, Avustralya Futbolu
-8. Predict
+4. Kayak
+5. Motor Sporları
+6. UFC
+7. Amerikan Futbolu
+8. Diğer: Buz Hokeyi, Rugby, Beyzbol, Hentbol, Avustralya Futbolu
+9. Predict
 
 Branş kabukları `sport-branches.js` tarafından oluşturulur. Çoklu spor sayfaları
 yalnızca kendi sağlayıcı verisini gösterir; veri bulunmazsa başka branştan fallback
@@ -36,7 +37,7 @@ Branş merkezleri:
 
 - Formula 1, Formula E, IndyCar, MotoGP, WRC, WEC, Le Mans ve NASCAR
 - UFC etkinlikleri, dövüş kartları, dövüşçü profilleri ve sıralamalar
-- Basketbol, voleybol ve diğer branşların maç, lig ve takım görünümleri
+- Basketbol, voleybol, kayak ve diğer branşların maç, lig ve takım görünümleri
 
 XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun istatistiksel girdisi ve karşılaştırma verisi olarak kullanılabilir. Para yatırma, kupon, bahis oynama veya ödeme akışı bulunmaz.
 
