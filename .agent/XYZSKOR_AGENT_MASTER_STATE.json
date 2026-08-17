@@ -14,20 +14,38 @@
   "previous_validation": { "check": "PASS", "build": "PASS" },
   "latest_zip_validation": { "dependency_install": "PASS", "check": "PASS", "build": "PASS" },
   "latest_integration_branch": "integration/latest-zip-2026-08-17",
-  "latest_import_commit": null,
+  "latest_import_commit": "ecf5439173825d38f68a849895cd5aa31a041e1f",
   "active_local_project_path": "C:\\Users\\koray\\Documents\\xyzskor.com",
-  "multi_agent_execution_status": "WAITING_FOR_IMPORT_COMMIT",
+  "multi_agent_execution_status": "COMPLETE_EXCEPT_USER_DECISION_TASK_9",
+  "integration_implementation_head": "d869610",
+  "final_validation": {
+    "check": "PASS",
+    "build": "PASS",
+    "matchday": "PASS",
+    "live_details": "PASS",
+    "football_coverage": "PASS",
+    "predict_security": "PASS_10_ASSERTIONS",
+    "api_harness": "PASS_147_OF_147",
+    "classic_js_parse": "PASS",
+    "browser_smoke": "PASS_BOUNDED_LA_LIGA_COVERAGE_AND_IMAGES",
+    "postgres_migration_runtime": "NOT_RUN_POSTGRES_DOCKER_PODMAN_UNAVAILABLE"
+  },
+  "negative_regressions": {
+    "task_1_production_strip": "PASS_FAIL_PASS",
+    "task_5_forbidden_image_hosts": "PASS_FAIL_PASS",
+    "task_8_duplicate_functions": "PASS_FAIL_PASS"
+  },
   "production_deploy": "NOT_AUTHORIZED_NOT_RUN",
   "production_migration": "NOT_AUTHORIZED_NOT_RUN",
   "tasks": {
-    "1": "PENDING_REVALIDATION",
-    "2": "PENDING",
-    "3": "PENDING",
-    "4": "PENDING_REVALIDATION",
-    "5": "PENDING",
-    "6": "PENDING",
-    "7": "WAITING_FOR_TASK_2",
-    "8": "PENDING_REVALIDATION",
+    "1": "DONE_REVALIDATED",
+    "2": "DONE",
+    "3": "DONE_CODE_AND_HARNESS_SQL_RUNTIME_ENV_BLOCKED",
+    "4": "DONE_REVALIDATED",
+    "5": "DONE",
+    "6": "DONE",
+    "7": "DONE",
+    "8": "DONE_REVALIDATED",
     "9": "BLOCKED_USER_DECISION"
   }
 }
