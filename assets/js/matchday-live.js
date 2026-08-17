@@ -117,7 +117,7 @@
       timer = setTimeout(resolveFixture, 300000);
     }
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (fixtureId) refresh(); else resolveFixture(); } });
   function fixtureFromElement(element) {
     if (!element) return "";
     const values = [element.dataset?.fixtureId, element.dataset?.fixture, element.dataset?.matchId, element.dataset?.providerId, element.getAttribute?.("href")];

@@ -4,8 +4,11 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 
-async function runScenario({ search = '', matches = [], detailFixture = {} }) {
+async function runScenario({ search = '', matches = [], seasonResponses = null, detailFixture = {} }) {
   const requests = [];
+  const listeners = new Map();
+  const timers = [];
+  let seasonRequest = 0;
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, { id, hidden:false, textContent:'', innerHTML:'', classList:{ toggle() {} }, nextElementSibling:null, appendChild() {}, addEventListener() {} });
@@ -22,20 +25,25 @@ async function runScenario({ search = '', matches = [], detailFixture = {} }) {
       body:{ classList:{ toggle() {} } }, hidden:false, readyState:'complete',
       getElementById:element,
       createElement:() => ({ hidden:false, dataset:{}, className:'', textContent:'', addEventListener() {} }),
-      querySelector:() => ({ appendChild() {} }), querySelectorAll:() => [], addEventListener() {}
+      querySelector:() => ({ appendChild() {} }), querySelectorAll:() => [], addEventListener:(name,handler) => listeners.set(name,handler)
     },
     window:{ addEventListener() {}, location:{ hash:'' } },
-    setTimeout:() => 0, clearTimeout() {},
+    setTimeout:(handler) => { timers.push(handler); return timers.length; }, clearTimeout() {},
     fetch:async (url) => {
       requests.push(String(url));
-      if (String(url).includes('/season?')) return { ok:true, json:async () => ({ matches }) };
+      if (String(url).includes('/season?')) {
+        const available = seasonResponses || [matches];
+        const selected = available[Math.min(seasonRequest, available.length - 1)];
+        seasonRequest += 1;
+        return { ok:true, json:async () => ({ matches:selected }) };
+      }
       return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:{} }) };
     }
   };
   vm.runInNewContext(source, context, { filename:'matchday-live.js' });
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
-  return { requests, elements };
+  return { requests, elements, listeners, timers };
 }
 
 const now = Date.now();
@@ -66,5 +74,13 @@ assert.match(overrideRun.requests[0], /fixture=987654$/, 'Fixture override aynen
 const emptyRun = await runScenario({ matches:[] });
 assert.equal(emptyRun.elements.get('matchdayTitle').textContent, 'Program bekleniyor', 'Boş fikstür sahte maç üretmemeli.');
 assert.match(emptyRun.elements.get('matchdayLiveRoot').innerHTML, /Program bekleniyor/, 'Boş fikstür dürüst durum göstermeli.');
+
+const recoveredRun = await runScenario({ seasonResponses:[[],[upcoming]], detailFixture:{ ...upcoming, score:{} } });
+assert.equal(recoveredRun.requests.length, 1, 'İlk boş sezonda yalnız sezon isteği yapılmalı.');
+recoveredRun.listeners.get('visibilitychange')();
+await new Promise((resolve) => setImmediate(resolve));
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(recoveredRun.requests[1], '/api/football/season?league=super-lig', 'Fixture yokken görünürlük değişimi sezonu yeniden çözmeli.');
+assert.match(recoveredRun.requests[2], /\/api\/football\/matchday\?fixture=10002$/, 'Sonradan gelen fixture geçerli detay URL’siyle yüklenmeli.');
 
 console.log('Matchday resolver checks passed.');
