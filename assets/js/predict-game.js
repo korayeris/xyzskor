@@ -108,6 +108,7 @@
       goals:0,
       misses:0,
       events:[],
+      sessionStartedAt:0,
       rewardEligible:false,
       training:false,
       idempotencyKey:uuid(),
@@ -276,6 +277,7 @@
       try{
         const payload = await gameApi('/api/predict-game/session', { guestSessionId:session.guestSessionId });
         session = { ...session, ...payload.session };
+        game.sessionStartedAt = performance.now();
         game.rewardEligible = Boolean(payload.session?.reward_eligible);
         game.training = payload.session?.reward_eligible === false && Boolean(currentUserSafe()?.id);
       }catch(_error){
@@ -287,7 +289,7 @@
     function registerGoal(){
       if(game.state !== STATES.PLAYING) return;
       game.goals += 1;
-      game.events.push({ type:'goal', occurredAt:Date.now() });
+      game.events.push({ type:'goal', elapsedMs:Math.round(performance.now() - game.sessionStartedAt) });
       game.goalTextUntil = performance.now() + 900;
       track('predict_game_goal');
       renderHud();
@@ -301,7 +303,7 @@
     function registerMiss(){
       if(game.state !== STATES.PLAYING) return;
       game.misses += 1;
-      game.events.push({ type:'miss', occurredAt:Date.now() });
+      game.events.push({ type:'miss', elapsedMs:Math.round(performance.now() - game.sessionStartedAt) });
       track('predict_game_miss');
       renderHud();
       if(game.misses >= MAX_MISSES){
@@ -330,7 +332,8 @@
         finalState,
         idempotencyKey:game.idempotencyKey,
         nonce:session?.nonce,
-        events:game.events.slice()
+        events:game.events.slice(),
+        elapsedMs:Math.round(performance.now() - game.sessionStartedAt)
       };
       try{
         const payload = await gameApi('/api/predict-game/complete', body);

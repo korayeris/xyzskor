@@ -24,7 +24,8 @@ create or replace function public.claim_predict_game_reward(
   p_final_state text,
   p_idempotency_key text,
   p_nonce text,
-  p_events jsonb
+  p_events jsonb,
+  p_elapsed_ms bigint
 )
 returns jsonb
 language plpgsql
@@ -38,10 +39,12 @@ declare
   claimed public.predict_point_transactions;
   event_row jsonb;
   event_time numeric;
-  previous_time numeric;
+  previous_time numeric := 0;
   goal_count integer := 0;
   miss_count integer := 0;
   valid_result boolean := true;
+  terminal_reached boolean := false;
+  event_index integer := 0;
 begin
   if p_user_id is null or p_session_id is null then
     raise exception 'Kimlik ve oyun oturumu gereklidir.';
@@ -73,25 +76,24 @@ begin
   end if;
 
   valid_result := target.nonce is not null and target.nonce = p_nonce
-    and now() - target.started_at >= interval '2.5 seconds'
+    and p_elapsed_ms >= 2500
+    and abs((extract(epoch from now() - target.started_at) * 1000)::bigint - p_elapsed_ms) <= 10000
     and jsonb_typeof(p_events) = 'array'
     and jsonb_array_length(p_events) = p_goals + p_misses
-    and jsonb_array_length(p_events) <= 15
-    and ((p_final_state = 'GAME_SUCCESS' and p_goals = 10)
-      or (p_final_state = 'GAME_OVER' and p_misses = 5));
-  previous_time := extract(epoch from target.started_at) * 1000;
+    and jsonb_array_length(p_events) <= 15;
 
   if valid_result then
     for event_row in select value from jsonb_array_elements(p_events)
     loop
+      event_index := event_index + 1;
       if event_row->>'type' not in ('goal','miss')
-         or jsonb_typeof(event_row->'occurredAt') <> 'number' then
+         or jsonb_typeof(event_row->'elapsedMs') <> 'number' then
         valid_result := false;
         exit;
       end if;
-      event_time := (event_row->>'occurredAt')::numeric;
+      event_time := (event_row->>'elapsedMs')::numeric;
       if event_time - previous_time < 120
-         or event_time > extract(epoch from now() + interval '5 seconds') * 1000 then
+         or event_time > p_elapsed_ms then
         valid_result := false;
         exit;
       end if;
@@ -99,8 +101,15 @@ begin
       if event_row->>'type' = 'goal' then goal_count := goal_count + 1;
       else miss_count := miss_count + 1;
       end if;
+      if goal_count = 10 or miss_count = 5 then
+        terminal_reached := true;
+        valid_result := event_index = jsonb_array_length(p_events)
+          and ((goal_count = 10 and miss_count < 5 and p_final_state = 'GAME_SUCCESS')
+            or (miss_count = 5 and goal_count < 10 and p_final_state = 'GAME_OVER'));
+        exit;
+      end if;
     end loop;
-    valid_result := valid_result and goal_count = p_goals and miss_count = p_misses;
+    valid_result := valid_result and terminal_reached and goal_count = p_goals and miss_count = p_misses;
   end if;
 
   if not coalesce(valid_result, false) then
@@ -111,6 +120,7 @@ begin
   end if;
 
   points := least(p_goals * 5, 50);
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || ':' || today::text, 0));
   update public.predict_game_sessions
   set user_id = p_user_id, status = 'completed', goals = p_goals, misses = p_misses,
       points_earned = points, finished_at = now(), events = p_events,
@@ -139,12 +149,13 @@ end;
 $$;
 
 revoke all on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text) from public, service_role;
-revoke all on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb) from public;
-grant execute on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb) to authenticated, service_role;
+drop function if exists public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb);
+revoke all on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb,bigint) from public;
+grant execute on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb,bigint) to authenticated, service_role;
 
 comment on column public.predict_game_sessions.nonce is 'Sunucunun uretdigi tekil oyun dogrulama degeri.';
 comment on column public.predict_game_sessions.events is 'Gol ve kacirma olaylarinin zaman damgali, dogrulanmis listesi.';
-comment on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb)
+comment on function public.claim_predict_game_reward(uuid,uuid,text,integer,integer,text,text,text,jsonb,bigint)
   is 'Nonce, sure, olay araligi, sahiplik ve tekrar tamamlama kontrolleriyle odulu atomik verir.';
 
 commit;
@@ -152,3 +163,5 @@ commit;
 -- GERI ALMA PLANI (ayri transaction): yeni function overload ve nonce indexini kaldir;
 -- events/nonce kolonlarini ancak yeni Worker geri alindiktan ve veri yedeklendikten sonra kaldir;
 -- eski function icin service_role execute yetkisini yeniden ver ve status constraintini onceki listeyle kur.
+-- KALAN RISK: Nonce ve istemci olay kaydi fiziksel oyunu kriptografik olarak kanitlamaz.
+-- Daha guclu koruma icin her atista tek kullanimlik sunucu challenge protokolu ayri backlog maddesidir.
