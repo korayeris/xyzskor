@@ -12,6 +12,19 @@
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
+  const finishedStatuses = new Set(["bitti", "ft", "aet", "pen", "finished", "after penalties", "after extra time"]);
+  const isFinishedFixture = (fixture) => finishedStatuses.has(String(fixture?.status || "").toLocaleLowerCase("tr-TR"));
+  const fixtureTimeLabel = (fixture) => fixtureKickoff(fixture) ? localTime(fixtureKickoff(fixture)) : isFinishedFixture(fixture) ? "Maç tamamlandı" : "Tarih bilgisi bekleniyor";
+  const statisticLabels = {
+    "corners":"Korner", "shots off target":"İsabetsiz şut", "shots on target":"İsabetli şut",
+    "shots total":"Toplam şut", "attacks":"Atak", "dangerous attacks":"Tehlikeli atak",
+    "ball possession %":"Topa sahip olma", "ball possession":"Topa sahip olma", "ball safe":"Başarılı pas",
+    "shots insidebox":"Ceza sahası içinden şut", "shots inside box":"Ceza sahası içinden şut",
+    "shots outsidebox":"Ceza sahası dışından şut", "shots outside box":"Ceza sahası dışından şut",
+    "offsides":"Ofsayt", "fouls":"Faul", "yellowcards":"Sarı kart", "redcards":"Kırmızı kart",
+    "saves":"Kurtarış", "passes":"Pas", "successful passes":"Başarılı pas"
+  };
+  const statisticLabel = (value) => statisticLabels[String(value || "").trim().toLocaleLowerCase("en-US")] || String(value || "İstatistik");
   function setDetailMode(active) {
     document.body.classList.toggle("matchday-detail-open", active);
     command.hidden = false;
@@ -62,7 +75,7 @@
   function renderStats(stats) {
     if (!stats.length) return '<div class="matchday-empty">Şut, topa sahip olma, korner ve oyuncu istatistikleri sağlayıcının kapsamına göre açılacak.</div>';
     const grouped = new Map();
-    stats.forEach((stat) => { const label = String(stat.label || "İstatistik"); if (!grouped.has(label)) grouped.set(label, []); grouped.get(label).push(stat.value); });
+    stats.forEach((stat) => { const label = statisticLabel(stat.label); if (!grouped.has(label)) grouped.set(label, []); grouped.get(label).push(stat.value); });
     return `<div class="matchday-stats">${Array.from(grouped.entries()).slice(0, 10).map(([label, values]) => `<div><span>${esc(values[0] ?? "-")}</span><b>${esc(label)}</b><span>${esc(values[1] ?? "-")}</span></div>`).join("")}</div>`;
   }
   function renderTeamLineup(title, members) {
@@ -81,12 +94,12 @@
     const title = document.getElementById("matchdayTitle");
     const intro = title?.nextElementSibling;
     if (title) title.textContent = `${homeName} - ${awayName}`;
-    if (intro) intro.textContent = `${localTime(fixtureKickoff(f))} · Resmî veri geldikçe otomatik güncellenir`;
+    if (intro) intro.textContent = `${fixtureTimeLabel(f)} · Sportmonks tarafından doğrulanan maç verisi`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
     const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
-    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team"><span>${esc(teamAbbreviation(homeName))}</span><strong>${esc(homeName)}</strong><small>${esc(formations[0]?.formation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(localTime(fixtureKickoff(f)))}</small></div><div class="matchday-team matchday-team--away"><span>${esc(teamAbbreviation(awayName))}</span><strong>${esc(awayName)}</strong><small>${esc(formations[1]?.formation || "Diziliş bekleniyor")}</small></div></div><div class="matchday-grid"><section class="matchday-card"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events)}</section><section class="matchday-card"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats)}</section></div><section class="matchday-card matchday-card--lineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup)}${renderTeamLineup(awayName, awayLineup)}</div></section>`;
+    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team"><span>${esc(teamAbbreviation(homeName))}</span><strong>${esc(homeName)}</strong><small>${esc(formations[0]?.formation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away"><span>${esc(teamAbbreviation(awayName))}</span><strong>${esc(awayName)}</strong><small>${esc(formations[1]?.formation || "Diziliş bekleniyor")}</small></div></div><nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup)}${renderTeamLineup(awayName, awayLineup)}</div></section>`;
   }
   function renderEmpty() {
     const title = document.getElementById("matchdayTitle"), intro = title?.nextElementSibling;

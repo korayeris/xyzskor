@@ -521,6 +521,9 @@ assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde
 assert.match(readme, /4\. Kayak/, 'README Kayak bransini aktif navigasyonda gostermeli.');
 assert.match(appCss, /v176[\s\S]*grid-template-areas:"main live" "lower lower"/, 'Futbol ana sayfasi mac programini onceleyen iki seviyeli duzeni kullanmali.');
 assert.match(appCss, /v177[\s\S]*minmax\(400px,420px\)[\s\S]*max-width:1180px/, 'Futbol panelleri dar alanda sikismak yerine tek kolona gecmeli.');
+assert.match(matchdayLiveSource, /statisticLabels[\s\S]*Korner[\s\S]*Topa sahip olma/, 'Fixture istatistik etiketleri Turkce sunulmali.');
+assert.match(matchdayLiveSource, /matchday-jump[\s\S]*matchdayEvents[\s\S]*matchdayStatistics[\s\S]*matchdayLineups/, 'Fixture detayi olay, istatistik ve kadro hizli gezinmesini sunmali.');
+assert.match(appCss, /v178[\s\S]*matchday-jump[\s\S]*minmax\(380px,.75fr\)/, 'Fixture detay panelleri dengeli ve responsive yerlesmeli.');
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');
 assert.match(motorsportsSource, /Hızın veriye dönüştüğü merkez/, 'Motor sporlari basligi dogru Turkce metni kullanmali.');
 assert.match(appCss, /v174/, 'Guncel ana sayfa ve spor merkezleri CSS katmani bulunmali.');

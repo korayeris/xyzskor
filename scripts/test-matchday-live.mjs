@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 
-async function runScenario({ search = '', matches = [], seasonResponses = null, detailFixture = {} }) {
+async function runScenario({ search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {} }) {
   const requests = [];
   const listeners = new Map();
   const timers = [];
@@ -37,7 +37,7 @@ async function runScenario({ search = '', matches = [], seasonResponses = null, 
         seasonRequest += 1;
         return { ok:true, json:async () => ({ matches:selected }) };
       }
-      return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:{} }) };
+      return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:detailDetails }) };
     }
   };
   vm.runInNewContext(source, context, { filename:'matchday-live.js' });
@@ -63,6 +63,19 @@ assert.doesNotMatch(futureRun.elements.get('matchdayLiveRoot').innerHTML, /CANLI
 
 const completedRun = await runScenario({ matches:[completed], detailFixture:{ ...completed, score:{home:1, away:0} } });
 assert.match(completedRun.requests[1], /fixture=10001$/, 'Gelecek maç yoksa son tamamlanan maç seçilmeli.');
+
+const detailedRun = await runScenario({
+  search:'?fixture=10001',
+  detailFixture:{ id:'sportmonks:10001', ev:'Ev', konuk:'Konuk', status:'bitti', score:{home:2,away:2} },
+  detailDetails:{
+    events:[{ minute:53, type:'goal', player:'Oyuncu' }],
+    statistics:[{ label:'Corners', value:8 },{ label:'Ball Possession %', value:64 }],
+    lineups:[{ team:'Ev', player:'Kaleci', number:1, type_id:11 }]
+  }
+});
+assert.equal(detailedRun.elements.get('matchdayIntro').textContent, 'Maç tamamlandı · Sportmonks tarafından doğrulanan maç verisi', 'Tarihi eksik biten maç program bekleniyor dememeli.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-jump[\s\S]*Olaylar <b>1<\/b>[\s\S]*İstatistikler <b>2<\/b>/, 'Fixture ayrıntıları sayılı hızlı gezinme sunmalı.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, />Korner<\/b>[\s\S]*>Topa sahip olma<\/b>/, 'Sağlayıcı istatistik adları Türkçeleştirilmeli.');
 
 const staleLiveRun = await runScenario({ search:'?fixture=10003', detailFixture:{ ...live, kickoff:iso(-18000000), minute:90, score:{home:1, away:1} } });
 assert.doesNotMatch(staleLiveRun.elements.get('matchdayLiveRoot').innerHTML, /<em>(?:90' )?CANLI<\/em>/, 'Geçmiş kickoff taşıyan maç canlı etiketi göstermemeli.');
