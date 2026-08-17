@@ -1451,10 +1451,11 @@ function utcDateWithOffset(days) {
 async function fetchFixtureTeamContext(team, fixtureId, token) {
   if (!team?.id) return null;
   try {
-    const path = `/fixtures/between/${utcDateWithOffset(-120)}/${utcDateWithOffset(60)}/${encodeURIComponent(team.id)}?include=participants;scores;league;state&per_page=50`;
-    const payload = await sportmonksRequest(path, token);
+    const windows = [[-420,-301],[-300,-181],[-180,-61],[-60,60]];
+    const settled = await Promise.allSettled(windows.map(([from,to]) => sportmonksRequest(`/fixtures/between/${utcDateWithOffset(from)}/${utcDateWithOffset(to)}/${encodeURIComponent(team.id)}?include=participants;scores;league;state&per_page=50`, token)));
     const now = Date.now();
-    const matches = relationRows(payload?.data).filter((item) => String(item?.id) !== String(fixtureId)).map((item) => {
+    const fixtures = [...new Map(settled.flatMap((result) => result.status === "fulfilled" ? relationRows(result.value?.data) : []).map((item) => [String(item?.id), item])).values()];
+    const matches = fixtures.filter((item) => String(item?.id) !== String(fixtureId)).map((item) => {
       const participants = relationRows(item?.participants);
       const opponent = participants.find((participant) => String(participant?.id) !== String(team.id)) || {};
       const ownScore = sportmonksScore(item?.scores, team.id), opponentScore = sportmonksScore(item?.scores, opponent.id);
