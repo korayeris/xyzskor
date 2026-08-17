@@ -1407,23 +1407,25 @@ function normalizeSportmonksFixtureDetails(fixture) {
     const player = row?.player || {};
     const team = teamById.get(String(row?.team_id || row?.participant_id)) || {};
     const position = row?.position || row?.detailedposition || row?.detailedPosition || {};
-    return { team:team.name || null, player_name:row?.player_name || player.display_name || player.common_name || player.name || null, number:row?.jersey_number ?? null, position:position.name || position.code || null, is_official:true, is_captain:Boolean(row?.captain), is_keeper:/goal|keeper|kaleci/i.test(position.name || position.code || ""), type_id:row?.type_id ?? null };
+    return { team:team.name || null, team_id:row?.team_id || row?.participant_id || null, player_id:row?.player_id || player.id || null, player_name:row?.player_name || player.display_name || player.common_name || player.name || null, player_image:player.image_path || row?.image_path || null, number:row?.jersey_number ?? null, position:position.name || position.code || null, formation_field:row?.formation_field || null, formation_position:row?.formation_position ?? null, is_official:true, is_captain:Boolean(row?.captain), is_keeper:/goal|keeper|kaleci/i.test(position.name || position.code || ""), type_id:row?.type_id ?? null };
   }).filter((row) => row.team && row.player_name);
   const absences = relationRows(fixture?.sidelined).map((row) => {
     const player = row?.player || {};
     const team = teamById.get(String(row?.participant_id || row?.team_id)) || {};
     return { team:team.name || null, player_name:player.display_name || player.common_name || player.name || row?.player_name || null, reason:row?.reason || row?.description || row?.category || null, availability_status:row?.type?.name || row?.type || "other", verification_status:"provider", source:"Sportmonks" };
   }).filter((row) => row.team && row.player_name);
-  const events = relationRows(fixture?.events).map((row) => ({ id:row?.id || null, minute:row?.minute ?? row?.sort_order ?? null, team:teamById.get(String(row?.participant_id))?.name || null, player:row?.player_name || row?.player?.display_name || row?.player?.name || null, relatedPlayer:row?.related_player_name || row?.relatedplayer?.display_name || null, type:row?.type?.name || row?.type?.code || row?.type || row?.addition || "Olay", result:row?.result || null })).filter((row) => row.team || row.player);
-  const statistics = relationRows(fixture?.statistics).map((row) => ({ team:teamById.get(String(row?.participant_id))?.name || null, label:row?.type?.name || row?.type?.code || row?.name || null, value:row?.data?.value ?? row?.value ?? null })).filter((row) => row.team && row.label && row.value !== null);
+  const events = relationRows(fixture?.events).map((row) => ({ id:row?.id || null, minute:row?.minute ?? row?.sort_order ?? null, participant_id:row?.participant_id || null, team:teamById.get(String(row?.participant_id))?.name || null, player:row?.player_name || row?.player?.display_name || row?.player?.name || null, player_image:row?.player?.image_path || null, relatedPlayer:row?.related_player_name || row?.relatedplayer?.display_name || null, type_id:row?.type_id ?? null, type:row?.type?.name || row?.type?.code || row?.type || row?.addition || "Olay", result:row?.result || null })).filter((row) => row.team || row.player);
+  const statistics = relationRows(fixture?.statistics).map((row) => { const location=String(row?.location || teamById.get(String(row?.participant_id))?.meta?.location || "").toLowerCase(); const team=teamById.get(String(row?.participant_id)) || (location === "home" ? participants.find((item)=>item?.meta?.location === "home") : location === "away" ? participants.find((item)=>item?.meta?.location === "away") : null); return { team:team?.name || null, participant_id:row?.participant_id || team?.id || null, location:location || null, type_id:row?.type_id ?? null, label:row?.type?.name || row?.type?.code || row?.name || null, value:row?.data?.value ?? row?.value ?? null }; }).filter((row) => row.label && row.value !== null);
+  const xg = relationRows(fixture?.xgfixture || fixture?.xGFixture || fixture?.expected).map((row) => ({ participant_id:row?.participant_id || null, location:row?.location || teamById.get(String(row?.participant_id))?.meta?.location || null, value:Number(row?.data?.value ?? row?.value) })).filter((row) => Number.isFinite(row.value));
+  const predictions = relationRows(fixture?.predictions).map((row) => ({ type_id:row?.type_id ?? null, predictions:row?.predictions || row?.data || null })).filter((row) => row.predictions);
   const refereeRow = relationRows(fixture?.referees)[0];
   const referee = refereeRow?.referee || refereeRow || null;
-  return { lineups, absences, events, statistics, formations:relationRows(fixture?.formations), periods:relationRows(fixture?.periods), venue:fixture?.venue || null, referee:referee ? { name:referee.display_name || referee.common_name || referee.name || null, image:referee.image_path || null } : null, weather:fixture?.weatherreport || fixture?.weatherReport || null };
+  return { lineups, absences, events, statistics, xg, predictions, formations:relationRows(fixture?.formations), periods:relationRows(fixture?.periods), venue:fixture?.venue || null, referee:referee ? { name:referee.display_name || referee.common_name || referee.name || null, image:referee.image_path || null } : null, weather:fixture?.weatherreport || fixture?.weatherReport || null };
 }
 
 async function sportmonksFixtureRequest(path, token) {
   const includeSets = [
-    "participants;scores;league.country;state;events.type;lineups.player;lineups.position;statistics.type;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
+    "participants;scores;league.country;state;events.type;events.player;lineups.player;lineups.position;lineups.xGLineup;statistics.type;predictions;xGFixture;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
     "participants;scores;league;state;events;lineups.player;statistics.type;venue;periods;formations",
     "participants;scores;league;state",
   ];

@@ -66,16 +66,20 @@ assert.match(completedRun.requests[1], /fixture=10001$/, 'Gelecek maç yoksa son
 
 const detailedRun = await runScenario({
   search:'?fixture=10001',
-  detailFixture:{ id:'sportmonks:10001', ev:'Ev', konuk:'Konuk', status:'bitti', score:{home:2,away:2} },
+  detailFixture:{ id:'sportmonks:10001', ev:'Ev', konuk:'Konuk', status:'bitti', home_logo:'https://cdn.sportmonks.com/home.png', away_logo:'https://cdn.sportmonks.com/away.png', score:{home:2,away:2} },
   detailDetails:{
-    events:[{ minute:53, type:'goal', player:'Oyuncu' }],
-    statistics:[{ label:'Corners', value:8 },{ label:'Ball Possession %', value:64 }],
-    lineups:[{ team:'Ev', player:'Kaleci', number:1, type_id:11 }]
+    events:[{ minute:53, type_id:14, team:'Ev', player:'Oyuncu', player_image:'https://cdn.sportmonks.com/player.png', result:'1-0' }],
+    statistics:[{ label:'Corners', location:'home', value:8 },{ label:'Ball Possession %', location:'away', value:64 }],
+    lineups:[{ team:'Ev', player_name:'Kaleci', player_image:'https://cdn.sportmonks.com/keeper.png', number:1, type_id:11 }],
+    xg:[{ location:'home', value:1.76 },{ location:'away', value:1.38 }],
+    predictions:[{ type_id:237, predictions:{home:41.53,draw:24.07,away:34.36} }]
   }
 });
 assert.equal(detailedRun.elements.get('matchdayIntro').textContent, 'Maç tamamlandı · Sportmonks tarafından doğrulanan maç verisi', 'Tarihi eksik biten maç program bekleniyor dememeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-jump[\s\S]*Olaylar <b>1<\/b>[\s\S]*İstatistikler <b>2<\/b>/, 'Fixture ayrıntıları sayılı hızlı gezinme sunmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, />Korner<\/b>[\s\S]*>Topa sahip olma<\/b>/, 'Sağlayıcı istatistik adları Türkçeleştirilmeli.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-team-logo[\s\S]*matchday-event-player[\s\S]*matchday-xi-face/, 'Takım ve oyuncu görselleri fixture bileşeninde kullanılmalı.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /BEKLENEN GOL[\s\S]*41,5%/, 'xG ve maç sonucu olasılığı görselleştirilmeli.');
 
 const staleLiveRun = await runScenario({ search:'?fixture=10003', detailFixture:{ ...live, kickoff:iso(-18000000), minute:90, score:{home:1, away:1} } });
 assert.doesNotMatch(staleLiveRun.elements.get('matchdayLiveRoot').innerHTML, /<em>(?:90' )?CANLI<\/em>/, 'Geçmiş kickoff taşıyan maç canlı etiketi göstermemeli.');
