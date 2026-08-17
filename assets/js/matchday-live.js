@@ -3,6 +3,9 @@
   const params = new URLSearchParams(location.search);
   const requestedFixture = params.get("fixture");
   let fixtureId = String(requestedFixture || "").replace(/^sportmonks:/, "");
+  const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "champions-league", "europa-league", "all"]);
+  const pathLeague = String(location.pathname || "").replace(/^\/+|\/+$/g, "").split("/")[0];
+  let activeMatchdayLeague = leagueRoutes.has(pathLeague) ? pathLeague : "super-lig";
   let kickoff = NaN;
   const root = document.getElementById("matchdayLiveRoot");
   const sync = document.getElementById("matchdaySync");
@@ -146,7 +149,7 @@
   }
   async function resolveFixture() {
     try {
-      const response = await fetch("/api/football/season?league=super-lig", { cache:"no-store" });
+      const response = await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`, { cache:"no-store" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || payload.detail || payload.error || "Fikstür alınamadı");
       const selected = selectFixture(payload.matches);
@@ -161,6 +164,18 @@
     }
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (fixtureId) refresh(); else resolveFixture(); } });
+  window.addEventListener("xyz:football-league-change", (event) => {
+    if (requestedFixture) return;
+    const league = String(event?.detail?.league || "");
+    if (!leagueRoutes.has(league) || league === activeMatchdayLeague) return;
+    activeMatchdayLeague = league;
+    fixtureId = "";
+    kickoff = NaN;
+    clearTimeout(timer);
+    sync.textContent = "Seçili lig fikstürü yükleniyor";
+    root.innerHTML = '<div class="matchday-loading"><b>En yakın maç aranıyor.</b><span>Seçili ligin canlı veya yaklaşan fikstürü yükleniyor.</span></div>';
+    resolveFixture();
+  });
   function fixtureFromElement(element) {
     if (!element) return "";
     const values = [element.dataset?.fixtureId, element.dataset?.fixture, element.dataset?.matchId, element.dataset?.providerId, element.getAttribute?.("href")];

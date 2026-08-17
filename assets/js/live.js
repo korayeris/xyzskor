@@ -144,6 +144,7 @@ async function loadFootballLeagueSelection(leagueKey){
   const requestedLeague=SELECTED_COMPETITIONS.some(item=>item.key===leagueKey) ? leagueKey : 'super-lig';
   if(typeof document!=='undefined' && document.body) document.body.dataset.footballLeagueLoading=requestedLeague;
   activeFootballLeague=requestedLeague;
+  if(typeof window!=='undefined' && typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:football-league-change',{detail:{league:requestedLeague}}));
   activeFootballTeam='Tümü';
   MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
   if(typeof renderAll==='function') renderAll();

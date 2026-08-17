@@ -455,7 +455,7 @@ assert.match(liveSource, /function renderLiveFeed\([\s\S]*?renderLiveDetails\(ma
 // davranisi scripts/test-matchday-live.mjs ile ayrica calistirilir.
 const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')];
 assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|Çorum FK|ÇFK/, 'Mac merkezi gecmis fixture veya takim fallbacklerine sabitlenmemeli.');
-assert.match(matchdayLiveSource, /\/api\/football\/season\?league=super-lig/, 'Parametre yokken fixture sezon verisinden cozulmeli.');
+assert.match(matchdayLiveSource, /\/api\/football\/season\?league=\$\{encodeURIComponent\(activeMatchdayLeague\)\}/, 'Parametre yokken fixture secili lig sezon verisinden cozulmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
 assert.match(documentHtml, /<h2 id="matchdayTitle"><\/h2><p>Maç bilgisi yükleniyor<\/p>/, 'Kaynak HTML yalnizca notr mac placeholderi icermeli.');
 // Lisanssiz gorsel hotlink regresyonu. Kaynak agacinin tamaminda yasakli
