@@ -122,7 +122,10 @@
     const flag = flagOf(item);
     const stats = [['wins', 'W'], ['podiums', 'POD'], ['poles', 'POLE'], ['races', 'RACE'], ['starts', 'START'], ['championships', 'TITLE']]
       .map(([key, label]) => item?.[key] != null ? `<span><b>${esc(item[key])}</b><small>${label}</small></span>` : '').filter(Boolean).join('');
-    return `<article class="xms-data-card xms-type-${esc(type.toLowerCase())}"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span><img src="${esc(image)}" data-fallback="${esc(fallback)}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${esc(nameOf(item))}" loading="lazy"><div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${flag ? `<span>${flag}</span>` : ''}${esc(meta)}</p>${stats ? `<div class="xms-statline">${stats}</div>` : ''}</div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
+    const recentRaw = item?.recentResults || item?.recent_results || item?.lastResults || item?.last_results || item?.form || [];
+    const recent = (Array.isArray(recentRaw) ? recentRaw : typeof recentRaw === 'string' ? recentRaw.split(/[\s,|]+/) : []).filter(Boolean).slice(-5);
+    const recentStrip = recent.length ? `<div class="xms-recent-form" aria-label="${esc(nameOf(item))} son 5 yarış">${recent.map(result => { const position=Number(result?.position ?? result?.rank ?? result?.place ?? result); return `<span class="${position===1?'is-win':position>0&&position<=3?'is-podium':''}">${Number.isFinite(position) ? `P${position}` : esc(result?.result ?? result)}</span>`; }).join('')}</div>` : '';
+    return `<article class="xms-data-card xms-type-${esc(type.toLowerCase())}"><span class="xms-data-index">${String(index + 1).padStart(2, '0')}</span><img src="${esc(image)}" data-fallback="${esc(fallback)}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${esc(nameOf(item))}" loading="lazy"><div><small>${esc(type)}</small><h3>${esc(nameOf(item))}</h3><p>${flag ? `<span>${flag}</span>` : ''}${esc(meta)}</p>${stats ? `<div class="xms-statline">${stats}</div>` : ''}${recentStrip}</div>${value ? `<b>${esc(value)}</b>` : ''}</article>`;
   }
   function emptyState(title, detail) {
     return `<div class="xms-empty"><strong>${esc(title)}</strong><p>${esc(detail)}</p></div>`;
