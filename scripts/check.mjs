@@ -526,7 +526,7 @@ assert.match(matchdayLiveSource, /matchday-jump[\s\S]*matchdayEvents[\s\S]*match
 assert.match(appCss, /v178[\s\S]*matchday-jump[\s\S]*minmax\(380px,.75fr\)/, 'Fixture detay panelleri dengeli ve responsive yerlesmeli.');
 assert.match(workerSource, /events\.player;lineups\.player[\s\S]*predictions;xGFixture/, 'Fixture istegi oyuncu gorseli, tahmin ve xG include alanlarini istemeli.');
 assert.match(workerSource, /player_image:player\.image_path[\s\S]*const xg[\s\S]*const predictions/, 'Worker zengin fixture gorsel ve analiz alanlarini korumali.');
-assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-xi-face[\s\S]*renderInsights/, 'Fixture arayuzu oyuncu fotografi ve xG alanlarini render etmeli.');
+assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-pitch-photo[\s\S]*renderInsights/, 'Fixture arayuzu oyuncu fotografli saha dizilisi ve xG alanlarini render etmeli.');
 assert.match(matchdayLiveSource, /matchday-team-logo/, 'Fixture arayuzu takim logolarini render etmeli.');
 assert.match(appCss, /v179[\s\S]*matchday-timeline:before[\s\S]*matchday-xi-strip/, 'Fixture zaman cizgisi ve fotografli ilk 11 gorsel sistemi bulunmali.');
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');

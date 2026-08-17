@@ -85,8 +85,20 @@
     const starters = marked.length ? marked : members.slice(0, 11);
     const substitutes = members.filter((item) => !starters.includes(item));
     const list = (items) => items.map((item) => `<li>${imageTag(item.player_image,item.player_name || "Oyuncu","matchday-player-photo")}<span>${esc(item.number || "-")}</span><b>${esc(item.player_name || item.player || "Oyuncu")}${item.is_captain ? " ©" : ""}</b><small>${esc(item.position || "")}</small></li>`).join("");
-    const faces=starters.slice(0,11).map((item)=>imageTag(item.player_image,item.player_name || "Oyuncu","matchday-xi-face") || `<i>${esc(teamAbbreviation(item.player_name || "?"))}</i>`).join("");
-    return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-xi-strip">${faces}</div><h5>İlk 11</h5><ul>${list(starters)}</ul>${substitutes.length ? `<h5>Yedekler</h5><ul>${list(substitutes)}</ul>` : ""}</section>`;
+    const fallbackRows = [1,4,3,3];
+    const positioned = starters.slice(0,11).map((item,index) => {
+      let row = Number(item.formation_field);
+      if (!Number.isFinite(row) || row < 1) {
+        let cursor = 0;
+        row = fallbackRows.findIndex((count) => { cursor += count; return index < cursor; }) + 1;
+      }
+      return { item, row, order:Number(item.formation_position) || index + 1 };
+    });
+    const pitchRows = Array.from(new Set(positioned.map((entry) => entry.row))).sort((a,b)=>b-a).map((row) => {
+      const players = positioned.filter((entry) => entry.row === row).sort((a,b)=>a.order-b.order);
+      return `<div class="matchday-pitch-row" style="--players:${players.length}">${players.map(({item}) => `<div class="matchday-pitch-player">${imageTag(item.player_image,item.player_name || "Oyuncu","matchday-pitch-photo") || `<i>${esc(teamAbbreviation(item.player_name || "?"))}</i>`}<b>${item.number ? `<span>${esc(item.number)}</span>` : ""}${esc(item.player_name || item.player || "Oyuncu")}${item.is_captain ? " ©" : ""}</b></div>`).join("")}</div>`;
+    }).join("");
+    return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-pitch" role="img" aria-label="${esc(title)} ilk 11 saha dizilişi"><div class="matchday-pitch-box"></div><div class="matchday-pitch-circle"></div><div class="matchday-pitch-formation">${pitchRows}</div></div>${substitutes.length ? `<h5>Yedekler</h5><ul>${list(substitutes)}</ul>` : ""}</section>`;
   }
   function renderInsights(xg, predictions, homeName, awayName) {
     const homeXg=xg.find((row)=>row.location === "home")?.value, awayXg=xg.find((row)=>row.location === "away")?.value;

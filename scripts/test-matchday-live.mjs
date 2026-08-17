@@ -78,7 +78,7 @@ const detailedRun = await runScenario({
 assert.equal(detailedRun.elements.get('matchdayIntro').textContent, 'Maç tamamlandı · Sportmonks tarafından doğrulanan maç verisi', 'Tarihi eksik biten maç program bekleniyor dememeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-jump[\s\S]*Olaylar <b>1<\/b>[\s\S]*İstatistikler <b>2<\/b>/, 'Fixture ayrıntıları sayılı hızlı gezinme sunmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, />Korner<\/b>[\s\S]*>Topa sahip olma<\/b>/, 'Sağlayıcı istatistik adları Türkçeleştirilmeli.');
-assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-team-logo[\s\S]*matchday-event-player[\s\S]*matchday-xi-face/, 'Takım ve oyuncu görselleri fixture bileşeninde kullanılmalı.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-team-logo[\s\S]*matchday-event-player[\s\S]*matchday-pitch-photo/, 'Takım ve oyuncu görselleri saha dizilişinde kullanılmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /BEKLENEN GOL[\s\S]*41,5%/, 'xG ve maç sonucu olasılığı görselleştirilmeli.');
 
 const staleLiveRun = await runScenario({ search:'?fixture=10003', detailFixture:{ ...live, kickoff:iso(-18000000), minute:90, score:{home:1, away:1} } });
