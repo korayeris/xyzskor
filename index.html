@@ -47,14 +47,6 @@
 
 <div class="live-ticker"><div class="ticker-inner" id="liveTicker"></div></div>
 
-<section class="matchday-command" id="matchdayCommand" aria-labelledby="matchdayTitle">
-  <div class="matchday-command__head">
-    <div><span>CANLI MAÇ MERKEZİ</span><h2 id="matchdayTitle"></h2><p>Maç bilgisi yükleniyor</p></div>
-    <strong id="matchdaySync">Maç verisi hazırlanıyor</strong>
-  </div>
-  <div id="matchdayLiveRoot" class="matchday-live-root" aria-live="polite"><div class="matchday-loading">Canlı maç merkezi hazırlanıyor...</div></div>
-</section>
-
 <nav class="football-context-nav" id="footballContextNav" aria-label="Futbol bölümleri">
   <button class="football-context-tab active" data-football-route="home" type="button" onclick="openFootballSection('home',this)">Anasayfa</button>
   <button class="football-context-tab" data-football-route="matches" type="button" onclick="openFootballSection('matches',this)">Maçlar</button>
@@ -72,13 +64,13 @@
   <div class="portal-league-list football-top-league-list" id="footballTopLeagueStrip"></div>
 </div>
 
-<div class="predict-leaderboard-slot" aria-label="Predict çekiliş duyurusu">
-  <a class="predict-ad predict-ad-leaderboard" href="https://xyzskor-tr.korayeris2002.chatgpt.site/predict/" target="_self">
-    <span class="predict-ad-brand"><b>X</b><strong>XYZSKOR</strong><small>PREDICT</small></span>
-    <span class="predict-ad-copy"><strong>🏆 UEFA Avrupa Ligi skor tahmin çekilişi</strong><small>Skorunu tahmin et, orijinal forma ve VIP maç bileti kazan.</small></span>
-    <span class="predict-ad-cta">Katıl →</span>
-  </a>
-</div>
+<section class="matchday-command" id="matchdayCommand" aria-labelledby="matchdayTitle">
+  <div class="matchday-command__head">
+    <div><span>CANLI MAÇ MERKEZİ</span><h2 id="matchdayTitle"></h2><p>Maç bilgisi yükleniyor</p></div>
+    <strong id="matchdaySync">Maç verisi hazırlanıyor</strong>
+  </div>
+  <div id="matchdayLiveRoot" class="matchday-live-root" aria-live="polite"><div class="matchday-loading">Canlı maç merkezi hazırlanıyor...</div></div>
+</section>
 
 <aside class="mini-goal-game" id="miniGoalGame" aria-label="Golü At mini oyunu">
   <button class="mini-goal-trigger" id="miniGoalTrigger" type="button" aria-expanded="false" aria-controls="miniGoalOverlay" aria-label="Golü At mini oyununu aç veya kapat">
