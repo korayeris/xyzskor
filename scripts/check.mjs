@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const documentHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
-const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'predict-game.js', 'ui.js', 'chat.js'];
+const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'chat.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
 const dataSource = scriptSources[0];
 const appSource = scriptSources.join('\n');
@@ -445,6 +445,14 @@ for (const [label, source] of [['live.js', liveSource], ['match-center.js', matc
   assert.match(source, /fixtureFreshness\(\)/, `${label} tazelik etiketini yardimci uzerinden almali.`);
 }
 assert.match(appCss, /v171/, 'Bayat veri gostergesi icin CSS katmani bulunmali.');
+
+// Ana mac merkezi fixture/date/takim fallback'i tasimamali. Gercek secim
+// davranisi scripts/test-matchday-live.mjs ile ayrica calistirilir.
+const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')];
+assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|Çorum FK|ÇFK/, 'Mac merkezi gecmis fixture veya takim fallbacklerine sabitlenmemeli.');
+assert.match(matchdayLiveSource, /\/api\/football\/season\?league=super-lig/, 'Parametre yokken fixture sezon verisinden cozulmeli.');
+assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
+assert.match(documentHtml, /<h2 id="matchdayTitle"><\/h2><p>Maç bilgisi yükleniyor<\/p>/, 'Kaynak HTML yalnizca notr mac placeholderi icermeli.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.
 // Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim

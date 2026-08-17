@@ -17,6 +17,7 @@
     "qa:chat": "node scripts/test-tools/chat_ui_check.mjs",
     "qa:instagram": "node scripts/test-tools/ig_ui_check.mjs",
     "qa:match-center": "node scripts/test-tools/mc_refresh_check.mjs",
+    "qa:matchday": "node scripts/test-matchday-live.mjs",
     "qa:perf": "node scripts/test-tools/perf_check.mjs"
   },
   "devDependencies": {
