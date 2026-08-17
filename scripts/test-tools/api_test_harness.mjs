@@ -57,12 +57,12 @@ async function main() {
   {
     const { status, body } = await run('health-no-secrets', '/api/health', NO_SECRETS_ENV);
     assertEqual(status, 200, 'health status (no secrets)');
-    assertEqual(body?.checks, { static_delivery: 'ok', x_feed: 'not_configured', youtube_media: 'not_configured', sportmonks_live: 'not_configured', sportmonks_season: 'not_configured', sportmonks_clubs: 'not_configured', instagram: 'not_configured' }, 'health checks (no secrets)');
+    assertEqual(body?.checks, { static_delivery: 'ok', x_feed: 'not_configured', youtube_media: 'not_configured', sportmonks_live: 'not_configured', sportmonks_season: 'not_configured', sportmonks_clubs: 'not_configured', api_sports_multisport:'not_configured', cito_ufc:'not_configured', openblacktop_motorsports:'not_configured', instagram: 'not_configured' }, 'health checks (no secrets)');
   }
   {
     const { status, body } = await run('health-all-secrets', '/api/health', ALL_SECRETS_ENV);
     assertEqual(status, 200, 'health status (all secrets)');
-    assertEqual(body?.checks, { static_delivery: 'ok', x_feed: 'configured', youtube_media: 'configured', sportmonks_live: 'configured', sportmonks_season: 'configured', sportmonks_clubs: 'configured', instagram: 'not_configured' }, 'health checks (all secrets)');
+    assertEqual(body?.checks, { static_delivery: 'ok', x_feed: 'configured', youtube_media: 'configured', sportmonks_live: 'configured', sportmonks_season: 'configured', sportmonks_clubs: 'configured', api_sports_multisport:'not_configured', cito_ufc:'not_configured', openblacktop_motorsports:'not_configured', instagram: 'not_configured' }, 'health checks (all secrets)');
   }
   {
     const { status } = await run('health-post-405', '/api/health', ALL_SECRETS_ENV, null, 'POST');
@@ -293,7 +293,8 @@ async function main() {
     });
     assertEqual(status, 200, 'coverage success -> 200');
     assertEqual(body?.selected?.length, 5, 'coverage success -> 5 seçili lig probe edildi');
-    assertTrue(body?.selected?.every((row) => row.available === true), 'coverage success -> tüm seçili ligler available=true');
+    assertEqual(body?.selected?.filter((row) => row.available).length, 2, 'coverage success -> yalnız /my/leagues üyelikleri available=true');
+    assertTrue(body?.selected?.every((row) => row.metadataAvailable === true), 'coverage success -> metadata probe sonucu ayrıca raporlanır');
   }
 
   console.log('\n=== 8) /api/media/youtube ===');

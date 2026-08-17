@@ -155,8 +155,10 @@ const SELECTED_COMPETITIONS = [
   { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
 ];
 const FOOTBALL_COVERAGE_CACHE_MS = 60 * 60 * 1000;
+const FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS = 30 * 1000;
 let FOOTBALL_COVERAGE_CACHE = null;
 let footballCoverageRequest = null;
+let footballCoverageRetryAt = 0;
 function footballCoverageState(leagueKey){
   if(!FOOTBALL_COVERAGE_CACHE || FOOTBALL_COVERAGE_CACHE.expiresAt<=Date.now()) return null;
   if(leagueKey==='all'){
@@ -172,6 +174,7 @@ function footballCoverageMessage(leagueKey){
 }
 async function loadFootballCoverage(){
   if(FOOTBALL_COVERAGE_CACHE?.expiresAt>Date.now()) return FOOTBALL_COVERAGE_CACHE;
+  if(footballCoverageRetryAt>Date.now()) return null;
   if(footballCoverageRequest) return footballCoverageRequest;
   footballCoverageRequest=(async()=>{
     try{
@@ -186,6 +189,7 @@ async function loadFootballCoverage(){
       return FOOTBALL_COVERAGE_CACHE;
     }catch(_error){
       // Coverage yardimci bir katmandir. 5xx veya ag hatasi lig akisini engellemez.
+      footballCoverageRetryAt=Date.now()+FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS;
       return null;
     }finally{ footballCoverageRequest=null; }
   })();

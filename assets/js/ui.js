@@ -442,7 +442,7 @@ function renderClubProfile(team,data,state='ready'){
   panel.innerHTML=`<header class="club-profile-head"><button class="club-profile-close" type="button" onclick="closeClubProfile()" aria-label="Kulüp merkezini kapat">×</button><div class="club-profile-identity">${crestHTML(club.team,'lg')}<div><span class="football-data-eyebrow">KULÜP MERKEZİ · ${escapeHTML(club.checkedAt)}</span><h2>${escapeHTML(club.display||club.team)}</h2><p>${escapeHTML(club.city)} · ${escapeHTML(venue)}</p></div></div><span class="club-source-state">${escapeHTML(sourceState)}</span></header>
     <div class="club-profile-metrics"><article><span>Kadro değeri</span><strong>${escapeHTML(club.marketValue||'—')}</strong>${marketLink}</article><article><span>Kadro genişliği</span><strong>${escapeHTML(data?.squad?.length||club.squadSize||'—')}</strong><small>oyuncu</small></article><article><span>Yaş ortalaması</span><strong>${escapeHTML(club.averageAge||'—')}</strong><small>sezon kadrosu</small></article><article><span>Stadyum kapasitesi</span><strong>${escapeHTML(club.capacity)}</strong><small>seyirci</small></article></div>
     <div class="club-profile-main"><article class="club-stadium-feature"><div class="club-feature-title"><div><span>STADYUM VE ULAŞIM</span><h3>${escapeHTML(venue)}</h3><p>${escapeHTML(club.city)}</p></div><a href="${escapeHTML(clubDirectionsURL(club))}" target="_blank" rel="noopener noreferrer">Yol tarifi al ↗</a></div><iframe src="${escapeHTML(clubMapEmbedURL(club))}" title="${escapeHTML(venue)} haritası" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></article>
-      <article class="club-coach-feature"><div class="club-coach-photo"><span class="club-coach-portrait">${coachPhoto?`<img src="${escapeHTML(coachPhoto)}" alt="${escapeHTML(coach.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<b aria-hidden="true">TD</b></span></div><div class="club-coach-copy"><span>TEKNİK DİREKTÖR</span><h3>${escapeHTML(coach.name||'Bilgi bekleniyor')}</h3><p>${escapeHTML(clubCoachBio(coach,club.display||club.team))}</p><dl><div><dt>Ülke</dt><dd>${escapeHTML(coach.nationality||'—')}</dd></div><div><dt>Görev</dt><dd>${escapeHTML(coach.tenure||'—')}</dd></div><div><dt>Sözleşme</dt><dd>${escapeHTML(coach.contract||'—')}</dd></div></dl>${coachLink}</div></article></div>
+      <article class="club-coach-feature"><div class="club-coach-photo"><span class="club-coach-portrait">${coachPhoto?`<img src="${escapeHTML(coachPhoto)}" alt="${escapeHTML(coach.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<b aria-hidden="true">${escapeHTML(String(coach.name||'Teknik Direktör').split(/\s+/).slice(0,2).map(part=>part[0]).join('').toLocaleUpperCase('tr-TR'))}</b></span></div><div class="club-coach-copy"><span>TEKNİK DİREKTÖR</span><h3>${escapeHTML(coach.name||'Bilgi bekleniyor')}</h3><p>${escapeHTML(clubCoachBio(coach,club.display||club.team))}</p><dl><div><dt>Ülke</dt><dd>${escapeHTML(coach.nationality||'—')}</dd></div><div><dt>Görev</dt><dd>${escapeHTML(coach.tenure||'—')}</dd></div><div><dt>Sözleşme</dt><dd>${escapeHTML(coach.contract||'—')}</dd></div></dl>${coachLink}</div></article></div>
     <article class="club-lineup-feature"><header><div><span>SON RESMÎ MAÇ</span><h3>Güncel ilk 11</h3><p>${escapeHTML(lineupMeta)}</p></div>${data?.formation?`<strong>${escapeHTML(data.formation)}</strong>`:''}</header>${clubLineupHTML(data,state)}${clubSquadHTML(data)}</article>`;
 }
 async function loadClubProfile(team){
@@ -808,38 +808,13 @@ function renderMatchesLeagueFilters(){
   renderFootballLeaguePickerInto(document.getElementById('footballLeagueStrip'));
   renderFootballLeaguePickerInto(document.getElementById('matchesLeagueFilters'));
 }
-function selectFootballLeague(key, coverageChecked){
-  if(!coverageChecked){ loadFootballCoverage().then(()=>selectFootballLeague(key,true)); return; }
+function selectFootballLeague(key){
   const previousLeague=activeFootballLeague;
-  activeFootballLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'super-lig';
-  activeFootballTeam='Tümü';
-  playFootballLeagueTransition(previousLeague, activeFootballLeague);
+  const requestedLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'super-lig';
+  playFootballLeagueTransition(previousLeague, requestedLeague);
+  activeFootballLeague=requestedLeague;
   applyFootballLeagueTheme();
-  // Yeni lig seçildiğinde önceki ligin maçını, tablosunu veya transferini
-  // kısa süreliğine bile göstermeyiz. Sağlayıcı yanıtı gelene kadar temiz
-  // durum görünür; böylece Süper Lig verisi başka bir lige sızamaz.
-  MATCHES=[];
-  STANDINGS=[];
-  ALL_RESULTS={};
-  WEEKLY_STORIES={};
-  DATA_ERRORS={};
-  if(footballCoverageUnavailable(activeFootballLeague)){
-    DATA_ERRORS.coverage=footballCoverageMessage(activeFootballLeague);
-    renderAll();
-    if(typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
-    return;
-  }
-  renderAll();
-  const requestedLeague=activeFootballLeague;
-  loadAllData().then(()=>{
-    if(activeFootballLeague!==requestedLeague) return;
-    renderAll();
-    if(typeof loadLiveFeed==='function') loadLiveFeed(false);
-  }).catch(error=>{
-    if(activeFootballLeague!==requestedLeague) return;
-    DATA_ERRORS.provider=error&&error.message ? error.message : 'Lig verisi yenilenemedi.';
-    renderAll();
-  });
+  loadFootballLeagueSelection(requestedLeague);
   if(typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
 }
 

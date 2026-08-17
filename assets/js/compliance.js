@@ -2,7 +2,8 @@
   'use strict';
 
   const BLOCKED_COMMERCE = /(?:^|[.\/-])(bet|betting|bookmaker|casino|draftkings|fanduel|betonline|iddaa)(?:[.\/-]|$)/i;
-  const ALLOWED_EXTERNAL_IMAGE_HOSTS = new Set(['i.ytimg.com','img.youtube.com','cdn.sportmonks.com','cdn.sportmonks.io','images.sportmonks.com','api.citoapi.com','ufc.com','www.ufc.com']);
+  const ALLOWED_EXTERNAL_IMAGE_HOSTS = new Set(['i.ytimg.com','img.youtube.com','cdn.sportmonks.com','cdn.sportmonks.io','images.sportmonks.com','swhwmqbamzczztpfxctg.supabase.co','cdn.mythos.cards','upload.wikimedia.org','pbs.twimg.com','video.twimg.com','platform-lookaside.fbsbx.com','api.citoapi.com','ufc.com','www.ufc.com']);
+  const ALLOWED_EXTERNAL_IMAGE_SUFFIXES = ['.fbcdn.net','.api-sports.io','.api-football.com'];
 
   function isLocalUrl(raw){
     if(!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return true;
@@ -16,7 +17,7 @@
     if(isLocalUrl(raw)) return;
     let host='';
     try{ host=new URL(raw, location.href).hostname.toLowerCase(); }catch(_){ host=''; }
-    if(ALLOWED_EXTERNAL_IMAGE_HOSTS.has(host) || host.endsWith('.sportmonks.com') || host.endsWith('.sportmonks.io') || host.endsWith('.api-sports.io') || host.endsWith('.api-football.com')){
+    if(ALLOWED_EXTERNAL_IMAGE_HOSTS.has(host) || ALLOWED_EXTERNAL_IMAGE_SUFFIXES.some(suffix=>host.endsWith(suffix))){
       img.referrerPolicy='no-referrer';
       return;
     }

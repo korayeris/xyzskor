@@ -466,15 +466,29 @@ const imageDirective = workerSource.match(/"img-src ([^"]+)"/);
 assert.ok(imageDirective, 'Worker CSP img-src direktifi bulunmali.');
 assert.doesNotMatch(imageDirective[1], /(?:^|\s)https:(?:\s|$)/, 'CSP img-src genel https: wildcard icermemeli.');
 assert.match(appCss, /v172/, 'Tipografik gorsel placeholder CSS katmani bulunmali.');
+const complianceSource = await readFile(new URL('../assets/js/compliance.js', import.meta.url), 'utf8');
+const exactImageHosts = ['cdn.sportmonks.com','cdn.sportmonks.io','images.sportmonks.com','swhwmqbamzczztpfxctg.supabase.co','cdn.mythos.cards','upload.wikimedia.org','pbs.twimg.com','video.twimg.com','i.ytimg.com','img.youtube.com','platform-lookaside.fbsbx.com','api.citoapi.com','ufc.com','www.ufc.com'];
+for (const host of exactImageHosts) {
+  assert.ok(imageDirective[1].includes(`https://${host}`), `${host} CSP img-src icinde bulunmali.`);
+  assert.ok(complianceSource.includes(`'${host}'`), `${host} istemci gorsel politikasinda bulunmali.`);
+}
+for (const suffix of ['fbcdn.net','api-sports.io','api-football.com']) {
+  assert.ok(imageDirective[1].includes(`https://*.${suffix}`), `${suffix} CSP wildcard hostu bulunmali.`);
+  assert.ok(complianceSource.includes(`'.${suffix}'`), `${suffix} istemci suffix politikasinda bulunmali.`);
+}
 
 // Coverage istemcide uzun omurlu tek cache uzerinden okunur. Endpoint hatasi
 // fail-open kalmali; yardimci kontrol asil lig veri akisini bloke etmemeli.
 assert.match(dataSource, /FOOTBALL_COVERAGE_CACHE_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/, 'Coverage istemci cache suresi bir saat olmali.');
 assert.match(dataSource, /fetch\(['"]\/api\/football\/coverage['"]/, 'Coverage endpointi frontend tarafindan cagrilmali.');
 assert.match(dataSource, /catch\(_error\)[\s\S]*?return null/, 'Coverage hatasi fail-open davranmali.');
-assert.match(liveFunctionSource('selectFootballLeague'), /footballCoverageUnavailable\(activeFootballLeague\)/, 'Lig secimi kapsam disi durumu kontrol etmeli.');
+assert.match(liveFunctionSource('loadFootballLeagueSelection'), /footballCoverageUnavailable\(requestedLeague\)/, 'Tum lig secimleri kapsam disi durumu kontrol etmeli.');
 assert.match(liveFunctionSource('renderFootballLeaguePickerInto'), /is-unavailable/, 'Lig secici kapsam disi ligi tiklamadan once isaretlemeli.');
 assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.');
+assert.match(liveFunctionSource('applyParsedLocation'), /loadFootballLeagueSelection\(parsed\.league\)/, 'Dogrudan rota ve popstate coverage-aware lig yukleyicisini kullanmali.');
+assert.match(liveFunctionSource('renderClubProfile'), /split\(\/\\s\+\/\).*toLocaleUpperCase/, 'Teknik direktor placeholderi ad bas harflerinden uretilmeli.');
+assert.match(workerSource, /available:availableIds\.has\(leagueId\)/, 'Coverage availability /my/leagues abonelik uyeliginden gelmeli.');
+assert.match(workerSource, /metadataAvailable:Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.
 // Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim

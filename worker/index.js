@@ -24,7 +24,7 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https://cdn.sportmonks.com https://swhwmqbamzczztpfxctg.supabase.co https://cdn.mythos.cards https://upload.wikimedia.org https://pbs.twimg.com https://video.twimg.com https://i.ytimg.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com",
+  "img-src 'self' data: https://cdn.sportmonks.com https://cdn.sportmonks.io https://images.sportmonks.com https://swhwmqbamzczztpfxctg.supabase.co https://cdn.mythos.cards https://upload.wikimedia.org https://pbs.twimg.com https://video.twimg.com https://i.ytimg.com https://img.youtube.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com https://api.citoapi.com https://ufc.com https://www.ufc.com https://*.api-sports.io https://*.api-football.com",
   "connect-src 'self' https://swhwmqbamzczztpfxctg.supabase.co wss://swhwmqbamzczztpfxctg.supabase.co",
   "frame-src https://www.google.com",
   "object-src 'none'",
@@ -1132,7 +1132,7 @@ async function handleFootballCoverage(request, env, context) {
         const probe = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason`, token);
         const row = relationRows(probe?.data)[0] || null;
         const currentSeason = sportmonksCurrentSeason(row);
-        return { league, leagueId, name:row?.name || SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:Boolean(row?.id), currentSeasonId:currentSeason?.id ? String(currentSeason.id) : null };
+        return { league, leagueId, name:row?.name || SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:availableIds.has(leagueId), metadataAvailable:Boolean(row?.id), currentSeasonId:currentSeason?.id ? String(currentSeason.id) : null };
       } catch (error) {
         return { league, leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:false, currentSeasonId:null, status:error?.status || 502 };
       }

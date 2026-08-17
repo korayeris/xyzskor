@@ -140,29 +140,42 @@ function goToWeek(w, updateUrl){
 function prevWeek(){ goToWeek(activeWeek-1); }
 function nextWeek(){ goToWeek(activeWeek+1); }
 function onWeekPickerChange(sel){ goToWeek(parseInt(sel.value,10)); }
+async function loadFootballLeagueSelection(leagueKey){
+  const requestedLeague=SELECTED_COMPETITIONS.some(item=>item.key===leagueKey) ? leagueKey : 'super-lig';
+  activeFootballLeague=requestedLeague;
+  activeFootballTeam='Tümü';
+  MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
+  if(typeof renderAll==='function') renderAll();
+  await loadFootballCoverage();
+  if(activeFootballLeague!==requestedLeague) return false;
+  if(footballCoverageUnavailable(requestedLeague)){
+    DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
+    if(typeof renderAll==='function') renderAll();
+    return false;
+  }
+  try{
+    await loadAllData();
+    if(activeFootballLeague!==requestedLeague) return false;
+    const weeks=getAvailableWeeks();
+    if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
+    if(typeof renderAll==='function') renderAll();
+    if(typeof loadLiveFeed==='function') loadLiveFeed(false);
+    return true;
+  }catch(error){
+    if(activeFootballLeague!==requestedLeague) return false;
+    DATA_ERRORS.provider=error&&error.message?error.message:'Lig verisi yenilenemedi.';
+    if(typeof renderAll==='function') renderAll();
+    return false;
+  }
+}
 function applyParsedLocation(parsed){
   if(parsed && parsed.type==='match'){ openMatchCenter(parsed.value, false); }
   else if(parsed && parsed.type==='week'){ if(mcMatchId) closeMatchCenter(false); goToWeek(parsed.value, false); }
   else if(parsed && parsed.type==='football-route'){
     if(mcMatchId) closeMatchCenter(false);
     const leagueChanged = activeFootballLeague !== parsed.league;
-    activeFootballLeague = parsed.league;
     if(leagueChanged){
-      activeFootballTeam='Tümü';
-      MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
-      if(typeof renderAll==='function') renderAll();
-      const requestedLeague=activeFootballLeague;
-      loadAllData().then(()=>{
-        if(activeFootballLeague!==requestedLeague) return;
-        const weeks=getAvailableWeeks();
-        if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
-        renderAll();
-        if(typeof loadLiveFeed==='function') loadLiveFeed(false);
-      }).catch(error=>{
-        if(activeFootballLeague!==requestedLeague) return;
-        DATA_ERRORS.provider=error&&error.message?error.message:'Lig verisi yenilenemedi.';
-        renderAll();
-      });
+      loadFootballLeagueSelection(parsed.league);
     }
     switchMainTab('football',false);
     if(parsed.section==='transfers') setTransferCenterTab(parsed.transferTab || 'confirmed',null,false);
