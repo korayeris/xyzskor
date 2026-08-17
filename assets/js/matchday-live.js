@@ -111,6 +111,7 @@
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
     root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(formations[0]?.formation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(formations[1]?.formation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup)}${renderTeamLineup(awayName, awayLineup)}</div></section>`;
+    if (requestedFixture && params.get("view") !== "home") setDetailMode(true);
   }
   function renderEmpty() {
     const title = document.getElementById("matchdayTitle"), intro = title?.nextElementSibling;
@@ -183,7 +184,7 @@
     refresh();
   });
   if (!requestedFixture || params.get("view") === "home") { setDetailMode(false); resolveFixture(); }
-  else { setDetailMode(true); refresh(); }
+  else { setDetailMode(false); refresh(); }
 })();
 function syncMatchSummaryChrome() {
   document.body.classList.toggle('match-summary-open', /^#match\//i.test(window.location.hash));

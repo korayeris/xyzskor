@@ -6825,7 +6825,13 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
 
 /* Dedicated full-page match view */
 body.matchday-detail-open{overflow-x:hidden}
-body.matchday-detail-open #matchdayCommand~:not(script){display:none!important}
+body.matchday-detail-open #footballContextNav,
+body.matchday-detail-open #footballLeagueCommand,
+body.matchday-detail-open .predict-leaderboard-slot,
+body.matchday-detail-open #miniGoalGame,
+body.matchday-detail-open #sideChatPrototype,
+body.matchday-detail-open .wrap,
+body.matchday-detail-open .legal-footer-links{display:none!important}
 body.matchday-detail-open .matchday-command{width:100%;max-width:none;min-height:calc(100vh - 118px);margin:0;padding:0 max(18px,calc((100vw - 1340px)/2)) 42px;background:radial-gradient(circle at 50% 0,rgba(113,24,39,.14),transparent 430px),#28242a}
 body.matchday-detail-open .matchday-command__head{position:relative;padding-top:28px}
 .matchday-back{align-self:center;min-height:34px;padding:0 13px;border:1px solid #5a535e;border-radius:3px;background:#f2f0ec;color:#171419;font:800 10px/1 "IBM Plex Mono",monospace;cursor:pointer;white-space:nowrap}
