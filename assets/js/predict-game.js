@@ -107,6 +107,7 @@
       state:STATES.PLAYING,
       goals:0,
       misses:0,
+      events:[],
       rewardEligible:false,
       training:false,
       idempotencyKey:uuid(),
@@ -259,6 +260,7 @@
       game.state = STATES.PLAYING;
       game.goals = 0;
       game.misses = 0;
+      game.events = [];
       game.idempotencyKey = uuid();
       game.bar.x = (game.w - game.bar.w) / 2;
       game.bar.vx = 0;
@@ -285,6 +287,7 @@
     function registerGoal(){
       if(game.state !== STATES.PLAYING) return;
       game.goals += 1;
+      game.events.push({ type:'goal', occurredAt:Date.now() });
       game.goalTextUntil = performance.now() + 900;
       track('predict_game_goal');
       renderHud();
@@ -298,6 +301,7 @@
     function registerMiss(){
       if(game.state !== STATES.PLAYING) return;
       game.misses += 1;
+      game.events.push({ type:'miss', occurredAt:Date.now() });
       track('predict_game_miss');
       renderHud();
       if(game.misses >= MAX_MISSES){
@@ -324,7 +328,9 @@
         goals:game.goals,
         misses:game.misses,
         finalState,
-        idempotencyKey:game.idempotencyKey
+        idempotencyKey:game.idempotencyKey,
+        nonce:session?.nonce,
+        events:game.events.slice()
       };
       try{
         const payload = await gameApi('/api/predict-game/complete', body);

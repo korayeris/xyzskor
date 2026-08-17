@@ -257,7 +257,37 @@ const PREDICT_GAME = Object.freeze({
   MAX_MISSES: 5,
   POINTS_PER_GOAL: 5,
   MAX_REWARD_POINTS: 50,
+  MIN_SESSION_MS: 2500,
+  MIN_EVENT_INTERVAL_MS: 120,
+  MAX_EVENT_CLOCK_SKEW_MS: 5000,
+  MAX_EVENTS: 15,
 });
+
+function predictGameNonce() {
+  return crypto.randomUUID();
+}
+
+function validatePredictGameEvents(session, nonce, events, goals, misses, finalState, finishedAt = Date.now()) {
+  const startedAt = Date.parse(session?.started_at || "");
+  if (session?.status !== "started" || !session?.nonce || nonce !== session.nonce) return false;
+  if (!Number.isFinite(startedAt) || finishedAt - startedAt < PREDICT_GAME.MIN_SESSION_MS) return false;
+  if (!Array.isArray(events) || events.length !== goals + misses || events.length > PREDICT_GAME.MAX_EVENTS) return false;
+  if (finalState === "GAME_SUCCESS" && goals !== PREDICT_GAME.TARGET_GOALS) return false;
+  if (finalState === "GAME_OVER" && misses !== PREDICT_GAME.MAX_MISSES) return false;
+  let previous = startedAt;
+  let eventGoals = 0;
+  let eventMisses = 0;
+  for (const event of events) {
+    const occurredAt = Number(event?.occurredAt);
+    if (!Number.isFinite(occurredAt) || !["goal", "miss"].includes(event?.type)) return false;
+    if (occurredAt < startedAt || occurredAt > finishedAt + PREDICT_GAME.MAX_EVENT_CLOCK_SKEW_MS) return false;
+    if (occurredAt - previous < PREDICT_GAME.MIN_EVENT_INTERVAL_MS) return false;
+    previous = occurredAt;
+    if (event.type === "goal") eventGoals++;
+    else eventMisses++;
+  }
+  return eventGoals === goals && eventMisses === misses;
+}
 
 function supabaseUrl(env) {
   return String(env.SUPABASE_URL || SUPABASE_URL_FALLBACK).replace(/\/+$/, "");
@@ -372,6 +402,7 @@ async function handlePredictGameSession(request, env) {
       guest_session_id: guestSessionId,
       status: "started",
       reward_eligible: rewardEligible,
+      nonce: predictGameNonce(),
     }),
   });
   return jsonResponse({ session: inserted?.[0] || null }, 200, { "Cache-Control": "no-store" });
@@ -386,14 +417,30 @@ async function handlePredictGameComplete(request, env) {
   const misses = Number(body.misses);
   const finalState = String(body.finalState || "");
   const idempotencyKey = cleanToken(body.idempotencyKey, 120) || sessionId;
+  const nonce = cleanToken(body.nonce, 96);
+  const events = body.events;
   if (!sessionId) return jsonResponse({ error: "invalid_session" }, 400, { "Cache-Control": "no-store" });
   if (!Number.isInteger(goals) || goals < 0 || goals > PREDICT_GAME.TARGET_GOALS) return jsonResponse({ error: "invalid_goals" }, 400, { "Cache-Control": "no-store" });
   if (!Number.isInteger(misses) || misses < 0 || misses > PREDICT_GAME.MAX_MISSES) return jsonResponse({ error: "invalid_misses" }, 400, { "Cache-Control": "no-store" });
   if (!["GAME_SUCCESS", "GAME_OVER"].includes(finalState)) return jsonResponse({ error: "invalid_final_state" }, 400, { "Cache-Control": "no-store" });
 
   const user = await getAuthUser(request, env);
+  const ownerFilter = user?.id
+    ? `user_id=eq.${encodeURIComponent(user.id)}`
+    : `guest_session_id=eq.${encodeURIComponent(guestSessionId || "")}`;
+  const sessions = await supabaseRest(env, `predict_game_sessions?id=eq.${sessionId}&${ownerFilter}&select=id,user_id,guest_session_id,status,nonce,started_at`);
+  const gameSession = Array.isArray(sessions) ? sessions[0] : null;
+  if (!gameSession) return jsonResponse({ error: "Bu oyun oturumu size ait değil." }, 403, { "Cache-Control": "no-store" });
+  const finishedAt = Date.now();
+  if (!validatePredictGameEvents(gameSession, nonce, events, goals, misses, finalState, finishedAt)) {
+    await supabaseRest(env, `predict_game_sessions?id=eq.${sessionId}&${ownerFilter}&status=eq.started`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "invalid", finished_at: new Date(finishedAt).toISOString(), updated_at: new Date(finishedAt).toISOString() }),
+    });
+    return jsonResponse({ error: "Oyun sonucu doğrulanamadı." }, 400, { "Cache-Control": "no-store" });
+  }
   if (!user?.id) {
-    const rows = await supabaseRest(env, `predict_game_sessions?id=eq.${sessionId}`, {
+    const rows = await supabaseRest(env, `predict_game_sessions?id=eq.${sessionId}&guest_session_id=eq.${encodeURIComponent(guestSessionId || "")}&status=eq.started`, {
       method: "PATCH",
       body: JSON.stringify({
         status: finalState === "GAME_SUCCESS" ? "game_success" : "game_over",
@@ -404,6 +451,9 @@ async function handlePredictGameComplete(request, env) {
         idempotency_key: idempotencyKey,
       }),
     });
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return jsonResponse({ error: "Oyun oturumu daha önce tamamlanmış." }, 409, { "Cache-Control": "no-store" });
+    }
     return jsonResponse({ session: rows?.[0] || null, reward: { claimed: false, points: predictPoints(goals), guest: true } }, 200, { "Cache-Control": "no-store" });
   }
 
@@ -417,6 +467,8 @@ async function handlePredictGameComplete(request, env) {
       p_misses: misses,
       p_final_state: finalState,
       p_idempotency_key: idempotencyKey,
+      p_nonce: nonce,
+      p_events: events,
     }),
   });
   return jsonResponse({ reward: rpc, points: rpc?.points ?? predictPoints(goals) }, 200, { "Cache-Control": "no-store" });
