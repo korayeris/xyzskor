@@ -381,7 +381,7 @@ function leagueTeamSourceRows(){
 function renderLeagueClubs(){
   const area=document.getElementById('leagueClubsGrid'); if(!area) return;
   const clubs=leagueTeamSourceRows();
-  if(activeClubProfileTeam && !clubs.some(club=>club.team===activeClubProfileTeam)) closeClubProfile();
+  if(activeClubProfileTeam && !clubs.some(club=>club.team===activeClubProfileTeam)) closeClubProfile(false);
   area.innerHTML=clubs.map((club,index)=>`<button class="league-club-card" type="button" data-club-team="${escapeHTML(club.team)}" onclick="openClubProfile(this.dataset.clubTeam)" aria-label="${escapeHTML(club.display||club.team)} kulüp merkezini aç">
     <div class="league-club-rank">${String(index+1).padStart(2,'0')}</div>
     ${crestHTML(club.team,'lg')}
@@ -415,10 +415,22 @@ function clubLineupHTML(data,state){
     const message=state==='unconfigured'?'Canlı kadro bağlantısı henüz yayın ortamında aktif değil. Bağlantı açıldığında son resmî maçın gerçek ilk 11’i burada otomatik yayınlanacak.':'Son resmî maç için doğrulanmış ilk 11 henüz veri kaynağında yayınlanmadı.';
     return `<div class="club-data-state"><span class="club-data-mark">11</span><strong>İsim uydurulmuyor</strong><p>${escapeHTML(message)}</p></div>`;
   }
-  return `<div class="club-lineup-list">${lineup.map((player,index)=>{
+  const pitch=clubPitchHTML(lineup,data?.formation);
+  return `${pitch}<div class="club-lineup-list">${lineup.map((player,index)=>{
     const photo=safeExternalURL(player.image);
     return `<article class="club-lineup-player"><span class="club-lineup-order">${String(index+1).padStart(2,'0')}</span><span class="club-player-photo">${photo?`<img src="${escapeHTML(photo)}" alt="${escapeHTML(player.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><span><strong>${escapeHTML(player.name||'Oyuncu')}</strong><small>${player.number?`${escapeHTML(player.number)} · `:''}${escapeHTML(player.position||'Pozisyon')}</small></span></article>`;
   }).join('')}</div>`;
+}
+function clubSlug(team){
+  return String(team||'').toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+function clubPitchHTML(lineup,formation){
+  if(!Array.isArray(lineup)||lineup.length<11) return '';
+  const parts=String(formation||'4-3-3').split('-').map(Number).filter(n=>Number.isFinite(n)&&n>0);
+  const lines=parts.reduce((sum,n)=>sum+n,0)===10?parts:[4,3,3];
+  const rows=[[lineup[0]]]; let cursor=1;
+  lines.forEach(count=>{ rows.push(lineup.slice(cursor,cursor+count)); cursor+=count; });
+  return `<div class="club-pitch" aria-label="${escapeHTML(formation||'4-3-3')} saha dizilişi"><div class="club-pitch-lines" aria-hidden="true"></div>${rows.map((row,rowIndex)=>row.map((player,index)=>{ const photo=safeExternalURL(player.image); const left=((index+1)/(row.length+1))*100; const top=91-(rowIndex/(rows.length-1))*82; return `<span class="club-pitch-player" style="--pitch-left:${left}%;--pitch-top:${top}%"><span class="club-pitch-photo">${photo?`<img src="${escapeHTML(photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><b>${escapeHTML(player.number||'')}</b><small>${escapeHTML(player.name||'Oyuncu')}</small></span>`; }).join('')).join('')}</div>`;
 }
 function clubSquadHTML(data){
   const squad=Array.isArray(data?.squad)?data.squad:[];
@@ -446,7 +458,8 @@ function renderClubProfile(team,data,state='ready'){
     <article class="club-lineup-feature"><header><div><span>SON RESMÎ MAÇ</span><h3>Güncel ilk 11</h3><p>${escapeHTML(lineupMeta)}</p></div>${data?.formation?`<strong>${escapeHTML(data.formation)}</strong>`:''}</header>${clubLineupHTML(data,state)}${clubSquadHTML(data)}</article>`;
 }
 async function loadClubProfile(team){
-  if(clubProfileCache.has(team)){ renderClubProfile(team,clubProfileCache.get(team),'ready'); return; }
+  const cacheId=`${activeFootballLeague}:${team}`;
+  if(clubProfileCache.has(cacheId)){ renderClubProfile(team,clubProfileCache.get(cacheId),'ready'); return; }
   renderClubProfile(team,null,'loading');
   try{
     const providerTeamId=clubRecord(team)?.providerTeamId||'';
@@ -457,14 +470,17 @@ async function loadClubProfile(team){
     if(response.status===503){ renderClubProfile(team,null,'unconfigured'); return; }
     if(!response.ok||!payload?.team) throw new Error(payload?.error||'club_data_unavailable');
     if(payload?.team?.image && safeExternalURL(payload.team.image)) TEAM_CRESTS[team]=payload.team.image;
-    clubProfileCache.set(team,payload); renderClubProfile(team,payload,'ready');
+    clubProfileCache.set(cacheId,payload); renderClubProfile(team,payload,'ready');
   }catch(_){ renderClubProfile(team,null,'unavailable'); }
 }
-function openClubProfile(team){
+function openClubProfile(team,updateUrl=true){
   if(!clubRecord(team)) return; activeClubProfileTeam=team; loadClubProfile(team);
+  activeFootballSection='clubs';
+  if(updateUrl && typeof updatePath==='function') updatePath(buildFootballPath(activeFootballLeague,'clubs','confirmed',clubSlug(team)));
   const panel=document.getElementById('clubProfilePanel'); if(panel) requestAnimationFrame(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}));
 }
-function closeClubProfile(){ const panel=document.getElementById('clubProfilePanel'); activeClubProfileTeam=null; if(panel){ panel.hidden=true; panel.innerHTML=''; } }
+function openClubProfileBySlug(slug,updateUrl=false){ const club=leagueTeamSourceRows().find(row=>clubSlug(row.team)===clubSlug(slug)); if(club) openClubProfile(club.team,updateUrl); }
+function closeClubProfile(updateUrl=true){ const panel=document.getElementById('clubProfilePanel'); activeClubProfileTeam=null; if(panel){ panel.hidden=true; panel.innerHTML=''; } if(updateUrl&&typeof updatePath==='function') updatePath(buildFootballPath(activeFootballLeague,'clubs')); }
 function standingFormHTML(form){
   return `<span class="standing-form" aria-label="Son beş maç">${String(form||'').split('').map(result=>`<i class="${result==='W'?'win':result==='D'?'draw':'loss'}" title="${result==='W'?'Galibiyet':result==='D'?'Beraberlik':'Mağlubiyet'}">${result==='W'?'✓':result==='D'?'−':'×'}</i>`).join('')}</span>`;
 }
@@ -802,6 +818,7 @@ function renderFootballTeamStrip(){
 function selectFootballTeam(team){
   activeFootballTeam=team||'Tümü';
   renderFootballTeamStrip(); renderFootballQuickMatches(); renderMatchesHub(); renderFootballNews(); renderNewsHub(); renderFootballTransfers(); renderEditorialNews();
+  if(activeFootballTeam!=='Tümü'){ openFootballSection('clubs',null,false); openClubProfile(activeFootballTeam,true); }
 }
 function renderMatchesLeagueFilters(){
   renderFootballLeaguePickerInto(document.getElementById('footballTopLeagueStrip'));
@@ -1786,7 +1803,8 @@ function setPredictionStatus(id, message, tone){
   status.textContent=message; status.className='predict-save-status'+(tone?' '+tone:'');
 }
 async function submitPrediction(id){
-  const u = getCurrentUser(); if(!u) return;
+  const u = getCurrentUser();
+  if(!u){ setPredictionStatus(id,'Tahminini kaydetmek için giriş yap veya ücretsiz üye ol.','error'); openAuth('login'); return; }
   const button=document.getElementById('savePrediction-'+id);
   const pick = pickState[id]; if(!pick){ setPredictionStatus(id,'Önce 1 / X / 2 seç.','error'); return; }
   const sh = document.getElementById('sh-'+id).value; const sa = document.getElementById('sa-'+id).value;
@@ -2211,6 +2229,7 @@ async function boot(){
       switchMainTab('football',false);
       if(parsed.section==='transfers') setTransferCenterTab(parsed.transferTab||'confirmed',null,false);
       openFootballSection(parsed.section||'home',null,false);
+      if(parsed.section==='clubs' && parsed.clubSlug) openClubProfileBySlug(parsed.clubSlug,false);
     }
     else if(parsed && parsed.type==='football-section'){ switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
     else if(parsed && parsed.type==='product'){ switchMainTab(parsed.value, false); }

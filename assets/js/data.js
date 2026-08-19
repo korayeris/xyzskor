@@ -833,7 +833,7 @@ async function registerUser(username, email, pass, team, marketingOptIn=false){
     email,
     password: pass,
     options:{
-      emailRedirectTo: `${location.origin}/`,
+      emailRedirectTo: `${location.origin}/?auth=confirmed`,
       data:{
         username,
         team,
@@ -848,7 +848,7 @@ async function registerUser(username, email, pass, team, marketingOptIn=false){
   if(error) return { ok:false, err: authErrTR(error) };
   const uid = data.user ? data.user.id : null;
   if(!uid) return { ok:false, err:'Kullanıcı hesabı oluşturulamadı.' };
-  if(!data.session) return { ok:true, pending:true, message:'Kayıt alındı. E-postana gelen doğrulama linkine tıklayıp giriş yap.' };
+  if(!data.session) return { ok:true, pending:true, message:'Kayıt alındı. Doğrulama e-postanı ve Spam/Gereksiz klasörünü kontrol et; gelmezse aşağıdaki yeniden gönder düğmesini kullan.' };
   try{ await ensureOwnProfile(data.user); }
   catch(pErr){ return { ok:false, err: authErrTR(pErr) }; }
   return { ok:true };
@@ -858,7 +858,7 @@ async function resendSignupConfirmation(email){
   const { error } = await sb.auth.resend({
     type:'signup',
     email,
-    options:{ emailRedirectTo:`${location.origin}/` },
+    options:{ emailRedirectTo:`${location.origin}/?auth=confirmed` },
   });
   return error ? { ok:false, err:authErrTR(error) } : { ok:true, message:'Doğrulama e-postası yeniden gönderildi. Spam klasörünü de kontrol et.' };
 }

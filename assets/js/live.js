@@ -58,7 +58,7 @@ function normalizeFootballSectionSegment(value){
 function validFootballLeagueKey(value){
   return SELECTED_COMPETITIONS.some(item=>item.key===value) ? value : 'super-lig';
 }
-function buildFootballPath(league, section, transferTab){
+function buildFootballPath(league, section, transferTab, clubSlug){
   const safeLeague = validFootballLeagueKey(league);
   const safeSection = ['home','matches','news','clubs','transfers','standings'].includes(section) ? section : 'home';
   const base = safeLeague==='all' ? '/all' : `/${safeLeague}`;
@@ -67,6 +67,7 @@ function buildFootballPath(league, section, transferTab){
     const safeTransferTab = normalizeTransferRouteTab(transferTab);
     return safeTransferTab==='confirmed' ? `${base}/transfers` : `${base}/transfers/${safeTransferTab}`;
   }
+  if(safeSection==='clubs' && clubSlug) return `${base}/clubs/${encodeURIComponent(clubSlug)}`;
   const segmentMap = { matches:'matches', news:'agenda', clubs:'clubs', standings:'standings' };
   return `${base}/${segmentMap[safeSection] || ''}`.replace(/\/+$/,'');
 }
@@ -113,7 +114,7 @@ function parseAppLocation(){
   if(SELECTED_COMPETITIONS.some(item=>item.key===segments[0])){
     const league = validFootballLeagueKey(segments[0]);
     const section = normalizeFootballSectionSegment(segments[1]);
-    return { type:'football-route', league, section, transferTab: section==='transfers' ? normalizeTransferRouteTab(segments[2]) : 'confirmed' };
+    return { type:'football-route', league, section, clubSlug:section==='clubs' ? decodeURIComponent(segments[2]||'') : '', transferTab: section==='transfers' ? normalizeTransferRouteTab(segments[2]) : 'confirmed' };
   }
   if(legacy?.type==='football-section'){
     return { type:'football-route', league:'super-lig', section:legacy.value, transferTab:legacy.sub || 'confirmed' };
@@ -173,18 +174,19 @@ async function loadFootballLeagueSelection(leagueKey){
     return false;
   }
 }
-function applyParsedLocation(parsed){
+async function applyParsedLocation(parsed){
   if(parsed && parsed.type==='match'){ openMatchCenter(parsed.value, false); }
   else if(parsed && parsed.type==='week'){ if(mcMatchId) closeMatchCenter(false); goToWeek(parsed.value, false); }
   else if(parsed && parsed.type==='football-route'){
     if(mcMatchId) closeMatchCenter(false);
     const leagueChanged = activeFootballLeague !== parsed.league;
     if(leagueChanged){
-      loadFootballLeagueSelection(parsed.league);
+      await loadFootballLeagueSelection(parsed.league);
     }
     switchMainTab('football',false);
     if(parsed.section==='transfers') setTransferCenterTab(parsed.transferTab || 'confirmed',null,false);
     openFootballSection(parsed.section || 'home',null,false);
+    if(parsed.section==='clubs' && parsed.clubSlug && typeof openClubProfileBySlug==='function') openClubProfileBySlug(parsed.clubSlug,false);
   }
   else if(parsed && parsed.type==='football-section'){ if(mcMatchId) closeMatchCenter(false); switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
   else if(parsed && parsed.type==='product'){ if(mcMatchId) closeMatchCenter(false); switchMainTab(parsed.value, false); }
@@ -447,6 +449,7 @@ function switchMainTab(name, updateUrl){
   if(footballLeagueCommand) footballLeagueCommand.hidden=product!=='football';
   if(product==='football' && name==='football' && typeof openFootballSection==='function') openFootballSection('home',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
+  if(product==='predict' && !MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
   if(updateUrl !== false) updatePath(buildProductPath(name));
   updateMobileNavActive();
 }

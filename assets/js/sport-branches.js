@@ -96,7 +96,7 @@
     nav.querySelector("[data-action='predict']")?.addEventListener("click", () => {
       const existing = [...document.querySelectorAll(".primary-nav .maintab")].find((item) => /predict/i.test(item.textContent));
       if (existing) existing.click();
-      else location.assign("/?tab=predict");
+      else location.assign("/predict/");
     });
     const moreButton = nav.querySelector(".sport-more-button");
     const menu = nav.querySelector(".sport-more-menu");
