@@ -675,7 +675,7 @@ let predictChallengeFailures = [];
 async function loadPredictChallengeSelection(){
   if(predictChallengeLoading) return predictChallengeLoading;
   predictChallengeLoading=(async()=>{
-    const leagues=['super-lig','champions-league','europa-league'];
+    const leagues=['super-lig','premier-league','la-liga'];
     const bundles=await Promise.all(leagues.map(key=>fetchProviderSeasonBundle(key)));
     predictChallengeFailures=leagues.filter((key,index)=>!bundles[index]);
     const now=Date.now();

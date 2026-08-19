@@ -157,8 +157,8 @@ assert.match(html, /viewport-fit=cover/i, 'iPhone güvenli alanları için viewp
 assert.match(html, /safe-area-inset-bottom/i, 'iOS alt güvenli alanı desteklenmeli.');
 assert.match(html, /id="tabBtnFootball"[^>]*>Futbol</i, 'Futbol ana ürün alanı bulunmalı.');
 assert.match(html, /id="tabBtnPredict"[^>]*>Predict</i, 'Predict ana ürün alanı bulunmalı.');
-assert.match(html, /6 MAÇ · HAFTALIK CHALLENGE[\s\S]*2 Süper Lig · 2 UCL · 2 UEL/i, 'Predict sayfası altı maçlık çok ligli challenge hedefini açıklamalı.');
-assert.match(dataSource, /\['super-lig','champions-league','europa-league'\][\s\S]*slice\(0,2\)/, 'Challenge her hedef ligden en yakın iki gerçek fikstürü seçmeli.');
+assert.match(html, /6 MAÇ · HAFTALIK CHALLENGE[\s\S]*2 Süper Lig · 2 EPL · 2 La Liga/i, 'Predict sayfası altı maçlık çok ligli challenge hedefini açıklamalı.');
+assert.match(dataSource, /\['super-lig','premier-league','la-liga'\][\s\S]*slice\(0,2\)/, 'Challenge her hedef ligden en yakın iki gerçek fikstürü seçmeli.');
 assert.match(functionSource('userStatsForWeek'), /ids\.length===6[\s\S]*sonucSayisi===6[\s\S]*\+= 25/, 'Altı maçın sonucunu bilen kullanıcıya 25 bonus puan uygulanmalı.');
 assert.doesNotMatch(html, /id="tabBtn(?:Story|League|Stories|Live)"/i, 'Eski ana navigasyon seçenekleri görünür DOM’da bulunmamalı.');
 assert.match(html, /id="accountOverlay"/i, 'Profil ve hesap işlemleri hesap panelinde bulunmalı.');
