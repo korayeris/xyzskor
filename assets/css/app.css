@@ -6822,6 +6822,9 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
   #authOverlay .modal-foot{align-items:stretch}
   #authOverlay .modal-foot>.btn{width:100%;justify-content:center}
 }
+
+/* v246 - native hidden always wins over later component display rules. */
+html [hidden]{display:none!important}
 @media(max-width:720px){.legal-beta-notice{align-items:flex-start;flex-direction:column;gap:3px;padding:8px 12px;text-align:left}.compliance-source-notice{align-items:flex-start;flex-direction:column;margin:8px 10px}.legal-beta-notice span{font-size:9px}}
 
 /* Matchday live command center */
@@ -7364,3 +7367,6 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
   .account-close{width:40px;height:40px}
   .account-actions{position:sticky;bottom:calc(-14px - env(safe-area-inset-bottom));z-index:2;margin:0 -12px;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(11,27,45,.86),#0b1b2d 25%)}
 }
+
+/* v246-final - protect native visibility at the end of the cascade. */
+html body [hidden]{display:none!important}
