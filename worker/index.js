@@ -259,6 +259,11 @@ function jsonResponse(payload, status = 200, extraHeaders = {}) {
   });
 }
 
+function safeErrorMessage(error) {
+  const message=String(error?.providerMessage||error?.message||'provider_unavailable');
+  return message.replace(/[\r\n\t]/g,' ').slice(0,240);
+}
+
 const SUPABASE_URL_FALLBACK = "https://swhwmqbamzczztpfxctg.supabase.co";
 const PREDICT_GAME = Object.freeze({
   TARGET_GOALS: 10,
@@ -1672,7 +1677,7 @@ async function handleFootballMatchday(request, env) {
   try {
     const [providerResult, predictions] = await Promise.all([
       sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token),
-      sportmonksFixturePredictions(fixtureId, token),
+      sportmonksFixturePredictions(fixtureId, token).catch(()=>[]),
     ]);
     const row = providerResult?.payload?.data || providerResult?.payload || {};
     const fixture = normalizeProviderFixture(row, "sportmonks");
