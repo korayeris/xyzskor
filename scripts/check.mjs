@@ -289,6 +289,8 @@ assert.match(html, /content-visibility:auto/, 'Ekran dışı ağır bölümler r
 assert.match(html, /id="authClose"/, 'Auth penceresinde mobilde erişilebilir kapatma düğmesi olmalı.');
 assert.match(functionSource('openAuth'), /authClose.*focus/, 'Auth açıldığında odak pencere içine taşınmalı.');
 assert.match(functionSource('renderTicker'), /escapeHTML\(m\.ev\).*escapeHTML\(m\.konuk\)/s, 'Fikstür takım adları ticker HTML’ine kaçışla yazılmalı.');
+assert.match(functionSource('renderTicker'), /slice\(0,5\)[\s\S]*slice\(0,4\)/, 'Gündem şeridi son 5 sonucu ve yaklaşan 4 maçı sınırlamalı.');
+assert.match(functionSource('renderTicker'), /data-fixture-id[\s\S]*GÜNDEM MAÇLARI/, 'Gündem kartları maç merkezine açılabilmeli.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_HTML_START/, 'Production build gizli prototip HTML’ini ayıklamalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_JS_START/, 'Production build örnek market verisini ayıklamalı.');
 assert.match(buildScript, /createHash\("sha256"\)/, 'Production HTML değişen CSS ve JavaScript varlıklarını otomatik sürümlemeli.');
