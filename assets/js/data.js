@@ -496,6 +496,14 @@ const MYTHOS_PRODUCTS = {
   ]
 };
 let activeMythosTeam='Seçki';
+const PREDICT_REWARD_TIERS = [
+  {key:'rookie',name:'Çaylak',min:0,max:9,reward:'Dijital rozet',budget:'Fiziksel ödül yok',image:null},
+  {key:'bronze',name:'Bronz',min:10,max:19,reward:'Aylık çekiliş hakkı',budget:'Mythos tek paket havuzu',image:'https://cdn.mythos.cards/imgs/Image_639174871080078636_.webp'},
+  {key:'silver',name:'Gümüş',min:20,max:34,reward:'1 Mythos kart paketi',budget:'Aylık Gümüş ödül havuzu',image:'https://cdn.mythos.cards/imgs/Image_639201437618030532_.webp'},
+  {key:'gold',name:'Altın',min:35,max:49,reward:'Pulse / First bundle çekilişi',budget:'Aylık Altın ödül havuzu',image:'https://cdn.mythos.cards/imgs/Image_639201436045954862_.webp'},
+  {key:'diamond',name:'Elmas',min:50,max:64,reward:'Metal kutu çekilişi',budget:'Aylık Elmas ödül havuzu',image:'https://cdn.mythos.cards/imgs/Image_639174871186017847_.webp'},
+  {key:'champion',name:'Şampiyon',min:65,max:null,reward:'Premium kutu final çekilişi',budget:'Aylık stok ve sponsor bütçesiyle sınırlı',image:'https://cdn.mythos.cards/imgs/Image_639201415658509192_.webp'}
+];
 function renderMythosProducts(){
   const grid=document.getElementById('mythosProductGrid'); if(!grid) return;
   const editorial={Galatasaray:'Şampiyonluk kültürünü, yıldız oyuncuları ve sezonun unutulmaz anlarını koleksiyon tasarımıyla bir araya getiriyor.',Beşiktaş:'Siyah-beyaz mirası, ikonik oyuncuları ve tribün hafızasını özel baskı koleksiyon kartlarına taşıyor.',Trabzonspor:'Bordo-mavili kimliği, genç yetenekleri ve kulübün güçlü futbol hikâyesini modern bir koleksiyonda buluşturuyor.'};

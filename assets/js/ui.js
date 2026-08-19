@@ -149,9 +149,10 @@ function renderAccountContent(){
     document.getElementById('accountLogin').onclick = () => { closeAccount(); openAuth('login'); };
     return;
   }
-  const life = lifetimeStats(u.id); const week = userStatsForWeek(u.id, activeWeek); const rank=accountGeneralRank(u.id); const badges=computeBadges(u.id);
+  const life = lifetimeStats(u.id); const week = userStatsForWeek(u.id, activeWeek); const rank=accountGeneralRank(u.id); const badges=computeBadges(u.id); const rewardProgress=monthlyRewardProgress(u.id);
   area.innerHTML = `<div class="account-summary"><div class="account-name">${escapeHTML(u.username)}</div><div class="account-team">${escapeHTML(u.team||'Takım seçilmedi')}</div>${u.email?`<div class="account-email">${escapeHTML(u.email)}</div>`:''}</div>
     <div class="account-metrics" aria-label="Kullanıcı performansı"><div class="account-metric"><b>${week.toplam}</b><span>Haftalık puan</span></div><div class="account-metric"><b>${life.toplam}</b><span>Toplam puan</span></div><div class="account-metric"><b>${rank||'—'}</b><span>Genel sıralama</span></div><div class="account-metric"><b>${life.sonuclananTahmin?`%${life.dogruYuzde}`:'—'}</b><span>Doğru tahmin oranı</span></div><div class="account-metric"><b>${life.kesinSkor}</b><span>Kesin skor</span></div><div class="account-metric"><b>${life.tahmin}</b><span>Toplam tahmin</span></div></div>
+    ${rewardProgressHTML(rewardProgress,'account')}
     <section class="account-section" aria-labelledby="accountHistoryTitle"><h3 class="account-section-title" id="accountHistoryTitle">Tahmin geçmişi</h3>${accountHistoryHTML(u.id)}</section>
     <section class="account-section" aria-labelledby="accountBadgesTitle"><h3 class="account-section-title" id="accountBadgesTitle">Rozetler</h3>${badges.length?`<div class="account-badges">${badges.map(badge=>`<span class="account-badge">${escapeHTML(badge)}</span>`).join('')}</div>`:'<p class="account-empty">Henüz kazanılmış rozet bulunmuyor.</p>'}</section>
     <div class="account-secondary-grid"><section class="account-section" aria-labelledby="accountFollowingTitle"><h3 class="account-section-title" id="accountFollowingTitle">Takip edilenler</h3><p class="account-empty">Henüz takip edilen takım veya futbolcu yok.</p></section><section class="account-section" aria-labelledby="accountNotificationsTitle"><h3 class="account-section-title" id="accountNotificationsTitle">Bildirim tercihleri</h3><p class="account-empty">Bildirim kanalı bağlı değil.</p></section></div>
@@ -2143,6 +2144,19 @@ function renderRewards(){
 }
 document.getElementById('adminRewardToggle').onclick = () => document.getElementById('adminRewardPanel').classList.toggle('show');
 
+function monthlyRewardProgress(uid, now=new Date()){
+  const month=now.toISOString().slice(0,7), challenge=[...PREDICT_CHALLENGE_MATCHES,...MATCHES];
+  const ids=[...new Set(challenge.filter(match=>String(match.kickoff||'').slice(0,7)===month).map(match=>match.id))];
+  let points=0,correct=0,exact=0,settled=0,picks=0;
+  ids.forEach(id=>{ const pred=ALL_PREDICTIONS[id]?.[uid], result=ALL_RESULTS[id]; if(pred)picks++; if(pred&&result){settled++; const score=computeMatchPoints(pred,result); points+=score.toplam; if(score.sonuc)correct++; if(score.kesinSkor)exact++;} });
+  const tier=[...PREDICT_REWARD_TIERS].reverse().find(item=>points>=item.min)||PREDICT_REWARD_TIERS[0], next=PREDICT_REWARD_TIERS[PREDICT_REWARD_TIERS.indexOf(tier)+1]||null;
+  return {month,points,correct,exact,settled,picks,tier,next,remaining:next?Math.max(0,next.min-points):0,accuracy:settled?Math.round(correct/settled*100):0};
+}
+function rewardProgressHTML(progress,variant='profile'){
+  const pct=progress.next?Math.max(4,Math.min(100,((progress.points-progress.tier.min)/(progress.next.min-progress.tier.min))*100)):100;
+  return `<section class="predict-reward-progress ${escapeHTML(variant)}"><div class="predict-reward-copy"><span>AYLIK ÖDÜL KADEMESİ</span><h3>${escapeHTML(progress.tier.name)} · ${progress.points} puan</h3><p>${escapeHTML(progress.tier.reward)} <small>${escapeHTML(progress.tier.budget)}</small></p></div>${progress.tier.image?`<img src="${escapeHTML(progress.tier.image)}" alt="${escapeHTML(progress.tier.reward)}" loading="lazy">`:''}<div class="predict-reward-meter"><i><span style="width:${pct}%"></span></i><b>${progress.next?`${progress.remaining} puan sonra ${escapeHTML(progress.next.name)}`:'En yüksek kademe'}</b></div><div class="predict-reward-stats"><span><b>%${progress.accuracy}</b> aylık doğruluk</span><span><b>${progress.correct}</b> doğru sonuç</span><span><b>${progress.exact}</b> kesin skor</span></div><small class="predict-reward-rule">Kademe ödül havuzuna katılım hakkıdır; fiziksel ürün sayısı aylık stok ve sponsor bütçesiyle sınırlıdır.</small></section>`;
+}
+
 /* ===================== PROFİL ===================== */
 function renderProfile(){
   const u = getCurrentUser(); const panel = document.getElementById('profilePanel');
@@ -2152,7 +2166,7 @@ function renderProfile(){
   const teamRank = teamRows.findIndex(r=>r.uid===u.id)+1;
   const genRows = sortRows(leaderboardFor('Genel', activeWeek), 'season');
   const genRank = genRows.findIndex(r=>r.uid===u.id)+1;
-  const badges = computeBadges(u.id); const level = levelFor(life.toplam);
+  const badges = computeBadges(u.id); const level = levelFor(life.toplam); const rewardProgress=monthlyRewardProgress(u.id);
   panel.innerHTML = `
     <div class="profile-head">
       ${crestHTML(u.team,'md')}
@@ -2168,6 +2182,7 @@ function renderProfile(){
       <div class="pstat"><div class="n">%${life.dogruYuzde}</div><div class="l">Başarı Yüzdesi</div></div>
       <div class="pstat"><div class="n">${life.katilimHafta}</div><div class="l">Katıldığı Hafta</div></div>
     </div>
+    ${rewardProgressHTML(rewardProgress,'profile')}
     <div class="section-desc" style="margin-bottom:7px;">Rozetler</div>
     <div class="badge-list" style="margin-bottom:14px;">${ALL_BADGES.map(b => `<span class="badge-chip ${badges.includes(b)?'':'locked'}">${b}</span>`).join('')}</div>
     <div class="section-desc" style="margin-bottom:7px;">Takım Değiştir</div>
