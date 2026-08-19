@@ -1443,7 +1443,7 @@ function normalizeSportmonksFixtureDetails(fixture) {
 
 async function sportmonksFixtureRequest(path, token) {
   const includeSets = [
-    "participants;scores;league.country;state;events.type;events.player;lineups.player;lineups.position;lineups.xGLineup;statistics.type;predictions;xGFixture;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
+    "participants;scores;league.country;state;events.type;events.player;lineups.player;lineups.position;statistics.type;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
     "participants;scores;league;state;events;lineups.player;statistics.type;venue;periods;formations",
     "participants;scores;league;state",
   ];
@@ -1458,6 +1458,75 @@ async function sportmonksFixtureRequest(path, token) {
     }
   }
   throw errors.at(-1) || new Error("Sportmonks fixture request unavailable");
+}
+
+async function sportmonksFixturePredictions(fixtureId, token) {
+  try {
+    const payload = await sportmonksRequest(`/fixtures/${encodeURIComponent(fixtureId)}?include=predictions`, token);
+    return relationRows(payload?.data?.predictions || payload?.predictions).map((row) => ({
+      type_id: row?.type_id ?? null,
+      predictions: row?.predictions || row?.data || null,
+    })).filter((row) => row.predictions);
+  } catch (error) {
+    if ([400, 403, 404, 422].includes(error?.status)) return [];
+    throw error;
+  }
+}
+
+async function verifiedSportmonksFixture(fixtureId, token) {
+  const payload = await sportmonksRequest(`/fixtures/${encodeURIComponent(fixtureId)}?include=participants;state;league;venue`, token);
+  const row = payload?.data || payload || {};
+  const fixture = normalizeProviderFixture(row, row?.league || "sportmonks", row?.season_id, row?.round_id);
+  if (!fixture) {
+    const error = new Error("fixture_unavailable");
+    error.status = 404;
+    throw error;
+  }
+  return fixture;
+}
+
+async function handleFootballPrediction(request, env) {
+  if (!["GET", "POST"].includes(request.method)) return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET, POST" });
+  const user = await getAuthUser(request, env);
+  if (!user?.id) return jsonResponse({ error:"authentication_required" }, 401, { "Cache-Control":"no-store" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error:"sportmonks_not_configured" }, 503, { "Cache-Control":"no-store" });
+  const input = request.method === "POST" ? await readJsonBody(request, 4096) : Object.fromEntries(new URL(request.url).searchParams);
+  const fixtureId = String(input.fixture_id || input.fixture || "").replace(/^sportmonks:/, "");
+  if (!/^\d+$/.test(fixtureId)) return jsonResponse({ error:"invalid_fixture" }, 400, { "Cache-Control":"no-store" });
+  const matchId = `sportmonks:${fixtureId}`;
+  if (request.method === "GET") {
+    const rows = await supabaseRest(env, `predictions?match_id=eq.${encodeURIComponent(matchId)}&user_id=eq.${encodeURIComponent(user.id)}&select=pick,score_home,score_away,submitted_at`);
+    return jsonResponse({ prediction:Array.isArray(rows) ? rows[0] || null : null }, 200, { "Cache-Control":"no-store" });
+  }
+  const pick = String(input.pick || "").toUpperCase();
+  const hasHome = input.score_home !== null && input.score_home !== undefined && input.score_home !== "";
+  const hasAway = input.score_away !== null && input.score_away !== undefined && input.score_away !== "";
+  const scoreHome = hasHome ? Number(input.score_home) : null;
+  const scoreAway = hasAway ? Number(input.score_away) : null;
+  if (!["1", "X", "2"].includes(pick)) return jsonResponse({ error:"invalid_pick" }, 400, { "Cache-Control":"no-store" });
+  if (hasHome !== hasAway || (hasHome && (![scoreHome, scoreAway].every(Number.isInteger) || scoreHome < 0 || scoreAway < 0 || scoreHome > 99 || scoreAway > 99))) {
+    return jsonResponse({ error:"invalid_score" }, 400, { "Cache-Control":"no-store" });
+  }
+  try {
+    const fixture = await verifiedSportmonksFixture(fixtureId, token);
+    if (["iptal", "ertelendi", "bitti", "canlÄ±", "devre_arasi"].includes(fixture.status) || Date.now() >= Date.parse(fixture.kickoff) - 15 * 60000) {
+      return jsonResponse({ error:"prediction_closed" }, 409, { "Cache-Control":"no-store" });
+    }
+    await supabaseRest(env, "matches?on_conflict=id", {
+      method:"POST",
+      headers:{ Prefer:"resolution=merge-duplicates,return=representation" },
+      body:JSON.stringify({ id:matchId, hafta:fixture.hafta || 1, ev:fixture.ev, konuk:fixture.konuk, kickoff:fixture.kickoff, stadyum:fixture.stadyum, verified:true, status:fixture.status, source:"sportmonks", updated_at:new Date().toISOString() }),
+    });
+    const saved = await supabaseRest(env, "predictions?on_conflict=match_id,user_id", {
+      method:"POST",
+      headers:{ Prefer:"resolution=merge-duplicates,return=representation" },
+      body:JSON.stringify({ match_id:matchId, user_id:user.id, pick, score_home:scoreHome, score_away:scoreAway }),
+    });
+    return jsonResponse({ prediction:Array.isArray(saved) ? saved[0] || null : saved }, 200, { "Cache-Control":"no-store" });
+  } catch (error) {
+    return jsonResponse({ error:error?.status === 404 ? "fixture_unavailable" : "prediction_save_failed", message:safeErrorMessage(error) }, error?.status === 404 ? 404 : 502, { "Cache-Control":"no-store" });
+  }
 }
 
 function utcDateWithOffset(days) {
@@ -1601,10 +1670,13 @@ async function handleFootballMatchday(request, env) {
   if (!/^\d+$/.test(fixtureId)) return jsonResponse({ error: "invalid_fixture" }, 400, { "Cache-Control": "no-store" });
 
   try {
-    const providerResult = await sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token);
+    const [providerResult, predictions] = await Promise.all([
+      sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token),
+      sportmonksFixturePredictions(fixtureId, token),
+    ]);
     const row = providerResult?.payload?.data || providerResult?.payload || {};
     const fixture = normalizeProviderFixture(row, "sportmonks");
-    const details = normalizeSportmonksFixtureDetails(row);
+    const details = { ...normalizeSportmonksFixtureDetails(row), predictions };
     const participants = relationRows(row.participants);
     const home = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "home") || participants[0] || {};
     const away = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "away") || participants[1] || {};
@@ -2312,6 +2384,7 @@ export default {
     if (url.pathname === "/api/football/coverage") return handleFootballCoverage(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
     if (url.pathname === "/api/football/matchday") return handleFootballMatchday(request, env);
+    if (url.pathname === "/api/football/prediction") return handleFootballPrediction(request, env);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);

@@ -12,6 +12,8 @@
   const command = document.getElementById("matchdayCommand");
   if (!root) return;
   let timer = 0;
+  let currentFixture = null;
+  let selectedPredictionPick = "";
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
@@ -108,7 +110,52 @@
     const over=predictions.find((row)=>Number(row.type_id) === 235)?.predictions;
     if(homeXg == null && awayXg == null && !result && !btts && !over) return "";
     const probability=(label,value)=>value == null ? "" : `<div><span>${esc(label)}</span><b>${Number(value).toLocaleString("tr-TR",{maximumFractionDigits:1})}%</b><i style="--prob:${Math.max(0,Math.min(100,Number(value)))}%"></i></div>`;
-    return `<section class="matchday-insights"><header><span>MAÇ VERİSİ</span><h3>xG ve olasılıklar</h3></header>${homeXg != null || awayXg != null ? `<div class="matchday-xg"><span>${esc(homeName)} <b>${Number(homeXg || 0).toFixed(2)}</b></span><em>BEKLENEN GOL</em><span><b>${Number(awayXg || 0).toFixed(2)}</b> ${esc(awayName)}</span></div>` : ""}<div class="matchday-probabilities">${probability("Ev",result?.home)}${probability("Beraberlik",result?.draw)}${probability("Deplasman",result?.away)}${probability("Karşılıklı gol",btts?.yes)}${probability("2,5 üst",over?.yes)}</div></section>`;
+    return `<section class="matchday-insights"><header><span>SPORTMONKS PREDICTIONS</span><h3>Maç olasılıkları</h3></header>${homeXg != null || awayXg != null ? `<div class="matchday-xg"><span>${esc(homeName)} <b>${Number(homeXg || 0).toFixed(2)}</b></span><em>BEKLENEN GOL</em><span><b>${Number(awayXg || 0).toFixed(2)}</b> ${esc(awayName)}</span></div>` : ""}<div class="matchday-probabilities">${probability(homeName,result?.home)}${probability("Beraberlik",result?.draw)}${probability(awayName,result?.away)}${probability("Karşılıklı gol",btts?.yes)}${probability("2,5 üst",over?.yes)}</div><p class="matchday-insights-note">Yüzdeler SportMonks veri modelidir; bahis oranı değildir ve sonuç garantisi vermez.</p></section>`;
+  }
+  function renderMatchPrediction(fixture, predictions, homeName, awayName) {
+    const result = predictions.find((row) => Number(row.type_id) === 237)?.predictions || {};
+    const closed = isFinishedFixture(fixture) || Date.now() >= Date.parse(fixtureKickoff(fixture)) - 15 * 60000;
+    const percentage = (value) => Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR", { maximumFractionDigits:1 })}%` : "Veri bekleniyor";
+    return `<section class="matchday-user-predict" id="matchdayUserPredict"><header><div><span>XYZSKOR PREDICT</span><h3>Bu maç için tahminini yap</h3><p>SportMonks olasılıklarını incele, kendi 1 / X / 2 seçimini kaydet.</p></div><b>ÜCRETSİZ · BAHİS YOK</b></header><div class="matchday-provider-picks" aria-label="SportMonks maç sonucu olasılıkları"><button type="button" data-pick="1" ${closed ? "disabled" : ""}><small>1 · ${esc(homeName)}</small><strong>${esc(percentage(result.home))}</strong></button><button type="button" data-pick="X" ${closed ? "disabled" : ""}><small>X · Beraberlik</small><strong>${esc(percentage(result.draw))}</strong></button><button type="button" data-pick="2" ${closed ? "disabled" : ""}><small>2 · ${esc(awayName)}</small><strong>${esc(percentage(result.away))}</strong></button></div>${closed ? '<div class="matchday-predict-closed">Tahmin süresi maçtan 15 dakika önce kapandı.</div>' : `<div class="matchday-predict-score"><label>Kesin skor <input id="matchdayScoreHome" type="number" min="0" max="99" inputmode="numeric" aria-label="${esc(homeName)} skor tahmini"></label><span>–</span><label><input id="matchdayScoreAway" type="number" min="0" max="99" inputmode="numeric" aria-label="${esc(awayName)} skor tahmini"></label><button type="button" id="matchdayPredictSave">Tahminimi kaydet</button></div>`}<div class="matchday-predict-status" id="matchdayPredictStatus" role="status" aria-live="polite"></div></section>`;
+  }
+  async function predictionAuthToken() {
+    if (typeof sb === "undefined" || !sb?.auth?.getSession) return "";
+    const result = await sb.auth.getSession();
+    return result?.data?.session?.access_token || "";
+  }
+  async function hydrateOwnPrediction() {
+    const status = document.getElementById("matchdayPredictStatus");
+    if (!status || !currentFixture) return;
+    const token = await predictionAuthToken();
+    if (!token) { status.innerHTML = 'Tahminini kaydetmek için <button type="button" data-predict-login>giriş yap veya ücretsiz üye ol</button>.'; return; }
+    const response = await fetch(`/api/football/prediction?fixture=${encodeURIComponent(fixtureId)}`, { headers:{ Accept:"application/json", Authorization:`Bearer ${token}` }, cache:"no-store" });
+    if (!response.ok) return;
+    const payload = await response.json();
+    const saved = payload?.prediction;
+    if (!saved) return;
+    selectedPredictionPick = saved.pick;
+    root.querySelectorAll(".matchday-provider-picks button").forEach((button) => button.classList.toggle("is-selected", button.dataset.pick === saved.pick));
+    const homeInput=document.getElementById("matchdayScoreHome"), awayInput=document.getElementById("matchdayScoreAway");
+    if (homeInput && saved.score_home != null) homeInput.value=saved.score_home;
+    if (awayInput && saved.score_away != null) awayInput.value=saved.score_away;
+    status.textContent = `Kayıtlı tahminin: ${saved.pick}${saved.score_home != null ? ` · ${saved.score_home}-${saved.score_away}` : ""}`;
+    status.classList.add("is-success");
+  }
+  async function saveMatchdayPrediction() {
+    const status=document.getElementById("matchdayPredictStatus"), button=document.getElementById("matchdayPredictSave");
+    if (!status || !selectedPredictionPick) { if(status) status.textContent="Önce 1 / X / 2 seç."; return; }
+    const token=await predictionAuthToken();
+    if (!token) { status.textContent="Tahminini kaydetmek için giriş yap."; if(typeof openAuth === "function") openAuth("login"); return; }
+    const home=document.getElementById("matchdayScoreHome")?.value ?? "", away=document.getElementById("matchdayScoreAway")?.value ?? "";
+    if ((home === "") !== (away === "")) { status.textContent="Kesin skor için iki skoru da gir."; return; }
+    if(button){ button.disabled=true; button.textContent="Kaydediliyor…"; }
+    try {
+      const response=await fetch("/api/football/prediction", { method:"POST", headers:{ Accept:"application/json", "Content-Type":"application/json", Authorization:`Bearer ${token}` }, body:JSON.stringify({ fixture_id:fixtureId, pick:selectedPredictionPick, score_home:home === "" ? null : Number(home), score_away:away === "" ? null : Number(away) }) });
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(payload.error === "prediction_closed" ? "Tahmin süresi kapandı." : payload.message || "Tahmin kaydedilemedi.");
+      status.textContent=`Tahminin kaydedildi: ${selectedPredictionPick}${home !== "" ? ` · ${home}-${away}` : ""}`; status.classList.add("is-success");
+    } catch(error) { status.textContent=error.message || "Tahmin kaydedilemedi."; status.classList.remove("is-success"); }
+    finally { if(button){ button.disabled=false; button.textContent="Tahminimi kaydet"; } }
   }
   function renderTeamContexts(contexts) {
     if (!contexts.length) return "";
@@ -117,6 +164,8 @@
   }
   function render(payload) {
     const f = payload.fixture || {}, d = payload.details || {}, events = rows(d.events), stats = rows(d.statistics), lineups = rows(d.lineups), formations = rows(d.formations), xg=rows(d.xg), predictions=rows(d.predictions), teamContexts=rows(d.teamContexts);
+    currentFixture = f;
+    selectedPredictionPick = "";
     const names = fixtureNames(f), homeName = names.home || "-", awayName = names.away || "-";
     const parsedKickoff = Date.parse(fixtureKickoff(f));
     if (Number.isFinite(parsedKickoff)) kickoff = parsedKickoff;
@@ -131,8 +180,10 @@
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
     root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
+    root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderMatchPrediction(f,predictions,homeName,awayName)}<nav class="matchday-jump"`);
     if (teamContexts.length) root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderTeamContexts(teamContexts)}<nav class="matchday-jump"`);
     if (requestedFixture && params.get("view") !== "home") setDetailMode(true);
+    hydrateOwnPrediction();
   }
   function renderEmpty() {
     const title = document.getElementById("matchdayTitle"), intro = title?.nextElementSibling;
@@ -182,6 +233,16 @@
     sync.textContent = "Seçili lig fikstürü yükleniyor";
     root.innerHTML = '<div class="matchday-loading"><b>En yakın maç aranıyor.</b><span>Seçili ligin canlı veya yaklaşan fikstürü yükleniyor.</span></div>';
     resolveFixture();
+  });
+  root.addEventListener("click", (event) => {
+    const pickButton = event.target.closest(".matchday-provider-picks button[data-pick]");
+    if (pickButton && !pickButton.disabled) {
+      selectedPredictionPick = pickButton.dataset.pick || "";
+      root.querySelectorAll(".matchday-provider-picks button").forEach((button) => button.classList.toggle("is-selected", button === pickButton));
+      return;
+    }
+    if (event.target.closest("#matchdayPredictSave")) { saveMatchdayPrediction(); return; }
+    if (event.target.closest("[data-predict-login]") && typeof openAuth === "function") openAuth("login");
   });
   function fixtureFromElement(element) {
     if (!element) return "";

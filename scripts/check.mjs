@@ -525,8 +525,12 @@ assert.match(appCss, /v177[\s\S]*minmax\(400px,420px\)[\s\S]*max-width:1180px/, 
 assert.match(matchdayLiveSource, /statisticLabels[\s\S]*Korner[\s\S]*Topa sahip olma/, 'Fixture istatistik etiketleri Turkce sunulmali.');
 assert.match(matchdayLiveSource, /matchday-jump[\s\S]*matchdayEvents[\s\S]*matchdayStatistics[\s\S]*matchdayLineups/, 'Fixture detayi olay, istatistik ve kadro hizli gezinmesini sunmali.');
 assert.match(appCss, /v178[\s\S]*matchday-jump[\s\S]*minmax\(380px,.75fr\)/, 'Fixture detay panelleri dengeli ve responsive yerlesmeli.');
-assert.match(workerSource, /events\.player;lineups\.player[\s\S]*predictions;xGFixture/, 'Fixture istegi oyuncu gorseli, tahmin ve xG include alanlarini istemeli.');
+assert.match(workerSource, /events\.player;lineups\.player[\s\S]*weatherReport;sidelined\.player/, 'Temel fixture istegi zengin mac verisini istemeli.');
+assert.match(workerSource, /sportmonksFixturePredictions[\s\S]*include=predictions/, 'Sportmonks Predictions xG bagimliligi olmadan ayri istenmeli.');
+assert.doesNotMatch(workerSource.match(/async function sportmonksFixtureRequest[\s\S]*?\n}/)?.[0] || '', /xGFixture|include=predictions/, 'Temel fixture istegi kapali eklentiler nedeniyle bozulmamali.');
 assert.match(workerSource, /player_image:player\.image_path[\s\S]*const xg[\s\S]*const predictions/, 'Worker zengin fixture gorsel ve analiz alanlarini korumali.');
+assert.match(workerSource, /handleFootballPrediction[\s\S]*verifiedSportmonksFixture[\s\S]*predictions\?on_conflict=match_id,user_id/, 'Saglayici fiksturu dogrulanarak mevcut Predict tablosuna kaydedilmeli.');
+assert.match(matchdayLiveSource, /SPORTMONKS PREDICTIONS[\s\S]*matchdayUserPredict[\s\S]*api\/football\/prediction/, 'Mac sayfasi Sportmonks olasiliklarini kullanici Predict kaydina baglamali.');
 assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-pitch-photo[\s\S]*renderInsights/, 'Fixture arayuzu oyuncu fotografli saha dizilisi ve xG alanlarini render etmeli.');
 assert.match(matchdayLiveSource, /matchday-team-logo/, 'Fixture arayuzu takim logolarini render etmeli.');
 assert.match(appCss, /v179[\s\S]*matchday-timeline:before[\s\S]*matchday-xi-strip/, 'Fixture zaman cizgisi ve fotografli ilk 11 gorsel sistemi bulunmali.');
