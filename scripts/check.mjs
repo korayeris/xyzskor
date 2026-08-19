@@ -2,7 +2,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-const documentHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const documentHtmlRaw = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const documentHtml = documentHtmlRaw.replace(/\?v=\d+(?=["'])/g, '');
 const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
 const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'chat.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
