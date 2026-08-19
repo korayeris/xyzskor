@@ -157,7 +157,7 @@ assert.match(html, /viewport-fit=cover/i, 'iPhone güvenli alanları için viewp
 assert.match(html, /safe-area-inset-bottom/i, 'iOS alt güvenli alanı desteklenmeli.');
 assert.match(html, /id="tabBtnFootball"[^>]*>Futbol</i, 'Futbol ana ürün alanı bulunmalı.');
 assert.match(html, /id="tabBtnPredict"[^>]*>Predict</i, 'Predict ana ürün alanı bulunmalı.');
-assert.match(html, /HAFTALIK CHALLENGE[\s\S]*Haftalık maç seçkisi/i, 'Predict sayfası sade haftalık seçki başlığını göstermeli.');
+assert.match(html, /HAFTALIK CHALLENGE[\s\S]*Haftanın Tahminleri/i, 'Predict sayfası sade haftalık tahmin başlığını göstermeli.');
 assert.doesNotMatch(html, /2 Süper Lig · 2 EPL · 2 La Liga/i, 'Predict başlığında lig kotaları kullanıcıya gösterilmemeli.');
 assert.doesNotMatch(appSource, /2 Süper Lig \+ 2 Premier League \+ 2 La Liga/i, 'Challenge panelinde lig kotaları tekrarlanmamalı.');
 assert.match(dataSource, /\['super-lig','premier-league','la-liga'\][\s\S]*slice\(0,2\)/, 'Challenge her hedef ligden en yakın iki gerçek fikstürü seçmeli.');

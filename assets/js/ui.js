@@ -1822,7 +1822,7 @@ async function submitPrediction(id){
   setPredictionStatus(id,'Tahminin kaydediliyor…','');
   try{
     const res = await savePrediction(id, {pick, scoreHome, scoreAway});
-    if(!res.ok){ setPredictionStatus(id,'Kaydetme başarısız: '+(res.err||'Tekrar dene.'),'error'); if(button){button.disabled=false;button.textContent='Kaydet';} return; }
+    if(!res.ok){ if(/authentication_required|oturum|giriş/i.test(String(res.err||''))){ setPredictionStatus(id,'Seçimini kaydetmek için oturumunu yenile.','error'); openAuth('login'); } else setPredictionStatus(id,'Seçim kaydedilemedi. Lütfen tekrar dene.','error'); if(button){button.disabled=false;button.textContent='Seçimi kaydet';} return; }
     renderProgress(); renderLeagueMatches();
     setTimeout(()=>{ const flag = document.getElementById('flag-'+id); if(flag) flag.classList.add('pop'); }, 30);
   }catch(error){
