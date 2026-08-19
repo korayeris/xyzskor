@@ -462,7 +462,7 @@ const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')
 assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|Çorum FK|ÇFK/, 'Mac merkezi gecmis fixture veya takim fallbacklerine sabitlenmemeli.');
 assert.match(matchdayLiveSource, /\/api\/football\/season\?league=\$\{encodeURIComponent\(activeMatchdayLeague\)\}/, 'Parametre yokken fixture secili lig sezon verisinden cozulmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
-assert.match(documentHtml, /<h2 id="matchdayTitle"><\/h2><p>Maç bilgisi yükleniyor<\/p>/, 'Kaynak HTML yalnizca notr mac placeholderi icermeli.');
+assert.match(documentHtml, /LİGİN SIRADAKİ MAÇI[\s\S]*<h2 id="matchdayTitle"><\/h2><p>Seçili ligin maç, gündem ve puan durumu akışı<\/p>/, 'Kaynak HTML seçili lige bağlı nötr maç akışı placeholderı içermeli.');
 // Lisanssiz gorsel hotlink regresyonu. Kaynak agacinin tamaminda yasakli
 // hostlar aranir; boylece ayni portre baska bir bilesene tasinarak geri gelemez.
 const forbiddenImageHosts = /(?:img\.a\.transfermarkt\.technology|images\.fotmob\.com)/i;
