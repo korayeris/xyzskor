@@ -543,6 +543,8 @@ assert.match(functionSource('renderWeeklyChallenge'), /weekMatches\(activeWeek\)
 assert.match(appSource, /Doğru sonuç \+3, kesin skor \+5[\s\S]*\+2 tamamlama bonusu/, 'Challenge puan kurallari gercek hesaplama ile ayni olmali.');
 assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-pitch-photo[\s\S]*renderInsights/, 'Fixture arayuzu oyuncu fotografli saha dizilisi ve xG alanlarini render etmeli.');
 assert.match(matchdayLiveSource, /matchday-team-logo/, 'Fixture arayuzu takim logolarini render etmeli.');
+assert.match(appSource, /const state=explicitMatchState\(match\)/, 'Ana sayfa one cikan maci tanimli durum yardimcisini kullanmali.');
+assert.doesNotMatch(appSource, /matchState\(match\)/, 'Ana sayfa render zincirini kesen tanimsiz matchState cagrisi bulunmamali.');
 assert.match(appCss, /v179[\s\S]*matchday-timeline:before[\s\S]*matchday-xi-strip/, 'Fixture zaman cizgisi ve fotografli ilk 11 gorsel sistemi bulunmali.');
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');
 assert.match(motorsportsSource, /Hızın veriye dönüştüğü merkez/, 'Motor sporlari basligi dogru Turkce metni kullanmali.');
