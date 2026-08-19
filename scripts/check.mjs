@@ -545,6 +545,9 @@ assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-pitch-pho
 assert.match(matchdayLiveSource, /matchday-team-logo/, 'Fixture arayuzu takim logolarini render etmeli.');
 assert.match(appSource, /const state=explicitMatchState\(match\)/, 'Ana sayfa one cikan maci tanimli durum yardimcisini kullanmali.');
 assert.doesNotMatch(appSource, /matchState\(match\)/, 'Ana sayfa render zincirini kesen tanimsiz matchState cagrisi bulunmamali.');
+assert.doesNotMatch(documentHtml, /id="footballFeaturedDevelopment"/, 'Ana mac karti futbol akisinda ikinci kez render edilmemeli.');
+assert.match(functionSource('footballQuickMatchRows'), /match\.id!==featured\.id/, 'Hizli fikstur listesi ana maci tekrar etmemeli.');
+assert.doesNotMatch(appSource, /liveOpening/, 'Gundem karti ana fiksturu yapay haber olarak tekrar etmemeli.');
 assert.match(appCss, /v179[\s\S]*matchday-timeline:before[\s\S]*matchday-xi-strip/, 'Fixture zaman cizgisi ve fotografli ilk 11 gorsel sistemi bulunmali.');
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');
 assert.match(motorsportsSource, /Hızın veriye dönüştüğü merkez/, 'Motor sporlari basligi dogru Turkce metni kullanmali.');

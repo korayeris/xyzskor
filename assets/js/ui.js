@@ -1034,18 +1034,22 @@ function leagueMatchDaySelection(matches,now=Date.now()){
 }
 function footballQuickMatchRows(){
   const base=MATCHES.filter(match=>matchInActiveLeague(match) && matchInActiveTeam(match));
-  return leagueMatchDaySelection(base).rows;
+  const featured=homeFeaturedMatch();
+  const remaining=featured?base.filter(match=>match.id!==featured.id):base;
+  return leagueMatchDaySelection(remaining).rows;
+}
+function homeFeaturedMatch(){
+  return matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0]||null;
 }
 function renderFootballQuickMatches(){
   const area = document.getElementById('footballQuickMatches'); if(!area) return;
   if(DATA_ERRORS.matches){ area.innerHTML=footballEmpty('Fikstür alınamadı','Haberler ve puan durumu gibi diğer Futbol modüllerini kullanmaya devam edebilirsin.'); return; }
   const rows = footballQuickMatchRows();
   if(!rows.length){ area.innerHTML=footballEmpty('Maç bulunmuyor','Yayınlanmış fikstür veya doğrulanmış canlı maç kaydı henüz yok.'); return; }
-  const daySelection=leagueMatchDaySelection(MATCHES.filter(match=>matchInActiveLeague(match)&&matchInActiveTeam(match)));
   const title=document.getElementById('footballMatchesTitle');
   const note=document.getElementById('footballMatchesNote');
-  if(title) title.textContent=daySelection.isToday?'Bugünün maçları':`${matchHubDateLabel(rows[0].kickoff)} maçları`;
-  if(note) note.textContent=daySelection.isToday?'Seçili ligde bugün oynanan ve oynanacak tüm karşılaşmalar.':'Bugün maç yok; en yakın maç günü gösteriliyor. Geçmiş sonuçlar Maçlar bölümünde saklanır.';
+  if(title) title.textContent='Sıradaki diğer maçlar';
+  if(note) note.textContent='Ana maç kartında gösterilmeyen en yakın fikstürler.';
   const user = getCurrentUser();
   const overviewRows=rows.slice(0,12);
   area.innerHTML = overviewRows.map(m=>{
@@ -2442,8 +2446,7 @@ function renderFootballNews(){
       area.innerHTML=footballEmpty(`${label} maçı bekleniyor`,providerUnavailableMessage(league));
       return;
     }
-    const matches=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-    const match=matches[0];
+    const match=homeFeaturedMatch();
     if(!match){
       area.innerHTML=footballEmpty(`${label} maçı bekleniyor`,'En yakın tarihli doğrulanmış fikstür geldiğinde bu alan otomatik güncellenecek.');
       return;
@@ -2490,7 +2493,15 @@ function renderFootballNews(){
       list.innerHTML='';
       return;
     }
-    const editorialEntries=contextualEditorialEntries();
+    const featured=homeFeaturedMatch();
+    const seen=new Set();
+    const editorialEntries=contextualEditorialEntries().filter(item=>{
+      if(featured && item.matchId===featured.id) return false;
+      const key=item.matchId?`match:${item.matchId}`:`title:${String(item.title||'').trim().toLocaleLowerCase('tr-TR')}`;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     const visualLead=editorialEntries.find(item=>item.image||item.matchId);
     EDITORIAL_NEWS_CACHE=visualLead?[visualLead,...editorialEntries.filter(item=>item!==visualLead)]:editorialEntries;
     const primary=EDITORIAL_NEWS_CACHE[0];
@@ -2521,11 +2532,9 @@ function renderFootballNews(){
 
   renderFootballTransfers = function(){
     const area=document.getElementById('footballTransferStream'); if(!area) return;
-    const isHeadline=item=>item && !['transfer','rumour','transfer_development'].includes(String(item.kind||item.category||item.type||'').toLocaleLowerCase('tr-TR')) && !/salah/i.test(`${item.title||''} ${item.text||''}`);
+    const isHeadline=item=>item && !['transfer','rumour','transfer_development','fixture','standing','summary'].includes(String(item.kind||item.category||item.type||'').toLocaleLowerCase('tr-TR')) && !/salah/i.test(`${item.title||''} ${item.text||''}`);
     const apiEntries=editorialNewsEntries().filter(isHeadline);
-    const openingMatch=activeFootballLeague==='super-lig'?matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0]:null;
-    const liveOpening=openingMatch?{label:'1. HAFTA · CANLI FİKSTÜR',source:'Sportmonks Football API',title:`${openingMatch.ev} – ${openingMatch.konuk}: sezonun açılışı`,text:`${fmtKickoff(openingMatch.kickoff)} tarihinde oynanacak açılış karşılaşmasıyla Süper Lig'de yeni sezon başlıyor.`,time:openingMatch.kickoff,image:null,imageType:'none'}:null;
-    const primary=liveOpening || apiEntries[0] || contextualEditorialEntries().find(isHeadline);
+    const primary=apiEntries[0] || contextualEditorialEntries().find(isHeadline);
     if(!primary){
       area.innerHTML=footballEmpty('Gündem yükleniyor','Canlı haber API’sindeki yeni manşet geldiğinde burada yayınlanacak.');
       return;
