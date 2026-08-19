@@ -13,6 +13,7 @@
   if (!root) return;
   let timer = 0;
   let currentFixture = null;
+  let currentStatsXg = [];
   let selectedPredictionPick = "";
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
@@ -78,19 +79,21 @@
     if (!events.length) return '<div class="matchday-empty">Gol, asist, kart ve değişiklikler maç başladığında burada görünecek.</div>';
     return `<ol class="matchday-timeline">${events.map((event) => { const side=event.team && event.team === homeName ? "home" : "away"; return `<li class="is-${side}"><time>${esc(event.minute || "-")}'</time><div class="matchday-event-copy">${imageTag(event.player_image,event.player || "Oyuncu","matchday-event-player")}<p><b>${esc(event.player || eventTitle(event))}${event.result ? ` <mark>${esc(event.result)}</mark>` : ""}</b><span>${esc(eventTitle(event))}${event.relatedPlayer ? ` · ${esc(event.relatedPlayer)}` : ""}</span></p></div></li>`; }).join("")}</ol>`;
   }
-  function renderStats(stats, homeName) {
+  function renderStats(stats, homeName, xg=currentStatsXg) {
     if (!stats.length) return '<div class="matchday-empty">Şut, topa sahip olma, korner ve oyuncu istatistikleri sağlayıcının kapsamına göre açılacak.</div>';
     const grouped = new Map();
     stats.forEach((stat) => { const label = statisticLabel(stat.label); if (!grouped.has(label)) grouped.set(label, {home:null,away:null}); const side=stat.location === "home" || stat.team === homeName ? "home" : "away"; grouped.get(label)[side]=stat.value; });
+    const homeXg=xg.find(row=>row.location==='home')?.value, awayXg=xg.find(row=>row.location==='away')?.value;
+    if(homeXg!=null||awayXg!=null) grouped.set('Beklenen gol (xG)',{home:homeXg??'-',away:awayXg??'-'});
     const priority = ["Topa sahip olma", "Beklenen gol", "Toplam şut", "İsabetli şut", "Ceza sahası içinden şut", "Tehlikeli atak", "Atak", "Korner", "Faul", "Ofsayt", "Kurtarış", "Pas", "Başarılı pas"];
     const entries = Array.from(grouped.entries()).sort((a,b) => { const ai=priority.indexOf(a[0]), bi=priority.indexOf(b[0]); return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi); }).slice(0, 10);
     const numeric = (value) => Number(String(value ?? "").replace(/[^0-9.,-]/g, "").replace(",", "."));
-    return `<div class="matchday-stats">${entries.map(([label, values]) => { const home=numeric(values.home), away=numeric(values.away), total=(Number.isFinite(home)?home:0)+(Number.isFinite(away)?away:0), homeWidth=total>0 ? Math.max(4,Math.min(96,home/total*100)) : 50, awayWidth=100-homeWidth; return `<div class="matchday-stat-comparison"><div class="matchday-stat-values"><span>${esc(values.home ?? "-")}</span><b>${esc(label)}</b><span>${esc(values.away ?? "-")}</span></div><div class="matchday-stat-bar" aria-hidden="true"><i style="--value:${homeWidth}%"></i><i style="--value:${awayWidth}%"></i></div></div>`; }).join("")}</div>`;
+    return `<div class="matchday-stats">${entries.map(([label, values],index) => { const home=numeric(values.home), away=numeric(values.away), total=(Number.isFinite(home)?home:0)+(Number.isFinite(away)?away:0), homeWidth=total>0 ? Math.max(4,Math.min(96,home/total*100)) : 50, awayWidth=100-homeWidth, featured=label==='Topa sahip olma'||index===0; return `<div class="matchday-stat-comparison ${featured?'is-featured':''}"><div class="matchday-stat-values"><span>${esc(values.home ?? "-")}${label==='Topa sahip olma'&&values.home!=null&&!String(values.home).includes('%')?'%':''}</span><b>${esc(label)}</b><span>${esc(values.away ?? "-")}${label==='Topa sahip olma'&&values.away!=null&&!String(values.away).includes('%')?'%':''}</span></div>${featured?`<div class="matchday-stat-bar" aria-hidden="true"><i style="--value:${homeWidth}%"></i><i style="--value:${awayWidth}%"></i></div>`:''}</div>`; }).join("")}</div>`;
   }
 
   function renderOverview(fixture, predictions, homeName, awayName, homeScore, awayScore, hasScore) {
     const result=predictions.find((row)=>Number(row.type_id) === 237)?.predictions || {};
-    const probability=(label,value)=>`<div><span>${esc(label)}</span><b>${Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR",{maximumFractionDigits:1})}%` : "–"}</b></div>`;
+    const probability=(label,value)=>`<div style="--prob:${Math.max(0,Math.min(100,Number(value)||0))}%"><span>${esc(label)}</span><i></i><b>${Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR",{maximumFractionDigits:1})}%` : "–"}</b></div>`;
     return `<article class="matchday-overview-card"><div class="matchday-overview-meta"><span>${esc(fixture.competition || "SEÇİLİ LİG")}</span><b>${esc(fixtureTimeLabel(fixture))}</b><small>${esc(fixture.venue || fixture.stadium || "Stadyum bilgisi bekleniyor")}</small></div><div class="matchday-overview-faceoff"><div>${imageTag(fixture.home_logo,homeName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(homeName))}</i>`}<strong>${esc(homeName)}</strong></div><section><em>${esc(stateLabel(fixture))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : fixtureTimeLabel(fixture).split(" ").slice(-1)[0]}</b><button type="button" data-fixture-id="${esc(fixtureProviderId(fixture))}">Maç merkezini aç →</button></section><div>${imageTag(fixture.away_logo,awayName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(awayName))}</i>`}<strong>${esc(awayName)}</strong></div></div><div class="matchday-overview-probabilities"><small>SPORTMONKS MAÇ OLASILIKLARI</small>${probability("1",result.home)}${probability("X",result.draw)}${probability("2",result.away)}</div></article>`;
   }
   function renderTeamLineup(title, members, formation) {
@@ -173,6 +176,7 @@
   }
   function render(payload) {
     const f = payload.fixture || {}, d = payload.details || {}, events = rows(d.events), stats = rows(d.statistics), lineups = rows(d.lineups), formations = rows(d.formations), xg=rows(d.xg), predictions=rows(d.predictions), teamContexts=rows(d.teamContexts);
+    currentStatsXg=xg;
     currentFixture = f;
     selectedPredictionPick = "";
     const names = fixtureNames(f), homeName = names.home || "-", awayName = names.away || "-";
