@@ -6823,6 +6823,31 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) .live-ti
   #authOverlay .modal-foot>.btn{width:100%;justify-content:center}
 }
 
+/* v251 - Predict essentials only: date, fixture, choice. */
+body.predict-product-open > .legal-beta-notice,body.predict-product-open > .live-ticker{display:none!important}
+body.predict-product-open #page-league{width:min(560px,100%);min-height:calc(100dvh - 92px);padding-top:28px}
+body.predict-product-open #page-league .leaguesubtabs{display:none!important}
+body.predict-product-open .predict-app-shell{display:block}
+body.predict-product-open .predict-competition-rail{display:none!important}
+body.predict-product-open .predict-list-head{margin:0 0 20px;padding:0 4px!important}
+body.predict-product-open .predict-feed-kicker,body.predict-product-open .predict-list-head p{display:none}
+body.predict-product-open .predict-list-head h2{margin:0;color:#f4f6f6;font-size:20px!important;font-weight:750;letter-spacing:-.035em}
+body.predict-product-open .predict-date-group{margin-top:24px;font-size:14px}
+body.predict-product-open .predict-match{margin-bottom:10px;border-color:#2b3034!important;background:#171a1d}
+body.predict-product-open .predict-card-head{min-height:34px}
+body.predict-product-open .predict-card-head span{display:none}
+body.predict-product-open .predict-faceoff{padding-block:14px 10px}
+body.predict-product-open .predict-faceoff-team .shield.md{width:38px;height:38px}
+body.predict-product-open .predict-faceoff-team strong{font-size:10px}
+body.predict-product-open .predict-versus small{display:none}
+body.predict-product-open .predict-action .prediction-zone{border:0;background:#101214}
+body.predict-product-open .predict-evidence-row,body.predict-product-open .predict-match-footer{display:none}
+@media(max-width:520px){
+  body.predict-product-open #page-league{padding-top:18px}
+  body.predict-product-open .predict-list-head{margin-bottom:14px}
+  body.predict-product-open .predict-list-head h2{font-size:18px!important}
+}
+
 /* v246 - native hidden always wins over later component display rules. */
 html [hidden]{display:none!important}
 @media(max-width:720px){.legal-beta-notice{align-items:flex-start;flex-direction:column;gap:3px;padding:8px 12px;text-align:left}.compliance-source-notice{align-items:flex-start;flex-direction:column;margin:8px 10px}.legal-beta-notice span{font-size:9px}}
@@ -7445,3 +7470,24 @@ body.predict-product-open .predict-rules-card summary{font-size:13px}
   body.predict-product-open .predict-competition-rail .predict-overview{display:block}
   body.predict-product-open .predict-progress-ring{display:none}
 }
+
+/* v251-final - keep the live Predict page deliberately minimal. */
+body.predict-product-open > .legal-beta-notice,body.predict-product-open > .live-ticker{display:none!important}
+body.predict-product-open #page-league{width:min(560px,100%)!important;min-height:calc(100dvh - 92px);padding-top:28px!important}
+body.predict-product-open #page-league .leaguesubtabs{display:none!important}
+body.predict-product-open .predict-app-shell{display:block!important}
+body.predict-product-open .predict-competition-rail{display:none!important}
+body.predict-product-open .predict-list-head{margin:0 0 20px!important;padding:0 4px!important}
+body.predict-product-open .predict-feed-kicker,body.predict-product-open .predict-list-head p{display:none!important}
+body.predict-product-open .predict-list-head h2{margin:0!important;font-size:20px!important}
+body.predict-product-open .predict-date-group{margin-top:24px!important;font-size:14px!important}
+body.predict-product-open .predict-match{margin-bottom:10px!important;border-color:#2b3034!important;background:#171a1d!important}
+body.predict-product-open .predict-card-head{min-height:34px!important}
+body.predict-product-open .predict-card-head span{display:none!important}
+body.predict-product-open .predict-faceoff{padding-block:14px 10px!important}
+body.predict-product-open .predict-faceoff-team .shield.md{width:38px!important;height:38px!important}
+body.predict-product-open .predict-faceoff-team strong{font-size:10px!important}
+body.predict-product-open .predict-versus small{display:none!important}
+body.predict-product-open .predict-action .prediction-zone{border:0!important;background:#101214!important}
+body.predict-product-open .predict-evidence-row,body.predict-product-open .predict-match-footer{display:none!important}
+@media(max-width:520px){body.predict-product-open #page-league{padding-top:18px!important}.predict-list-head{margin-bottom:14px!important}body.predict-product-open .predict-list-head h2{font-size:18px!important}}
