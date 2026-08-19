@@ -1519,11 +1519,14 @@ async function handleFootballPrediction(request, env) {
     if (["iptal", "ertelendi", "bitti", "canlÄ±", "devre_arasi"].includes(fixture.status) || Date.now() >= Date.parse(fixture.kickoff) - 15 * 60000) {
       return jsonResponse({ error:"prediction_closed" }, 409, { "Cache-Control":"no-store" });
     }
-    await supabaseRest(env, "matches?on_conflict=id", {
-      method:"POST",
-      headers:{ Prefer:"resolution=merge-duplicates,return=representation" },
-      body:JSON.stringify({ id:matchId, hafta:fixture.hafta || 1, ev:fixture.ev, konuk:fixture.konuk, kickoff:fixture.kickoff, stadyum:fixture.stadyum, verified:true, status:fixture.status, source:"sportmonks", challenge_week:challengeLeague ? currentChallengeWeek() : null, challenge_league:challengeLeague, updated_at:new Date().toISOString() }),
-    });
+    const matchRecord={ id:matchId, hafta:fixture.hafta || 1, ev:fixture.ev, konuk:fixture.konuk, kickoff:fixture.kickoff, stadyum:fixture.stadyum, verified:true, status:fixture.status, source:"sportmonks", challenge_week:challengeLeague ? currentChallengeWeek() : null, challenge_league:challengeLeague, updated_at:new Date().toISOString() };
+    try {
+      await supabaseRest(env, "matches?on_conflict=id", { method:"POST", headers:{ Prefer:"resolution=merge-duplicates,return=representation" }, body:JSON.stringify(matchRecord) });
+    } catch (schemaError) {
+      if (!/challenge_(week|league)|column/i.test(String(schemaError?.message || ""))) throw schemaError;
+      delete matchRecord.challenge_week; delete matchRecord.challenge_league;
+      await supabaseRest(env, "matches?on_conflict=id", { method:"POST", headers:{ Prefer:"resolution=merge-duplicates,return=representation" }, body:JSON.stringify(matchRecord) });
+    }
     const saved = await supabaseRest(env, "predictions?on_conflict=match_id,user_id", {
       method:"POST",
       headers:{ Prefer:"resolution=merge-duplicates,return=representation" },
