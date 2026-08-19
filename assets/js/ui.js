@@ -2403,30 +2403,58 @@ function renderFootballNews(){
     return entries;
   };
 
+  const featuredMatchPredictionCache=new Map();
+  function featuredFixtureId(match){
+    return String(match?.provider_fixture_id||match?.fixture_id||match?.provider_id||match?.id||'').replace(/^sportmonks:/,'');
+  }
+  function featuredPredictionValue(value){
+    const number=Number(value);
+    return Number.isFinite(number)?Math.max(0,Math.min(100,number)):null;
+  }
+  async function loadFeaturedMatchPrediction(match,league){
+    const fixtureId=featuredFixtureId(match);
+    if(!fixtureId || featuredMatchPredictionCache.has(fixtureId)) return;
+    featuredMatchPredictionCache.set(fixtureId,{loading:true,result:null});
+    try{
+      const response=await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`,{headers:{Accept:'application/json'}});
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload=await response.json();
+      const row=(payload?.details?.predictions||[]).find(item=>Number(item?.type_id)===237);
+      const raw=row?.predictions||{};
+      const result={home:featuredPredictionValue(raw.home),draw:featuredPredictionValue(raw.draw),away:featuredPredictionValue(raw.away)};
+      featuredMatchPredictionCache.set(fixtureId,{loading:false,result:Object.values(result).some(value=>value!==null)?result:null});
+    }catch(_error){
+      featuredMatchPredictionCache.set(fixtureId,{loading:false,result:null,error:true});
+    }
+    if(activeFootballLeague===league) renderFootballFeatured();
+  }
+  function featuredProbabilityHTML(label,name,value){
+    const percentage=value===null?'—':`${Math.round(value)}%`;
+    const width=value===null?0:value;
+    return `<div class="featured-match-probability"><span><b>${escapeHTML(label)}</b>${escapeHTML(name)}</span><strong>${escapeHTML(percentage)}</strong><i><em style="width:${width}%"></em></i></div>`;
+  }
+
   renderFootballFeatured = function(){
     const area=document.getElementById('footballFeaturedDevelopment'); if(!area) return;
-    if(activeFootballLeague!=='super-lig'){
-      const ctx=activeLeagueContext();
-      if(leagueProviderUnavailable(activeFootballLeague)){
-        area.innerHTML=`<div class="football-module-kicker">${escapeHTML(competitionLabelBySlug(activeFootballLeague))} · VERİ DURUMU</div><h2>${escapeHTML(ctx.headline)}</h2><p>${escapeHTML(providerUnavailableMessage(activeFootballLeague))}</p><div class="featured-source">Yanlış Süper Lig fallback’ı kapatıldı. Bu alan sadece gerçek veri geldiğinde dolacak.</div><div class="headline-actions"><button type="button" onclick="openFootballSection('matches')">Maç alanını aç →</button><button type="button" onclick="openFootballSection('transfers')">Transfer alanını aç →</button></div>`;
-        return;
-      }
-      const summary=officialSeasonSummaryForLeague(activeFootballLeague);
-      const leadMatch=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
-      const supporting=[summary?`${summary.season} sezon şampiyonu ${summary.champion}`:'',summary?.standout?`${summary.standoutLabel}: ${summary.standout}`:'',leadMatch?`Sıradaki maç: ${leadMatch.ev} – ${leadMatch.konuk}`:''].filter(Boolean).join(' · ');
-      area.innerHTML=`<div class="football-module-kicker">${escapeHTML(competitionLabelBySlug(activeFootballLeague))} · MERKEZ</div><h2>${escapeHTML(ctx.headline)}</h2><p>${escapeHTML(ctx.copy)}</p>${supporting?`<div class="featured-source">${escapeHTML(supporting)}</div>`:''}<div class="headline-actions"><button type="button" onclick="openFootballSection('matches')">Maçlara geç →</button><button type="button" onclick="openFootballSection('standings')">Tabloyu aç →</button></div>`;
+    const league=activeFootballLeague;
+    const label=competitionLabelBySlug(league);
+    if(leagueProviderUnavailable(league)){
+      area.innerHTML=footballEmpty(`${label} maçı bekleniyor`,providerUnavailableMessage(league));
       return;
     }
-    const weekMatches=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,9);
-    const opening=weekMatches[0];
-    if(opening){
-      const firstDate=fmtEditorialDate(opening.kickoff);
-      const lastDate=weekMatches.length>1?fmtEditorialDate(weekMatches[weekMatches.length-1].kickoff):firstDate;
-      const showcase=weekMatches.slice(0,3).map((match,index)=>`<button class="week-one-match" type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')"><span>${index===0?'HAFTANIN AÇILIŞI':'PROGRAM'} · ${fmtKickoff(match.kickoff)}</span><div class="week-one-teams"><b>${crestHTML(match.ev,'xs')}${escapeHTML(match.ev)}</b><i>–</i><b>${crestHTML(match.konuk,'xs')}${escapeHTML(match.konuk)}</b></div></button>`).join('');
-      area.innerHTML=`<div class="football-module-kicker">SÜPER LİG · ${escapeHTML(activeWeek)}. HAFTA</div><div class="week-one-heading"><h2>Haftanın maç programı</h2><span>${escapeHTML(firstDate)} – ${escapeHTML(lastDate)}</span></div><p>${escapeHTML(weekMatches.length)} karşılaşmanın programı canlı fikstür verisiyle otomatik güncellenir.</p><div class="week-one-showcase">${showcase}</div><div class="week-one-footer"><span>Sportmonks · ${escapeHTML(fmtEditorialDate(new Date().toISOString()))}</span><button type="button" onclick="openFootballSection('matches')">Tüm maçlar →</button></div>`;
+    const matches=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+    const match=matches[0];
+    if(!match){
+      area.innerHTML=footballEmpty(`${label} maçı bekleniyor`,'En yakın tarihli doğrulanmış fikstür geldiğinde bu alan otomatik güncellenecek.');
       return;
     }
-    area.innerHTML=footballEmpty('1. hafta fikstürü yükleniyor','Sportmonks canlı fikstürü geldiğinde vitrin otomatik güncellenecek.');
+    const fixtureId=featuredFixtureId(match);
+    const cached=featuredMatchPredictionCache.get(fixtureId);
+    if(!cached) loadFeaturedMatchPrediction(match,league);
+    const odds=cached?.result||{home:null,draw:null,away:null};
+    const predictionNote=cached?.loading?'SportMonks olasılıkları yükleniyor':cached?.result?'SportMonks maç sonucu olasılıkları':'Bu maç için olasılık henüz yayınlanmadı';
+    area.classList.add('featured-match-stage');
+    area.innerHTML=`<div class="featured-match-head"><div><div class="football-module-kicker">${escapeHTML(label)} · ÖNE ÇIKAN MAÇ</div><h2>${escapeHTML(fmtEditorialDate(match.kickoff))}</h2></div><time>${escapeHTML(fmtTime(match.kickoff))}</time></div><button class="featured-match-faceoff" type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')" aria-label="${escapeHTML(match.ev)} ${escapeHTML(match.konuk)} maç merkezini aç"><span>${crestHTML(match.ev,'md')}<b>${escapeHTML(match.ev)}</b></span><i><small>${escapeHTML(matchState(match).label)}</small><strong>VS</strong></i><span>${crestHTML(match.konuk,'md')}<b>${escapeHTML(match.konuk)}</b></span></button><div class="featured-match-odds"><header><b>1-X-2 olasılıkları</b><span>${escapeHTML(predictionNote)}</span></header><div class="featured-match-probabilities">${featuredProbabilityHTML('1',match.ev,odds.home)}${featuredProbabilityHTML('X','Beraberlik',odds.draw)}${featuredProbabilityHTML('2',match.konuk,odds.away)}</div></div><div class="week-one-footer"><span>Bahis değildir · bilgilendirme amaçlıdır</span><button type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')">Maç merkezini aç →</button></div>`;
   };
 
   renderFootballNews = function(){

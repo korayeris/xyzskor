@@ -7071,6 +7071,29 @@ body:not(.multisport-open) .wrap{width:min(1240px,calc(100% - 32px))!important;m
 #footballOverviewView .football-right-column{grid-template-columns:repeat(3,minmax(300px,1fr))!important;overflow-x:auto!important;scroll-snap-type:x proximity;scrollbar-width:thin}
 #footballOverviewView .football-right-column>*{scroll-snap-align:start}
 @media(max-width:1180px){#footballOverviewView .football-home{grid-template-columns:1fr!important;grid-template-areas:"main" "live" "lower"!important}#footballOverviewView .football-middle-column{display:grid!important;grid-column:1!important;grid-row:1!important}#footballOverviewView .football-left-column{display:block!important;grid-column:1!important;grid-row:2!important}#footballOverviewView .football-right-column{display:grid!important;grid-column:1!important;grid-row:3!important;grid-template-columns:repeat(2,minmax(300px,1fr))!important}.football-left-column .match-rail{max-height:none!important;overflow:visible!important}}
+
+/* v226: the weekly-program block is now one clear, league-aware featured match. */
+#footballOverviewView .headline-stage.featured-match-stage{min-height:0!important;padding:22px!important;display:block!important}
+.featured-match-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.featured-match-head h2{margin:5px 0 0!important;font-size:16px!important;color:#c6d1dd!important}
+.featured-match-head time{padding:9px 12px;border:1px solid #526172;border-radius:10px;background:#0b131c;color:#fff;font:900 17px/1 var(--font-display)}
+.featured-match-faceoff{width:100%;margin:18px 0;padding:18px;border:1px solid #465566;border-radius:16px;background:linear-gradient(135deg,#101a25,#0a1118);display:grid;grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);align-items:center;gap:14px;color:#fff}
+.featured-match-faceoff>span{display:flex;align-items:center;gap:12px;min-width:0;font-size:15px}
+.featured-match-faceoff>span:last-child{justify-content:flex-end;text-align:right}
+.featured-match-faceoff .crest,.featured-match-faceoff .team-crest{width:42px;height:42px;flex:0 0 42px}
+.featured-match-faceoff>i{font-style:normal;display:grid;justify-items:center;gap:5px}
+.featured-match-faceoff>i small{color:#ef7182;font:800 8px/1 var(--font-mono);text-transform:uppercase}
+.featured-match-faceoff>i strong{font:900 18px/1 var(--font-display)}
+.featured-match-odds{padding:14px;border:1px solid #3c4957;border-radius:14px;background:#0c141d}
+.featured-match-odds>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.featured-match-odds>header b{font-size:12px;color:#fff}.featured-match-odds>header span{color:#8799ad;font:600 8px/1.3 var(--font-mono)}
+.featured-match-probabilities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.featured-match-probability{position:relative;overflow:hidden;padding:10px;border:1px solid #354352;border-radius:10px;background:#121d29;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+.featured-match-probability>span{display:flex;align-items:center;gap:7px;min-width:0;color:#a9b7c7;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.featured-match-probability>span b{display:grid;place-items:center;width:22px;height:22px;flex:0 0 22px;border-radius:7px;background:#ef596c;color:#fff;font-size:10px}
+.featured-match-probability>strong{font:900 14px/1 var(--font-display);color:#fff}
+.featured-match-probability>i{grid-column:1/-1;height:3px;border-radius:9px;background:#263341;overflow:hidden}.featured-match-probability>i em{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ef596c,#ff9a67)}
+@media(max-width:620px){#footballOverviewView .headline-stage.featured-match-stage{padding:16px!important}.featured-match-faceoff{padding:14px 10px;grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr)}.featured-match-faceoff>span{flex-direction:column;gap:7px;font-size:11px;text-align:center}.featured-match-faceoff>span:last-child{justify-content:center;text-align:center}.featured-match-probabilities{grid-template-columns:1fr}.featured-match-odds>header{align-items:flex-start;flex-direction:column}.featured-match-probability>span{font-size:10px}}
 @media(max-width:760px){#footballOverviewView .football-right-column{grid-template-columns:1fr!important;overflow:visible!important}#footballOverviewView .football-left-column .football-match-row{grid-template-columns:54px minmax(0,1fr)!important;gap:7px 10px!important}#footballOverviewView .football-left-column .football-match-row>*:last-child{grid-column:2!important;justify-self:start!important}.portal-league-list button{min-width:132px!important}.portal-team-strip{gap:8px!important}}
 
 /* v178 · fixture detayinda net sonuc, hizli gezinme ve dengeli veri panelleri */
