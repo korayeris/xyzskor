@@ -1881,7 +1881,11 @@ function leagueRowHTML(m){
 }
 function renderLeagueMatches(){
   const ms0 = weekMatches(activeWeek);
-  if(!ms0.length){ document.getElementById('leagueMatchList').innerHTML = '<p class="section-desc">6 Maç Challenge fikstürü sağlayıcıdan yükleniyor.</p>'; }
+  if(!ms0.length){
+    document.getElementById('leagueMatchList').innerHTML = predictChallengeReady
+      ? `<div class="predict-empty-state"><strong>Challenge fikstürü alınamadı</strong><span>${predictChallengeFailures.length ? `${predictChallengeFailures.map(competitionShortBySlug).join(', ')} verisi sağlayıcıdan gelmedi.` : 'Bu hafta için uygun gelecek maç bulunmuyor.'} Fikstür verisini yeniden deneyebilirsin.</span><button type="button" onclick="loadPredictChallengeSelection()">Yeniden dene</button></div>`
+      : '<p class="section-desc">6 Maç Challenge fikstürü sağlayıcıdan yükleniyor.</p>';
+  }
   else{
     const groups = groupByDate(ms0);
     const quota=['super-lig','champions-league','europa-league'].map(key=>({key,count:ms0.filter(match=>match.challengeLeague===key).length}));

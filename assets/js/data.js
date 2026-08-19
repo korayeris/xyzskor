@@ -670,17 +670,21 @@ async function fetchProviderSeasonBundle(leagueKey){
 
 let PREDICT_CHALLENGE_MATCHES = [];
 let predictChallengeLoading = null;
+let predictChallengeReady = false;
+let predictChallengeFailures = [];
 async function loadPredictChallengeSelection(){
   if(predictChallengeLoading) return predictChallengeLoading;
   predictChallengeLoading=(async()=>{
     const leagues=['super-lig','champions-league','europa-league'];
     const bundles=await Promise.all(leagues.map(key=>fetchProviderSeasonBundle(key)));
+    predictChallengeFailures=leagues.filter((key,index)=>!bundles[index]);
     const now=Date.now();
     PREDICT_CHALLENGE_MATCHES=bundles.flatMap((bundle,index)=>{
       const key=leagues[index];
       return (bundle?.matches||[]).filter(match=>!['iptal','ertelendi','bitti','canlı','devre_arasi'].includes(String(match.status||'').toLocaleLowerCase('tr-TR'))).filter(match=>Date.parse(match.kickoff)>now+15*60000).sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff)).slice(0,2).map(match=>({...match,hafta:activeWeek,challengeLeague:key}));
     });
     PREDICT_CHALLENGE_MATCHES.forEach(match=>{ if(match?.ev&&safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo; if(match?.konuk&&safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo; });
+    predictChallengeReady=true;
     if(typeof renderProgress==='function') renderProgress();
     if(typeof renderLeagueMatches==='function') renderLeagueMatches();
     if(typeof renderWeeklyChallenge==='function') renderWeeklyChallenge();

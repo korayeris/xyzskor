@@ -127,8 +127,9 @@ async function main() {
   }
   {
     const { status, body } = await run('live-500', '/api/football/live?league=super-lig', ALL_SECRETS_ENV, () => jsonUpstream({ message: 'boom' }, 500));
-    assertEqual(status, 502, 'live upstream 500 -> 502 (gateway)');
-    assertEqual(body?.error, 'sportmonks_upstream_unavailable', 'live upstream 500 error code');
+    assertEqual(status, 200, 'live upstream 500 -> 200 degraded empty state');
+    assertEqual(body?.degraded, true, 'live upstream 500 degraded flag');
+    assertEqual(body?.matches?.length, 0, 'live upstream 500 empty live list');
   }
 
   console.log('\n=== 3) /api/football/season ===');

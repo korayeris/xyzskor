@@ -1732,7 +1732,10 @@ async function handleFootballLive(request, env, context) {
     const response = jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches, coverage:{ matches:matches.length, includes:liveResult.includes.split(";") }, degraded:liveResult.degraded }, 200, { "Cache-Control": LIVE_API_CACHE });
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
-    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "30" });
+    if (error?.status === 401 || error?.status === 403) {
+      return jsonResponse({ error: error.status === 401 ? "sportmonks_token_invalid" : "sportmonks_plan_restricted", provider: "sportmonks" }, error.status, { "Cache-Control": "no-store", "Retry-After": "30" });
+    }
+    return jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches:[], coverage:{ matches:0, includes:[] }, degraded:true, errors:[{ module:"live", message:"sportmonks_upstream_unavailable" }] }, 200, { "Cache-Control":"public, max-age=15, stale-if-error=120", "X-Data-Stale":"true" });
   }
 }
 

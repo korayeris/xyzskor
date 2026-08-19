@@ -75,3 +75,24 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
   #footballOverviewView .football-right-column .transfer-rail{order:2!important}
   #footballOverviewView .football-right-column .portal-sponsor-rail{order:3!important}
 }
+
+/* v237 - agenda hierarchy: results are warm, upcoming fixtures are green. */
+.agenda-track{scrollbar-width:none!important;-ms-overflow-style:none!important}
+.agenda-track::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+.agenda-match.is-result{
+  border-bottom-color:#d89020!important;
+  background:linear-gradient(135deg,rgba(116,64,10,.72),rgba(45,34,17,.94))!important;
+  box-shadow:inset 0 -3px #f0a52a,inset 0 0 0 1px rgba(244,173,57,.12)!important;
+}
+.agenda-match.is-result:hover,.agenda-match.is-result:focus-visible{background:linear-gradient(135deg,#7e470f,#3b2a14)!important}
+.agenda-match.is-upcoming{
+  border-bottom-color:#32b97b!important;
+  background:linear-gradient(135deg,rgba(11,82,55,.76),rgba(17,42,33,.96))!important;
+  box-shadow:inset 0 -3px #43d895,inset 0 0 0 1px rgba(67,216,149,.12)!important;
+}
+.agenda-match.is-upcoming:hover,.agenda-match.is-upcoming:focus-visible{background:linear-gradient(135deg,#0d6947,#173e30)!important}
+.agenda-match.is-result .agenda-state{color:#ffc86b!important}.agenda-match.is-upcoming .agenda-state{color:#79e2ad!important}
+
+.predict-empty-state{display:grid;justify-items:center;gap:10px;margin:16px;padding:28px;border:1px solid #35434d;border-radius:14px;background:#111920;text-align:center}
+.predict-empty-state strong{color:#fff;font-size:18px}.predict-empty-state span{max-width:520px;color:#94a2ad;font-size:11px;line-height:1.6}
+.predict-empty-state button{min-height:40px;padding:0 18px;border:1px solid #ef7180;border-radius:9px;background:#5f3039;color:#fff;font-weight:900;cursor:pointer}
