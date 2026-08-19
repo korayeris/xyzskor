@@ -77,7 +77,10 @@ function buildFootballPath(league, section, transferTab, clubSlug){
 }
 function buildProductPath(name){
   const product = ['league','predict'].includes(name) ? 'predict' : 'football';
-  if(product==='predict') return '/predict';
+  if(product==='predict'){
+    const section=typeof activeLeagueSection!=='undefined' ? activeLeagueSection : 'predict';
+    return section==='predict' ? '/predict' : `/predict/${section}`;
+  }
   return buildFootballPath(activeFootballLeague, typeof activeFootballSection!=='undefined' ? activeFootballSection : 'home', typeof activeTransferCenterTab!=='undefined' ? activeTransferCenterTab : 'confirmed');
 }
 function updatePath(pathname, replace){
@@ -110,7 +113,10 @@ function parseAppLocation(){
     if(legacy?.type==='product') return legacy;
     return { type:'football-route', league:'super-lig', section:'home', transferTab:'confirmed' };
   }
-  if(segments[0]==='predict') return { type:'product', value:'predict' };
+  if(segments[0]==='predict'){
+    const section=['predict','standings','leader','rewards','profile'].includes(segments[1]) ? segments[1] : 'predict';
+    return { type:'product', value:'predict', section };
+  }
   if(segments[0]==='football'){
     const section = normalizeFootballSectionSegment(segments[1]);
     return { type:'football-route', league:'super-lig', section, transferTab: section==='transfers' ? normalizeTransferRouteTab(segments[2]) : 'confirmed' };
@@ -193,7 +199,7 @@ async function applyParsedLocation(parsed){
     if(parsed.section==='clubs' && parsed.clubSlug && typeof openClubProfileBySlug==='function') openClubProfileBySlug(parsed.clubSlug,false);
   }
   else if(parsed && parsed.type==='football-section'){ if(mcMatchId) closeMatchCenter(false); switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
-  else if(parsed && parsed.type==='product'){ if(mcMatchId) closeMatchCenter(false); switchMainTab(parsed.value, false); }
+  else if(parsed && parsed.type==='product'){ if(mcMatchId) closeMatchCenter(false); switchMainTab(parsed.value, false); if(parsed.value==='predict') switchLeagueSection(parsed.section||'predict',false); }
   else { if(mcMatchId) closeMatchCenter(false); }
 }
 window.addEventListener('hashchange', ()=>{ applyParsedLocation(parseAppLocation()); });
@@ -483,7 +489,7 @@ function openStories(){
 
 /* ===================== LİG İÇİ SEKMELER ===================== */
 let activeLeagueSection = 'predict';
-function switchLeagueSection(name){
+function switchLeagueSection(name, updateUrl){
   // Defense-in-depth: nihai yetki kontrolü Supabase RLS'te (results_admin_all,
   // rewards_admin_all) yapılıyor, ama admin olmayan bir kullanıcı devtools'tan
   // veya doğrudan çağrıyla buraya gelirse bölümü client tarafında da açmayalım.
@@ -494,6 +500,7 @@ function switchLeagueSection(name){
     const btn = document.getElementById('lst-'+n); if(btn) btn.classList.toggle('active', n===name);
   });
   updateMobileNavActive();
+  if(updateUrl!==false) updatePath(buildProductPath('predict'));
 }
 
 /* ===================== MOBİL ALT NAVİGASYON ===================== */

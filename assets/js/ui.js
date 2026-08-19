@@ -2294,7 +2294,7 @@ async function boot(){
       if(parsed.section==='clubs' && parsed.clubSlug) openClubProfileBySlug(parsed.clubSlug,false);
     }
     else if(parsed && parsed.type==='football-section'){ switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
-    else if(parsed && parsed.type==='product'){ switchMainTab(parsed.value, false); }
+    else if(parsed && parsed.type==='product'){ switchMainTab(parsed.value, false); if(parsed.value==='predict') switchLeagueSection(parsed.section||'predict',false); }
   }catch(e){
     console.error('[XYZSkor] boot() veri yükleme başarısız:', e);
     lastLoadError = e;

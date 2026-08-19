@@ -455,6 +455,8 @@ assert.doesNotMatch(dataFreshnessSource, /kontrol:\s*'\d{1,2}\s+\p{L}+\s+\d{4}'/
 assert.match(dataFreshnessSource, /function fixtureFreshness\(/, 'Tazelik etiketi tek bir yardimci uzerinden uretilmeli.');
 assert.match(dataFreshnessSource, /DATA_FRESHNESS\.providerUpdatedAt\s*=/, 'Saglayici yanitinin gercek updatedAt degeri kaydedilmeli.');
 const liveSource = scriptSources[scriptFiles.indexOf('live.js')];
+assert.match(liveSource, /segments\[0\]==='predict'[\s\S]*section[\s\S]*type:'product'/, 'Predict alt bölümü URL üzerinden yeniden yüklemede korunmalı.');
+assert.match(liveSource, /function switchLeagueSection\(name, updateUrl\)[\s\S]*updatePath\(buildProductPath\('predict'\)\)/, 'Predict alt bölüm geçişi URL’yi güncellemeli.');
 const matchCenterSource = scriptSources[scriptFiles.indexOf('match-center.js')];
 for (const [label, source] of [['live.js', liveSource], ['match-center.js', matchCenterSource]]) {
   assert.doesNotMatch(source, /VERIFIED\.kontrol/, `${label} artik sabit kontrol tarihini kullanmamali.`);
