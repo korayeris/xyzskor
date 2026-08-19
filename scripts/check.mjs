@@ -487,7 +487,8 @@ assert.match(liveFunctionSource('renderFootballLeaguePickerInto'), /is-unavailab
 assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.');
 assert.match(liveFunctionSource('applyParsedLocation'), /loadFootballLeagueSelection\(parsed\.league\)/, 'Dogrudan rota ve popstate coverage-aware lig yukleyicisini kullanmali.');
 assert.match(liveFunctionSource('renderClubProfile'), /split\(\/\\s\+\/\).*toLocaleUpperCase/, 'Teknik direktor placeholderi ad bas harflerinden uretilmeli.');
-assert.match(workerSource, /available:availableIds\.has\(leagueId\)/, 'Coverage availability /my/leagues abonelik uyeliginden gelmeli.');
+assert.match(workerSource, /available:fixturesAvailable/, 'Coverage availability gercek fikstur erisimiyle dogrulanmali.');
+assert.match(workerSource, /subscriptionReported:availableIds\.has\(leagueId\)/, 'Saglayicinin abonelik bildirimi ayri tanisal alan olarak korunmali.');
 assert.match(workerSource, /metadataAvailable:Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.

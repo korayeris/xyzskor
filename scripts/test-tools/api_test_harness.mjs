@@ -289,11 +289,13 @@ async function main() {
         const id = u.pathname.split('/').pop();
         return jsonUpstream({ data: { id: Number(id), name: 'Lig ' + id, currentseason: { id: 1, is_current: true } } });
       }
+      if (u.pathname === '/v3/football/fixtures') return jsonUpstream({ data: [] });
       return null;
     });
     assertEqual(status, 200, 'coverage success -> 200');
     assertEqual(body?.selected?.length, 5, 'coverage success -> 5 seçili lig probe edildi');
-    assertEqual(body?.selected?.filter((row) => row.available).length, 2, 'coverage success -> yalnız /my/leagues üyelikleri available=true');
+    assertEqual(body?.selected?.filter((row) => row.available).length, 5, 'coverage success -> fikstür erişimi olan ligler available=true');
+    assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 2, 'coverage success -> /my/leagues bildirimi ayrı tutulur');
     assertTrue(body?.selected?.every((row) => row.metadataAvailable === true), 'coverage success -> metadata probe sonucu ayrıca raporlanır');
   }
 

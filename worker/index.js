@@ -1111,7 +1111,7 @@ async function handleFootballCoverage(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
-  const cacheUrl = new URL("/api/football/coverage-v3", request.url); cacheUrl.search = "";
+  const cacheUrl = new URL("/api/football/coverage-v4", request.url); cacheUrl.search = "";
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   try {
@@ -1132,7 +1132,14 @@ async function handleFootballCoverage(request, env, context) {
         const probe = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason`, token);
         const row = relationRows(probe?.data)[0] || null;
         const currentSeason = sportmonksCurrentSeason(row);
-        return { league, leagueId, name:row?.name || SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:availableIds.has(leagueId), metadataAvailable:Boolean(row?.id), currentSeasonId:currentSeason?.id ? String(currentSeason.id) : null };
+        let fixturesAvailable = false;
+        if (currentSeason?.id) {
+          try {
+            await sportmonksRequest(`/fixtures?filter[seasonIds]=${encodeURIComponent(currentSeason.id)}&per_page=1`, token);
+            fixturesAvailable = true;
+          } catch (_error) {}
+        }
+        return { league, leagueId, name:row?.name || SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:fixturesAvailable, subscriptionReported:availableIds.has(leagueId), metadataAvailable:Boolean(row?.id), currentSeasonId:currentSeason?.id ? String(currentSeason.id) : null };
       } catch (error) {
         return { league, leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:false, currentSeasonId:null, status:error?.status || 502 };
       }
