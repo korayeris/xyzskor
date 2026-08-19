@@ -160,7 +160,8 @@ assert.match(html, /id="tabBtnPredict"[^>]*>Predict</i, 'Predict ana ürün alan
 assert.match(html, /6 MAÇ · HAFTALIK CHALLENGE[\s\S]*2 Süper Lig · 2 EPL · 2 La Liga/i, 'Predict sayfası altı maçlık çok ligli challenge hedefini açıklamalı.');
 assert.match(dataSource, /\['super-lig','premier-league','la-liga'\][\s\S]*slice\(0,2\)/, 'Challenge her hedef ligden en yakın iki gerçek fikstürü seçmeli.');
 assert.match(dataSource, /challenge_league:match\.challengeLeague/, 'Kaydedilen tahmin challenge ligiyle sunucuya gönderilmeli.');
-assert.match(appSource, /Giriş yap ve kaydet/, 'Misafir kullanıcı seçim yaptıktan sonra giriş yapıp kaydedebilmeli.');
+assert.match(appSource, /Seçimi kaydet/, 'Tahmin kartı sade bir kayıt eylemi göstermeli.');
+assert.doesNotMatch(appSource, /Giriş yap ve kaydet/, 'Her tahmin kartında giriş çağrısı tekrarlanmamalı.');
 assert.match(dataSource, /Çaylak[\s\S]*Bronz[\s\S]*Gümüş[\s\S]*Altın[\s\S]*Elmas[\s\S]*Şampiyon/, 'Aylık ödül kademeleri eksiksiz tanımlanmalı.');
 assert.match(appSource, /monthlyRewardProgress[\s\S]*rewardProgressHTML/, 'Kullanıcı profili aylık ödül ilerlemesini göstermeli.');
 assert.doesNotMatch(dataSource, /Yaklaşık\s+\d+[–-]\d+\s*TL/, 'Ödül kartlarında kullanıcıya fiyat gösterilmemeli.');
