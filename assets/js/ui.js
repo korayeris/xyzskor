@@ -999,20 +999,36 @@ function matchIsCurrentFixture(match){
   const kickoff=new Date(match.kickoff).getTime();
   return Number.isFinite(kickoff) && kickoff>Date.now()-3*60*60*1000;
 }
+function matchDayKey(value){
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+}
+function leagueMatchDaySelection(matches,now=Date.now()){
+  const valid=matches.filter(match=>matchDayKey(match.kickoff));
+  const today=matchDayKey(now);
+  const todayRows=valid.filter(match=>matchDayKey(match.kickoff)===today).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  if(todayRows.length) return {key:today,rows:todayRows,isToday:true};
+  const future=valid.filter(match=>new Date(match.kickoff).getTime()>now&&!['iptal','ertelendi'].includes(match.status)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  if(future.length){ const key=matchDayKey(future[0].kickoff); return {key,rows:future.filter(match=>matchDayKey(match.kickoff)===key),isToday:false}; }
+  const past=valid.sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
+  const key=past.length?matchDayKey(past[0].kickoff):'';
+  return {key,rows:past.filter(match=>matchDayKey(match.kickoff)===key),isToday:false};
+}
 function footballQuickMatchRows(){
   const base=MATCHES.filter(match=>matchInActiveLeague(match) && matchInActiveTeam(match));
-  const live = base.filter(m=>m.status==='canlı' || m.status==='devre_arasi');
-  const upcoming = base.filter(m=>!getResult(m.id) && m.status!=='iptal' && m.status!=='ertelendi' && !live.includes(m) && new Date(m.kickoff).getTime()>Date.now())
-    .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-  const completed = base.filter(m=>getResult(m.id)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
-  const ordered=[...live, ...upcoming, ...completed];
-  return ordered;
+  return leagueMatchDaySelection(base).rows;
 }
 function renderFootballQuickMatches(){
   const area = document.getElementById('footballQuickMatches'); if(!area) return;
   if(DATA_ERRORS.matches){ area.innerHTML=footballEmpty('Fikstür alınamadı','Haberler ve puan durumu gibi diğer Futbol modüllerini kullanmaya devam edebilirsin.'); return; }
   const rows = footballQuickMatchRows();
   if(!rows.length){ area.innerHTML=footballEmpty('Maç bulunmuyor','Yayınlanmış fikstür veya doğrulanmış canlı maç kaydı henüz yok.'); return; }
+  const daySelection=leagueMatchDaySelection(MATCHES.filter(match=>matchInActiveLeague(match)&&matchInActiveTeam(match)));
+  const title=document.getElementById('footballMatchesTitle');
+  const note=document.getElementById('footballMatchesNote');
+  if(title) title.textContent=daySelection.isToday?'Bugünün maçları':`${matchHubDateLabel(rows[0].kickoff)} maçları`;
+  if(note) note.textContent=daySelection.isToday?'Seçili ligde bugün oynanan ve oynanacak tüm karşılaşmalar.':'Bugün maç yok; en yakın maç günü gösteriliyor. Geçmiş sonuçlar Maçlar bölümünde saklanır.';
   const user = getCurrentUser();
   const overviewRows=rows.slice(0,12);
   area.innerHTML = overviewRows.map(m=>{
@@ -1033,6 +1049,7 @@ function matchHubScopedRows(){
   const completed=rows.filter(match=>getResult(match.id)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
   const pending=rows.filter(match=>!live.includes(match)&&!upcoming.includes(match)&&!completed.includes(match)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
   if(activeMatchHubFilter==='live') return live;
+  if(activeMatchHubFilter==='today') return rows.filter(match=>matchDayKey(match.kickoff)===matchDayKey(Date.now())).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
   if(activeMatchHubFilter==='upcoming') return upcoming;
   if(activeMatchHubFilter==='results') return completed;
   return [...live,...upcoming,...completed,...pending];
@@ -1042,7 +1059,7 @@ function matchHubDateLabel(value){
   return date.toLocaleDateString('tr-TR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
 }
 function setMatchHubFilter(name,button){
-  activeMatchHubFilter=['all','live','upcoming','results'].includes(name)?name:'all';
+  activeMatchHubFilter=['all','today','live','upcoming','results'].includes(name)?name:'all';
   document.querySelectorAll('[data-match-hub-filter]').forEach(item=>{ const selected=item.dataset.matchHubFilter===activeMatchHubFilter; item.classList.toggle('active',selected); item.setAttribute('aria-pressed',String(selected)); });
   renderMatchesHub();
 }
