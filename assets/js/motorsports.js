@@ -200,6 +200,11 @@
     document.addEventListener('click', event => { if (!nav.contains(event.target)) mega.hidden = true; });
     if (!isMotor()) return;
     const slug = parts()[1] || '';
+    const picker = document.createElement('nav');
+    picker.className = 'xms-series-picker';
+    picker.setAttribute('aria-label', 'Motor sporları seri seçimi');
+    picker.innerHTML = `<strong>YARIŞ SERİSİ</strong><div><a class="${!slug?'active':''}" href="/motorsports/">Tümü</a>${Object.entries(series).map(([key,config])=>`<a class="${key===slug?'active':''}" href="/motorsports/${key}">${config[0]}</a>`).join('')}</div>`;
+    nav.after(picker);
     document.body.classList.add('motorsport-open');
     document.body.dataset.motorsport = slug || 'hub';
     document.getElementById('miniGoalGame')?.remove();
