@@ -7372,3 +7372,4 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
 html body [hidden]{display:none!important}
 body > #footballContextNav[hidden],body > #footballLeagueCommand[hidden],body > #matchdayCommand[hidden]{display:none!important}
 body.predict-product-open > #footballContextNav,body.predict-product-open > #footballLeagueCommand,body.predict-product-open > #matchdayCommand{display:none!important}
+body.predict-product-open.predict-product-open.predict-product-open.predict-product-open > #footballContextNav,body.predict-product-open.predict-product-open.predict-product-open.predict-product-open > #footballLeagueCommand{display:none!important}
