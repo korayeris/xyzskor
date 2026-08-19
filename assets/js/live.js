@@ -462,6 +462,8 @@ function switchMainTab(name, updateUrl){
   if(footballContextNav) footballContextNav.hidden=product!=='football';
   const footballLeagueCommand=document.getElementById('footballLeagueCommand');
   if(footballLeagueCommand) footballLeagueCommand.hidden=product!=='football';
+  const matchdayCommand=document.getElementById('matchdayCommand');
+  if(matchdayCommand) matchdayCommand.hidden=product!=='football';
   if(product==='football' && name==='football' && typeof openFootballSection==='function') openFootballSection('home',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
   if(product==='predict'){

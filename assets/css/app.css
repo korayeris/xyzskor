@@ -7370,3 +7370,4 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
 
 /* v246-final - protect native visibility at the end of the cascade. */
 html body [hidden]{display:none!important}
+body > #footballContextNav[hidden],body > #footballLeagueCommand[hidden],body > #matchdayCommand[hidden]{display:none!important}
