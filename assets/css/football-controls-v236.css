@@ -1,0 +1,77 @@
+/* Composed football controls and a useful standings sidebar. */
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballContextNav,
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballLeagueCommand{
+  width:min(1180px,calc(100% - 32px))!important;
+  padding-inline:10px!important;
+  border:1px solid #303d47!important;
+  background:linear-gradient(135deg,#121b22,#0e151b)!important;
+}
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballContextNav{
+  min-height:56px!important;margin:14px auto 0!important;padding-block:7px!important;
+  border-bottom-color:#27323b!important;border-radius:16px 16px 0 0!important;gap:6px!important;
+  box-shadow:0 18px 48px rgba(0,0,0,.2)!important;
+}
+#footballContextNav .football-context-tab{
+  min-height:40px!important;padding:0 17px!important;border:1px solid transparent!important;
+  border-radius:10px!important;color:#94a2ad!important;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease!important;
+}
+#footballContextNav .football-context-tab:hover{border-color:#394751!important;background:#18222a!important;color:#e8eef2!important}
+#footballContextNav .football-context-tab.active{
+  border-color:#ef7180!important;background:linear-gradient(135deg,#71333f,#31252d)!important;color:#fff!important;
+  box-shadow:0 8px 22px rgba(239,89,108,.16),inset 0 -2px #ff8190!important;
+}
+body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballLeagueCommand{
+  min-height:70px!important;margin:-1px auto 18px!important;padding-block:9px!important;
+  border-radius:0 0 16px 16px!important;box-shadow:0 18px 48px rgba(0,0,0,.25)!important;
+}
+#footballLeagueCommand .football-league-command-copy{min-width:112px!important;padding:0 10px!important;border-right:1px solid #303b44}
+#footballLeagueCommand .football-league-command-copy strong{font-size:13px!important}
+#footballTopLeagueStrip{gap:8px!important;padding:1px 2px!important}
+#footballTopLeagueStrip button{
+  min-width:126px!important;min-height:46px!important;padding:8px 13px!important;border-color:#34434e!important;
+  border-radius:11px!important;background:#172129!important;
+  transition:transform .18s ease,border-color .18s ease,background .18s ease!important;
+}
+#footballTopLeagueStrip button:hover{transform:translateY(-1px);border-color:#5a6a76!important;background:#1d2932!important}
+#footballTopLeagueStrip button.active{
+  border-color:#ef7180!important;background:linear-gradient(135deg,#60313a,#202b33)!important;
+  box-shadow:inset 0 -3px #ef7180,0 7px 18px rgba(239,89,108,.12)!important;
+}
+@media(min-width:1181px){
+  #footballOverviewView .football-home{
+    grid-template-columns:minmax(0,1fr) 370px!important;grid-template-areas:"live side" "main side"!important;
+    gap:18px!important;align-items:start!important;
+  }
+  #footballOverviewView .football-left-column{grid-area:live!important;grid-column:1!important;grid-row:1!important}
+  #footballOverviewView .football-middle-column{grid-area:main!important;grid-column:1!important;grid-row:2!important}
+  #footballOverviewView .football-right-column{
+    grid-area:side!important;grid-column:2!important;grid-row:1/3!important;display:flex!important;
+    flex-direction:column!important;gap:14px!important;min-width:0!important;overflow:visible!important;
+  }
+  #footballOverviewView .football-right-column .standings-rail{
+    order:1!important;height:460px!important;min-height:460px!important;max-height:460px!important;overflow:auto!important;
+    border-color:#3b4852!important;box-shadow:0 16px 42px rgba(0,0,0,.22)!important;
+  }
+  #footballOverviewView .football-right-column .transfer-rail{order:2!important;height:auto!important;min-height:280px!important;max-height:none!important}
+  #footballOverviewView .football-right-column .portal-sponsor-rail{order:3!important;height:auto!important;min-height:220px!important;max-height:none!important}
+}
+@media(max-width:1180px){
+  #footballOverviewView .football-home{grid-template-columns:1fr!important;grid-template-areas:"live" "main" "side"!important}
+  #footballOverviewView .football-left-column{grid-area:live!important}
+  #footballOverviewView .football-middle-column{grid-area:main!important}
+  #footballOverviewView .football-right-column{grid-area:side!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #footballOverviewView .football-right-column .standings-rail{grid-row:span 2;height:460px!important;min-height:460px!important}
+}
+@media(max-width:680px){
+  body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballContextNav,
+  body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballLeagueCommand{width:calc(100% - 16px)!important}
+  body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballContextNav{margin-top:8px!important;border-radius:12px 12px 0 0!important}
+  body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footballLeagueCommand{min-height:58px!important;margin-bottom:12px!important;border-radius:0 0 12px 12px!important}
+  #footballContextNav .football-context-tab{min-height:38px!important;padding-inline:13px!important}
+  #footballTopLeagueStrip button{min-width:108px!important;min-height:40px!important}
+  #footballOverviewView .football-right-column{display:flex!important;flex-direction:column!important;overflow:visible!important}
+  #footballOverviewView .football-right-column .standings-rail{order:1!important;width:100%!important;height:420px!important;min-height:420px!important}
+  #footballOverviewView .football-right-column .transfer-rail{order:2!important}
+  #footballOverviewView .football-right-column .portal-sponsor-rail{order:3!important}
+}
