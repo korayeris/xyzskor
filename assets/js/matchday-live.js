@@ -93,8 +93,28 @@
 
   function renderOverview(fixture, predictions, homeName, awayName, homeScore, awayScore, hasScore) {
     const result=predictions.find((row)=>Number(row.type_id) === 237)?.predictions || {};
-    const probability=(label,value)=>`<div style="--prob:${Math.max(0,Math.min(100,Number(value)||0))}%"><span>${esc(label)}</span><i></i><b>${Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR",{maximumFractionDigits:1})}%` : "–"}</b></div>`;
-    return `<article class="matchday-overview-card"><div class="matchday-overview-meta"><span>${esc(fixture.competition || "SEÇİLİ LİG")}</span><b>${esc(fixtureTimeLabel(fixture))}</b><small>${esc(fixture.venue || fixture.stadium || "Stadyum bilgisi bekleniyor")}</small></div><div class="matchday-overview-faceoff"><div>${imageTag(fixture.home_logo,homeName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(homeName))}</i>`}<strong>${esc(homeName)}</strong></div><section><em>${esc(stateLabel(fixture))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : fixtureTimeLabel(fixture).split(" ").slice(-1)[0]}</b><button type="button" data-fixture-id="${esc(fixtureProviderId(fixture))}">Maç merkezini aç · detaylar ve istatistikler →</button></section><div>${imageTag(fixture.away_logo,awayName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(awayName))}</i>`}<strong>${esc(awayName)}</strong></div></div><div class="matchday-overview-probabilities"><small>1-X-2 OLASILIKLARI</small>${probability("1",result.home)}${probability("X",result.draw)}${probability("2",result.away)}<p>SportMonks Predictions</p></div></article>`;
+    const probability=(pick,label,value)=>`<button type="button" data-overview-pick="${esc(pick)}" style="--prob:${Math.max(0,Math.min(100,Number(value)||0))}%"><span>${esc(pick)}</span><small>${esc(label)}</small><b>${Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR",{maximumFractionDigits:1})}%` : "–"}</b><i></i></button>`;
+    return `<article class="matchday-overview-card"><div class="matchday-overview-meta"><span>${esc(fixture.competition || "SEÇİLİ LİG")}</span><b>${esc(fixtureTimeLabel(fixture))}</b><small>${esc(fixture.venue || fixture.stadium || "Stadyum bilgisi bekleniyor")}</small></div><div class="matchday-overview-faceoff"><div>${imageTag(fixture.home_logo,homeName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(homeName))}</i>`}<strong>${esc(homeName)}</strong></div><section><em>${esc(stateLabel(fixture))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : fixtureTimeLabel(fixture).split(" ").slice(-1)[0]}</b><button type="button" data-fixture-id="${esc(fixtureProviderId(fixture))}">Maç merkezini aç →</button></section><div>${imageTag(fixture.away_logo,awayName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(awayName))}</i>`}<strong>${esc(awayName)}</strong></div><div class="matchday-overview-predict"><button class="matchday-overview-reveal" type="button" aria-expanded="false">Tahminini yap <span>↓</span></button><div class="matchday-overview-probabilities" hidden><header><b>1-X-2 olasılıkları</b><small>Seçimini kaydetmek için giriş yapmalısın.</small></header>${probability("1",homeName,result.home)}${probability("X","Beraberlik",result.draw)}${probability("2",awayName,result.away)}<p class="matchday-overview-predict-status" role="status" aria-live="polite"></p></div></div></div></article>`;
+  }
+  function bindOverviewPrediction(fixtureId) {
+    if(typeof root.querySelector!=='function') return;
+    const reveal=root.querySelector('.matchday-overview-reveal');
+    const panel=root.querySelector('.matchday-overview-probabilities');
+    if(!reveal||!panel) return;
+    reveal.onclick=()=>{ const expanded=reveal.getAttribute('aria-expanded')==='true'; reveal.setAttribute('aria-expanded',String(!expanded)); panel.hidden=expanded; reveal.closest('.matchday-overview-predict')?.classList.toggle('is-open',!expanded); };
+    panel.querySelectorAll('[data-overview-pick]').forEach(button=>{ button.onclick=async()=>{
+      panel.querySelectorAll('[data-overview-pick]').forEach(item=>item.classList.toggle('is-selected',item===button));
+      const status=panel.querySelector('.matchday-overview-predict-status');
+      const token=await predictionAuthToken();
+      if(!token){ if(status) status.textContent='Seçimini kaydetmek için giriş yap veya ücretsiz üye ol.'; if(typeof openAuth==='function') openAuth('login'); return; }
+      if(status) status.textContent='Seçimin kaydediliyor…';
+      try{
+        const response=await fetch('/api/football/prediction',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({fixture_id:String(fixtureId),pick:button.dataset.overviewPick,score_home:null,score_away:null})});
+        const payload=await response.json().catch(()=>({}));
+        if(!response.ok) throw new Error(payload.message||'Tahmin kaydedilemedi.');
+        if(status) status.textContent=`${button.dataset.overviewPick} seçimin kaydedildi.`;
+      }catch(error){ if(status) status.textContent=error.message||'Tahmin kaydedilemedi.'; }
+    }; });
   }
   function renderTeamLineup(title, members, formation) {
     if (!members.length) return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-empty">Resmî kadro henüz açıklanmadı.</div></section>`;
@@ -195,6 +215,7 @@
     const detailMode = Boolean(new URLSearchParams(location.search).get("fixture")) && params.get("view") !== "home";
     if (!detailMode) {
       root.innerHTML = renderOverview(f,predictions,homeName,awayName,homeScore,awayScore,hasScore);
+      bindOverviewPrediction(fixtureProviderId(f));
       setDetailMode(false);
       return;
     }

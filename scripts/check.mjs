@@ -543,6 +543,9 @@ assert.match(functionSource('renderWeeklyChallenge'), /weekMatches\(activeWeek\)
 assert.match(appSource, /Doğru sonuç \+3, kesin skor \+5[\s\S]*\+2 tamamlama bonusu/, 'Challenge puan kurallari gercek hesaplama ile ayni olmali.');
 assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-pitch-photo[\s\S]*renderInsights/, 'Fixture arayuzu oyuncu fotografli saha dizilisi ve xG alanlarini render etmeli.');
 assert.match(matchdayLiveSource, /matchday-team-logo/, 'Fixture arayuzu takim logolarini render etmeli.');
+assert.match(matchdayLiveSource, /matchday-overview-reveal[\s\S]*matchday-overview-probabilities" hidden/, 'Anasayfa olasiliklari kullanici istegine kadar gizli kalmali.');
+assert.match(matchdayLiveSource, /bindOverviewPrediction[\s\S]*predictionAuthToken[\s\S]*openAuth\('login'\)/, 'Anasayfa tahmin secimi giris gerektirmeli.');
+assert.match(appCss, /v233[\s\S]*grid-column:1\/-1[\s\S]*overviewPredictOpen/, 'Tahmin kutulari takimlarin altinda animasyonlu acilmali.');
 assert.match(appSource, /const state=explicitMatchState\(match\)/, 'Ana sayfa one cikan maci tanimli durum yardimcisini kullanmali.');
 assert.doesNotMatch(appSource, /matchState\(match\)/, 'Ana sayfa render zincirini kesen tanimsiz matchState cagrisi bulunmamali.');
 assert.doesNotMatch(documentHtml, /id="footballFeaturedDevelopment"/, 'Ana mac karti futbol akisinda ikinci kez render edilmemeli.');
