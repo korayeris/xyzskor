@@ -467,6 +467,7 @@ function switchMainTab(name, updateUrl){
   if(product==='predict'){
     if(!MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
     if(typeof loadPredictChallengeSelection==='function') loadPredictChallengeSelection();
+    if(updateUrl !== false) window.scrollTo({top:0,behavior:'smooth'});
   }
   if(updateUrl !== false) updatePath(buildProductPath(name));
   updateMobileNavActive();

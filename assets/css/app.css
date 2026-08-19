@@ -7310,6 +7310,48 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
 .weekly-challenge-missing>div>button{grid-template-columns:48px minmax(0,1fr) 18px;padding:10px 4px}
 .weekly-challenge-missing time{font-size:10px}.weekly-challenge-missing button span{font-size:10px;line-height:1.3}.weekly-challenge-missing details{font-size:10px}
 @media(max-width:1100px) and (min-width:901px){.weekly-challenge-grid{grid-template-columns:160px minmax(320px,1fr) 220px}.weekly-challenge-main{padding:20px 16px}.challenge-levels{gap:6px}}
+
+/* v244 - Predict is a compact match-selection product, not a stacked dashboard. */
+#page-league{padding-top:16px}
+#page-league .leaguesubtabs{position:relative;z-index:4;min-height:50px;margin-bottom:12px!important;border-radius:14px!important}
+#page-league .leaguesubtab{min-height:48px!important}
+.weekly-challenge{max-width:1220px;margin:0 auto 14px;border-radius:16px;box-shadow:0 14px 34px rgba(0,0,0,.2)}
+.weekly-challenge-head{align-items:center;padding:16px 19px;background:linear-gradient(115deg,#1a2027,#11161b 68%,#24151b)}
+.weekly-challenge-head h1{font-size:23px}.weekly-challenge-head p{font-size:10px}
+.weekly-challenge-grid{grid-template-columns:150px minmax(0,1fr) 230px;min-height:0}
+.weekly-challenge-status article{padding:17px 10px}.weekly-challenge-status strong{font-size:18px}
+.weekly-challenge-main{padding:17px}.challenge-levels{gap:6px}.challenge-levels span{min-height:56px;padding:7px 3px}.challenge-levels i{width:25px;height:25px}.challenge-levels b{font-size:8px}
+.challenge-user-progress{margin-top:12px;padding:12px}.challenge-user-progress div strong{font-size:13px}
+.challenge-join{position:static;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:12px 14px;text-align:left;backdrop-filter:none}
+.challenge-join strong{font-size:14px}.challenge-join p{margin:4px 0 0;font-size:9px}.challenge-join button{flex:0 0 auto;min-height:36px;padding:0 16px}
+.weekly-challenge-missing{padding:17px 14px}.weekly-challenge-missing>p{margin-bottom:8px}.weekly-challenge-missing>div>button{min-height:46px}
+.predict-app-shell{grid-template-columns:minmax(0,1fr) 320px;gap:14px}
+.predict-list-head{min-height:0;margin-bottom:10px;padding:18px 20px!important}.predict-list-head h2{font-size:23px!important}.predict-list-head p{font-size:10px}
+.predict-match{border-radius:16px;box-shadow:0 10px 26px rgba(0,0,0,.12)}
+.predict-card-head{min-height:41px}.predict-faceoff{padding:17px 16px 13px}.predict-faceoff-team .shield.md{width:46px;height:46px}.predict-faceoff-team strong{font-size:13px}
+.predict-action .prediction-zone{padding:11px}.predict-action .pick-btn{min-height:39px}
+.predict-competition-rail{top:112px}.predict-competition-rail .predict-overview{padding:17px!important;border-radius:16px}.predict-progress-ring{width:88px;height:88px;margin:14px auto}.predict-progress-ring strong{font-size:19px}
+.predict-side-card{padding:16px;border-radius:14px}.predict-side-card h3{font-size:15px}
+
+@media(max-width:900px){
+  .weekly-challenge-grid{grid-template-columns:130px minmax(0,1fr)}
+  .weekly-challenge-missing{grid-column:1/-1;padding:13px}.weekly-challenge-missing>div{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .predict-app-shell{grid-template-columns:1fr}.predict-competition-rail{grid-row:auto}.predict-feed-column{grid-row:auto}
+  .predict-competition-rail .predict-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}.predict-competition-rail .predict-progress-ring{grid-column:2;grid-row:1/4;margin:0}.predict-competition-rail .predict-summary-grid,.predict-competition-rail .predict-guest-action{grid-column:1/-1}
+}
+@media(max-width:620px){
+  #page-league{padding:8px 8px max(72px,calc(54px + env(safe-area-inset-bottom)))}
+  #page-league .leaguesubtabs{min-height:44px;margin-bottom:8px!important;border-radius:12px!important}#page-league .leaguesubtab{min-height:42px!important;padding:0 12px!important;font-size:9px!important}
+  .weekly-challenge{margin:0 0 9px;border-radius:13px}.weekly-challenge-head{display:flex;padding:13px}.weekly-challenge-head h1{font-size:19px}.weekly-challenge-head p{display:none}.weekly-challenge-head>b{margin:0;padding:6px 8px;font-size:7px}
+  .weekly-challenge-grid{display:block}.weekly-challenge-status{display:grid;grid-template-columns:1fr 1fr}.weekly-challenge-status article{padding:11px 7px}.weekly-challenge-status strong{margin-top:5px;font-size:15px}.weekly-challenge-status small{display:none}
+  .weekly-challenge-main{padding:12px}.challenge-levels{gap:5px}.challenge-levels span{flex-basis:62px;min-height:50px}.challenge-levels i{width:22px;height:22px}.challenge-levels b{font-size:7px}
+  .challenge-user-progress{margin-top:9px;padding:10px}.challenge-join{display:grid;justify-items:stretch;margin-top:9px;padding:11px}.challenge-join button{width:100%}
+  .weekly-challenge-missing{padding:12px}.weekly-challenge-missing h3{font-size:13px}.weekly-challenge-missing>div{display:flex}.weekly-challenge-missing>div>button{flex-basis:136px;min-height:58px}
+  .predict-competition-rail .predict-overview{display:block;padding:14px!important}.predict-competition-rail .predict-progress-ring{display:none}.predict-competition-rail .predict-deadline{margin-top:10px}.predict-competition-rail .predict-summary-grid{margin-top:10px}
+  .predict-list-head{padding:14px!important}.predict-list-head h2{font-size:19px!important}.predict-list-head p{line-height:1.45}
+  .predict-faceoff{grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:7px;padding:14px 9px 11px}.predict-faceoff-team .shield.md{width:40px;height:40px}.predict-faceoff-team strong{font-size:11px}
+  .predict-action{padding:0 9px 10px!important}.predict-action .prediction-zone{padding:9px}.predict-evidence-row{margin:0 9px}.predict-match-footer{padding:7px 9px 10px!important}
+}
 @media(max-width:420px){.account-drawer{width:100%;padding-left:12px;padding-right:12px}.account-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.account-secondary-grid{grid-template-columns:1fr}.account-head{position:sticky;top:calc(-20px - env(safe-area-inset-top));z-index:2;margin:calc(-20px - env(safe-area-inset-top)) -12px 0;padding:calc(14px + env(safe-area-inset-top)) 12px 12px;background:#0b1b2d}.account-summary{padding-top:14px}}
 
 /* v243 — mobile account is a bounded bottom sheet, never a full blank wall. */
