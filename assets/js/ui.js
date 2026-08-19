@@ -1921,6 +1921,39 @@ function renderProgress(){
   const progressText=stats ? (stats.toplamMac ? (missing?`${stats.toplamMac} maçın ${stats.tahminSayisi} tanesini tamamladın. ${missing} tahminin kaldı.`:`${stats.toplamMac} maçın tamamı için tahmin yaptın.`) : 'Bu hafta için fikstür henüz eklenmedi.') : `${matches.length} maçlık haftalık yarışma. İlerlemeni görmek için giriş yap.`;
   panel.style.display='block';
   panel.innerHTML=`<div class="predict-rail-head"><span class="predict-overview-kicker">${activeWeek}. HAFTA · PREDICT</span><h2>Yarışma merkezim</h2><p>Seçimlerini tamamla, sıralamadaki yerini canlı takip et.</p></div><div class="predict-deadline"><span>İlk tahmin kapanışı</span><b>${deadline?deadline.toLocaleString('tr-TR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</b></div><div class="predict-progress-ring" style="--completion:${completion}%;"><strong>${completion}%</strong><span>tamamlandı</span></div><div class="predict-progress-row"><div class="progress-track" aria-label="Haftalık tahmin ilerlemesi"><div class="progress-fill" style="width:${completion}%;"></div></div><p>${escapeHTML(progressText)}</p></div><div class="predict-summary-grid"><div class="predict-summary-item"><b>${stats?stats.tahminSayisi:'—'}</b><span>Tahmin</span></div><div class="predict-summary-item"><b>${stats?stats.toplam:'—'}</b><span>Hafta puanı</span></div><div class="predict-summary-item"><b>${generalRank||'—'}</b><span>Genel sıra</span></div></div><div class="predict-reward-line"><span>Haftanın ödülü</span><strong>${reward?escapeHTML(reward.item.aciklama):'Açıklanmadı'}</strong>${reward?`<small>${escapeHTML(reward.team)}</small>`:''}</div>${!u?'<div class="predict-guest-action"><p>Skorlarını kaydetmek ve sıralamaya katılmak için giriş yap.</p><button class="btn" type="button" onclick="openAuth(\'login\')">Giriş Yap</button></div>':''}`;
+  renderWeeklyChallenge();
+}
+
+let weeklyChallengeTimer=0;
+function weeklyChallengeDeadline(now=new Date()){
+  const end=new Date(now); const utcDay=end.getUTCDay();
+  const days=(8-utcDay)%7 || 7;
+  end.setUTCDate(end.getUTCDate()+days); end.setUTCHours(7,0,0,0);
+  return end;
+}
+function weeklyChallengeLevel(points){
+  const levels=[{name:'Çaylak',min:0,color:'#9ba3ad'},{name:'Bronz',min:3,color:'#c57638'},{name:'Gümüş',min:6,color:'#b9c4cf'},{name:'Altın',min:10,color:'#e0ae2d'},{name:'Elmas',min:15,color:'#54dbe5'},{name:'Şampiyon',min:22,color:'#ef5b73'}];
+  return [...levels].reverse().find(level=>points>=level.min)||levels[0];
+}
+function updateWeeklyChallengeCountdown(){
+  const target=document.getElementById('weeklyChallengeCountdown'); if(!target) return;
+  const diff=Math.max(0,weeklyChallengeDeadline().getTime()-Date.now());
+  const days=Math.floor(diff/86400000), hours=Math.floor((diff%86400000)/3600000), minutes=Math.floor((diff%3600000)/60000);
+  target.textContent=`${days}g ${hours}sa ${minutes}dk`;
+}
+function renderWeeklyChallenge(){
+  const panel=document.getElementById('weeklyChallengePanel'); if(!panel) return;
+  const user=getCurrentUser(), matches=weekMatches(activeWeek).filter(match=>match.status!=='iptal'&&match.status!=='ertelendi');
+  const stats=user?.id?userStatsForWeek(user.id,activeWeek):null;
+  const points=Number(stats?.toplam||0), level=weeklyChallengeLevel(points);
+  const generalRows=sortRows(leaderboardFor('Genel',activeWeek),'week');
+  const rank=user?.id?generalRows.findIndex(row=>row.uid===user.id)+1:0;
+  const missing=matches.filter(match=>!user?.id||!getPrediction(match.id,user.id)).filter(match=>!isLocked(match.kickoff)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,3);
+  const levels=['Çaylak','Bronz','Gümüş','Altın','Elmas','Şampiyon'];
+  const completion=stats?.toplamMac?Math.round((stats.tahminSayisi/stats.toplamMac)*100):0;
+  panel.innerHTML=`<header class="weekly-challenge-head"><div><span>${activeWeek}. HAFTA · XYZSKOR</span><h1>Haftalık Challenge</h1><p>Maçları tahmin et, puan topla ve haftalık ligde yüksel.</p></div><b>ÜCRETSİZ · BAHİS YOK</b></header><div class="weekly-challenge-grid"><aside class="weekly-challenge-status"><article><span>KALAN SÜRE</span><strong id="weeklyChallengeCountdown">—</strong><small>Her pazartesi 10.00'da yeni hafta</small></article><article><span>MEVCUT SIRAN</span><strong>${rank||'—'}</strong><small>${generalRows.length?`${generalRows.length} katılımcı içinde`:'İlk tahminlerle sıralama açılır'}</small></article></aside><main class="weekly-challenge-main"><div class="challenge-levels">${levels.map(name=>`<span class="${name===level.name?'active':''}" style="--level:${name===level.name?level.color:'#424a53'}"><i>◆</i><b>${escapeHTML(name)}</b></span>`).join('')}</div><div class="challenge-user-progress"><div><span>BU HAFTA</span><strong>${points} puan · ${escapeHTML(level.name)}</strong></div><b>${completion}% tamamlandı</b><i><span style="width:${completion}%"></span></i></div>${!user?'<div class="challenge-join"><strong>Challenge’a katıl</strong><p>Tahminlerini kaydetmek ve haftalık sıralamaya girmek için hesabına giriş yap.</p><button type="button" onclick="openAuth(\'login\')">Giriş yap / Üye ol</button></div>':''}</main><aside class="weekly-challenge-missing"><h3>Kaçırma</h3><p>Henüz tahmin yapmadığın yaklaşan maçlar</p><div>${missing.length?missing.map(match=>`<button type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')"><time>${escapeHTML(fmtTime(match.kickoff))}</time><span>${escapeHTML(match.ev)}<b>–</b>${escapeHTML(match.konuk)}</span><i>→</i></button>`).join(''):'<small>Bu haftanın açık tahminlerini tamamladın.</small>'}</div><details><summary>Nasıl puan kazanılır?</summary><p>Doğru sonuç +3, kesin skor +5 puan. Haftanın tüm maçlarına tahmin yaparsan +2 tamamlama bonusu alırsın. Tahminler maçtan 15 dakika önce kapanır.</p></details></aside></div>`;
+  updateWeeklyChallengeCountdown();
+  if(!weeklyChallengeTimer) weeklyChallengeTimer=setInterval(updateWeeklyChallengeCountdown,60000);
 }
 
 /* ===================== LİDERLİK: HAFTALIK / SEZONLUK ===================== */

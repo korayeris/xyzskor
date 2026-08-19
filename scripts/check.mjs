@@ -533,6 +533,9 @@ assert.doesNotMatch(workerSource.match(/async function sportmonksFixtureRequest[
 assert.match(workerSource, /player_image:player\.image_path[\s\S]*const xg[\s\S]*const predictions/, 'Worker zengin fixture gorsel ve analiz alanlarini korumali.');
 assert.match(workerSource, /handleFootballPrediction[\s\S]*verifiedSportmonksFixture[\s\S]*predictions\?on_conflict=match_id,user_id/, 'Saglayici fiksturu dogrulanarak mevcut Predict tablosuna kaydedilmeli.');
 assert.match(matchdayLiveSource, /SPORTMONKS PREDICTIONS[\s\S]*matchdayUserPredict[\s\S]*api\/football\/prediction/, 'Mac sayfasi Sportmonks olasiliklarini kullanici Predict kaydina baglamali.');
+assert.match(appSource, /function weeklyChallengeDeadline[\s\S]*function renderWeeklyChallenge/, 'Haftalik Challenge haftalik zaman penceresine baglanmali.');
+assert.match(functionSource('renderWeeklyChallenge'), /weekMatches\(activeWeek\)/, 'Haftalik Challenge mevcut haftanin fiksturunu kullanmali.');
+assert.match(appSource, /Doğru sonuç \+3, kesin skor \+5[\s\S]*\+2 tamamlama bonusu/, 'Challenge puan kurallari gercek hesaplama ile ayni olmali.');
 assert.match(matchdayLiveSource, /matchday-event-player[\s\S]*matchday-pitch-photo[\s\S]*renderInsights/, 'Fixture arayuzu oyuncu fotografli saha dizilisi ve xG alanlarini render etmeli.');
 assert.match(matchdayLiveSource, /matchday-team-logo/, 'Fixture arayuzu takim logolarini render etmeli.');
 assert.match(appCss, /v179[\s\S]*matchday-timeline:before[\s\S]*matchday-xi-strip/, 'Fixture zaman cizgisi ve fotografli ilk 11 gorsel sistemi bulunmali.');
