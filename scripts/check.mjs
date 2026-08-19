@@ -5,6 +5,7 @@ import vm from 'node:vm';
 const documentHtmlRaw = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const documentHtml = documentHtmlRaw.replace(/\?v=\d+(?=["'])/g, '');
 const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
+const footballControlsCss = await readFile(new URL('../assets/css/football-controls-v236.css', import.meta.url), 'utf8');
 const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'chat.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
 const dataSource = scriptSources[0];
@@ -566,5 +567,67 @@ assert.match(appCss, /v179[\s\S]*matchday-timeline:before[\s\S]*matchday-xi-stri
 assert.doesNotMatch(motorsportsSource, /querySelectorAll\('\.xms-primary'\).*remove/, 'Motor sporlari seri secicisi sayfa acilinca kaldirilmamali.');
 assert.match(motorsportsSource, /Hızın veriye dönüştüğü merkez/, 'Motor sporlari basligi dogru Turkce metni kullanmali.');
 assert.match(appCss, /v174/, 'Guncel ana sayfa ve spor merkezleri CSS katmani bulunmali.');
+
+// Tema tokenları tek kaynaklı kalmalı. Koşullu reduced-motion :root bloğu bu
+// top-level sayıma dahil değildir.
+const rootBlockCount = (appCss.match(/^:root\{/gm) || []).length;
+assert.ok(rootBlockCount <= 4, `app.css icinde en fazla 4 top-level :root blogu olmali (su an ${rootBlockCount}).`);
+{
+  const rootBodies = [];
+  const cssLines = appCss.split('\n');
+  let depth = 0;
+  for (let index = 0; index < cssLines.length; index++) {
+    if (/^:root\{/.test(cssLines[index].trim()) && depth === 0) {
+      let braces = 0;
+      let started = false;
+      const collected = [];
+      for (let cursor = index; cursor < cssLines.length; cursor++) {
+        collected.push(cssLines[cursor]);
+        for (const character of cssLines[cursor]) {
+          if (character === '{') { braces++; started = true; }
+          else if (character === '}') braces--;
+        }
+        if (started && braces <= 0) break;
+      }
+      rootBodies.push(collected.join('\n'));
+    }
+    for (const character of cssLines[index]) {
+      if (character === '{') depth++;
+      else if (character === '}') depth--;
+    }
+  }
+  const tokenOwners = new Map();
+  rootBodies.forEach((body, blockIndex) => {
+    for (const [, name] of body.matchAll(/(--[\w-]+)\s*:/g)) {
+      if (!tokenOwners.has(name)) tokenOwners.set(name, new Set());
+      tokenOwners.get(name).add(blockIndex);
+    }
+  });
+  const shadowed = [...tokenOwners.entries()]
+    .filter(([, blocks]) => blocks.size > 1)
+    .map(([name]) => name);
+  assert.deepEqual(shadowed, [], `Ayni token birden fazla :root blogunda tanimlanmamali: ${shadowed.join(', ')}`);
+}
+
+// Mevcut CSS borcunun büyümesini engeller. Konsolidasyon ilerledikçe bu tavan
+// düşürülmeli; yeni override eklemek için yükseltilmemeli.
+const importantBudget = 2552;
+const importantCount = (appCss.match(/!important/g) || []).length
+  + (footballControlsCss.match(/!important/g) || []).length;
+assert.ok(
+  importantCount <= importantBudget,
+  `!important butcesi asildi: ${importantCount}/${importantBudget}. Ilgili bileseni konsolide et.`
+);
+
+// Test bekçilerinin sessizce silinmesini görünür kılar.
+{
+  const selfSource = await readFile(new URL('./check.mjs', import.meta.url), 'utf8');
+  const assertionFloor = 330;
+  const assertionCount = (selfSource.match(/assert\.\w+\(/g) || []).length;
+  assert.ok(
+    assertionCount >= assertionFloor,
+    `check.mjs assertion sayisi ${assertionCount}, taban ${assertionFloor}.`
+  );
+}
 
 console.log('XYZSkor kontrolü başarılı.');

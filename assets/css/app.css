@@ -1,16 +1,20 @@
 :root{
-  --bg:#0B1310; --bg-elev:#111C17; --bg-elev-2:#182620; --bg-elev-3:#1F2F27;
-  --line:#233029; --line-soft:#1A2621;
-  --ink:#F2F6F1; --ink-dim:#8FA79A; --ink-faint:#5E7568;
-  --gold:#D9A94E; --gold-dim:#9C7A34; --gold-ink:#171208;
-  --pitch:#1F8A52; --pitch-dim:#153F2C;
+  /* TEK KAYNAK. Eski cascade'de kazanan tema değerleri burada korunur. */
+  --bg:#071423; --bg-elev:#0e2033; --bg-elev-2:#142a40; --bg-elev-3:#19344e;
+  --line:rgba(157,181,204,.18); --line-soft:rgba(157,181,204,.11);
+  --ink:#f6f8fb; --ink-dim:#b3c0cd; --ink-faint:#74879a;
+  /* --gold tarihsel addır ve mevcut görselde mavi değere çözülür.
+     Yeni kullanımda anlamı açık olan --brand tokenlarını tercih et. */
+  --gold:#5eb9ff; --gold-dim:#2d78ad; --gold-ink:#04111e;
+  --brand:#5eb9ff; --brand-dim:#2d78ad; --brand-ink:#04111e;
+  --pitch:#4bb98a; --pitch-dim:#123d31;
   --home:#3A7FB0; --draw:#8B8478; --away:#C2703D;
   --ok:#3FAE68; --okbg:#12281B;
   --warn:#E0A23A; --warnbg:#2B2013;
   --danger:#C24B3D;
   --gs:#C8102E; --fb:#C79A1E; --bjk:#2B2B2B; --ts:#7A1F3D; --other:#4C5F55;
   --verify:#4F9BD9; --verifybg:#122430;
-  --radius:10px; --radius-lg:18px;
+  --radius:8px; --radius-lg:12px;
   --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'IBM Plex Mono',monospace;
 }
 *{box-sizing:border-box;}
@@ -411,13 +415,7 @@ tr.me td:first-child{border-left:3px solid var(--gold);}
 }
 
 /* ===================== 2026 ELITE REDESIGN ===================== */
-:root{
-  --bg:#07111d;--bg-elev:#0d1928;--bg-elev-2:#122235;--bg-elev-3:#182b40;
-  --line:rgba(178,199,221,.14);--line-soft:rgba(178,199,221,.08);
-  --ink:#f6f2e9;--ink-dim:#a6b4c4;--ink-faint:#6f8297;
-  --gold:#e6bc68;--gold-dim:#a77b37;--gold-ink:#181208;
-  --pitch:#21a36b;--pitch-dim:#123d31;--radius:14px;--radius-lg:24px;
-}
+/* Eski override :root bloğu kaldırıldı; kazanan değerler dosya başındaki tek kaynakta. */
 html{scroll-behavior:smooth;background:var(--bg)}
 body{min-height:100vh;background:
   radial-gradient(900px 600px at 90% -10%,rgba(37,161,112,.13),transparent 62%),
@@ -503,7 +501,7 @@ footer{border-color:var(--line);background:#050d16;color:var(--ink-faint);paddin
 @media(min-width:768px) and (max-width:980px){.market-dashboard{grid-template-columns:1fr}.market-stack{grid-template-columns:1fr 1fr}}
 
 /* ===================== UEFA-INSPIRED CALM PREMIUM SYSTEM ===================== */
-:root{--bg:#071423;--bg-elev:#0e2033;--bg-elev-2:#142a40;--bg-elev-3:#19344e;--line:rgba(157,181,204,.18);--line-soft:rgba(157,181,204,.11);--ink:#f6f8fb;--ink-dim:#b3c0cd;--ink-faint:#74879a;--gold:#5eb9ff;--gold-dim:#2d78ad;--gold-ink:#04111e;--pitch:#4bb98a;--radius:8px;--radius-lg:12px}
+/* İkinci override :root bloğu kaldırıldı; değerler dosya başındaki tek kaynakta. */
 body{background:radial-gradient(circle at 50% -120px,rgba(32,105,174,.18),transparent 520px),linear-gradient(180deg,#071423 0,#091827 48%,#071321 100%);background-attachment:fixed;letter-spacing:-.005em}
 nav{padding:13px max(20px,calc((100vw - 1280px)/2));background:rgba(5,17,30,.95);border-bottom-color:rgba(157,181,204,.14);box-shadow:none;backdrop-filter:blur(18px)}
 .live-ticker{background:#0b1b2d;border-bottom-color:rgba(157,181,204,.12);padding:8px 16px}.ticker-dot{background:#45d39a}.ticker-label{color:#72d8ae}
@@ -583,7 +581,7 @@ button,.btn,[role="button"],.maintab,.leaguesubtab{-webkit-tap-highlight-color:t
   --text-muted:#627181;--accent:#22a06b;--official:#2563a8;--rumour:#b7791f;
   --critical:#c43d3d;--reward:#b88a2d;--focus:#66bfff;
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
-  --radius-sm:6px;--radius-md:9px;--radius-lg:12px;--shadow-float:0 18px 48px rgba(0,0,0,.28);
+  --radius-sm:6px;--radius-md:9px;--shadow-float:0 18px 48px rgba(0,0,0,.28);
   --container:1280px;--z-header:30;--z-drawer:80;--ease:160ms ease;
 }
 body{background:var(--surface-app)}
@@ -669,8 +667,8 @@ body{background:var(--surface-app)}
 /* ===================== MAX CAPACITY: EDITORIAL FOOTBALL PORTAL ===================== */
 :root{
   --portal-night:#171521;--portal-night-2:#24202e;--portal-purple:#393247;
-  --portal-paper:#f4f3f0;--portal-white:#fff;--portal-ink:#181a1f;
-  --portal-muted:#697078;--portal-line:#dedfdf;--portal-soft:#ececea;
+  --portal-paper:#d9dadd;--portal-white:#f2f2f1;--portal-ink:#17191d;
+  --portal-muted:#61676e;--portal-line:#c7c9cc;--portal-soft:#d3d5d7;
   --portal-red:#c93642;--portal-green:#16845a;--portal-blue:#315e9c;
 }
 body{background:var(--portal-night);background-image:none}
@@ -934,7 +932,7 @@ linear-gradient(140deg,rgba(16,24,34,.96) 0%,rgba(10,15,24,.98) 54%,rgba(18,33,5
 }
 
 /* ===================== PROFESSIONAL PRODUCT SHELL · 2026-08 ===================== */
-:root{--portal-paper:#d9dadd;--portal-white:#f2f2f1;--portal-soft:#d3d5d7;--portal-line:#c7c9cc;--portal-ink:#17191d;--portal-muted:#61676e}
+/* Portal override :root bloğu kaldırıldı; değerler portal token kaynağında. */
 body{background:#101114}
 #page-story{background:linear-gradient(180deg,#dfe0e2 0,#d6d7d9 100%)}
 .portal-sponsor-banner,.portal-team-strip,.football-module,.portal-sponsor-rail{border:1px solid rgba(23,25,29,.10);border-radius:14px;overflow:hidden}
