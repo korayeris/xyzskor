@@ -7311,3 +7311,13 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
 .weekly-challenge-missing time{font-size:10px}.weekly-challenge-missing button span{font-size:10px;line-height:1.3}.weekly-challenge-missing details{font-size:10px}
 @media(max-width:1100px) and (min-width:901px){.weekly-challenge-grid{grid-template-columns:160px minmax(320px,1fr) 220px}.weekly-challenge-main{padding:20px 16px}.challenge-levels{gap:6px}}
 @media(max-width:420px){.account-drawer{width:100%;padding-left:12px;padding-right:12px}.account-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.account-secondary-grid{grid-template-columns:1fr}.account-head{position:sticky;top:calc(-20px - env(safe-area-inset-top));z-index:2;margin:calc(-20px - env(safe-area-inset-top)) -12px 0;padding:calc(14px + env(safe-area-inset-top)) 12px 12px;background:#0b1b2d}.account-summary{padding-top:14px}}
+
+/* v243 — mobile account is a bounded bottom sheet, never a full blank wall. */
+.account-predict-shortcut{justify-content:center!important;background:linear-gradient(135deg,#f4566d,#bd304b)!important;color:#fff!important;border-color:transparent!important}
+@media(max-width:520px){
+  .account-overlay.show{display:flex;align-items:flex-end}
+  .account-drawer{position:relative;top:auto;right:auto;width:100%;height:auto;max-height:92dvh;padding:14px 12px calc(14px + env(safe-area-inset-bottom));border:1px solid var(--line);border-width:1px 0 0;border-radius:18px 18px 0 0}
+  .account-head{top:-14px;margin:-14px -12px 0;padding:calc(13px + env(safe-area-inset-top)) 12px 11px;border-radius:18px 18px 0 0}
+  .account-close{width:40px;height:40px}
+  .account-actions{position:sticky;bottom:calc(-14px - env(safe-area-inset-bottom));z-index:2;margin:0 -12px;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(11,27,45,.86),#0b1b2d 25%)}
+}

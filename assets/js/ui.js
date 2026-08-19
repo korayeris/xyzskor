@@ -171,13 +171,14 @@ function renderAccountContent(){
       <p class="account-empty" id="memberAdminStatus">Üye listesi yükleniyor…</p>
       <div class="account-admin-list" id="memberAdminList"></div>
     </section>`:''}
-    <div class="account-actions">${u.is_admin?'<button class="btn ghost" id="accountAdmin" type="button">Predict admin paneline git</button>':''}<button class="btn ghost account-danger" id="accountLogout" type="button">Çıkış yap</button></div>`;
+    <div class="account-actions"><button class="btn account-predict-shortcut" id="accountPredictShortcut" type="button">Maç seçimine git →</button>${u.is_admin?'<button class="btn ghost" id="accountAdmin" type="button">Predict admin paneline git</button>':''}<button class="btn ghost account-danger" id="accountLogout" type="button">Çıkış yap</button></div>`;
   const teamSelect=document.getElementById('accountTeamSelect'); const teamSave=document.getElementById('accountTeamSave');
   if(teamSelect && teamSave && !u.team_changed){
     teamSelect.onchange=()=>{ teamSave.disabled=teamSelect.value===u.team; };
     teamSave.onclick=async()=>{ if(await changeTeam(teamSelect.value)){ await loadAllData(); renderAll(); renderAccountContent(); } };
   }
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
+  document.getElementById('accountPredictShortcut').onclick = () => { closeAccount(); switchMainTab('predict'); window.scrollTo({top:0,behavior:'smooth'}); };
   if(u.is_admin) initMemberAdminConsole();
   document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
 }
