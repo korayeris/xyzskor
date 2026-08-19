@@ -1868,7 +1868,7 @@ function leagueRowHTML(m){
   const communityHTML=community?`<div class="predict-community" aria-label="${community.total} kullanıcı tahmini"><span><b>1</b>${community.home}%</span><span><b>X</b>${community.draw}%</span><span><b>2</b>${community.away}%</span><small>${community.total} kullanıcı</small></div>`:`<div class="predict-community empty"><span>Topluluk dağılımı ilk kayıtlı tahminlerle açılır.</span></div>`;
   return `
     <article class="predict-match" id="lcard-${escapeHTML(m.id)}">
-      <header class="predict-card-head"><time datetime="${escapeHTML(m.kickoff)}">${escapeHTML(fmtTime(m.kickoff))}</time><span>${isLocked(m.kickoff)?'Tahmin kapandı':`Kapanış ${deadline.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}`}</span></header>
+      <header class="predict-card-head"><strong>${escapeHTML(competitionShortBySlug(m.challengeLeague||competitionSlug(competitionName(m))))}</strong><time datetime="${escapeHTML(m.kickoff)}">${escapeHTML(fmtTime(m.kickoff))}</time><span>${isLocked(m.kickoff)?'Tahmin kapandı':`Kapanış ${deadline.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}`}</span></header>
       <div class="predict-faceoff"><div class="predict-faceoff-team home">${crestHTML(m.ev,'md')}<strong>${escapeHTML(m.ev)}</strong><small>Ev sahibi</small></div><div class="predict-versus"><span>VS</span><small>${escapeHTML(new Date(m.kickoff).toLocaleDateString('tr-TR',{day:'2-digit',month:'short'}))}</small></div><div class="predict-faceoff-team away">${crestHTML(m.konuk,'md')}<strong>${escapeHTML(m.konuk)}</strong><small>Deplasman</small></div></div>
       <div class="predict-action">${predictionActionHTML(m)}</div>
       <div class="predict-evidence-row">${communityHTML}${dataDetails}</div>
@@ -1877,13 +1877,15 @@ function leagueRowHTML(m){
 }
 function renderLeagueMatches(){
   const ms0 = weekMatches(activeWeek);
-  if(!ms0.length){ document.getElementById('leagueMatchList').innerHTML = '<p class="section-desc">Bu hafta için fikstür henüz eklenmedi.</p>'; }
+  if(!ms0.length){ document.getElementById('leagueMatchList').innerHTML = '<p class="section-desc">6 Maç Challenge fikstürü sağlayıcıdan yükleniyor.</p>'; }
   else{
     const groups = groupByDate(ms0);
+    const quota=['super-lig','champions-league','europa-league'].map(key=>({key,count:ms0.filter(match=>match.challengeLeague===key).length}));
+    const missing=quota.filter(item=>item.count<2).map(item=>`<article class="predict-missing-slot"><strong>${escapeHTML(competitionShortBySlug(item.key))}</strong><div><b>${item.count}/2 maç hazır</b><span>SportMonks fikstür kapsamı açıldığında gerçek maçlar otomatik eklenecek.</span></div></article>`).join('');
     document.getElementById('leagueMatchList').innerHTML = Object.entries(groups).map(([date, ms]) => `
       <div class="predict-date-group">${escapeHTML(date)}</div>
       ${ms.map(m => leagueRowHTML(m)).join('')}
-    `).join('');
+    `).join('')+missing;
   }
   const sel = document.getElementById('adminMatchSelect');
   if(sel) sel.innerHTML = MATCHES.map(m=>`<option value="${m.id}">${m.ev} — ${m.konuk} (${m.hafta}. Hafta)</option>`).join('');
@@ -1952,6 +1954,10 @@ function renderWeeklyChallenge(){
   const levels=['Çaylak','Bronz','Gümüş','Altın','Elmas','Şampiyon'];
   const completion=stats?.toplamMac?Math.round((stats.tahminSayisi/stats.toplamMac)*100):0;
   panel.innerHTML=`<header class="weekly-challenge-head"><div><span>${activeWeek}. HAFTA · XYZSKOR</span><h1>Haftalık Challenge</h1><p>Maçları tahmin et, puan topla ve haftalık ligde yüksel.</p></div><b>ÜCRETSİZ · BAHİS YOK</b></header><div class="weekly-challenge-grid"><aside class="weekly-challenge-status"><article><span>KALAN SÜRE</span><strong id="weeklyChallengeCountdown">—</strong><small>Her pazartesi 10.00'da yeni hafta</small></article><article><span>MEVCUT SIRAN</span><strong>${rank||'—'}</strong><small>${generalRows.length?`${generalRows.length} katılımcı içinde`:'İlk tahminlerle sıralama açılır'}</small></article></aside><main class="weekly-challenge-main"><div class="challenge-levels">${levels.map(name=>`<span class="${name===level.name?'active':''}" style="--level:${name===level.name?level.color:'#424a53'}"><i>◆</i><b>${escapeHTML(name)}</b></span>`).join('')}</div><div class="challenge-user-progress"><div><span>BU HAFTA</span><strong>${points} puan · ${escapeHTML(level.name)}</strong></div><b>${completion}% tamamlandı</b><i><span style="width:${completion}%"></span></i></div>${!user?'<div class="challenge-join"><strong>Challenge’a katıl</strong><p>Tahminlerini kaydetmek ve haftalık sıralamaya girmek için hesabına giriş yap.</p><button type="button" onclick="openAuth(\'login\')">Giriş yap / Üye ol</button></div>':''}</main><aside class="weekly-challenge-missing"><h3>Kaçırma</h3><p>Henüz tahmin yapmadığın yaklaşan maçlar</p><div>${missing.length?missing.map(match=>`<button type="button" onclick="openMatchCenter('${escapeHTML(match.id)}')"><time>${escapeHTML(fmtTime(match.kickoff))}</time><span>${escapeHTML(match.ev)}<b>–</b>${escapeHTML(match.konuk)}</span><i>→</i></button>`).join(''):'<small>Bu haftanın açık tahminlerini tamamladın.</small>'}</div><details><summary>Nasıl puan kazanılır?</summary><p>Doğru sonuç +3, kesin skor +5 puan. Haftanın tüm maçlarına tahmin yaparsan +2 tamamlama bonusu alırsın. Tahminler maçtan 15 dakika önce kapanır.</p></details></aside></div>`;
+  const leagueCounts=['super-lig','champions-league','europa-league'].map(key=>({key,count:matches.filter(match=>match.challengeLeague===key).length}));
+  const quotaHTML=`<div class="challenge-league-quota">${leagueCounts.map(item=>`<span class="${item.count===2?'is-ready':''}">${escapeHTML(competitionShortBySlug(item.key))} <b>${item.count}/2</b></span>`).join('')}</div>`;
+  panel.innerHTML=panel.innerHTML.replace('<h1>Haftalık Challenge</h1><p>Maçları tahmin et, puan topla ve haftalık ligde yüksel.</p>','<h1>6 Maç Challenge</h1><p>2 Süper Lig + 2 Şampiyonlar Ligi + 2 Avrupa Ligi maçının sonucunu tahmin et.</p>'+quotaHTML).replace('ÜCRETSİZ · BAHİS YOK','6/6 · 25 BONUS PUAN');
+  if(stats?.toplamMac===6&&stats.sonuclananTahminSayisi===6&&stats.sonucSayisi===6) panel.classList.add('is-perfect'); else panel.classList.remove('is-perfect');
   updateWeeklyChallengeCountdown();
   if(!weeklyChallengeTimer) weeklyChallengeTimer=setInterval(updateWeeklyChallengeCountdown,60000);
 }

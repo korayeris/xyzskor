@@ -668,6 +668,27 @@ async function fetchProviderSeasonBundle(leagueKey){
   }
 }
 
+let PREDICT_CHALLENGE_MATCHES = [];
+let predictChallengeLoading = null;
+async function loadPredictChallengeSelection(){
+  if(predictChallengeLoading) return predictChallengeLoading;
+  predictChallengeLoading=(async()=>{
+    const leagues=['super-lig','champions-league','europa-league'];
+    const bundles=await Promise.all(leagues.map(key=>fetchProviderSeasonBundle(key)));
+    const now=Date.now();
+    PREDICT_CHALLENGE_MATCHES=bundles.flatMap((bundle,index)=>{
+      const key=leagues[index];
+      return (bundle?.matches||[]).filter(match=>!['iptal','ertelendi','bitti','canlı','devre_arasi'].includes(String(match.status||'').toLocaleLowerCase('tr-TR'))).filter(match=>Date.parse(match.kickoff)>now+15*60000).sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff)).slice(0,2).map(match=>({...match,hafta:activeWeek,challengeLeague:key}));
+    });
+    PREDICT_CHALLENGE_MATCHES.forEach(match=>{ if(match?.ev&&safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo; if(match?.konuk&&safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo; });
+    if(typeof renderProgress==='function') renderProgress();
+    if(typeof renderLeagueMatches==='function') renderLeagueMatches();
+    if(typeof renderWeeklyChallenge==='function') renderWeeklyChallenge();
+    return PREDICT_CHALLENGE_MATCHES;
+  })().finally(()=>{ predictChallengeLoading=null; });
+  return predictChallengeLoading;
+}
+
 function selectCurrentWeek(matches){
   if(/^#week\/\d+$/.test(location.hash || '')) return;
   const ordered=[...matches].filter(match=>match.hafta && match.kickoff).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
@@ -920,7 +941,7 @@ function getPrediction(matchId, uid){ return (ALL_PREDICTIONS[matchId] && ALL_PR
 function getResult(matchId){ return ALL_RESULTS[matchId] || null; }
 async function savePrediction(matchId, payload){
   const u = getCurrentUser(); if(!u) return { ok:false };
-  const match = MATCHES.find(m=>m.id===matchId);
+  const match = [...PREDICT_CHALLENGE_MATCHES,...MATCHES].find(m=>m.id===matchId);
   if(!match) return { ok:false, err:'Maç bulunamadı.' };
   if(match.status==='iptal' || match.status==='ertelendi') return { ok:false, err:'Bu maç için tahmin alınmıyor.' };
   if(isLocked(match.kickoff)) return { ok:false, err:'Bu maç için tahmin süresi doldu.' };
@@ -932,10 +953,11 @@ async function savePrediction(matchId, payload){
     return { ok:false, err:'Skorlar 0 ile 99 arasında tam sayı olmalı.' };
   }
   const submittedAt = new Date();
-  const { error } = await sb.from('predictions').upsert({
-    match_id: matchId, user_id: u.id, pick: payload.pick,
-    score_home: payload.scoreHome, score_away: payload.scoreAway, submitted_at: submittedAt.toISOString()
-  }, { onConflict: 'match_id,user_id' });
+  const session=await sb.auth.getSession();
+  const token=session?.data?.session?.access_token||'';
+  const response=await fetch('/api/football/prediction',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({fixture_id:String(match.provider_fixture_id||match.fixture_id||match.id).replace(/^sportmonks:/,''),pick:payload.pick,score_home:payload.scoreHome,score_away:payload.scoreAway})});
+  const savedPayload=await response.json().catch(()=>({}));
+  const error=response.ok?null:{message:savedPayload.message||savedPayload.error||'Tahmin kaydedilemedi.'};
   if(!error){
     if(!ALL_PREDICTIONS[matchId]) ALL_PREDICTIONS[matchId]={};
     ALL_PREDICTIONS[matchId][u.id]={pick:payload.pick,scoreHome:payload.scoreHome,scoreAway:payload.scoreAway,submittedAt:submittedAt.getTime()};
@@ -971,7 +993,7 @@ function computeMatchPoints(pred, result){
   }
   return {toplam:puan, sonuc, kesinSkor};
 }
-function weekMatchIds(hafta){ return MATCHES.filter(m=>m.hafta===hafta).map(m=>m.id); }
+function weekMatchIds(hafta){ const challenge=typeof PREDICT_CHALLENGE_MATCHES!=='undefined'?PREDICT_CHALLENGE_MATCHES:[]; const source=challenge.length?challenge:MATCHES; return source.filter(m=>m.hafta===hafta).map(m=>m.id); }
 function userStatsForWeek(uid, hafta){
   const ids = weekMatchIds(hafta);
   let toplam=0, sonucSayisi=0, kesinSkorSayisi=0, tahminSayisi=0, sonuclananTahminSayisi=0, tamamlaZaman=0;
@@ -982,6 +1004,7 @@ function userStatsForWeek(uid, hafta){
     if(p && r){ sonuclananTahminSayisi++; const pts = computeMatchPoints(p, r); toplam += pts.toplam; if(pts.sonuc) sonucSayisi++; if(pts.kesinSkor) kesinSkorSayisi++; }
   });
   if(tahminSayisi === ids.length && ids.length>0) toplam += 2;
+  if(ids.length===6 && sonuclananTahminSayisi===6 && sonucSayisi===6) toplam += 25;
   return {toplam, sonucSayisi, kesinSkorSayisi, tahminSayisi, sonuclananTahminSayisi, toplamMac: ids.length, tamamlaZaman};
 }
 function lifetimeStats(uid){

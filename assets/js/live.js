@@ -20,7 +20,11 @@ function groupByDate(matches){
 
 /* ===================== HAFTA SİSTEMİ ===================== */
 function getAvailableWeeks(){ return [...new Set(MATCHES.filter(matchInActiveLeague).map(m=>m.hafta))].sort((a,b)=>a-b); }
-function weekMatches(w){ return MATCHES.filter(m=>m.hafta===w && matchInActiveLeague(m)); }
+function weekMatches(w){
+  const predictOpen=document.getElementById('page-league')?.classList.contains('active');
+  if(predictOpen && PREDICT_CHALLENGE_MATCHES.length) return PREDICT_CHALLENGE_MATCHES.filter(m=>m.hafta===w);
+  return MATCHES.filter(m=>m.hafta===w && matchInActiveLeague(m));
+}
 function weekStatus(w){
   const ms = weekMatches(w);
   if(!ms.length) return { key:'none', text:'Bu hafta için fikstür henüz eklenmedi.' };
@@ -460,7 +464,10 @@ function switchMainTab(name, updateUrl){
   if(footballLeagueCommand) footballLeagueCommand.hidden=product!=='football';
   if(product==='football' && name==='football' && typeof openFootballSection==='function') openFootballSection('home',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
-  if(product==='predict' && !MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
+  if(product==='predict'){
+    if(!MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
+    if(typeof loadPredictChallengeSelection==='function') loadPredictChallengeSelection();
+  }
   if(updateUrl !== false) updatePath(buildProductPath(name));
   updateMobileNavActive();
 }
