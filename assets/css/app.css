@@ -7312,6 +7312,7 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
 @media(max-width:1100px) and (min-width:901px){.weekly-challenge-grid{grid-template-columns:160px minmax(320px,1fr) 220px}.weekly-challenge-main{padding:20px 16px}.challenge-levels{gap:6px}}
 
 /* v244 - Predict is a compact match-selection product, not a stacked dashboard. */
+[hidden]{display:none!important}
 #page-league{padding-top:16px}
 #page-league .leaguesubtabs{position:relative;z-index:4;min-height:50px;margin-bottom:12px!important;border-radius:14px!important}
 #page-league .leaguesubtab{min-height:48px!important}
