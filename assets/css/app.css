@@ -7174,6 +7174,14 @@ body:not(.matchday-detail-open) .matchday-overview-probabilities>[data-overview-
 .live-ticker .agenda-track{scroll-behavior:smooth;overscroll-behavior-x:contain}
 @media(max-width:700px){body>.live-ticker{min-height:0!important}.live-ticker .ticker-inner{grid-template-columns:1fr!important}.live-ticker .agenda-heading{position:sticky;left:0;z-index:2;min-height:34px;padding:7px 11px;background:#11161c}.live-ticker .agenda-heading b{font-size:9px}.live-ticker .agenda-heading small{font-size:7px}.live-ticker .agenda-track{width:100%;scroll-snap-type:x mandatory;scrollbar-width:none}.live-ticker .agenda-track::-webkit-scrollbar{display:none}.live-ticker .agenda-match{grid-template-columns:auto minmax(78px,1fr) auto minmax(78px,1fr);gap:7px;flex-basis:264px;min-height:58px;padding:7px 10px;scroll-snap-align:start}.live-ticker .agenda-team img{width:22px;height:22px}.live-ticker .agenda-team b{font-size:9px}.live-ticker .agenda-score{font-size:12px}.live-ticker .agenda-state{font-size:7px}}
 @media(max-width:390px){.live-ticker .agenda-match{flex-basis:248px;padding-inline:8px}.live-ticker .agenda-team b{font-size:8px}.live-ticker .agenda-team img{width:20px;height:20px}}
+
+/* v235: the whole fixture surface is the detail link; prediction controls stay independent. */
+body:not(.matchday-detail-open) .matchday-overview-card{cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+body:not(.matchday-detail-open) .matchday-overview-card:hover{border-color:#617587;box-shadow:0 18px 46px #0005;transform:translateY(-1px)}
+body:not(.matchday-detail-open) .matchday-overview-card:focus-visible{outline:3px solid #79d4ff;outline-offset:3px}
+body:not(.matchday-detail-open) .matchday-overview-faceoff>section{pointer-events:none}
+body:not(.matchday-detail-open) .matchday-overview-predict{position:relative;z-index:2;cursor:default}
+body:not(.matchday-detail-open) .matchday-overview-predict button{pointer-events:auto}
 @media(max-width:760px){#footballOverviewView .football-right-column{grid-template-columns:1fr!important;overflow:visible!important}#footballOverviewView .football-left-column .football-match-row{grid-template-columns:54px minmax(0,1fr)!important;gap:7px 10px!important}#footballOverviewView .football-left-column .football-match-row>*:last-child{grid-column:2!important;justify-self:start!important}.portal-league-list button{min-width:132px!important}.portal-team-strip{gap:8px!important}}
 
 /* v178 · fixture detayinda net sonuc, hizli gezinme ve dengeli veri panelleri */

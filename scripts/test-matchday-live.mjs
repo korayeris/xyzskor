@@ -56,7 +56,8 @@ const liveRun = await runScenario({ matches:[completed, upcoming, live], detailF
 assert.equal(liveRun.requests[0], '/api/football/season?league=super-lig', 'Parametre yokken sezon fikstürü çözülmeli.');
 assert.match(liveRun.requests[1], /fixture=10003$/, 'Canlı maç ilk sırada seçilmeli.');
 assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, />İB<.*>ÇR</s, 'Türkçe takım kısaltmaları isimlerden türetilmeli.');
-assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-overview-card[\s\S]*Maç merkezini aç/, 'Futbol anasayfası dev ayrıntı yerine kompakt maç vitrini göstermeli.');
+assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-overview-card[\s\S]*data-fixture-id="10003"[\s\S]*Tahminini yap/, 'Futbol anasayfası tamamı tıklanabilir kompakt maç vitrini göstermeli.');
+assert.doesNotMatch(liveRun.elements.get('matchdayLiveRoot').innerHTML, /Maç merkezini aç|detaylar ve istatistikler/, 'Ana maç kartında ayrıca detay düğmesi bulunmamalı.');
 assert.doesNotMatch(liveRun.elements.get('matchdayLiveRoot').innerHTML, /id="matchdayLineups"/, 'Kadro ve saha dizilişi anasayfa lig akışını aşağı itmemeli.');
 
 const futureRun = await runScenario({ matches:[completed, { ...live, kickoff:iso(-18000000) }, upcoming], detailFixture:{ ...upcoming, score:{} } });
