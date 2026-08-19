@@ -27,7 +27,7 @@ async function runScenario({ search = '', matches = [], seasonResponses = null, 
       createElement:() => ({ hidden:false, dataset:{}, className:'', textContent:'', addEventListener() {} }),
       querySelector:() => ({ appendChild() {} }), querySelectorAll:() => [], addEventListener:(name,handler) => listeners.set(name,handler)
     },
-    window:{ addEventListener() {}, location:{ hash:'' } },
+    window:{ addEventListener:(name,handler) => listeners.set(`window:${name}`,handler), location:{ hash:'' } },
     setTimeout:(handler) => { timers.push(handler); return timers.length; }, clearTimeout() {},
     fetch:async (url) => {
       requests.push(String(url));
@@ -91,6 +91,14 @@ assert.doesNotMatch(staleLiveRun.elements.get('matchdayLiveRoot').innerHTML, /<e
 const overrideRun = await runScenario({ search:'?fixture=987654', detailFixture:{ id:'sportmonks:987654', ev:'Başka Ev', konuk:'Başka Konuk', kickoff:iso(3600000), score:{} } });
 assert.equal(overrideRun.requests.length, 1, 'Fixture override sezon isteğini atlamalı.');
 assert.match(overrideRun.requests[0], /fixture=987654$/, 'Fixture override aynen kullanılmalı.');
+
+const leagueScoped = { id:'sportmonks:20002', ev:'EPL Ev', konuk:'EPL Konuk', kickoff:iso(10800000), status:null };
+const overrideLeagueRun = await runScenario({ search:'?fixture=987654', matches:[leagueScoped], detailFixture:{ ...leagueScoped, score:{} } });
+overrideLeagueRun.listeners.get('window:xyz:football-league-change')({ detail:{ league:'premier-league' } });
+await new Promise((resolve) => setImmediate(resolve));
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(overrideLeagueRun.requests[1], '/api/football/season?league=premier-league', 'Lig değişince eski fixture override bırakılıp seçili lig sorgulanmalı.');
+assert.match(overrideLeagueRun.requests[2], /fixture=20002$/, 'Seçili lig kendi en yakın fixture kimliğini kullanmalı.');
 
 const emptyRun = await runScenario({ matches:[] });
 assert.equal(emptyRun.elements.get('matchdayTitle').textContent, 'Program bekleniyor', 'Boş fikstür sahte maç üretmemeli.');

@@ -266,7 +266,6 @@
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (fixtureId) refresh(); else resolveFixture(); } });
   window.addEventListener("xyz:football-league-change", (event) => {
-    if (requestedFixture) return;
     const league = String(event?.detail?.league || "");
     if (!leagueRoutes.has(league) || league === activeMatchdayLeague) return;
     activeMatchdayLeague = league;
