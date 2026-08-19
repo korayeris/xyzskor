@@ -453,6 +453,7 @@ function stopLiveFeed(){
 /* ===================== MAIN TAB SWITCH ===================== */
 function switchMainTab(name, updateUrl){
   const product = ['league','predict'].includes(name) ? 'predict' : 'football';
+  document.body.classList.toggle('predict-product-open', product==='predict');
   document.getElementById('page-story').classList.toggle('active', product==='football');
   document.getElementById('page-league').classList.toggle('active', product==='predict');
   document.getElementById('page-live').classList.toggle('active', product==='football');
