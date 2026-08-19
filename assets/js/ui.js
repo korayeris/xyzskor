@@ -755,7 +755,7 @@ function renderFootballLeaguePickerInto(area){
   applyFootballLeagueTheme();
   const commandTitle=document.getElementById('footballLeagueCommandTitle');
   if(commandTitle) commandTitle.textContent=competitionLabelBySlug(activeFootballLeague);
-  area.innerHTML=SELECTED_COMPETITIONS.map(item=>{ const unavailable=footballCoverageUnavailable(item.key); return `<button class="${item.key===activeFootballLeague?'active ':''}${unavailable?'is-unavailable':''}" type="button" data-match-league="${escapeHTML(item.key)}" aria-pressed="${item.key===activeFootballLeague}" aria-label="${escapeHTML(item.label)}${unavailable?' · sağlayıcı kapsamı dışında':''}"><span>${escapeHTML(item.short)}</span><small>${escapeHTML(item.label)}${unavailable?' · kapsam dışı':''}</small></button>`; }).join('');
+  area.innerHTML=SELECTED_COMPETITIONS.map(item=>{ const unavailable=footballCoverageUnavailable(item.key); return `<button class="${item.key===activeFootballLeague?'active ':''}${unavailable?'is-unavailable':''}" type="button" data-match-league="${escapeHTML(item.key)}" aria-pressed="${item.key===activeFootballLeague}" aria-disabled="${unavailable}" ${unavailable?'disabled':''} aria-label="${escapeHTML(item.label)}${unavailable?' · sağlayıcı kapsamı dışında':''}"><span>${escapeHTML(item.short)}</span><small>${escapeHTML(item.label)}${unavailable?' · kapsam dışı':''}</small></button>`; }).join('');
   area.querySelectorAll('[data-match-league]').forEach(button=>{ button.onclick=()=>selectFootballLeague(button.dataset.matchLeague); });
 }
 function updateLeagueScopedCopy(){
@@ -1356,7 +1356,7 @@ const YOUTUBE_CHANNEL_FALLBACK=[
   {name:'TRT Spor',handle:'@trtspor',url:'https://www.youtube.com/@trtspor',note:'Resmî spor yayınları ve gündem programları'}
 ];
 let EDITORIAL_NEWS_CACHE=[];
-let youtubeMediaRequest=null;
+const youtubeMediaRequests=new Map();
 function editorialTransferEntries(){
   const rows=[
     ...(leagueTransferRecords('confirmed')||[]).map(item=>({...item,editorialTone:item.status||'Resmî işlem',editorialKind:'confirmed'})),
@@ -1449,16 +1449,18 @@ const YOUTUBE_FALLBACK_COPY={
   error:{ status:'Yayın servisi geçici olarak yanıt vermiyor', title:'Yayın listesi şu anda alınamıyor.', body:'Bağlantı yeniden kurulduğunda program akışı otomatik yüklenecek. Şimdilik resmî kanallara doğrudan geçebilirsin.' },
   unconfigured:{ status:'Doğrulanmış kanal rehberi', title:'Canlı yayın entegrasyonu bu ortamda henüz aktif değil.', body:'Yayın anahtarı tanımlandığında programlar burada otomatik listelenir. Şimdilik resmî kanallara doğrudan geçebilirsin.' },
 };
-function renderYouTubeFallback(reason){
+function renderYouTubeFallback(reason,league=activeFootballLeague){
   const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
   const copy=YOUTUBE_FALLBACK_COPY[reason]||YOUTUBE_FALLBACK_COPY.empty;
   status.textContent=copy.status;
   status.dataset.state=reason||'empty';
-  grid.innerHTML=`<div class="youtube-channel-intro" data-state="${escapeHTML(reason||'empty')}"><span class="youtube-play-mark">▶</span><div><strong>${escapeHTML(copy.title)}</strong><p>${escapeHTML(copy.body)}</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/live" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(channel.note)}</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
+  const label=competitionLabelBySlug(league);
+  grid.innerHTML=`<div class="youtube-channel-intro" data-state="${escapeHTML(reason||'empty')}"><span class="youtube-play-mark">▶</span><div><strong>${escapeHTML(label)} için ${escapeHTML(copy.title.toLocaleLowerCase('tr-TR'))}</strong><p>Bu alan yalnız ${escapeHTML(label)} ile eşleşen doğrulanmış yayınları gösterir. ${escapeHTML(copy.body)}</p></div></div>${YOUTUBE_CHANNEL_FALLBACK.map((channel,index)=>`<a class="youtube-channel-card" href="${channel.url}/search?query=${encodeURIComponent(label)}" target="_blank" rel="noopener noreferrer"><span class="youtube-channel-avatar">${index+1}</span><div><strong>${escapeHTML(channel.name)}</strong><small>${escapeHTML(channel.handle)}</small><p>${escapeHTML(label)} kanal araması</p></div><span aria-hidden="true">↗</span></a>`).join('')}`;
 }
-function renderYouTubeItems(payload){
+function renderYouTubeItems(payload,league){
   const grid=document.getElementById('youtubeMediaGrid'); const status=document.getElementById('youtubeMediaStatus'); if(!grid||!status) return;
-  const items=Array.isArray(payload?.items)?payload.items.slice(0,6):[]; if(!items.length){ renderYouTubeFallback('empty'); return; }
+  if(activeFootballLeague!==league) return;
+  const items=Array.isArray(payload?.items)?payload.items.slice(0,6):[]; if(!items.length){ renderYouTubeFallback('empty',league); return; }
   status.dataset.state='live';
   const liveCount=items.filter(item=>item.live).length;
   status.textContent=liveCount?`${liveCount} canlı yayın`:`${items.length} güncel program`;
@@ -1470,12 +1472,13 @@ async function renderYouTubeMedia(){
   if(status){ status.textContent='Yayın akışı kontrol ediliyor'; status.dataset.state='loading'; }
   // Bos kutu yerine gercek kart olcusunde skeleton goster.
   grid.innerHTML=skeletonCardsHTML(3,'youtube-skeleton-card');
+  const league=activeFootballLeague;
   try{
-    if(!youtubeMediaRequest) youtubeMediaRequest=fetch('/api/media/youtube',{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok){ const error=new Error(payload?.error||'youtube_unavailable'); error.code=payload?.error; throw error; } return payload; });
-    renderYouTubeItems(await youtubeMediaRequest);
+    if(!youtubeMediaRequests.has(league)) youtubeMediaRequests.set(league,fetch(`/api/media/youtube?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok){ const error=new Error(payload?.error||'youtube_unavailable'); error.code=payload?.error; throw error; } return payload; }));
+    renderYouTubeItems(await youtubeMediaRequests.get(league),league);
   }catch(error){
-    youtubeMediaRequest=null;
-    renderYouTubeFallback(error?.code==='youtube_not_configured' ? 'unconfigured' : 'error');
+    youtubeMediaRequests.delete(league);
+    if(activeFootballLeague===league) renderYouTubeFallback(error?.code==='youtube_not_configured' ? 'unconfigured' : 'error',league);
   }
 }
 function renderFootballTransfers(){

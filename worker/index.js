@@ -85,7 +85,7 @@ const INSTAGRAM_HASHTAGS_BY_LEAGUE = Object.freeze({
 const INSTAGRAM_HASHTAG_MEDIA_LIMIT = 12;
 const xFeedRefreshPromises = new Map();
 const xPreseasonRefreshPromises = new Map();
-let youtubeFeedRefreshPromise = null;
+const youtubeFeedRefreshPromises = new Map();
 const clubProfileRefreshes = new Map();
 const X_CLUBS = [
   { team: "Galatasaray", handle: "GalatasaraySK", url: "https://x.com/GalatasaraySK" },
@@ -185,6 +185,14 @@ const YOUTUBE_CHANNELS = [
   { name: "beIN SPORTS Türkiye", handle: "@beINSPORTSTurkiye", id: "UCNopxUNUMinlK3ybMGlpbGQ", url: "https://www.youtube.com/@beINSPORTSTurkiye" },
   { name: "TRT Spor", handle: "@trtspor", id: "UCebdo7-2NdjcktKzco64iNw", url: "https://www.youtube.com/@trtspor" },
 ];
+const YOUTUBE_QUERY_BY_LEAGUE = Object.freeze({
+  "super-lig":"Süper Lig",
+  "premier-league":"Premier League",
+  "la-liga":"La Liga",
+  "champions-league":"Şampiyonlar Ligi OR Champions League",
+  "europa-league":"Avrupa Ligi OR Europa League",
+  all:"futbol",
+});
 const SPORTMONKS_TEAM_SEARCH = Object.freeze({
   Alanyaspor:"Alanyaspor", "Amed Sportif Faaliyetler":"Amed SK", Beşiktaş:"Besiktas", "Çaykur Rizespor":"Rizespor", "Çorum FK":"Corum FK", "Erzurumspor FK":"Erzurumspor", Eyüpspor:"Eyupspor", Fenerbahçe:"Fenerbahce", Galatasaray:"Galatasaray", "Gaziantep FK":"Gaziantep", Gençlerbirliği:"Genclerbirligi", Göztepe:"Goztepe", Başakşehir:"Istanbul Basaksehir", Kasımpaşa:"Kasimpasa", Kocaelispor:"Kocaelispor", Konyaspor:"Konyaspor", Samsunspor:"Samsunspor", Trabzonspor:"Trabzonspor"
 });
@@ -985,9 +993,10 @@ async function youtubeRequest(pathname, apiKey) {
   }
 }
 
-async function fetchYouTubeMedia(apiKey) {
+async function fetchYouTubeMedia(apiKey, league) {
+  const query = YOUTUBE_QUERY_BY_LEAGUE[league] || YOUTUBE_QUERY_BY_LEAGUE.all;
   const channelResults = await Promise.all(YOUTUBE_CHANNELS.map(async (channel) => {
-    const params = new URLSearchParams({ part: "snippet", channelId: channel.id, maxResults: "4", order: "date", type: "video" });
+    const params = new URLSearchParams({ part: "snippet", channelId: channel.id, q:query, maxResults: "4", order: "date", type: "video" });
     const payload = await youtubeRequest(`/search?${params}`, apiKey);
     return (payload.items || []).map((item) => ({ ...item, channel }));
   }));
@@ -1020,22 +1029,24 @@ async function fetchYouTubeMedia(apiKey) {
     };
   }).filter((item) => item.id && item.thumbnail);
   items.sort((a, b) => Number(b.live) - Number(a.live) || Number(b.upcoming) - Number(a.upcoming) || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
-  return { source: "youtube-data-api-v3", updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: items.slice(0, 8) };
+  return { source: "youtube-data-api-v3", league, query, updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: items.slice(0, 8) };
 }
 
 async function handleYouTubeMedia(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.YOUTUBE_API_KEY) return jsonResponse({ error: "youtube_not_configured", channels: YOUTUBE_CHANNELS }, 503, { "Cache-Control": "no-store" });
-  const cacheUrl = new URL(request.url); cacheUrl.search = "";
+  const requestUrl = new URL(request.url);
+  const league = Object.hasOwn(YOUTUBE_QUERY_BY_LEAGUE, requestUrl.searchParams.get("league")) ? requestUrl.searchParams.get("league") : "all";
+  const cacheUrl = new URL(request.url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL("/api/media/youtube-stale-v1", request.url);
+  const staleUrl = new URL(`/api/media/youtube-stale-v2/${encodeURIComponent(league)}`, request.url);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   const stale = await readEdgeCache(cache, staleKey);
   try {
-    if (!youtubeFeedRefreshPromise) youtubeFeedRefreshPromise = fetchYouTubeMedia(env.YOUTUBE_API_KEY);
-    const payload = await youtubeFeedRefreshPromise;
+    if (!youtubeFeedRefreshPromises.has(league)) youtubeFeedRefreshPromises.set(league, fetchYouTubeMedia(env.YOUTUBE_API_KEY, league));
+    const payload = await youtubeFeedRefreshPromises.get(league);
     const response = jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_CACHE, "X-Data-Stale": "false" });
     writeEdgeCache(cache, cacheKey, response, context);
     writeEdgeCache(cache, staleKey, jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_STALE_CACHE }), context);
@@ -1047,7 +1058,7 @@ async function handleYouTubeMedia(request, env, context) {
     }
     return jsonResponse({ error: error?.status === 403 ? "youtube_quota_or_key_error" : "youtube_upstream_unavailable", channels: YOUTUBE_CHANNELS }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "900" });
   } finally {
-    youtubeFeedRefreshPromise = null;
+    youtubeFeedRefreshPromises.delete(league);
   }
 }
 
@@ -1111,7 +1122,7 @@ async function handleFootballCoverage(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
-  const cacheUrl = new URL("/api/football/coverage-v5", request.url); cacheUrl.search = "";
+  const cacheUrl = new URL("/api/football/coverage-v6", request.url); cacheUrl.search = "";
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   try {
