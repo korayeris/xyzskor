@@ -1509,6 +1509,7 @@ async function handleFootballPrediction(request, env) {
   const hasAway = input.score_away !== null && input.score_away !== undefined && input.score_away !== "";
   const scoreHome = hasHome ? Number(input.score_home) : null;
   const scoreAway = hasAway ? Number(input.score_away) : null;
+  const challengeLeague = ["super-lig", "premier-league", "la-liga"].includes(String(input.challenge_league || "")) ? String(input.challenge_league) : null;
   if (!["1", "X", "2"].includes(pick)) return jsonResponse({ error:"invalid_pick" }, 400, { "Cache-Control":"no-store" });
   if (hasHome !== hasAway || (hasHome && (![scoreHome, scoreAway].every(Number.isInteger) || scoreHome < 0 || scoreAway < 0 || scoreHome > 99 || scoreAway > 99))) {
     return jsonResponse({ error:"invalid_score" }, 400, { "Cache-Control":"no-store" });
@@ -1521,7 +1522,7 @@ async function handleFootballPrediction(request, env) {
     await supabaseRest(env, "matches?on_conflict=id", {
       method:"POST",
       headers:{ Prefer:"resolution=merge-duplicates,return=representation" },
-      body:JSON.stringify({ id:matchId, hafta:fixture.hafta || 1, ev:fixture.ev, konuk:fixture.konuk, kickoff:fixture.kickoff, stadyum:fixture.stadyum, verified:true, status:fixture.status, source:"sportmonks", updated_at:new Date().toISOString() }),
+      body:JSON.stringify({ id:matchId, hafta:fixture.hafta || 1, ev:fixture.ev, konuk:fixture.konuk, kickoff:fixture.kickoff, stadyum:fixture.stadyum, verified:true, status:fixture.status, source:"sportmonks", challenge_week:challengeLeague ? currentChallengeWeek() : null, challenge_league:challengeLeague, updated_at:new Date().toISOString() }),
     });
     const saved = await supabaseRest(env, "predictions?on_conflict=match_id,user_id", {
       method:"POST",
@@ -1532,6 +1533,35 @@ async function handleFootballPrediction(request, env) {
   } catch (error) {
     return jsonResponse({ error:error?.status === 404 ? "fixture_unavailable" : "prediction_save_failed", message:safeErrorMessage(error) }, error?.status === 404 ? 404 : 502, { "Cache-Control":"no-store" });
   }
+}
+
+function currentChallengeWeek(now = new Date()) {
+  const day = now.getUTCDay() || 7;
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day + 1));
+  return monday.toISOString().slice(0, 10);
+}
+
+async function settlePendingFootballPredictions(env) {
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token || !supabaseServiceKey(env)) return { checked:0, settled:0 };
+  const cutoff = encodeURIComponent(new Date().toISOString());
+  const pending = await supabaseRest(env, `matches?source=eq.sportmonks&challenge_week=not.is.null&kickoff=lt.${cutoff}&status=neq.bitti&select=id&order=kickoff.asc&limit=24`);
+  let settled = 0;
+  for (const row of Array.isArray(pending) ? pending : []) {
+    const fixtureId = String(row.id || "").replace(/^sportmonks:/, "");
+    if (!/^\d+$/.test(fixtureId)) continue;
+    try {
+      const payload = await sportmonksRequest(`/fixtures/${encodeURIComponent(fixtureId)}?include=participants;scores;state`, token);
+      const fixture = normalizeProviderFixture(payload?.data || payload || {}, null, null, null);
+      if (fixture?.status !== "bitti" || !fixture.result) continue;
+      await supabaseRest(env, "rpc/settle_prediction_challenge_match", {
+        method:"POST",
+        body:JSON.stringify({ p_match_id:row.id, p_home:fixture.result.home, p_away:fixture.result.away }),
+      });
+      settled += 1;
+    } catch (_error) { /* sonraki cron turunda tekrar denenir */ }
+  }
+  return { checked:Array.isArray(pending) ? pending.length : 0, settled };
 }
 
 function utcDateWithOffset(days) {
@@ -2420,5 +2450,8 @@ export default {
     }
 
     return withHeaders(response, pathname);
+  },
+  async scheduled(_controller, env, context) {
+    context.waitUntil(settlePendingFootballPredictions(env));
   },
 };

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
 
 const calls=[];
+let settling=false;
 const fixture={
   id:29999123, season_id:28083, round_id:1, starting_at:'2026-08-29 18:00:00',
   participants:[
@@ -19,6 +20,7 @@ globalThis.fetch=async (input, init={})=>{
     const parsed=new URL(url), include=parsed.searchParams.get('include') || '';
     assert.ok(!include.includes('xGFixture'), 'xG temel veya Predictions isteğine karışmamalı.');
     if(include === 'predictions') return Response.json({data:{...fixture,participants:undefined,predictions:fixture.predictions}});
+    if(settling) return Response.json({data:{...fixture,state:{short_name:'FT'},result_info:'Manchester City won.',scores:[{participant_id:9,description:'CURRENT',score:{goals:2}},{participant_id:19,description:'CURRENT',score:{goals:1}}]}});
     return Response.json({data:fixture});
   }
   if(url.includes('/rest/v1/matches')) return Response.json([{id:'sportmonks:29999123'}]);
@@ -26,6 +28,7 @@ globalThis.fetch=async (input, init={})=>{
     if((init.method || 'GET') === 'POST') return Response.json([{pick:'1',score_home:2,score_away:1,submitted_at:'2026-08-19T00:00:00Z'}]);
     return Response.json([]);
   }
+  if(url.includes('/rest/v1/rpc/settle_prediction_challenge_match')) return Response.json({settled:true,new_reward_claims:1});
   throw new Error(`Unexpected URL: ${url}`);
 };
 
@@ -33,7 +36,8 @@ const env={
   SPORTMONKS_API_TOKEN:'sportmonks-test',
   SUPABASE_URL:'https://supabase.test', SUPABASE_ANON_KEY:'anon', SUPABASE_SERVICE_ROLE_KEY:'service',
 };
-const context={waitUntil(){}};
+let scheduledPromise=null;
+const context={waitUntil(promise){scheduledPromise=promise;}};
 const matchday=await worker.fetch(new Request('https://xyz.test/api/football/matchday?fixture=29999123'),env,context);
 assert.equal(matchday.status,200);
 const matchdayPayload=await matchday.json();
@@ -43,7 +47,7 @@ assert.equal(matchdayPayload.details.predictions[0].predictions.home,44.2);
 
 const saved=await worker.fetch(new Request('https://xyz.test/api/football/prediction',{
   method:'POST', headers:{Authorization:'Bearer user-token','Content-Type':'application/json'},
-  body:JSON.stringify({fixture_id:'29999123',pick:'1',score_home:2,score_away:1}),
+  body:JSON.stringify({fixture_id:'29999123',pick:'1',score_home:2,score_away:1,challenge_league:'premier-league'}),
 }),env,context);
 assert.equal(saved.status,200);
 const savedPayload=await saved.json();
@@ -53,5 +57,15 @@ const predictionWrite=calls.find((call)=>call.url.includes('/rest/v1/predictions
 assert.ok(matchWrite,'Doğrulanmış sağlayıcı fikstürü matches tablosuna bağlanmalı.');
 assert.ok(predictionWrite,'Kullanıcı seçimi mevcut predictions tablosuna yazılmalı.');
 assert.equal(JSON.parse(predictionWrite.init.body).user_id,'11111111-1111-4111-8111-111111111111');
+const matchBody=JSON.parse(matchWrite.init.body);
+assert.equal(matchBody.challenge_league,'premier-league');
+assert.match(matchBody.challenge_week,/^\d{4}-\d{2}-\d{2}$/);
+
+settling=true;
+await worker.scheduled({},env,context);
+await scheduledPromise;
+const settleCall=calls.find((call)=>call.url.includes('/rest/v1/rpc/settle_prediction_challenge_match'));
+assert.ok(settleCall,'Finished challenge match should be settled by the scheduled worker.');
+assert.deepEqual(JSON.parse(settleCall.init.body),{p_match_id:'sportmonks:29999123',p_home:2,p_away:1});
 
 console.log('Football Predictions integration checks passed.');

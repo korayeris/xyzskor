@@ -959,7 +959,7 @@ async function savePrediction(matchId, payload){
   const submittedAt = new Date();
   const session=await sb.auth.getSession();
   const token=session?.data?.session?.access_token||'';
-  const response=await fetch('/api/football/prediction',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({fixture_id:String(match.provider_fixture_id||match.fixture_id||match.id).replace(/^sportmonks:/,''),pick:payload.pick,score_home:payload.scoreHome,score_away:payload.scoreAway})});
+  const response=await fetch('/api/football/prediction',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({fixture_id:String(match.provider_fixture_id||match.fixture_id||match.id).replace(/^sportmonks:/,''),pick:payload.pick,score_home:payload.scoreHome,score_away:payload.scoreAway,challenge_league:match.challengeLeague||null})});
   const savedPayload=await response.json().catch(()=>({}));
   const error=response.ok?null:{message:savedPayload.message||savedPayload.error||'Tahmin kaydedilemedi.'};
   if(!error){
