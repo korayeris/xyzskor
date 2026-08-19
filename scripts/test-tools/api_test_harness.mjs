@@ -289,7 +289,7 @@ async function main() {
         const id = u.pathname.split('/').pop();
         return jsonUpstream({ data: { id: Number(id), name: 'Lig ' + id, currentseason: { id: 1, is_current: true } } });
       }
-      if (u.pathname === '/v3/football/fixtures') return jsonUpstream({ data: [] });
+      if (u.pathname.startsWith('/v3/football/schedules/seasons/')) return jsonUpstream({ data: [] });
       return null;
     });
     assertEqual(status, 200, 'coverage success -> 200');
