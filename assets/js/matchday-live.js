@@ -82,7 +82,16 @@
     if (!stats.length) return '<div class="matchday-empty">Şut, topa sahip olma, korner ve oyuncu istatistikleri sağlayıcının kapsamına göre açılacak.</div>';
     const grouped = new Map();
     stats.forEach((stat) => { const label = statisticLabel(stat.label); if (!grouped.has(label)) grouped.set(label, {home:null,away:null}); const side=stat.location === "home" || stat.team === homeName ? "home" : "away"; grouped.get(label)[side]=stat.value; });
-    return `<div class="matchday-stats">${Array.from(grouped.entries()).slice(0, 12).map(([label, values]) => `<div><span>${esc(values.home ?? "-")}</span><b>${esc(label)}</b><span>${esc(values.away ?? "-")}</span></div>`).join("")}</div>`;
+    const priority = ["Topa sahip olma", "Beklenen gol", "Toplam şut", "İsabetli şut", "Ceza sahası içinden şut", "Tehlikeli atak", "Atak", "Korner", "Faul", "Ofsayt", "Kurtarış", "Pas", "Başarılı pas"];
+    const entries = Array.from(grouped.entries()).sort((a,b) => { const ai=priority.indexOf(a[0]), bi=priority.indexOf(b[0]); return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi); }).slice(0, 10);
+    const numeric = (value) => Number(String(value ?? "").replace(/[^0-9.,-]/g, "").replace(",", "."));
+    return `<div class="matchday-stats">${entries.map(([label, values]) => { const home=numeric(values.home), away=numeric(values.away), total=(Number.isFinite(home)?home:0)+(Number.isFinite(away)?away:0), homeWidth=total>0 ? Math.max(4,Math.min(96,home/total*100)) : 50, awayWidth=100-homeWidth; return `<div class="matchday-stat-comparison"><div class="matchday-stat-values"><span>${esc(values.home ?? "-")}</span><b>${esc(label)}</b><span>${esc(values.away ?? "-")}</span></div><div class="matchday-stat-bar" aria-hidden="true"><i style="--value:${homeWidth}%"></i><i style="--value:${awayWidth}%"></i></div></div>`; }).join("")}</div>`;
+  }
+
+  function renderOverview(fixture, predictions, homeName, awayName, homeScore, awayScore, hasScore) {
+    const result=predictions.find((row)=>Number(row.type_id) === 237)?.predictions || {};
+    const probability=(label,value)=>`<div><span>${esc(label)}</span><b>${Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR",{maximumFractionDigits:1})}%` : "–"}</b></div>`;
+    return `<article class="matchday-overview-card"><div class="matchday-overview-meta"><span>${esc(fixture.competition || "SEÇİLİ LİG")}</span><b>${esc(fixtureTimeLabel(fixture))}</b><small>${esc(fixture.venue || fixture.stadium || "Stadyum bilgisi bekleniyor")}</small></div><div class="matchday-overview-faceoff"><div>${imageTag(fixture.home_logo,homeName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(homeName))}</i>`}<strong>${esc(homeName)}</strong></div><section><em>${esc(stateLabel(fixture))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : fixtureTimeLabel(fixture).split(" ").slice(-1)[0]}</b><button type="button" data-fixture-id="${esc(fixtureProviderId(fixture))}">Maç merkezini aç →</button></section><div>${imageTag(fixture.away_logo,awayName,"matchday-overview-logo") || `<i>${esc(teamAbbreviation(awayName))}</i>`}<strong>${esc(awayName)}</strong></div></div><div class="matchday-overview-probabilities"><small>SPORTMONKS MAÇ OLASILIKLARI</small>${probability("1",result.home)}${probability("X",result.draw)}${probability("2",result.away)}</div></article>`;
   }
   function renderTeamLineup(title, members, formation) {
     if (!members.length) return `<section class="matchday-lineup"><h4>${esc(title)}</h4><div class="matchday-empty">Resmî kadro henüz açıklanmadı.</div></section>`;
@@ -179,10 +188,16 @@
     const awayFormation = formations[1]?.formation || formations[1]?.name || "";
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
+    const detailMode = Boolean(new URLSearchParams(location.search).get("fixture")) && params.get("view") !== "home";
+    if (!detailMode) {
+      root.innerHTML = renderOverview(f,predictions,homeName,awayName,homeScore,awayScore,hasScore);
+      setDetailMode(false);
+      return;
+    }
     root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
     root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderMatchPrediction(f,predictions,homeName,awayName)}<nav class="matchday-jump"`);
     if (teamContexts.length) root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderTeamContexts(teamContexts)}<nav class="matchday-jump"`);
-    if (requestedFixture && params.get("view") !== "home") setDetailMode(true);
+    setDetailMode(true);
     hydrateOwnPrediction();
   }
   function renderEmpty() {

@@ -56,6 +56,8 @@ const liveRun = await runScenario({ matches:[completed, upcoming, live], detailF
 assert.equal(liveRun.requests[0], '/api/football/season?league=super-lig', 'Parametre yokken sezon fikstürü çözülmeli.');
 assert.match(liveRun.requests[1], /fixture=10003$/, 'Canlı maç ilk sırada seçilmeli.');
 assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, />İB<.*>ÇR</s, 'Türkçe takım kısaltmaları isimlerden türetilmeli.');
+assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-overview-card[\s\S]*Maç merkezini aç/, 'Futbol anasayfası dev ayrıntı yerine kompakt maç vitrini göstermeli.');
+assert.doesNotMatch(liveRun.elements.get('matchdayLiveRoot').innerHTML, /id="matchdayLineups"/, 'Kadro ve saha dizilişi anasayfa lig akışını aşağı itmemeli.');
 
 const futureRun = await runScenario({ matches:[completed, { ...live, kickoff:iso(-18000000) }, upcoming], detailFixture:{ ...upcoming, score:{} } });
 assert.match(futureRun.requests[1], /fixture=10002$/, 'Bayat canlı durum yerine en yakın gelecek maç seçilmeli.');
@@ -77,7 +79,7 @@ const detailedRun = await runScenario({
 });
 assert.equal(detailedRun.elements.get('matchdayIntro').textContent, 'Maç tamamlandı · Sportmonks tarafından doğrulanan maç verisi', 'Tarihi eksik biten maç program bekleniyor dememeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-jump[\s\S]*Olaylar <b>1<\/b>[\s\S]*İstatistikler <b>2<\/b>/, 'Fixture ayrıntıları sayılı hızlı gezinme sunmalı.');
-assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, />Korner<\/b>[\s\S]*>Topa sahip olma<\/b>/, 'Sağlayıcı istatistik adları Türkçeleştirilmeli.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-stat-comparison[\s\S]*Topa sahip olma[\s\S]*matchday-stat-bar[\s\S]*Korner/, 'Sağlayıcı istatistikleri öncelikli, Türkçe ve oranlı karşılaştırma çubuklarıyla sunulmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-team-logo[\s\S]*matchday-event-player[\s\S]*matchday-player-photo/, 'Takım ve oyuncu görselleri kadro sunumunda kullanılmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /Yanlış diziliş yerine resmî ilk 11 listeleniyor/, 'Eksik saha koordinatı uydurma diziliş üretmemeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /BEKLENEN GOL[\s\S]*41,5%/, 'xG ve maç sonucu olasılığı görselleştirilmeli.');

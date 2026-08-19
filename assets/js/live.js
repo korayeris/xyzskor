@@ -241,8 +241,8 @@ function renderTicker(){
   if(!MATCHES.length){ el.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">FİKSTÜR</span><span class="ticker-match">Henüz fikstür eklenmedi</span>`; return; }
   const now=Date.now();
   const scoped=MATCHES.filter(matchInActiveLeague).filter(m=>m.status!=='iptal'&&m.status!=='ertelendi');
-  const completed=scoped.filter(m=>m.result||getResult(m.id)||m.status==='bitti').sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff)).slice(0,5).reverse();
-  const upcoming=scoped.filter(m=>!m.result&&!getResult(m.id)&&new Date(m.kickoff).getTime()>now).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,4);
+  const completed=scoped.filter(m=>m.result||getResult(m.id)||m.status==='bitti').sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff)).slice(0,3).reverse();
+  const upcoming=scoped.filter(m=>!m.result&&!getResult(m.id)&&new Date(m.kickoff).getTime()>now).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,6);
   const agenda=[...completed,...upcoming];
   if(!agenda.length){ el.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">GÜNDEM MAÇLARI</span><span class="ticker-match">Seçili ligde yayınlanmış maç bulunmuyor</span>`; return; }
   const logo=(src,name)=>safeLiveImage(src)?`<img src="${escapeHTML(src)}" alt="${escapeHTML(name)}" loading="lazy" onerror="this.remove()">`:'';
@@ -254,7 +254,7 @@ function renderTicker(){
     const time=when.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
     return `<button class="agenda-match ${finished?'is-result':'is-upcoming'}" type="button" data-fixture-id="${escapeHTML(fixtureId)}" aria-label="${escapeHTML(m.ev)} ${escapeHTML(m.konuk)} maç merkezini aç"><span class="agenda-state">${finished?'MS':date}</span><span class="agenda-team">${logo(m.home_logo,m.ev)}<b>${escapeHTML(m.ev)}</b></span><strong class="agenda-score">${finished&&result?`${escapeHTML(result.home)}<i>–</i>${escapeHTML(result.away)}`:time}</strong><span class="agenda-team away">${logo(m.away_logo,m.konuk)}<b>${escapeHTML(m.konuk)}</b></span></button>`;
   };
-  el.innerHTML=`<div class="agenda-heading"><span class="ticker-dot"></span><b>GÜNDEM MAÇLARI</b><small>Son 5 · Yaklaşan 4</small></div><div class="agenda-track">${agenda.map(card).join('')}</div>`;
+  el.innerHTML=`<div class="agenda-heading"><span class="ticker-dot"></span><b>GÜNDEM MAÇLARI</b><small>Son 3 · Yaklaşan 6</small></div><div class="agenda-track">${agenda.map(card).join('')}</div>`;
 }
 
 /* ===================== CANLI VERİ SAĞLAYICI KATMANI ===================== */
