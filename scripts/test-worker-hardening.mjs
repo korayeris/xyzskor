@@ -194,6 +194,7 @@ async function main() {
   {
     const source = await (await import('node:fs/promises')).readFile(new URL('../assets/js/multisport.js', import.meta.url), 'utf8');
     ok(source.includes("['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand']"), 'Ã§oklu spor rotasÄ± futbol yÃ¼zeyini DOM\'dan kaldÄ±rÄ±r');
+    ok(source.includes("'.next-match-ticker,.live-ticker'"), 'Ã§oklu spor rotasÄ± futbol ticker kapsayÄ±cÄ±sÄ±nÄ± DOM\'dan kaldÄ±rÄ±r');
     ok(source.includes('updateBranchTicker([]);'), 'branÅŸ verisi gelmeden futbol ticker\'Ä± temizlenir');
   }
 

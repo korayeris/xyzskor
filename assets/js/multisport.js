@@ -62,8 +62,7 @@
   function pruneFootballSurface(){
     if(!routeState()) return;
     ['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand'].forEach((id)=>document.getElementById(id)?.remove());
-    document.querySelectorAll('.next-match-ticker').forEach((element)=>element.remove());
-    updateBranchTicker([]);
+    document.querySelectorAll('.next-match-ticker,.live-ticker').forEach((element)=>element.remove());
   }
 
   function teamCardHTML(team){
