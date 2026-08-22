@@ -142,7 +142,7 @@ const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
   scope: 'selected-leagues',
   seasonScope: 'selected-leagues-season',
-  refreshMs: 5000
+  refreshMs: 30000
 };
 const PROVIDER_SEASON_CACHE_MS = 120000;
 const PROVIDER_LIVE_FALLBACK = '/api/football';
@@ -561,9 +561,9 @@ let liveFeedVisibilityBound = false;
 const LIVE_MATCH_DETAIL_CACHE = new Map(); // fixtureId -> {events, statistics, fetchedAt}
 const LIVE_MATCH_DETAIL_TTL_MS = 8000; // /events uc cache TTL degeriyle hizali (bkz worker MATCH_EVENTS_CACHE)
 const LIVE_MATCH_DETAIL_PENDING = new Set();
-const LIVE_FEED_MIN_REFRESH_MS = 3000;
+const LIVE_FEED_MIN_REFRESH_MS = 30000;
 const LIVE_FEED_MAX_REFRESH_MS = 300000;
-const LIVE_FEED_HIDDEN_REFRESH_MS = 60000; // sekme arka plandayken hizli polling yerine bu kullanilir
+const LIVE_FEED_HIDDEN_REFRESH_MS = 120000; // sekme arka plandayken hizli polling yerine bu kullanilir
 let LIVE_FEED = { matches:[], updatedAt:null, stale:false, staleAgeSeconds:0, degraded:false, reason:null, error:null, loaded:false };
 let lastLoadError = null;
 let DATA_ERRORS = {};
