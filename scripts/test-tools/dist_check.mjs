@@ -1,6 +1,6 @@
-﻿import { chromium } from './lib/playwright-loader.mjs';
+﻿import { launchChromium } from './lib/playwright-loader.mjs';
 
-const b = await chromium.launch({args:['--no-sandbox']});
+const b = await launchChromium();
 for (const vp of [{n:'desktop',w:1440,h:900},{n:'mobil',w:390,h:844}]) {
   const ctx = await b.newContext({viewport:{width:vp.w,height:vp.h}});
   const page = await ctx.newPage();

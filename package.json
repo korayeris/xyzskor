@@ -21,7 +21,11 @@
     "qa:predict-security": "node scripts/test-tools/predict_game_security_test.mjs",
     "qa:football-predictions": "node scripts/test-football-predictions.mjs",
     "qa:live-details": "node scripts/test-live-details.mjs",
-    "qa:perf": "node scripts/test-tools/perf_check.mjs"
+    "qa:perf": "node scripts/test-tools/perf_check.mjs",
+    "qa:hardening": "node scripts/test-worker-hardening.mjs",
+    "qa:db": "bash scripts/test-tools/pg_suite.sh",
+    "qa:responsive": "node scripts/test-tools/responsive_check.mjs withdata",
+    "qa:responsive:nodata": "node scripts/test-tools/responsive_check.mjs nodata"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

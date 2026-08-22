@@ -1,7 +1,7 @@
 ﻿// Canli mac yenilemesi gercekten calisiyor mu? Ve panel kapaninca duruyor mu?
-import { chromium } from './lib/playwright-loader.mjs';
+import { launchChromium } from './lib/playwright-loader.mjs';
 
-const b = await chromium.launch({args:['--no-sandbox']});
+const b = await launchChromium();
 const ctx = await b.newContext({viewport:{width:1280,height:900}});
 const page = await ctx.newPage();
 const errs=[]; page.on('pageerror',e=>errs.push(String(e).slice(0,200)));

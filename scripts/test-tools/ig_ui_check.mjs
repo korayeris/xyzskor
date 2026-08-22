@@ -1,4 +1,4 @@
-﻿import { chromium } from './lib/playwright-loader.mjs';
+﻿import { launchChromium } from './lib/playwright-loader.mjs';
 
 const { dirname, join } = await import('node:path');
 const { fileURLToPath } = await import('node:url');
@@ -14,7 +14,7 @@ const IG_OK = { source:'instagram-graph-api', league:'super-lig', hashtags:['sup
   ], errors:[] };
 
 async function run(label, igMode){
-  const b = await chromium.launch({args:['--no-sandbox']});
+  const b = await launchChromium();
   const ctx = await b.newContext({viewport:{width:1440,height:1000}});
   const page = await ctx.newPage();
   const errs=[]; page.on('pageerror',e=>errs.push(String(e).slice(0,180)));
