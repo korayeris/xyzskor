@@ -190,6 +190,13 @@ async function main() {
     ok((payload?.sports?.basketball||[]).every((item)=>item.sport === 'basketball'), 'yanıttaki her kayıt zorunlu basketball etiketi taşır');
   }
 
+  console.log('\n=== 9) BranÅŸ DOM izolasyonu ===');
+  {
+    const source = await (await import('node:fs/promises')).readFile(new URL('../assets/js/multisport.js', import.meta.url), 'utf8');
+    ok(source.includes("['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand']"), 'Ã§oklu spor rotasÄ± futbol yÃ¼zeyini DOM\'dan kaldÄ±rÄ±r');
+    ok(source.includes('updateBranchTicker([]);'), 'branÅŸ verisi gelmeden futbol ticker\'Ä± temizlenir');
+  }
+
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);
   if (failures.length) { console.log(failures.map((f) => ' - ' + f).join('\n')); process.exit(1); }
 }

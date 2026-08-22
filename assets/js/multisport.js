@@ -52,10 +52,18 @@
   }
 
   function closeHub(){
+    if(routeState()) { location.assign('/'); return; }
     document.body.classList.remove('multisport-open');
     const hub = document.getElementById('multiSportHub');
     if(hub) hub.hidden = true;
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.remove('active'));
+  }
+
+  function pruneFootballSurface(){
+    if(!routeState()) return;
+    ['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand'].forEach((id)=>document.getElementById(id)?.remove());
+    document.querySelectorAll('.next-match-ticker').forEach((element)=>element.remove());
+    updateBranchTicker([]);
   }
 
   function teamCardHTML(team){
@@ -259,6 +267,7 @@
     activeView = view;
     if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
     document.body.classList.add('multisport-open');
+    updateBranchTicker([]);
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
     if(!hub || !grid) return;
@@ -299,6 +308,7 @@
       <nav class="multisport-view-nav" id="multiSportViews" aria-label="Branş bölümleri"></nav>
       <section class="multi-event-grid" id="multiSportGrid" aria-live="polite"></section>`;
     wrap.parentNode.insertBefore(hub, wrap);
+    pruneFootballSurface();
     hub.querySelectorAll('[data-multi-sport]').forEach((button) => button.addEventListener('click', () => openHub(button.dataset.multiSport,'home',true)));
     document.getElementById('tabBtnFootball')?.addEventListener('click', closeHub, true);
     document.getElementById('tabBtnPredict')?.addEventListener('click', closeHub, true);
