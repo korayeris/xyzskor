@@ -79,10 +79,18 @@
       competition:match.competition || "", provider_league_id:match.providerLeagueId || null,
     };
   }
+  function isLikelyInPlay(match) {
+    const status=String(match?.status || "").toLowerCase();
+    if (["live","halftime"].includes(status)) return true;
+    if (["finished","ft","aet","pen","cancelled","postponed"].includes(status)) return false;
+    const startedAt=Date.parse(match?.startedAt || ""), age=Date.now()-startedAt;
+    const hasScore=Number.isFinite(Number(match?.home?.score)) && Number.isFinite(Number(match?.away?.score));
+    return hasScore && Number.isFinite(startedAt) && age>=0 && age<=4*60*60*1000;
+  }
   function liveMatchForLeague(matches) {
     return rows(matches).find((match) => {
       const leagueKey=String(match?.leagueKey || "");
-      return (activeMatchdayLeague === "all" || leagueKey === activeMatchdayLeague) && ["live","halftime"].includes(String(match?.status || "").toLowerCase());
+      return (activeMatchdayLeague === "all" || leagueKey === activeMatchdayLeague) && isLikelyInPlay(match);
     }) || null;
   }
   async function promoteLiveMatch(match, updatedAt) {
