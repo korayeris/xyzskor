@@ -1,5 +1,17 @@
 # XYZSKOR
 
+## Canlı skor için teknik devir
+
+Mevcut sürüm temel fikstürü ve 5 saniyelik canlı sorguyu destekler; ancak gerçek
+production canlı skor sistemi için merkezi ingest, kalıcı snapshot, kota yönetimi,
+single-flight yenileme, maç sonu kesinleştirme ve ayrıntılı gözlemlenebilirlik
+çalışmaları tamamlanmalıdır.
+
+[Claude için eksiksiz canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
+
+Bu belgedeki kabul kriterleri tamamlanmadan “tam gerçek zamanlı ve kesintiye
+dayanıklı canlı skor” iddiasında bulunulmamalıdır.
+
 XYZSKOR; koyu, teknik ve mobil uyumlu bir yayın deneyiminde canlı futbol
 skorları, ücretsiz tahmin yarışması ve doğrulanmış sağlayıcı kapsamındaki çoklu
 spor merkezlerini sunan bir platformdur.
@@ -161,12 +173,12 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 ## Git ve yayın
 
-Kaynak dalı: `main`
+Kaynak dalı: `integration/latest-zip-2026-08-17`
 
 ```powershell
 git add .
 git commit -m "Açıklayıcı değişiklik mesajı"
-git push origin main
+git push origin integration/latest-zip-2026-08-17
 ```
 
 Production dağıtımı `.openai/hosting.json` içindeki mevcut Sites projesine yapılır. Build arşivleri ve geçici paketler Git'e eklenmez.
@@ -174,6 +186,7 @@ Production dağıtımı `.openai/hosting.json` içindeki mevcut Sites projesine 
 ## Dokümantasyon
 
 - [API planı](docs/API-PLANI.md)
+- [Claude için canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
 - [Veri sağlayıcı mimarisi](docs/data-provider-architecture.md)
 - [API envanteri ve satın alım notu](docs/api-envanteri-ve-satin-alim-notu-2026-08-04.md)
 - [Profesyonel devir teslim](docs/professional-handoff-2026-08-03.md)
