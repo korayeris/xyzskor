@@ -30,6 +30,7 @@ const ROUTES = [
   { name: 'anasayfa', path: '/' },
   { name: 'super-lig-maclar', path: '/super-lig/matches' },
   { name: 'predict', path: '/predict' },
+  { name: 'basketbol', path: '/basketbol/' },
 ];
 
 let PASS = 0, FAIL = 0;
@@ -66,6 +67,10 @@ function mockFor(url) {
   if (url.includes('/api/social/')) return [{ source: 'mock', league: 'super-lig', updated_at: iso, clubs: [], publishers: [], items: [] }, 200];
   if (url.includes('/api/health')) return [{ status: 'ok', checks: {} }, 200];
   if (url.includes('/api/predict-game/status')) return [{ authenticated: false, reward_eligible: false, training: false }, 200];
+  if (url.includes('/api/sports/today')) return [{ source: 'mock', date: iso.slice(0,10), sports: { basketball: [
+    { id:'basket-1', sport:'basketball', league:'Basketbol Süper Ligi', status:'scheduled', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
+    { id:'kirli-football', sport:'football', league:'Süper Lig', status:'finished', first:{name:'Galatasaray'}, second:{name:'Beşiktaş'} },
+  ], volleyball: [] } }, 200];
   return [{ error: 'not_mocked' }, 503];
 }
 
@@ -96,13 +101,15 @@ async function main() {
       const pageErrors = [], consoleErrors = [];
       page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 240)));
       page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
-      await page.route('**/api/**', async (r) => {
-        const [body, status] = mockFor(r.request().url());
-        await r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-      });
       // Harici host (CDN, Supabase, gorsel) sandbox'ta yok; bos yanit ver.
       await page.route('**://**', async (r) => {
         const url = r.request().url();
+        // Tek route katmani kullan: ikinci bir genel route, API mock'unu
+        // `continue()` ile yanlışlıkla atlayıp canlı backend'e kaçırmasın.
+        if (url.startsWith(BASE) && new URL(url).pathname.startsWith('/api/')) {
+          const [body, status] = mockFor(url);
+          return r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        }
         if (url.startsWith(BASE)) return r.continue();
         if (/\.(png|jpe?g|webp|gif|svg|avif)(\?|$)/i.test(url)) return r.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64') });
         return r.fulfill({ status: 204, body: '' });
@@ -154,6 +161,7 @@ async function main() {
           activeTabPage: document.querySelector('.tabpage.active')?.id || null,
           visibleTextLength: (document.body.innerText || '').trim().length,
           skeletons: document.querySelectorAll('.skeleton').length,
+          multisportText: document.getElementById('multiSportGrid')?.innerText || '',
         };
       });
 
@@ -166,6 +174,10 @@ async function main() {
       ok(metrics.overflowingCount === 0, `${tag}: viewport disina cikan eleman yok`, JSON.stringify(metrics.overflowingElements));
       ok(metrics.visibleTextLength > 200, `${tag}: sayfa icerik uretti`, `metin uzunlugu=${metrics.visibleTextLength}`);
       ok(metrics.skeletons === 0, `${tag}: yukleme iskeleti kalmadi`, `iskelet=${metrics.skeletons}`);
+      if(route.name === 'basketbol'){
+        ok(!/Galatasaray|Beşiktaş|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
+        ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
+      }
       report.push({ route: route.name, viewport: viewport.name, mode: MODE, pageErrors, consoleErrors, metrics, screenshot: shot });
       await page.close();
     }

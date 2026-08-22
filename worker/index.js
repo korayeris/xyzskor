@@ -2298,11 +2298,11 @@ async function handleMultisportToday(request, env, context) {
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v8?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v9?date=${date}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport !== "mma").map(async ([sport, feed]) => {
-    const latestKey = new Request(new URL(`/api/sports/latest-v1/${sport}`, request.url), { method: "GET" });
+    const latestKey = new Request(new URL(`/api/sports/latest-v2/${sport}`, request.url), { method: "GET" });
     const latestCached = await readEdgeCache(cache, latestKey);
     try {
       if (sport === "mma" && env.CITO_API_KEY) {
@@ -2353,7 +2353,9 @@ async function handleMultisportToday(request, env, context) {
   const isolatedEntries = entries.map(([sport, items]) => [
     sport,
     (Array.isArray(items) ? items : [])
-      .map((item) => ({ ...item, sport: item?.sport || sport, provider: item?.provider || "api-sports" }))
+      // Cache'ten gelen eski/kirli bir kaydın sport alanına güvenme. Koleksiyon
+      // anahtarı veri sağlayıcısını zaten kesin olarak tanımlar.
+      .map((item) => ({ ...item, sport, provider: item?.provider || "api-sports" }))
       .filter((item) => item.sport === sport)
   ]);
   const payload = {

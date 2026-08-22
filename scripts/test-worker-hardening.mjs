@@ -161,6 +161,11 @@ async function main() {
     const response = await worker.fetch(new Request('http://localhost/super-lig/news'), ENV, ctx);
     ok(response.status === 308 && response.headers.get('location') === 'http://localhost/super-lig/agenda', 'eski news adresi kanonik gündeme yönlenir');
   }
+  {
+    const source = await (await import('node:fs/promises')).readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
+    ok(source.includes('({ ...item, sport, provider:'), 'çoklu spor cache kaydı koleksiyon branşıyla zorla izole edilir');
+    ok(source.includes('/api/sports/today-v9?date='), 'kirli eski çoklu spor cache anahtarı geçersizleştirildi');
+  }
 
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);
   if (failures.length) { console.log(failures.map((f) => ' - ' + f).join('\n')); process.exit(1); }

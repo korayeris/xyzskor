@@ -13,12 +13,9 @@ Ana navigasyon:
 1. Futbol
 2. Basketbol
 3. Voleybol
-4. Kayak
-5. Motor Sporları
-6. UFC
-7. Amerikan Futbolu
-8. Diğer: Buz Hokeyi, Rugby, Beyzbol, Hentbol, Avustralya Futbolu
-9. Predict
+4. Motor Sporları
+5. UFC
+6. Predict
 
 Branş kabukları `sport-branches.js` tarafından oluşturulur. Çoklu spor sayfaları
 yalnızca kendi sağlayıcı verisini gösterir; veri bulunmazsa başka branştan fallback
@@ -37,7 +34,7 @@ Branş merkezleri:
 
 - Formula 1, Formula E, IndyCar, MotoGP, WRC, WEC, Le Mans ve NASCAR
 - UFC etkinlikleri, dövüş kartları, dövüşçü profilleri ve sıralamalar
-- Basketbol, voleybol, kayak ve diğer branşların maç, lig ve takım görünümleri
+- Basketbol ve voleybol için branşa izole maç, lig ve takım görünümleri
 
 XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun istatistiksel girdisi ve karşılaştırma verisi olarak kullanılabilir. Para yatırma, kupon, bahis oynama veya ödeme akışı bulunmaz.
 
@@ -102,7 +99,7 @@ npm run build
 | Değişken | Amaç |
 | --- | --- |
 | `SPORTMONKS_API_TOKEN` | Futbol fikstürü, canlı skor ve istatistikler |
-| `API_SPORTS_KEY` | Basketbol, voleybol, hokey ve diğer branşlar |
+| `API_SPORTS_KEY` | Basketbol ve voleybol |
 | `CITO_API_KEY` | UFC etkinlik, dövüşçü, sıralama ve istatistik verileri |
 | `OCBLACKTOP_API_KEY` | Motor sporları takvim ve sonuç verileri |
 | `X_BEARER_TOKEN` | Maliyet kontrollü resmî X akışı |

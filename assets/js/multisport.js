@@ -2,14 +2,7 @@
   const SPORT_LABELS = {
     basketball: 'Basketbol',
     mma: 'UFC / MMA',
-    volleyball: 'Voleybol',
-    ski: 'Kayak',
-    hockey: 'Buz Hokeyi',
-    rugby: 'Rugby',
-    baseball: 'Beyzbol',
-    handball: 'Hentbol',
-    americanFootball: 'Amerikan Futbolu',
-    australianFootball: 'Avustralya Futbolu'
+    volleyball: 'Voleybol'
   };
 
   let feedPromise = null;
@@ -17,15 +10,14 @@
   let activeView = 'home';
   let activeLeague = 'all';
   const SPORT_LEAGUE_CATALOG = {
-    volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi'],
-    ski: ['Alp Disiplini Dünya Kupası', 'Kayakla Atlama Dünya Kupası', 'Kuzey Kombine', 'Serbest Stil Dünya Kupası']
+    volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi']
   };
 
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
-  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',ski:'kayak',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu',australianFootball:'avustralya-futbolu'}[sport] || 'basketbol');
+  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol'}[sport] || 'basketbol');
   const visualFallback = (name, sport = activeSport) => {
     const colors = {basketball:'#ff9d24',mma:'#ff405d',volleyball:'#20c997',ski:'#73cfff',hockey:'#55b8ff',rugby:'#d5b44c',baseball:'#ef5b5b',handball:'#ff7b3d',americanFootball:'#8fb3ff',australianFootball:'#e6c45b'};
     const initials = String(name || SPORT_LABELS[sport] || 'XYZ').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
@@ -54,7 +46,7 @@
 
   function routeState(){
     const parts = location.pathname.split('/').filter(Boolean);
-    const sport = ({basketbol:'basketball',voleybol:'volleyball',kayak:'ski','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball','avustralya-futbolu':'australianFootball'})[parts[0]];
+    const sport = ({basketbol:'basketball',voleybol:'volleyball'})[parts[0]];
     const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
     return sport ? {sport,view} : null;
   }
@@ -241,7 +233,7 @@
 
   async function load(){
     if(!feedPromise){
-      feedPromise = fetch('/api/sports/today?client=v8', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
+      feedPromise = fetch('/api/sports/today?client=v9', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');

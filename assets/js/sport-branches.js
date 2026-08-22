@@ -43,7 +43,7 @@
     }
     try {
       const payload = await (await fetch("/api/sports/today?client=v5", { cache: "no-store" })).json();
-      const events = payload?.sports?.[active] || [];
+      const events = (payload?.sports?.[active] || []).filter((item) => !item?.sport || item.sport === active);
       const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
       const ended = events.filter((item) => /finished|after|ended|ft/i.test(item.status || "")).length;
       const leagues = new Set(events.map((item) => item.league || item.category).filter(Boolean)).size;
