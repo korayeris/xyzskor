@@ -2126,12 +2126,15 @@ async function handleFootballMatchday(request, env, context) {
     const kickoff = Date.parse(fixture?.kickoff_utc || row?.starting_at || "");
     const distance = Number.isFinite(kickoff) ? kickoff - Date.now() : Infinity;
     const maxAge = distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
+    const activePeriod=details.periods.find((period)=>period?.ticking) || null;
+    const derivedStatus=fixture?.status || (activePeriod ? "canlı" : null);
+    const derivedMinute=Number.isFinite(Number(activePeriod?.minutes)) ? Number(activePeriod.minutes) : fixture?.minute ?? null;
     const body = {
       source: "Sportmonks Football API",
       provider: "sportmonks",
       updatedAt: new Date().toISOString(),
       degraded: Boolean(providerResult?.degraded),
-      fixture: { ...fixture, score: { home: scoreFor(home), away: scoreFor(away) } },
+      fixture: { ...fixture, status:derivedStatus, minute:derivedMinute, score: { home: scoreFor(home), away: scoreFor(away) } },
       details
     };
     const response=jsonResponse(body, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=30` });
