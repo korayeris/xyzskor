@@ -1770,7 +1770,7 @@ function normalizeSportmonksFixtureDetails(fixture) {
 
 async function sportmonksFixtureRequest(path, token) {
   const includeSets = [
-    "participants;scores;league.country;state;events.type;events.player;lineups.player;lineups.position;statistics.type;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
+    "participants;scores;league.country;state;events.type;events.player;lineups.player;lineups.detailedposition;lineups.details.type;statistics.type;venue;periods;formations;referees.referee;weatherReport;sidelined.player",
     "participants;scores;league;state;events;lineups.player;statistics.type;venue;periods;formations",
     "participants;scores;league;state",
   ];
@@ -2096,21 +2096,23 @@ async function handleFootballSeason(request, env, context) {
   }
 }
 
-async function handleFootballMatchday(request, env) {
+async function handleFootballMatchday(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
   const fixtureId = String(new URL(request.url).searchParams.get("fixture") || "").replace(/^sportmonks:/, "");
   if (!/^\d+$/.test(fixtureId)) return jsonResponse({ error: "invalid_fixture" }, 400, { "Cache-Control": "no-store" });
+  const cache=edgeCache();
+  const cacheKey=new Request(new URL(`/api/football/matchday-cache/${fixtureId}`,request.url),{method:"GET"});
+  const staleKey=new Request(new URL(`/api/football/matchday-stale/${fixtureId}`,request.url),{method:"GET"});
+  const cached=await readEdgeCache(cache,cacheKey);
+  if(isUsableJsonCache(cached)) return cached;
 
   try {
-    const [providerResult, predictions] = await Promise.all([
-      sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token),
-      sportmonksFixturePredictions(fixtureId, token).catch(()=>[]),
-    ]);
+    const providerResult = await sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token);
     const row = providerResult?.payload?.data || providerResult?.payload || {};
     const fixture = normalizeProviderFixture(row, "sportmonks");
-    const details = { ...normalizeSportmonksFixtureDetails(row), predictions };
+    const details = normalizeSportmonksFixtureDetails(row);
     const participants = relationRows(row.participants);
     const home = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "home") || participants[0] || {};
     const away = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "away") || participants[1] || {};
@@ -2124,16 +2126,24 @@ async function handleFootballMatchday(request, env) {
     const kickoff = Date.parse(fixture?.kickoff_utc || row?.starting_at || "");
     const distance = Number.isFinite(kickoff) ? kickoff - Date.now() : Infinity;
     const maxAge = distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
-    const teamContexts = await Promise.all([fetchFixtureTeamContext(home, fixtureId, token), fetchFixtureTeamContext(away, fixtureId, token)]);
-    return jsonResponse({
+    const body = {
       source: "Sportmonks Football API",
       provider: "sportmonks",
       updatedAt: new Date().toISOString(),
       degraded: Boolean(providerResult?.degraded),
       fixture: { ...fixture, score: { home: scoreFor(home), away: scoreFor(away) } },
-      details: { ...details, teamContexts:teamContexts.filter(Boolean) }
-    }, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=15` });
+      details
+    };
+    const response=jsonResponse(body, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=30` });
+    writeEdgeCache(cache,cacheKey,response,context);
+    writeEdgeCache(cache,staleKey,jsonResponse(body,200,{"Cache-Control":"public, max-age=14400, s-maxage=14400"}),context);
+    return response;
   } catch (error) {
+    const stale=await readEdgeCache(cache,staleKey);
+    if(isUsableJsonCache(stale)) {
+      const body=await stale.json().catch(()=>null);
+      if(body) return jsonResponse({...body,stale:true,degraded:true,reason:"provider_unavailable"},200,{"Cache-Control":"public, max-age=30, s-maxage=30","X-Data-Stale":"true"});
+    }
     return jsonResponse({ error: "matchday_fetch_failed", message: safeErrorMessage(error), provider: "sportmonks" }, 502, { "Cache-Control": "no-store" });
   }
 }
@@ -3089,7 +3099,7 @@ export default {
     if (url.pathname === "/api/football/x-preseason") return handleXPreseasonFeed(request, env, context);
     if (url.pathname === "/api/football/coverage") return handleFootballCoverage(request, env, context);
     if (url.pathname === "/api/media/youtube") return handleYouTubeMedia(request, env, context);
-    if (url.pathname === "/api/football/matchday") return handleFootballMatchday(request, env);
+    if (url.pathname === "/api/football/matchday") return handleFootballMatchday(request, env, context);
     if (url.pathname === "/api/football/prediction") return handleFootballPrediction(request, env);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
     const matchResource = parseMatchFixtureId(url.pathname);

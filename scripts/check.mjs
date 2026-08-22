@@ -235,7 +235,7 @@ assert.match(workerSource, /env\.YOUTUBE_API_KEY/, 'YouTube API anahtarı yalnı
 assert.match(workerSource, /s-maxage=5400/, 'YouTube aramaları kota dostu sunucu önbelleği kullanmalı.');
 assert.match(workerSource, /\/api\/media\/youtube/, 'Doğrulanmış YouTube medya ucu bulunmalı.');
 assert.match(workerSource, /env\.SPORTMONKS_API_TOKEN/, 'Sportmonks token yalnız sunucu ortamından okunmalı.');
-assert.match(workerSource, /sportmonksFixturePredictions\(fixtureId, token\)\.catch\(\(\)=>\[\]\)/, 'Prediction sağlayıcısı aksadığında temel maç merkezi çalışmaya devam etmeli.');
+assert.doesNotMatch(workerSource.match(/async function handleFootballMatchday[\s\S]*?\n}\n\nfunction normalizeLive/)?.[0] || '', /fetchFixtureTeamContext|sportmonksFixturePredictions/, 'Maç merkezi tek yenilemede ek Sportmonks çağrıları üretmemeli.');
 assert.match(workerSource, /function safeErrorMessage\(error\)/, 'Sağlayıcı hataları Worker istisnasına dönüşmeden güvenli JSON mesajına çevrilmeli.');
 assert.match(workerSource, /\/api\/football\/club/, 'Kulüp merkezi için Sportmonks sunucu adaptörü bulunmalı.');
 assert.match(workerSource, /lineups\.player/, 'Son resmî ilk 11 oyuncu ilişkisi Sportmonks sorgusuna dahil edilmeli.');
