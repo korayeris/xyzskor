@@ -207,6 +207,18 @@ const YOUTUBE_QUERY_BY_LEAGUE = Object.freeze({
   "europa-league":"Avrupa Ligi OR Europa League",
   all:"futbol",
 });
+const YOUTUBE_RELEVANCE_BY_LEAGUE = Object.freeze({
+  "super-lig":["süper lig","super lig","galatasaray","fenerbahçe","fenerbahce","beşiktaş","besiktas","trabzonspor"],
+  "premier-league":["premier league","arsenal","liverpool","manchester city","manchester united","chelsea","tottenham","newcastle"],
+  "la-liga":["la liga","laliga","real madrid","barcelona","atletico","atlético","sevilla","valencia"],
+  bundesliga:["bundesliga","bayern","dortmund","leverkusen","leipzig","frankfurt","stuttgart"],
+  "serie-a":["serie a","inter","milan","juventus","napoli","roma","lazio","atalanta","fiorentina"],
+  all:["futbol","football","soccer"],
+});
+function youtubeTitleMatchesLeague(title, league) {
+  const normalized = String(title || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("tr-TR");
+  return (YOUTUBE_RELEVANCE_BY_LEAGUE[league] || YOUTUBE_RELEVANCE_BY_LEAGUE.all).some((term) => normalized.includes(String(term).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("tr-TR")));
+}
 const SPORTMONKS_TEAM_SEARCH = Object.freeze({
   Alanyaspor:"Alanyaspor", "Amed Sportif Faaliyetler":"Amed SK", Beşiktaş:"Besiktas", "Çaykur Rizespor":"Rizespor", "Çorum FK":"Corum FK", "Erzurumspor FK":"Erzurumspor", Eyüpspor:"Eyupspor", Fenerbahçe:"Fenerbahce", Galatasaray:"Galatasaray", "Gaziantep FK":"Gaziantep", Gençlerbirliği:"Genclerbirligi", Göztepe:"Goztepe", Başakşehir:"Istanbul Basaksehir", Kasımpaşa:"Kasimpasa", Kocaelispor:"Kocaelispor", Konyaspor:"Konyaspor", Samsunspor:"Samsunspor", Trabzonspor:"Trabzonspor"
 });
@@ -1074,8 +1086,9 @@ async function fetchYouTubeMedia(apiKey, league) {
       url: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
     };
   }).filter((item) => item.id && item.thumbnail);
-  items.sort((a, b) => Number(b.live) - Number(a.live) || Number(b.upcoming) - Number(a.upcoming) || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
-  return { source: "youtube-data-api-v3", league, query, updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: items.slice(0, 8) };
+  const scopedItems = items.filter((item) => youtubeTitleMatchesLeague(item.title, league));
+  scopedItems.sort((a, b) => Number(b.live) - Number(a.live) || Number(b.upcoming) - Number(a.upcoming) || new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+  return { source: "youtube-data-api-v3", league, query, updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: scopedItems.slice(0, 8) };
 }
 
 async function handleYouTubeMedia(request, env, context) {

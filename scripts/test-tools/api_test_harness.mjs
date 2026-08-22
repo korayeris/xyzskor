@@ -327,8 +327,8 @@ async function main() {
   }
   {
     const { status, body } = await run('youtube-success', '/api/media/youtube', ALL_SECRETS_ENV, (u) => {
-      if (u.pathname === '/youtube/v3/search') return jsonUpstream({ items: [{ id: { videoId: 'abc123' }, snippet: { title: 'Test Video', channelTitle: 'Test Kanal', publishedAt: '2026-08-01T00:00:00Z', thumbnails: { high: { url: 'https://img.example/test.jpg' } } } }] });
-      if (u.pathname === '/youtube/v3/videos') return jsonUpstream({ items: [{ id: 'abc123', snippet: { title: 'Test Video', thumbnails: { high: { url: 'https://img.example/test.jpg' } } }, contentDetails: { duration: 'PT5M' } }] });
+      if (u.pathname === '/youtube/v3/search') return jsonUpstream({ items: [{ id: { videoId: 'abc123' }, snippet: { title: 'Futbol Test Videosu', channelTitle: 'Test Kanal', publishedAt: '2026-08-01T00:00:00Z', thumbnails: { high: { url: 'https://img.example/test.jpg' } } } }] });
+      if (u.pathname === '/youtube/v3/videos') return jsonUpstream({ items: [{ id: 'abc123', snippet: { title: 'Futbol Test Videosu', thumbnails: { high: { url: 'https://img.example/test.jpg' } } }, contentDetails: { duration: 'PT5M' } }] });
       return null;
     });
     assertEqual(status, 200, 'youtube success -> 200');

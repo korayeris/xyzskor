@@ -1502,9 +1502,14 @@ function renderFootballTransfers(){
   if(activeFootballLeague!=='all'){
     const label=competitionLabelBySlug(activeFootballLeague);
     const rows=leagueTransferRecords('confirmed').slice(0,6);
-    area.innerHTML=rows.length
-      ? `<div class="transfer-compact-list">${rows.map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`
-      : `<div class="league-module-waiting"><strong>${escapeHTML(label)} transfer akışı hazırlanıyor</strong><p>Transfer ve söylenti kapsaması bağlandığında ana liste dolar; o sırada canlı kaynak sinyalleri aşağıda akmaya devam eder.</p></div>${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
+    const lead=rows[0];
+    const nextMatch=matchesForActiveLeague().filter(match=>matchInActiveTeam(match)&&matchIsCurrentFixture(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
+    const leadMarkup=lead
+      ? `<article class="transfer-visual-lead"><div class="transfer-visual-media">${transferPlayerPhotoHTML(lead)}<span>${crestHTML(lead.from,'sm')}${crestHTML(lead.to,'sm')}</span></div><div class="transfer-visual-copy"><small>DOĞRULANMIŞ TRANSFER</small><h3>${escapeHTML(lead.name)}</h3><p>${escapeHTML(lead.from)} <b>→</b> ${escapeHTML(lead.to)}</p><strong>${escapeHTML(lead.fee)}</strong></div></article>`
+      : nextMatch
+        ? `<article class="transfer-visual-lead fixture-focus"><div class="transfer-visual-media"><span>${crestHTML(nextMatch.ev,'md')}${crestHTML(nextMatch.konuk,'md')}</span></div><div class="transfer-visual-copy"><small>${escapeHTML(label)} · SIRADAKİ MAÇ</small><h3>${escapeHTML(nextMatch.ev)} – ${escapeHTML(nextMatch.konuk)}</h3><p>${escapeHTML(fmtEditorialDate(nextMatch.kickoff))}</p><strong>Sportmonks doğrulandı</strong></div></article>`
+        : `<div class="league-module-waiting"><strong>${escapeHTML(label)} gündemi hazırlanıyor</strong><p>Yalnız doğrulanmış lig kayıtları yayınlanır.</p></div>`;
+    area.innerHTML=`${leadMarkup}${rows.length>1?`<div class="transfer-compact-list">${rows.slice(1,5).map(item=>`<div class="transfer-compact-row">${transferPlayerPhotoHTML(item)}<span>${escapeHTML(item.name)}</span><small>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</small><b>${escapeHTML(item.fee)}</b></div>`).join('')}</div>`:''}${signalShellMarkup}<button class="football-module-full-link" type="button" onclick="openFootballSection('transfers')">Transfer merkezini aç →</button>`;
     renderTransferSignals(area.querySelector('[data-transfer-signals]'));
     return;
   }
@@ -1657,7 +1662,7 @@ async function renderInstagramFeed(){
   }
 }
 
-function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderPreseasonSocial(); renderEditorialNews(); renderYouTubeMedia(); renderInstagramFeed(); renderFootballDataViews(); startTransferCountdown(); }
+function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderEditorialNews(); renderYouTubeMedia(); renderInstagramFeed(); renderFootballDataViews(); startTransferCountdown(); }
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
@@ -2250,7 +2255,6 @@ function renderSkeletons(){
   fillSkeleton('footballStandingsCompact',skeletonRowsHTML(4));
   fillSkeleton('footballTransferStream',skeletonRowsHTML(3));
   fillSkeleton('clubSocialStage',skeletonCardsHTML(3,'club-social-skeleton'));
-  fillSkeleton('preseasonSocialStage',skeletonCardsHTML(3,'club-social-skeleton'));
   fillSkeleton('youtubeMediaGrid',skeletonCardsHTML(3,'youtube-skeleton-card'));
   fillSkeleton('instagramFeedGrid',skeletonCardsHTML(3,'instagram-skeleton-card'));
   fillSkeleton('editorialLeadNews',skeletonRowsHTML(2));

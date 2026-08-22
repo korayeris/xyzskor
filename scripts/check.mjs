@@ -194,8 +194,8 @@ assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden 
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
 assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/football\/x-media'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
-assert.match(functionSource('loadPreseasonPosts'), /fetch\('\/api\/football\/x-preseason'/, 'Hazırlık maçı akışı güncel lig kapsamlı uçtan alınmalı.');
-assert.match(appCss, /\.preseason-social-stage\{[^}]*grid-template-columns:1fr!important[^}]*overflow-y:auto/, 'Hazırlık maçı gönderileri tek kolon halinde aşağı doğru akmalı.');
+assert.doesNotMatch(html, /id="preseasonSocialSection"/i, 'Hazırlık maçı sosyal akışı ana sayfadan kaldırılmış kalmalı.');
+assert.doesNotMatch(html, /Güvenli Beta/i, 'Güvenli Beta bandı görünür sayfadan kaldırılmış kalmalı.');
 assert.match(appCss, /\.transfer-signal-stream\{[^}]*grid-auto-flow:row[^}]*overflow-y:auto/, 'X sinyal kaynakları okunaklı dikey akış kullanmalı.');
 assert.match(functionSource('boot'), /parseAppLocation[\s\S]*activeFootballLeague[\s\S]*await loadAllData\(\)/, 'Doğrudan lig URL’si veri yüklenmeden önce seçilmeli.');
 assert.match(dataSource, /payload\.league!==leagueKey/, 'Sportmonks sezon cevabı istenen lig anahtarıyla doğrulanmalı.');
@@ -340,11 +340,11 @@ try {
     }
     if (url.includes('googleapis.com/youtube/v3/search')) {
       const channelId = new URL(url).searchParams.get('channelId') || 'unknown';
-      return Response.json({ items:[{ id:{videoId:`video-${channelId.slice(-6)}`}, snippet:{title:`Program ${channelId.slice(-4)}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}} }] });
+      return Response.json({ items:[{ id:{videoId:`video-${channelId.slice(-6)}`}, snippet:{title:`Futbol Programı ${channelId.slice(-4)}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}} }] });
     }
     if (url.includes('googleapis.com/youtube/v3/videos')) {
       const ids=(new URL(url).searchParams.get('id')||'').split(',').filter(Boolean);
-      return Response.json({items:ids.map(id=>({id,snippet:{title:`Program ${id}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}},contentDetails:{duration:'PT12M5S'}}))});
+      return Response.json({items:ids.map(id=>({id,snippet:{title:`Futbol Programı ${id}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}},contentDetails:{duration:'PT12M5S'}}))});
     }
     if (xCreditsDepleted) return Response.json({ error:'credits_depleted' }, { status:402 });
     if (url.includes('/2/users/by?')) {
