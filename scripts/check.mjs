@@ -539,8 +539,8 @@ assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 
 assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');
-assert.match(appCss, /v176[\s\S]*grid-template-areas:"main live" "lower lower"/, 'Futbol ana sayfasi mac programini onceleyen iki seviyeli duzeni kullanmali.');
-assert.match(appCss, /v177[\s\S]*minmax\(400px,420px\)[\s\S]*max-width:1180px/, 'Futbol panelleri dar alanda sikismak yerine tek kolona gecmeli.');
+assert.match(appCss, /v176[\s\S]*grid-template-areas:"main" "lower"/, 'Futbol ana sayfasi kaldirilan hizli mac rayina yer ayirmamali.');
+assert.match(appCss, /v177[\s\S]*grid-template-columns:minmax\(0,1fr\)!important[\s\S]*max-width:1180px/, 'Futbol ana icerigi genis alani kullanip dar ekranda tek kolonda kalmali.');
 assert.match(matchdayLiveSource, /statisticLabels[\s\S]*Korner[\s\S]*Topa sahip olma/, 'Fixture istatistik etiketleri Turkce sunulmali.');
 assert.match(matchdayLiveSource, /matchday-jump[\s\S]*matchdayEvents[\s\S]*matchdayStatistics[\s\S]*matchdayLineups/, 'Fixture detayi olay, istatistik ve kadro hizli gezinmesini sunmali.');
 assert.match(appCss, /v178[\s\S]*matchday-jump[\s\S]*minmax\(380px,.75fr\)/, 'Fixture detay panelleri dengeli ve responsive yerlesmeli.');
