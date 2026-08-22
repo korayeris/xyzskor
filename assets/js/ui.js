@@ -2567,12 +2567,13 @@ function renderFootballNews(){
     const apiEntries=editorialNewsEntries().filter(isHeadline);
     const primary=apiEntries[0] || contextualEditorialEntries().find(isHeadline);
     if(!primary){
-      area.innerHTML=footballEmpty('Gündem yükleniyor','Canlı haber API’sindeki yeni manşet geldiğinde burada yayınlanacak.');
+      const label=competitionLabelBySlug(activeFootballLeague);
+      area.innerHTML=`<article class="transfer-visual-lead league-focus"><div class="transfer-visual-media"><span class="transfer-league-mark">${escapeHTML((SELECTED_COMPETITIONS.find(item=>item.key===activeFootballLeague)?.short||label).slice(0,4))}</span></div><div class="transfer-visual-copy"><small>${escapeHTML(label)} · LİG GÜNDEMİ</small><h3>Doğrulanmış manşet bekleniyor</h3><p>Kaynaklı haber geldiğinde bu görsel kart otomatik güncellenir.</p><strong>Kaynak gelmeden bilgi üretilmez</strong></div></article>`;
       return;
     }
-    const image=primary.image?`<span class="editorial-highlight-image ${primary.imageType==='portrait'?'portrait':'photo'}"><img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.editorial-highlight-image').remove()"></span>`:'<span class="editorial-highlight-mark">●</span>';
-    area.innerHTML=`<article class="football-news-card" tabindex="0" role="button" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="football-news-identity"><div class="football-news-byline"><b>${escapeHTML(primary.label||'Son dakika')}</b><span>${escapeHTML(primary.source||'Canlı haber API')}</span></div>${image}</div><h3>${escapeHTML(primary.title)}</h3>${primary.text?`<p>${escapeHTML(primary.text)}</p>`:''}<div class="football-news-meta"><span>API’den güncel</span>${primary.time?`<span>${escapeHTML(primary.time.includes('T')?fmtEditorialDate(primary.time):primary.time)}</span>`:''}</div></article><button class="football-module-full-link" type="button" onclick="openFootballSection('news')">Tüm gündemi aç →</button>`;
-    const card=area.querySelector('.football-news-card');
+    const image=primary.image?`<img src="${escapeHTML(primary.image)}" alt="${escapeHTML(primary.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span class="transfer-league-mark">●</span>';
+    area.innerHTML=`<article class="transfer-visual-lead news-focus" tabindex="0" role="button" aria-label="${escapeHTML(primary.title)} haberini aç"><div class="transfer-visual-media">${image}</div><div class="transfer-visual-copy"><small>${escapeHTML(primary.label||'SON DAKİKA')} · ${escapeHTML(primary.source||'Kaynaklı yayın')}</small><h3>${escapeHTML(primary.title)}</h3>${primary.text?`<p>${escapeHTML(primary.text)}</p>`:''}<strong>${primary.time?escapeHTML(primary.time.includes('T')?fmtEditorialDate(primary.time):primary.time):'Güncel kayıt'}</strong></div></article><button class="football-module-full-link" type="button" onclick="openFootballSection('news')">Tüm gündemi aç →</button>`;
+    const card=area.querySelector('.transfer-visual-lead');
     if(card){ card.onclick=()=>openFootballSection('news'); card.onkeydown=event=>{ if(event.key==='Enter'||event.key===' '){event.preventDefault();openFootballSection('news');} }; }
   };
 
