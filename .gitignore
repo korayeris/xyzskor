@@ -14,3 +14,6 @@ dist/
 .sites/
 node_modules/
 scripts/test-tools/artifacts/
+reports/screenshots/responsive/
+transfer-patches/
+docs/technical-audit-2026-08-21/
