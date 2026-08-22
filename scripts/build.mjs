@@ -104,7 +104,7 @@ await cp(resolve(root, ".openai", "hosting.json"), resolve(dist, ".openai", "hos
 
 // Sites, mevcut olmayan yol isteklerini ana sayfaya yönlendirir. Bu yüzden
 // paylaşılabilir ürün ve lig URL'lerini fiziksel giriş sayfaları olarak üretiriz.
-const leagues = ["super-lig", "la-liga", "premier-league", "all"];
+const leagues = ["super-lig", "la-liga", "premier-league", "bundesliga", "serie-a", "all"];
 const leagueSections = ["matches", "agenda", "clubs", "transfers", "standings"];
 const routeDirectories = ["predict", "basketbol", "basketbol/maclar", "basketbol/ligler", "basketbol/takimlar", "basketbol/predict", "ufc", "ufc/live", "ufc/events", "ufc/fighters", "ufc/rankings", "ufc/bouts", "ufc/maclar", "ufc/ligler", "ufc/predict", "voleybol", "voleybol/ligler", "motorsports", "motorsports/formula-1", "motorsports/formula-e", "motorsports/indycar", "motorsports/motogp", "motorsports/moto2", "motorsports/moto3", "motorsports/wrc", "motorsports/wec", "motorsports/le-mans", "motorsports/nascar", ...leagues.flatMap((league) => [
   league,

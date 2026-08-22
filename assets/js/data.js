@@ -150,9 +150,11 @@ const SELECTED_COMPETITIONS = [
   { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
   { key:'premier-league', label:'Premier League', short:'EPL', sportmonksId:'8' },
   { key:'la-liga', label:'La Liga', short:'La Liga', sportmonksId:'564' },
+  { key:'bundesliga', label:'Bundesliga', short:'Bundesliga', sportmonksId:'82' },
+  { key:'serie-a', label:'Serie A', short:'Serie A', sportmonksId:'384' },
   // UCL ve UEL yapılandırmaları aşağıda korunuyor; özel paket yeniden
   // etkinleştirilene kadar navigasyon ve toplu API sorgularına dahil edilmiyor.
-  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,564,8' }
+  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,8,564,82,384' }
 ];
 const FOOTBALL_COVERAGE_CACHE_MS = 60 * 60 * 1000;
 const FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS = 30 * 1000;
@@ -199,11 +201,13 @@ async function loadFootballCoverage(){
   return footballCoverageRequest;
 }
 const LEAGUE_CONTEXT = {
-  all:{headline:'3 lig genel görünümü',copy:'Süper Lig, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
+  all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Premier League, La Liga, Bundesliga ve Serie A verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
   'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'Süper Lig puan durumu',transfer:'Süper Lig transfer gelişmeleri'},
   'champions-league':{headline:'Şampiyonlar Ligi hafta vitrini',copy:'Turnuvanın maç akışı, puan tablosu, kulüp gündemi ve öne çıkan bağlamı aynı alanda sunulur.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'europa-league':{headline:'UEFA Avrupa Ligi hafta vitrini',copy:'UEFA Avrupa Ligi maçları, tablo, kulüp akışı ve sezon bağlamı tek akışta izlenir.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'la-liga':{headline:'La Liga hafta vitrini',copy:'İspanya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},
+  bundesliga:{headline:'Bundesliga hafta vitrini',copy:'Almanya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'Bundesliga gündemi',standings:'Bundesliga puan durumu',transfer:'Bundesliga transfer gelişmeleri'},
+  'serie-a':{headline:'Serie A hafta vitrini',copy:'İtalya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'Serie A gündemi',standings:'Serie A puan durumu',transfer:'Serie A transfer gelişmeleri'},
   'premier-league':{headline:'Premier League hafta vitrini',copy:'İngiltere ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası tek düzende toplanır.',agenda:'Premier League gündemi',standings:'Premier League puan durumu',transfer:'Premier League transfer gelişmeleri'}
 };
 const OFFICIAL_SEASON_SUMMARIES = Object.freeze({
@@ -377,6 +381,14 @@ const X_CLUBS_BY_LEAGUE = Object.freeze({
     ['Brighton','OfficialBHAFC'],['Bournemouth','afcbournemouth'],['Crystal Palace','CPFC'],['Everton','Everton'],
     ['Fulham','FulhamFC'],['West Ham United','WestHam'],['Brentford','BrentfordFC'],['Wolverhampton Wanderers','Wolves'],
     ['Leeds United','LUFC'],['Sunderland','SunderlandAFC'],['Burnley','BurnleyOfficial'],['Hull City','HullCity']
+  ]),
+  bundesliga: makeXClubList([
+    ['Bayern München','FCBayern'],['Borussia Dortmund','BVB'],['Bayer Leverkusen','bayer04fussball'],['RB Leipzig','RBLeipzig'],
+    ['Eintracht Frankfurt','Eintracht'],['VfB Stuttgart','VfB'],['Werder Bremen','werderbremen'],['Freiburg','scfreiburg']
+  ]),
+  'serie-a': makeXClubList([
+    ['Inter','Inter'],['Milan','acmilan'],['Juventus','juventusfc'],['Napoli','sscnapoli'],
+    ['Roma','OfficialASRoma'],['Lazio','OfficialSSLazio'],['Atalanta','Atalanta_BC'],['Fiorentina','acffiorentina']
   ])
 });
 

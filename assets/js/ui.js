@@ -2624,7 +2624,7 @@ function renderFootballNews(){
     renderPortalSponsorBase();
     const rail=document.getElementById('portalSponsorRail'); if(!rail) return;
     const predictUrl='https://xyzskor-tr.korayeris2002.chatgpt.site/predict/';
-    rail.innerHTML=`<a class="predict-ad predict-ad-skyscraper" href="${predictUrl}" target="_self"><span class="predict-ad-brand"><b>X</b><strong>XYZSKOR</strong><small>FOOTBALL INTELLIGENCE</small></span><span class="predict-ad-pill">🏆 UEFA Avrupa Ligi çekilişi</span><span class="predict-ad-copy"><strong>Skorunu tahmin et!</strong><small>Orijinal forma + 2x VIP maç bileti kazanma şansı.</small></span><span class="predict-ad-score"><small>Haftanın maçı</small><b>2</b><i>−</i><b>1</b></span><span class="predict-ad-cta">Hemen tahmin yap →</span><small class="predict-ad-legal">Katılım ücretsizdir. Bahis yoktur.</small></a>`;
+    rail.innerHTML=`<a class="predict-ad predict-ad-skyscraper" href="${predictUrl}" target="_self"><span class="predict-ad-brand"><b>X</b><strong>XYZSKOR</strong><small>FOOTBALL INTELLIGENCE</small></span><span class="predict-ad-pill">🏆 Haftanın maç challenge'ı</span><span class="predict-ad-copy"><strong>Skorunu tahmin et!</strong><small>Orijinal forma + 2x VIP maç bileti kazanma şansı.</small></span><span class="predict-ad-score"><small>Haftanın maçı</small><b>2</b><i>−</i><b>1</b></span><span class="predict-ad-cta">Hemen tahmin yap →</span><small class="predict-ad-legal">Katılım ücretsizdir. Bahis yoktur.</small></a>`;
   };
 
   function initSideWidgets(){

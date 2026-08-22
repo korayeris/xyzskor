@@ -3,7 +3,7 @@
   const params = new URLSearchParams(location.search);
   const requestedFixture = params.get("fixture");
   let fixtureId = String(requestedFixture || "").replace(/^sportmonks:/, "");
-  const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "all"]);
+  const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "bundesliga", "serie-a", "all"]);
   const pathLeague = String(location.pathname || "").replace(/^\/+|\/+$/g, "").split("/")[0];
   if (["basketbol", "voleybol", "ufc", "motorsports"].includes(pathLeague)) return;
   let activeMatchdayLeague = leagueRoutes.has(pathLeague) ? pathLeague : "super-lig";

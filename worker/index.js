@@ -1,7 +1,7 @@
 const STATIC_CACHE = "public, max-age=31536000, immutable";
 const HTML_CACHE = "public, max-age=0, must-revalidate";
 // assets/js/data.js içindeki aktif SELECTED_COMPETITIONS lig anahtarlarıyla
-// (super-lig, la-liga, premier-league) ve README'de listelenen
+// (super-lig, la-liga, premier-league, bundesliga, serie-a) ve README'de listelenen
 // ana sayfalarla senkron tutulmalıdır. "" kök path (/) için, "predict"/"football"
 // ürün alanları için, "legal" statik hukuki sayfalar için kullanılıyor.
 const KNOWN_APP_ROUTE_PREFIXES = new Set([
@@ -12,6 +12,8 @@ const KNOWN_APP_ROUTE_PREFIXES = new Set([
   "super-lig",
   "la-liga",
   "premier-league",
+  "bundesliga",
+  "serie-a",
 ]);
 // index.html barındırdığı mevcut inline onclick/style kullanımı nedeniyle
 // script-src/style-src şu an 'unsafe-inline' içeriyor. Bu, sayfayı bozmadan
@@ -79,6 +81,8 @@ const INSTAGRAM_HASHTAGS_BY_LEAGUE = Object.freeze({
   "europa-league": ["uefaeuropaleague"],
   "la-liga": ["laliga"],
   "premier-league": ["premierleague"],
+  bundesliga: ["bundesliga"],
+  "serie-a": ["seriea"],
 });
 const INSTAGRAM_HASHTAG_MEDIA_LIMIT = 12;
 const xFeedRefreshPromises = new Map();
@@ -118,6 +122,8 @@ const X_PUBLISHERS_BY_LEAGUE = Object.freeze({
     ["Premier League", "premierleague"],
     ["Sky Sports Premier League", "SkySportsPL"],
   ]),
+  bundesliga: makeXClubList([["Bayern München","FCBayern"],["Borussia Dortmund","BVB"],["Bayer Leverkusen","bayer04fussball"],["RB Leipzig","RBLeipzig"]]),
+  "serie-a": makeXClubList([["Inter","Inter"],["Milan","acmilan"],["Juventus","juventusfc"],["Napoli","sscnapoli"]]),
 });
 const X_CLUBS_BY_LEAGUE = Object.freeze({
   "super-lig": X_CLUBS,
@@ -146,6 +152,14 @@ const X_CLUBS_BY_LEAGUE = Object.freeze({
     ["Brighton", "OfficialBHAFC"], ["Bournemouth", "afcbournemouth"], ["Crystal Palace", "CPFC"], ["Everton", "Everton"],
     ["Fulham", "FulhamFC"], ["West Ham United", "WestHam"], ["Brentford", "BrentfordFC"], ["Wolverhampton Wanderers", "Wolves"],
     ["Leeds United", "LUFC"], ["Sunderland", "SunderlandAFC"], ["Burnley", "BurnleyOfficial"], ["Hull City", "HullCity"],
+  ]),
+  bundesliga: makeXClubList([
+    ["Bayern München","FCBayern"],["Borussia Dortmund","BVB"],["Bayer Leverkusen","bayer04fussball"],["RB Leipzig","RBLeipzig"],
+    ["Eintracht Frankfurt","Eintracht"],["VfB Stuttgart","VfB"],["Werder Bremen","werderbremen"],["Freiburg","scfreiburg"],
+  ]),
+  "serie-a": makeXClubList([
+    ["Inter","Inter"],["Milan","acmilan"],["Juventus","juventusfc"],["Napoli","sscnapoli"],
+    ["Roma","OfficialASRoma"],["Lazio","OfficialSSLazio"],["Atalanta","Atalanta_BC"],["Fiorentina","acffiorentina"],
   ]),
 });
 const PRESEASON_KEYWORDS = [
@@ -187,6 +201,8 @@ const YOUTUBE_QUERY_BY_LEAGUE = Object.freeze({
   "super-lig":"Süper Lig",
   "premier-league":"Premier League",
   "la-liga":"La Liga",
+  "bundesliga":"Bundesliga",
+  "serie-a":"Serie A",
   "champions-league":"Şampiyonlar Ligi OR Champions League",
   "europa-league":"Avrupa Ligi OR Europa League",
   all:"futbol",
@@ -198,12 +214,16 @@ const SELECTED_LEAGUE_IDS_BY_KEY = Object.freeze({
   "super-lig": ["600"],
   "la-liga": ["564"],
   "premier-league": ["8"],
-  all: ["600", "564", "8"],
+  bundesliga: ["82"],
+  "serie-a": ["384"],
+  all: ["600", "8", "564", "82", "384"],
 });
 const SELECTED_LEAGUE_NAMES_BY_KEY = Object.freeze({
   "super-lig": "Süper Lig",
   "la-liga": "LaLiga",
   "premier-league": "Premier League",
+  bundesliga: "Bundesliga",
+  "serie-a": "Serie A",
 });
 const SELECTED_LEAGUE_KEYS = new Set(Object.keys(SELECTED_LEAGUE_IDS_BY_KEY));
 const X_LEAGUE_KEYS = new Set(Object.keys(X_CLUBS_BY_LEAGUE));
@@ -2472,7 +2492,7 @@ export default {
     const url = new URL(request.url);
     const retiredSportRoutes = /^\/(kayak|buz-hokeyi|rugby|beyzbol|hentbol|amerikan-futbolu|avustralya-futbolu)(?:\/|$)/;
     if (retiredSportRoutes.test(url.pathname)) return Response.redirect(new URL("/", url), 308);
-    if (/^\/(super-lig|premier-league|la-liga|champions-league|europa-league)\/news\/?$/.test(url.pathname)) {
+    if (/^\/(super-lig|premier-league|la-liga|bundesliga|serie-a)\/news\/?$/.test(url.pathname)) {
       return Response.redirect(new URL(url.pathname.replace(/\/news\/?$/, "/agenda"), url), 308);
     }
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);

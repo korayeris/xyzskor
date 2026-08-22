@@ -285,7 +285,10 @@ async function main() {
   }
   {
     const { status, body } = await run('coverage-success', '/api/football/coverage', ALL_SECRETS_ENV, (u) => {
-      if (u.pathname === '/v3/my/leagues') return jsonUpstream({ data: [{ id: 600, name: 'Süper Lig' }, { id: 2, name: 'Champions League' }] });
+      if (u.pathname === '/v3/my/leagues') return jsonUpstream({ data: [
+        { id: 600, name: 'Süper Lig' }, { id: 8, name: 'Premier League' }, { id: 564, name: 'La Liga' },
+        { id: 82, name: 'Bundesliga' }, { id: 384, name: 'Serie A' }, { id: 2, name: 'Champions League' },
+      ] });
       if (u.pathname.startsWith('/v3/football/leagues/')) {
         const id = u.pathname.split('/').pop();
         return jsonUpstream({ data: { id: Number(id), name: 'Lig ' + id, currentseason: { id: 1, is_current: true } } });
@@ -294,12 +297,12 @@ async function main() {
       return null;
     });
     assertEqual(status, 200, 'coverage success -> 200');
-    assertEqual(body?.selected?.length, 3, 'coverage success -> 3 aktif lig probe edildi');
-    assertEqual(body?.selected?.filter((row) => row.available).length, 1, 'coverage success -> yalnız aktif ve abonelikte raporlanan ligler available=true');
-    assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 1, 'coverage success -> aktif liglerde /my/leagues bildirimi ayrı tutulur');
-    assertEqual(body?.subscribed, [{ leagueId:'2', name:'Champions League' }, { leagueId:'600', name:'Süper Lig' }], 'coverage success -> abonelikteki liglerin kimlik ve adları açıkça döner');
+    assertEqual(body?.selected?.length, 5, 'coverage success -> 5 aktif lig probe edildi');
+    assertEqual(body?.selected?.filter((row) => row.available).length, 5, 'coverage success -> abonelikte raporlanan beş aktif lig available=true');
+    assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 5, 'coverage success -> aktif liglerde /my/leagues bildirimi ayrı tutulur');
+    assertEqual(body?.subscribed?.length, 6, 'coverage success -> abonelikteki ligler gizlenmeden raporlanır');
     assertTrue(body?.selected?.filter((row) => row.subscriptionReported).every((row) => row.metadataAvailable === true), 'coverage success -> abonelikteki liglerin metadata probe sonucu raporlanır');
-    assertEqual(body?.selected?.filter((row) => row.reason === 'not_in_subscription').length, 2, 'coverage success -> abonelik dışı aktif liglerin nedeni açıkça raporlanır');
+    assertEqual(body?.selected?.filter((row) => row.reason === 'not_in_subscription').length, 0, 'coverage success -> tüm aktif ligler abonelik kapsamında');
     assertTrue(body?.selected?.every((row) => row.capabilities && typeof row.capabilities.fixtures === 'boolean'), 'coverage success -> lig yetenek matrisi döner');
   }
 

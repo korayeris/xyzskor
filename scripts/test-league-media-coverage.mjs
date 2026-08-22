@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 const worker=fs.readFileSync(new URL('../worker/index.js',import.meta.url),'utf8');
 const ui=fs.readFileSync(new URL('../assets/js/ui.js',import.meta.url),'utf8');
 
-for(const league of ['super-lig','premier-league','la-liga','champions-league','europa-league']){
+for(const league of ['super-lig','premier-league','la-liga','bundesliga','serie-a']){
   assert.match(worker,new RegExp(`"${league}"\\s*:`),`${league} için YouTube sorgusu bulunmalı`);
 }
 assert.match(worker,/youtube-stale-v2\/\$\{encodeURIComponent\(league\)\}/,'YouTube stale cache lig bazında ayrılmalı');
