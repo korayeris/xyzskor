@@ -286,12 +286,22 @@
     if (!response.ok) throw new Error(payload.message || payload.detail || payload.error || fallbackMessage);
     return payload;
   }
+  async function renderSeasonFallbackForFixture() {
+    const response=await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`,{headers:{Accept:"application/json"},cache:"no-store"});
+    const payload=await readApiJSON(response,"Temel fikstür verisi alınamadı.");
+    const fixture=rows(payload.matches).find((item)=>fixtureProviderId(item)===fixtureId);
+    if(!fixture) return false;
+    const seasonFixture={...fixture,score:fixture.score || fixture.result || {home:null,away:null}};
+    render({fixture:seasonFixture,details:{},degraded:true,updatedAt:payload.updatedAt || new Date().toISOString()});
+    sync.textContent="Temel fikstür gösteriliyor · ayrıntılar kota yenilenince tamamlanır";
+    return true;
+  }
   async function refresh() {
     clearTimeout(timer);
     try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); render(payload); }
     catch (_error) {
       if (currentFixture) sync.textContent = "Temel fikstür verisi · ayrıntılar kota yenilenince güncellenir";
-      else { sync.textContent = "Maç ayrıntıları alınamadı"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç ayrıntıları şu anda kullanılamıyor.</b><span>Fikstür listesinden başka bir maçı açabilirsin.</span></div>'; }
+      else if (!await renderSeasonFallbackForFixture().catch(()=>false)) { sync.textContent = "Maç ayrıntıları alınamadı"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç ayrıntıları şu anda kullanılamıyor.</b><span>Fikstür listesinden başka bir maçı açabilirsin.</span></div>'; }
     }
     timer = setTimeout(refresh, interval());
   }
