@@ -1091,6 +1091,33 @@ async function fetchYouTubeMedia(apiKey, league) {
   return { source: "youtube-data-api-v3", league, query, updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: scopedItems.slice(0, 8) };
 }
 
+function decodeXmlText(value) {
+  return String(value || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
+async function fetchYouTubeRssFallback(league) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), YOUTUBE_TIMEOUT_MS);
+  try {
+    const results = await Promise.allSettled(YOUTUBE_CHANNELS.map(async (channel) => {
+      const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channel.id)}`, { headers: { Accept: "application/atom+xml, application/xml;q=0.9" }, signal: controller.signal });
+      if (!response.ok) throw new Error(`YouTube RSS ${response.status}`);
+      const xml = await response.text();
+      return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((match) => {
+        const entry = match[1];
+        const id = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1] || "";
+        const title = decodeXmlText(entry.match(/<title>([\s\S]*?)<\/title>/)?.[1] || "");
+        return { id, title, channelTitle: channel.name, channelHandle: channel.handle, publishedAt: entry.match(/<published>([^<]+)<\/published>/)?.[1] || null, thumbnail: entry.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] || (id ? `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg` : ""), duration: null, live: false, upcoming: false, concurrentViewers: null, url: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}` };
+      });
+    }));
+    const items = results.flatMap((result) => result.status === "fulfilled" ? result.value : []).filter((item) => item.id && item.thumbnail && youtubeTitleMatchesLeague(item.title, league));
+    items.sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+    return { source: "youtube-channel-rss", league, query: YOUTUBE_QUERY_BY_LEAGUE[league] || YOUTUBE_QUERY_BY_LEAGUE.all, updated_at: new Date().toISOString(), refresh_seconds: 5400, channels: YOUTUBE_CHANNELS, items: items.slice(0, 8) };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function handleYouTubeMedia(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.YOUTUBE_API_KEY) return jsonResponse({ error: "youtube_not_configured", channels: YOUTUBE_CHANNELS }, 503, { "Cache-Control": "no-store" });
@@ -1125,6 +1152,15 @@ async function handleYouTubeMedia(request, env, context) {
         const payload = { ...legacyPayload, league, items: legacyPayload.items.filter((item) => youtubeTitleMatchesLeague(item?.title, league)).slice(0, 8) };
         const response = jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_CACHE, "X-Data-Stale": "true", Warning: '110 - "Response is stale"' });
         writeEdgeCache(cache, cacheKey, response, context);
+        return response;
+      }
+    }
+    if (error?.status !== 403) {
+      const payload = await fetchYouTubeRssFallback(league).catch(() => null);
+      if (payload) {
+        const response = jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_CACHE, "X-Data-Stale": "false", "X-Data-Source": "youtube-channel-rss" });
+        writeEdgeCache(cache, cacheKey, response, context);
+        writeEdgeCache(cache, staleKey, jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_STALE_CACHE }), context);
         return response;
       }
     }
