@@ -248,6 +248,8 @@
     if (Number.isFinite(parsedKickoff)) kickoff = parsedKickoff;
     const title = document.getElementById("matchdayTitle");
     const intro = title?.nextElementSibling;
+    const eyebrow = title?.previousElementSibling;
+    if (eyebrow) eyebrow.textContent = isLiveFixture(f) ? "LİGİN CANLI MAÇI" : "LİGİN SIRADAKİ MAÇI";
     if (title) title.textContent = `${homeName} - ${awayName}`;
     if (intro) intro.textContent = `${fixtureTimeLabel(f)} · Sportmonks tarafından doğrulanan maç verisi`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
