@@ -126,9 +126,14 @@ async function main() {
     assertEqual(body?.error, 'sportmonks_plan_restricted', 'live upstream 403 error code');
   }
   {
+    // 2026-08-22 mimari duzeltmesi: snapshot yokken upstream 500, ARTIK sahte
+    // "200 + bos matches" olarak maskelenmiyor (bu tam olarak handoff'un
+    // yasakladigi anti-pattern'di). Kalici snapshot yoksa acik 503 + makinece
+    // ayristirilabilir reason:"provider_unavailable" donuyor.
     const { status, body } = await run('live-500', '/api/football/live?league=super-lig', ALL_SECRETS_ENV, () => jsonUpstream({ message: 'boom' }, 500));
-    assertEqual(status, 200, 'live upstream 500 -> 200 degraded empty state');
+    assertEqual(status, 503, 'live upstream 500 (snapshot yok) -> 503 acik hata');
     assertEqual(body?.degraded, true, 'live upstream 500 degraded flag');
+    assertEqual(body?.reason, 'provider_unavailable', 'live upstream 500 reason kodu');
     assertEqual(body?.matches?.length, 0, 'live upstream 500 empty live list');
   }
 
