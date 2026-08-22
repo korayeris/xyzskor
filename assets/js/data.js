@@ -142,7 +142,7 @@ const LIVE_FEED_CONFIG = {
   functionName: 'football-live',
   scope: 'selected-leagues',
   seasonScope: 'selected-leagues-season',
-  refreshMs: 5000
+  refreshMs: 30000
 };
 const PROVIDER_SEASON_CACHE_MS = 120000;
 const PROVIDER_LIVE_FALLBACK = '/api/football';
@@ -150,9 +150,11 @@ const SELECTED_COMPETITIONS = [
   { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
   { key:'premier-league', label:'Premier League', short:'EPL', sportmonksId:'8' },
   { key:'la-liga', label:'La Liga', short:'La Liga', sportmonksId:'564' },
-  { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL', sportmonksId:'2' },
-  { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL', sportmonksId:'5' },
-  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
+  { key:'bundesliga', label:'Bundesliga', short:'Bundesliga', sportmonksId:'82' },
+  { key:'serie-a', label:'Serie A', short:'Serie A', sportmonksId:'384' },
+  // UCL ve UEL yapılandırmaları aşağıda korunuyor; özel paket yeniden
+  // etkinleştirilene kadar navigasyon ve toplu API sorgularına dahil edilmiyor.
+  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,8,564,82,384' }
 ];
 const FOOTBALL_COVERAGE_CACHE_MS = 60 * 60 * 1000;
 const FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS = 30 * 1000;
@@ -170,6 +172,9 @@ function footballCoverageState(leagueKey){
 function footballCoverageUnavailable(leagueKey){ return footballCoverageState(leagueKey)?.available===false; }
 function footballCoverageMessage(leagueKey){
   const label=competitionLabelBySlug(leagueKey);
+  const reason=footballCoverageState(leagueKey)?.reason;
+  if(reason==='season_unavailable') return `${label} abonelikte yer alıyor ancak aktif sezon henüz sağlayıcı tarafından yayınlanmadı.`;
+  if(reason==='fixtures_unavailable') return `${label} abonelikte yer alıyor ancak fikstür erişimi şu anda kullanılamıyor.`;
   return `${label} mevcut veri sağlayıcı aboneliğinde yer almıyor. Kapsam açıldığında doğrulanmış maç ve tablo verileri burada otomatik yayınlanacak.`;
 }
 async function loadFootballCoverage(){
@@ -182,7 +187,7 @@ async function loadFootballCoverage(){
       const payload=await response.json().catch(()=>null);
       if(!response.ok || !Array.isArray(payload?.selected)) throw new Error('coverage_unavailable');
       FOOTBALL_COVERAGE_CACHE={
-        leagues:new Map(payload.selected.map(row=>[String(row.league),{available:row.available===true,currentSeasonId:row.currentSeasonId||null}])),
+        leagues:new Map(payload.selected.map(row=>[String(row.league),{available:row.available===true,currentSeasonId:row.currentSeasonId||null,reason:row.reason||null,capabilities:row.capabilities||null}])),
         updatedAt:payload.updatedAt||null,
         expiresAt:Date.now()+FOOTBALL_COVERAGE_CACHE_MS
       };
@@ -196,11 +201,13 @@ async function loadFootballCoverage(){
   return footballCoverageRequest;
 }
 const LEAGUE_CONTEXT = {
-  all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
+  all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Premier League, La Liga, Bundesliga ve Serie A verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
   'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'Süper Lig puan durumu',transfer:'Süper Lig transfer gelişmeleri'},
   'champions-league':{headline:'Şampiyonlar Ligi hafta vitrini',copy:'Turnuvanın maç akışı, puan tablosu, kulüp gündemi ve öne çıkan bağlamı aynı alanda sunulur.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'europa-league':{headline:'UEFA Avrupa Ligi hafta vitrini',copy:'UEFA Avrupa Ligi maçları, tablo, kulüp akışı ve sezon bağlamı tek akışta izlenir.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'la-liga':{headline:'La Liga hafta vitrini',copy:'İspanya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'La Liga gündemi',standings:'La Liga puan durumu',transfer:'La Liga transfer gelişmeleri'},
+  bundesliga:{headline:'Bundesliga hafta vitrini',copy:'Almanya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'Bundesliga gündemi',standings:'Bundesliga puan durumu',transfer:'Bundesliga transfer gelişmeleri'},
+  'serie-a':{headline:'Serie A hafta vitrini',copy:'İtalya ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası birlikte gösterilir.',agenda:'Serie A gündemi',standings:'Serie A puan durumu',transfer:'Serie A transfer gelişmeleri'},
   'premier-league':{headline:'Premier League hafta vitrini',copy:'İngiltere ligi için maç akışı, puan durumu, kulüp gündemi ve transfer dosyası tek düzende toplanır.',agenda:'Premier League gündemi',standings:'Premier League puan durumu',transfer:'Premier League transfer gelişmeleri'}
 };
 const OFFICIAL_SEASON_SUMMARIES = Object.freeze({
@@ -374,6 +381,14 @@ const X_CLUBS_BY_LEAGUE = Object.freeze({
     ['Brighton','OfficialBHAFC'],['Bournemouth','afcbournemouth'],['Crystal Palace','CPFC'],['Everton','Everton'],
     ['Fulham','FulhamFC'],['West Ham United','WestHam'],['Brentford','BrentfordFC'],['Wolverhampton Wanderers','Wolves'],
     ['Leeds United','LUFC'],['Sunderland','SunderlandAFC'],['Burnley','BurnleyOfficial'],['Hull City','HullCity']
+  ]),
+  bundesliga: makeXClubList([
+    ['Bayern München','FCBayern'],['Borussia Dortmund','BVB'],['Bayer Leverkusen','bayer04fussball'],['RB Leipzig','RBLeipzig'],
+    ['Eintracht Frankfurt','Eintracht'],['VfB Stuttgart','VfB'],['Werder Bremen','werderbremen'],['Freiburg','scfreiburg']
+  ]),
+  'serie-a': makeXClubList([
+    ['Inter','Inter'],['Milan','acmilan'],['Juventus','juventusfc'],['Napoli','sscnapoli'],
+    ['Roma','OfficialASRoma'],['Lazio','OfficialSSLazio'],['Atalanta','Atalanta_BC'],['Fiorentina','acffiorentina']
   ])
 });
 
@@ -537,9 +552,19 @@ let STANDINGS = [];
 let WEEKLY_STORIES = {};
 let currentUser = null;
 let tickerHandle = null;
-let liveFeedHandle = null;
+let liveFeedHandle = null; // recursive setTimeout id (setInterval yerine; bkz. scheduleNextLivePoll)
 let liveFeedLoading = false;
-let LIVE_FEED = { matches:[], updatedAt:null, stale:false, error:null, loaded:false };
+let liveFeedAbortController = null; // lig degisiminde veya yeni poll basladiginda eski istek iptal edilir
+let liveFeedRequestSeq = 0; // gec gelen eski cevabin yeni skoru geri almasini engeller
+let liveFeedNextRefreshMs = 5000; // sunucunun nextRefreshInSeconds degeriyle guncellenir (adaptif takvim)
+let liveFeedVisibilityBound = false;
+const LIVE_MATCH_DETAIL_CACHE = new Map(); // fixtureId -> {events, statistics, fetchedAt}
+const LIVE_MATCH_DETAIL_TTL_MS = 8000; // /events uc cache TTL degeriyle hizali (bkz worker MATCH_EVENTS_CACHE)
+const LIVE_MATCH_DETAIL_PENDING = new Set();
+const LIVE_FEED_MIN_REFRESH_MS = 30000;
+const LIVE_FEED_MAX_REFRESH_MS = 300000;
+const LIVE_FEED_HIDDEN_REFRESH_MS = 120000; // sekme arka plandayken hizli polling yerine bu kullanilir
+let LIVE_FEED = { matches:[], updatedAt:null, stale:false, staleAgeSeconds:0, degraded:false, reason:null, error:null, loaded:false };
 let lastLoadError = null;
 let DATA_ERRORS = {};
 let activeWeek = 1;
@@ -780,10 +805,23 @@ async function primeServerLeaderboards(hafta){
     return false;
   }
 }
+let COMMON_DATA_CACHE = null;
+const COMMON_DATA_CACHE_MS = 5 * 60 * 1000;
+function loadCommonData(){
+  if(COMMON_DATA_CACHE && Date.now()-COMMON_DATA_CACHE.savedAt < COMMON_DATA_CACHE_MS) return COMMON_DATA_CACHE.promise;
+  const promise=Promise.all([
+    moduleQuery(sb.from('matches').select('*').order('kickoff'), 'matches'),
+    moduleQuery(sb.from('match_analysis').select('*'), 'match_analysis'),
+    moduleQuery(sb.from('results').select('*'), 'results'),
+    moduleQuery(sb.from('rewards').select('*'), 'rewards'),
+    moduleQuery(sb.from('league_standings').select('*').order('points',{ascending:false}), 'league_standings'),
+    moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
+  ]).catch(error=>{ COMMON_DATA_CACHE=null; throw error; });
+  COMMON_DATA_CACHE={savedAt:Date.now(),promise};
+  return promise;
+}
 async function loadAllData(){
   DATA_ERRORS = {};
-  SERVER_LEADERBOARDS = new Map();
-  serverLeaderboardMode = 'unknown';
   const scopedSuperLig = isStrictSuperLigScope();
   let session = null;
   try{
@@ -793,16 +831,12 @@ async function loadAllData(){
   await ensureSeasonFixtures();
   const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
   const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});
-  const [matches, analysisRows, ownProfiles, ownPredictions, results, rewards, standings, stories] = await Promise.all([
-    moduleQuery(sb.from('matches').select('*').order('kickoff'), 'matches'),
-    moduleQuery(sb.from('match_analysis').select('*'), 'match_analysis'),
+  const [commonData, ownProfiles, ownPredictions] = await Promise.all([
+    loadCommonData(),
     moduleQuery(ownProfileQuery, 'own_profile'),
-    moduleQuery(ownPredictionsQuery, 'own_predictions'),
-    moduleQuery(sb.from('results').select('*'), 'results'),
-    moduleQuery(sb.from('rewards').select('*'), 'rewards'),
-    moduleQuery(sb.from('league_standings').select('*').order('points',{ascending:false}), 'league_standings'),
-    moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
+    moduleQuery(ownPredictionsQuery, 'own_predictions')
   ]);
+  const [matches, analysisRows, results, rewards, standings, stories] = commonData;
   const providerBundle = await fetchProviderSeasonBundle(activeFootballLeague);
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];

@@ -7,7 +7,7 @@ Bu dosya gizli değer saklamaz. Şifre, API key, bearer token, service-role key 
 ## GitHub
 
 - Repo: `korayeris/xyzskor`
-- Aktif çalışma branch'i: `claude-development`
+- Geliştirme çalışmaları varsayılan dal yerine konu dallarında yürütülür.
 - Kullanım: kaynak kod, migration, dokümantasyon ve geliştirici ortak çalışma alanı.
 - Gizli bilgi kuralı: GitHub reposuna `.env`, token, API anahtarı veya service-role key yazılmaz.
 

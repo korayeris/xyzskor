@@ -7,6 +7,8 @@ create table if not exists public.prediction_reward_eligibilities (
   created_at timestamptz not null default now(), unique(user_id,period_month,tier)
 );
 alter table public.prediction_reward_eligibilities enable row level security;
+-- 2026-08-21: idempotent hale getirildi (policy zaten varsa yeniden olusturulmaz).
+drop policy if exists prediction_reward_eligibilities_own_read on public.prediction_reward_eligibilities;
 create policy prediction_reward_eligibilities_own_read on public.prediction_reward_eligibilities for select to authenticated using (user_id=auth.uid());
 grant select on public.prediction_reward_eligibilities to authenticated;
 

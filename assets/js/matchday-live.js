@@ -3,8 +3,9 @@
   const params = new URLSearchParams(location.search);
   const requestedFixture = params.get("fixture");
   let fixtureId = String(requestedFixture || "").replace(/^sportmonks:/, "");
-  const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "champions-league", "europa-league", "all"]);
+  const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "bundesliga", "serie-a", "all"]);
   const pathLeague = String(location.pathname || "").replace(/^\/+|\/+$/g, "").split("/")[0];
+  if (["basketbol", "voleybol", "ufc", "motorsports"].includes(pathLeague)) return;
   let activeMatchdayLeague = leagueRoutes.has(pathLeague) ? pathLeague : "super-lig";
   let kickoff = NaN;
   const root = document.getElementById("matchdayLiveRoot");
@@ -15,6 +16,7 @@
   let currentFixture = null;
   let currentStatsXg = [];
   let selectedPredictionPick = "";
+  let serverRefreshSeconds = 0;
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
@@ -38,6 +40,26 @@
     backButton.hidden = !active;
     if (!active) clearTimeout(timer);
   }
+  const detailSectionIds = new Set(["matchdayEvents", "matchdayStatistics", "matchdayLineups"]);
+  function detailSectionHref(sectionId) {
+    const url = new URL(location.pathname || "/", location.origin);
+    url.search = location.search;
+    url.hash = detailSectionIds.has(sectionId) ? sectionId : "";
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+  function scrollToDetailSection(sectionId, updateUrl = false) {
+    if (!detailSectionIds.has(sectionId)) return false;
+    const target = document.getElementById(sectionId);
+    if (!target) return false;
+    if (updateUrl) history.replaceState(history.state, "", detailSectionHref(sectionId));
+    requestAnimationFrame(() => target.scrollIntoView({ block: "start", behavior: "smooth" }));
+    return true;
+  }
+  function restoreDetailHash() {
+    const sectionId = String(location.hash || "").replace(/^#/, "");
+    if (!detailSectionIds.has(sectionId)) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollToDetailSection(sectionId)));
+  }
   const backButton = document.createElement("button");
   backButton.type = "button";
   backButton.className = "matchday-back";
@@ -50,7 +72,7 @@
     event.preventDefault();
     location.assign("/?view=home");
   }));
-  function interval() { if (!Number.isFinite(kickoff)) return 300000; const delta = kickoff - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < kickoff + 4 * 3600000 ? 10000 : 300000; }
+  function interval() { if (!Number.isFinite(kickoff)) return 300000; const delta = kickoff - Date.now(); return delta > 75 * 60000 ? 300000 : delta > 15 * 60000 ? 60000 : Date.now() < kickoff + 4 * 3600000 ? 60000 : 300000; }
   function fixtureKickoff(fixture) { return fixture?.kickoff_utc || fixture?.kickoff || fixture?.starting_at || ""; }
   function fixtureNames(fixture) { return { home:String(fixture?.home_name || fixture?.ev || fixture?.home?.name || ""), away:String(fixture?.away_name || fixture?.konuk || fixture?.away?.name || "") }; }
   function fixtureProviderId(fixture) { return String(fixture?.provider_fixture_id || fixture?.fixture_id || fixture?.provider_id || fixture?.id || "").replace(/^sportmonks:/, ""); }
@@ -63,9 +85,49 @@
     const valid = rows(fixtures).filter((fixture) => /^\d+$/.test(fixtureProviderId(fixture)) && Number.isFinite(Date.parse(fixtureKickoff(fixture))));
     const live = valid.filter((fixture) => isLiveFixture(fixture, now)).sort((a, b) => Date.parse(fixtureKickoff(a)) - Date.parse(fixtureKickoff(b)));
     if (live.length) return live[0];
+    const inPlayWindow = valid.filter((fixture) => {
+      const start=Date.parse(fixtureKickoff(fixture)), status=String(fixture.status || "").toLocaleLowerCase("tr-TR");
+      return start<=now && now<start+4*3600000 && !finishedStatuses.has(status) && !["iptal","ertelendi","cancelled","postponed"].includes(status);
+    }).sort((a,b)=>Date.parse(fixtureKickoff(b))-Date.parse(fixtureKickoff(a)));
+    if (inPlayWindow.length) return { ...inPlayWindow[0], status:"canlı", minute:Math.max(1,Math.min(120,Math.floor((now-Date.parse(fixtureKickoff(inPlayWindow[0])))/60000))) };
     const upcoming = valid.filter((fixture) => Date.parse(fixtureKickoff(fixture)) > now && !["iptal", "ertelendi"].includes(String(fixture.status || "").toLocaleLowerCase("tr-TR"))).sort((a, b) => Date.parse(fixtureKickoff(a)) - Date.parse(fixtureKickoff(b)));
     if (upcoming.length) return upcoming[0];
     return valid.filter((fixture) => Date.parse(fixtureKickoff(fixture)) <= now && (fixture.result || ["bitti", "ft", "aet", "pen"].includes(String(fixture.status || "").toLocaleLowerCase("tr-TR")))).sort((a, b) => Date.parse(fixtureKickoff(b)) - Date.parse(fixtureKickoff(a)))[0] || null;
+  }
+  function fixtureFromLiveMatch(match) {
+    if (!match) return null;
+    return {
+      id:match.id, ev:match.home?.name || "", konuk:match.away?.name || "",
+      kickoff:match.startedAt || "", status:match.status === "halftime" ? "devre_arasi" : match.status === "finished" ? "bitti" : "canlı",
+      minute:match.minute, added_time:match.addedTime ?? null,
+      home_logo:match.home?.logo || null, away_logo:match.away?.logo || null,
+      score:{ home:match.home?.score ?? null, away:match.away?.score ?? null },
+      competition:match.competition || "", provider_league_id:match.providerLeagueId || null,
+    };
+  }
+  function isLikelyInPlay(match) {
+    const status=String(match?.status || "").toLowerCase();
+    if (["live","halftime"].includes(status)) return true;
+    if (["finished","ft","aet","pen","cancelled","postponed"].includes(status)) return false;
+    const startedAt=Date.parse(match?.startedAt || ""), age=Date.now()-startedAt;
+    const hasScore=Number.isFinite(Number(match?.home?.score)) && Number.isFinite(Number(match?.away?.score));
+    return hasScore && Number.isFinite(startedAt) && age>=0 && age<=4*60*60*1000;
+  }
+  function liveMatchForLeague(matches) {
+    return rows(matches).find((match) => {
+      const leagueKey=String(match?.leagueKey || "");
+      const competition=String(match?.competition || "").toLocaleLowerCase("tr-TR");
+      const inferredKey=competition.includes("super") ? "super-lig" : competition.includes("premier") ? "premier-league" : competition.includes("la liga") ? "la-liga" : competition.includes("bundesliga") ? "bundesliga" : competition.includes("serie a") ? "serie-a" : "";
+      return (activeMatchdayLeague === "all" || leagueKey === activeMatchdayLeague || (!leagueKey && inferredKey === activeMatchdayLeague)) && isLikelyInPlay(match);
+    }) || null;
+  }
+  async function promoteLiveMatch(match, updatedAt) {
+    const liveFixture=fixtureFromLiveMatch(match); if(!liveFixture) return false;
+    const nextId=fixtureProviderId(liveFixture), changed=nextId && nextId!==fixtureId;
+    fixtureId=nextId; kickoff=Date.parse(fixtureKickoff(liveFixture));
+    render({fixture:liveFixture,details:{},degraded:false,updatedAt:updatedAt || new Date().toISOString()});
+    if(changed) await refresh();
+    return true;
   }
   function teamAbbreviation(name) {
     const words = String(name || "").trim().split(/\s+/u).filter(Boolean);
@@ -150,6 +212,8 @@
   function renderMatchPrediction(fixture, predictions, homeName, awayName) {
     const result = predictions.find((row) => Number(row.type_id) === 237)?.predictions || {};
     const closed = isFinishedFixture(fixture) || Date.now() >= Date.parse(fixtureKickoff(fixture)) - 15 * 60000;
+    const hasProviderProbabilities=[result.home,result.draw,result.away].some((value)=>Number.isFinite(Number(value)));
+    if(closed && !hasProviderProbabilities) return '<section class="matchday-user-predict matchday-user-predict--closed"><header><div><span>XYZSKOR PREDICT</span><h3>Tahmin süresi kapandı</h3><p>Maç başladıktan sonra boş sağlayıcı olasılıkları gösterilmez.</p></div><b>ÜCRETSİZ · BAHİS YOK</b></header></section>';
     const percentage = (value) => Number.isFinite(Number(value)) ? `${Number(value).toLocaleString("tr-TR", { maximumFractionDigits:1 })}%` : "Veri bekleniyor";
     return `<section class="matchday-user-predict" id="matchdayUserPredict"><header><div><span>XYZSKOR PREDICT</span><h3>Bu maç için tahminini yap</h3><p>SportMonks olasılıklarını incele, kendi 1 / X / 2 seçimini kaydet.</p></div><b>ÜCRETSİZ · BAHİS YOK</b></header><div class="matchday-provider-picks" aria-label="SportMonks maç sonucu olasılıkları"><button type="button" data-pick="1" ${closed ? "disabled" : ""}><small>1 · ${esc(homeName)}</small><strong>${esc(percentage(result.home))}</strong></button><button type="button" data-pick="X" ${closed ? "disabled" : ""}><small>X · Beraberlik</small><strong>${esc(percentage(result.draw))}</strong></button><button type="button" data-pick="2" ${closed ? "disabled" : ""}><small>2 · ${esc(awayName)}</small><strong>${esc(percentage(result.away))}</strong></button></div>${closed ? '<div class="matchday-predict-closed">Tahmin süresi maçtan 15 dakika önce kapandı.</div>' : `<div class="matchday-predict-score"><label>Kesin skor <input id="matchdayScoreHome" type="number" min="0" max="99" inputmode="numeric" aria-label="${esc(homeName)} skor tahmini"></label><span>–</span><label><input id="matchdayScoreAway" type="number" min="0" max="99" inputmode="numeric" aria-label="${esc(awayName)} skor tahmini"></label><button type="button" id="matchdayPredictSave">Tahminimi kaydet</button></div>`}<div class="matchday-predict-status" id="matchdayPredictStatus" role="status" aria-live="polite"></div></section>`;
   }
@@ -207,12 +271,16 @@
     if (Number.isFinite(parsedKickoff)) kickoff = parsedKickoff;
     const title = document.getElementById("matchdayTitle");
     const intro = title?.nextElementSibling;
+    const eyebrow = title?.previousElementSibling;
+    if (eyebrow) eyebrow.textContent = isLiveFixture(f) ? "LİGİN CANLI MAÇI" : "LİGİN SIRADAKİ MAÇI";
     if (title) title.textContent = `${homeName} - ${awayName}`;
     if (intro) intro.textContent = `${fixtureTimeLabel(f)} · Sportmonks tarafından doğrulanan maç verisi`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
     const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
-    const homeFormation = formations[0]?.formation || formations[0]?.name || "";
-    const awayFormation = formations[1]?.formation || formations[1]?.name || "";
+    const homeFormationRow = formations.find((item)=>String(item?.location || "").toLowerCase()==="home") || formations.find((item)=>String(item?.participant_id || "")===String(f?.home_team_id || f?.home?.id || "")) || formations[0];
+    const awayFormationRow = formations.find((item)=>String(item?.location || "").toLowerCase()==="away") || formations.find((item)=>String(item?.participant_id || "")===String(f?.away_team_id || f?.away?.id || "")) || formations[1];
+    const homeFormation = homeFormationRow?.formation || homeFormationRow?.name || "";
+    const awayFormation = awayFormationRow?.formation || awayFormationRow?.name || "";
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
     const detailMode = Boolean(new URLSearchParams(location.search).get("fixture")) && params.get("view") !== "home";
@@ -222,10 +290,11 @@
       setDetailMode(false);
       return;
     }
-    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
+    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : isLiveFixture(f) ? "Skor yenileniyor" : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="${detailSectionHref("matchdayEvents")}" data-matchday-section="matchdayEvents">Olaylar <b>${events.length}</b></a><a href="${detailSectionHref("matchdayStatistics")}" data-matchday-section="matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="${detailSectionHref("matchdayLineups")}" data-matchday-section="matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
     root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderMatchPrediction(f,predictions,homeName,awayName)}<nav class="matchday-jump"`);
     if (teamContexts.length) root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderTeamContexts(teamContexts)}<nav class="matchday-jump"`);
     setDetailMode(true);
+    restoreDetailHash();
     hydrateOwnPrediction();
   }
   function renderEmpty() {
@@ -243,24 +312,45 @@
     if (!response.ok) throw new Error(payload.message || payload.detail || payload.error || fallbackMessage);
     return payload;
   }
+  async function renderSeasonFallbackForFixture() {
+    const response=await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`,{headers:{Accept:"application/json"},cache:"no-store"});
+    const payload=await readApiJSON(response,"Temel fikstür verisi alınamadı.");
+    const fixture=rows(payload.matches).find((item)=>fixtureProviderId(item)===fixtureId);
+    if(!fixture) return false;
+    const start=Date.parse(fixtureKickoff(fixture)), now=Date.now(), status=String(fixture.status || "").toLocaleLowerCase("tr-TR");
+    const inPlay=Number.isFinite(start) && start<=now && now<start+4*3600000 && !finishedStatuses.has(status) && !["iptal","ertelendi","cancelled","postponed"].includes(status);
+    const seasonFixture={...fixture,status:inPlay?"canlı":fixture.status,minute:inPlay?Math.max(1,Math.min(120,Math.floor((now-start)/60000))):fixture.minute,score:fixture.score || fixture.result || {home:null,away:null}};
+    render({fixture:seasonFixture,details:{},degraded:true,updatedAt:payload.updatedAt || new Date().toISOString()});
+    sync.textContent="Temel fikstür gösteriliyor · ayrıntılar kota yenilenince tamamlanır";
+    return true;
+  }
   async function refresh() {
     clearTimeout(timer);
-    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); render(payload); }
-    catch (_error) { sync.textContent = "Canlı bağlantı yeniden deneniyor"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>Bağlantı otomatik olarak yeniden denenecek.</span></div>'; }
-    timer = setTimeout(refresh, interval());
+    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); serverRefreshSeconds = Math.max(5, Math.min(604800, Number(payload.nextRefreshInSeconds) || 0)); render(payload); }
+    catch (_error) {
+      if (currentFixture) sync.textContent = "Temel fikstür verisi · ayrıntılar kota yenilenince güncellenir";
+      else if (!await renderSeasonFallbackForFixture().catch(()=>false)) { sync.textContent = "Maç ayrıntıları alınamadı"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç ayrıntıları şu anda kullanılamıyor.</b><span>Fikstür listesinden başka bir maçı açabilirsin.</span></div>'; }
+    }
+    timer = setTimeout(refresh, serverRefreshSeconds ? serverRefreshSeconds * 1000 : interval());
   }
   async function resolveFixture() {
     try {
+      const existingLive=typeof LIVE_FEED !== "undefined" ? liveMatchForLeague(LIVE_FEED.matches) : null;
+      if(existingLive && await promoteLiveMatch(existingLive,LIVE_FEED.updatedAt)) return;
       const response = await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`, { headers:{Accept:"application/json"}, cache:"no-store" });
       const payload = await readApiJSON(response, "Fikstür kısa süreliğine alınamadı.");
       const selected = selectFixture(payload.matches);
       if (!selected) { renderEmpty(); timer = setTimeout(resolveFixture, 300000); return; }
       fixtureId = fixtureProviderId(selected);
       kickoff = Date.parse(fixtureKickoff(selected));
+      // Sezon endpointi fikstur, takim, logo, saat ve sonucu zaten dogruluyor.
+      // Zengin detay endpointi kota sinirina takilsa bile ana mac kartini bosaltma.
+      const seasonFixture = { ...selected, score:selected.score || selected.result || { home:null, away:null } };
+      render({ fixture:seasonFixture, details:{}, degraded:true, updatedAt:payload.updatedAt || new Date().toISOString() });
       await refresh();
     } catch (_error) {
-      sync.textContent = "Canlı bağlantı yeniden deneniyor";
-      root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>Bağlantı otomatik olarak yeniden denenecek.</span></div>';
+      sync.textContent = "Fikstür servisine ulaşılamadı";
+      root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç programı şu anda alınamıyor.</b><span>Yukarıdaki maç şeridi ve lig tablosu kullanılabilir.</span></div>';
       timer = setTimeout(resolveFixture, 300000);
     }
   }
@@ -276,7 +366,17 @@
     root.innerHTML = '<div class="matchday-loading"><b>En yakın maç aranıyor.</b><span>Seçili ligin canlı veya yaklaşan fikstürü yükleniyor.</span></div>';
     resolveFixture();
   });
+  window.addEventListener("xyz:live-feed-updated", (event) => {
+    const live=liveMatchForLeague(event?.detail?.matches);
+    if(live) promoteLiveMatch(live,event?.detail?.updatedAt);
+  });
   root.addEventListener("click", (event) => {
+    const sectionLink = event.target.closest("[data-matchday-section]");
+    if (sectionLink) {
+      event.preventDefault();
+      scrollToDetailSection(sectionLink.dataset.matchdaySection, true);
+      return;
+    }
     const pickButton = event.target.closest(".matchday-provider-picks button[data-pick]");
     if (pickButton && !pickButton.disabled) {
       selectedPredictionPick = pickButton.dataset.pick || "";

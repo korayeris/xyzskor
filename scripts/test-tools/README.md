@@ -16,7 +16,7 @@ Playwright tarayici binary eksikse:
 npx playwright install chromium
 ```
 
-Codex runtime icinde Playwright zaten varsa scriptler otomatik olarak runtime paketini kullanir.
+Playwright proje bağımlılıklarında varsa test araçları paketi otomatik olarak kullanır.
 
 ## Komutlar
 
@@ -47,4 +47,3 @@ npm run qa:dist
 - `qa:match-center`: Canli mac merkezi refresh/cache davranisini test eder.
 - `qa:perf`: Mobil performansi CPU ve ag yavaslatma ile olcer.
 - `qa:dist`: Production build sonrasinda kritik sekme ve UI davranislarini kontrol eder.
-

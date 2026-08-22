@@ -5,7 +5,7 @@
 // gerÃ§ekÃ§i mock yanÄ±tlar dÃ¶ndÃ¼rÃ¼lÃ¼r â€” bÃ¶ylece "API var" ve "API yok"
 // senaryolarÄ±nÄ±n ikisi de test edilebilir.
 
-import { chromium } from './lib/playwright-loader.mjs';
+import { launchChromium } from './lib/playwright-loader.mjs';
 
 const BASE = 'http://127.0.0.1:4173';
 const MODE = process.argv[2] || 'nodata'; // 'nodata' | 'withdata'
@@ -29,7 +29,7 @@ const mockYouTube = {
 };
 
 async function main() {
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await launchChromium();
   const results = [];
 
   for (const viewport of [{ name: 'desktop', width: 1440, height: 900 }, { name: 'mobile', width: 390, height: 844 }]) {

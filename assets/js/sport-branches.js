@@ -3,29 +3,13 @@
     ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
-    ["ski", "Kayak", "/kayak/"],
     ["motorsports", "Motor Sporları", "/motorsports/"],
-    ["mma", "UFC", "/ufc/"],
-    ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"]
-  ];
-  const secondary = [
-    ["hockey", "Buz Hokeyi", "/buz-hokeyi/"],
-    ["rugby", "Rugby", "/rugby/"],
-    ["baseball", "Beyzbol", "/beyzbol/"],
-    ["handball", "Hentbol", "/hentbol/"],
-    ["australianFootball", "Avustralya Futbolu", "/avustralya-futbolu/"]
+    ["mma", "UFC", "/ufc/"]
   ];
   const routeMap = {
     basketbol: "basketball",
     ufc: "mma",
     voleybol: "volleyball",
-    kayak: "ski",
-    "buz-hokeyi": "hockey",
-    rugby: "rugby",
-    beyzbol: "baseball",
-    hentbol: "handball",
-    "amerikan-futbolu": "americanFootball",
-    "avustralya-futbolu": "australianFootball",
     motorsports: "motorsports"
   };
   const active = routeMap[location.pathname.split("/").filter(Boolean)[0]] || "football";
@@ -49,7 +33,7 @@
 
   async function refreshMetrics() {
     const hub = document.getElementById("multiSportHub");
-    if (!hub || active === "football" || active === "motorsports") return;
+    if (!hub || !["basketball", "volleyball"].includes(active)) return;
     let metrics = document.getElementById("multiSportMetrics");
     if (!metrics) {
       metrics = document.createElement("section");
@@ -58,8 +42,8 @@
       hub.querySelector(".multisport-switcher")?.before(metrics);
     }
     try {
-      const payload = await (await fetch("/api/sports/today?client=v5", { cache: "no-store" })).json();
-      const events = payload?.sports?.[active] || [];
+      const payload = await (await fetch(`/api/sports/today?sport=${encodeURIComponent(active)}&client=v10`, { cache: "no-store" })).json();
+      const events = (payload?.sports?.[active] || []).filter((item) => !item?.sport || item.sport === active);
       const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
       const ended = events.filter((item) => /finished|after|ended|ft/i.test(item.status || "")).length;
       const leagues = new Set(events.map((item) => item.league || item.category).filter(Boolean)).size;
@@ -74,18 +58,11 @@
     if (!header) return;
     const miniGame = document.getElementById("miniGoalGame");
     if (miniGame && active !== "football") miniGame.remove();
-    const activeSecondary = secondary.find(([key]) => key === active);
     const nav = document.createElement("nav");
     nav.className = "sport-branch-nav sport-branch-nav-compact";
     nav.setAttribute("aria-label", "Spor branslari");
     nav.innerHTML = `<div class="sport-branch-main">
       ${primary.map(([key, label, url]) => `<button class="sport-branch-button ${key === active ? "active" : ""}" data-branch="${key}" data-url="${url}">${label}</button>`).join("")}
-      <div class="sport-more-wrap">
-        <button class="sport-branch-button sport-more-button ${activeSecondary ? "active" : ""}" aria-expanded="false">${activeSecondary ? activeSecondary[1] : "Diger"}<span>+</span></button>
-        <div class="sport-more-menu" hidden>
-          ${secondary.map(([key, label, url]) => `<button class="sport-more-item ${key === active ? "active" : ""}" data-url="${url}">${label}</button>`).join("")}
-        </div>
-      </div>
       <button class="sport-branch-button sport-predict-button" data-action="predict">Predict</button>
     </div>`;
     header.after(nav);
@@ -98,16 +75,6 @@
       if (existing) existing.click();
       else location.assign("/predict/");
     });
-    const moreButton = nav.querySelector(".sport-more-button");
-    const menu = nav.querySelector(".sport-more-menu");
-    const close = () => { menu.hidden = true; moreButton.setAttribute("aria-expanded", "false"); };
-    moreButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      menu.hidden = !menu.hidden;
-      moreButton.setAttribute("aria-expanded", String(!menu.hidden));
-    });
-    document.addEventListener("click", close);
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
     refreshContextTicker();
     if (active !== "football" && active !== "motorsports") setTimeout(refreshMetrics);
   }

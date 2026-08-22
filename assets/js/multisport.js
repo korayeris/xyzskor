@@ -2,30 +2,23 @@
   const SPORT_LABELS = {
     basketball: 'Basketbol',
     mma: 'UFC / MMA',
-    volleyball: 'Voleybol',
-    ski: 'Kayak',
-    hockey: 'Buz Hokeyi',
-    rugby: 'Rugby',
-    baseball: 'Beyzbol',
-    handball: 'Hentbol',
-    americanFootball: 'Amerikan Futbolu',
-    australianFootball: 'Avustralya Futbolu'
+    volleyball: 'Voleybol'
   };
 
-  let feedPromise = null;
+  const feedPromises = new Map();
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
+  let hubRequestEpoch = 0;
   const SPORT_LEAGUE_CATALOG = {
-    volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi'],
-    ski: ['Alp Disiplini Dünya Kupası', 'Kayakla Atlama Dünya Kupası', 'Kuzey Kombine', 'Serbest Stil Dünya Kupası']
+    volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi']
   };
 
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
-  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol',ski:'kayak',hockey:'buz-hokeyi',rugby:'rugby',baseball:'beyzbol',handball:'hentbol',americanFootball:'amerikan-futbolu',australianFootball:'avustralya-futbolu'}[sport] || 'basketbol');
+  const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol'}[sport] || 'basketbol');
   const visualFallback = (name, sport = activeSport) => {
     const colors = {basketball:'#ff9d24',mma:'#ff405d',volleyball:'#20c997',ski:'#73cfff',hockey:'#55b8ff',rugby:'#d5b44c',baseball:'#ef5b5b',handball:'#ff7b3d',americanFootball:'#8fb3ff',australianFootball:'#e6c45b'};
     const initials = String(name || SPORT_LABELS[sport] || 'XYZ').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
@@ -54,16 +47,23 @@
 
   function routeState(){
     const parts = location.pathname.split('/').filter(Boolean);
-    const sport = ({basketbol:'basketball',voleybol:'volleyball',kayak:'ski','buz-hokeyi':'hockey',rugby:'rugby',beyzbol:'baseball',hentbol:'handball','amerikan-futbolu':'americanFootball','avustralya-futbolu':'australianFootball'})[parts[0]];
+    const sport = ({basketbol:'basketball',voleybol:'volleyball'})[parts[0]];
     const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
     return sport ? {sport,view} : null;
   }
 
   function closeHub(){
+    if(routeState()) { location.assign('/'); return; }
     document.body.classList.remove('multisport-open');
     const hub = document.getElementById('multiSportHub');
     if(hub) hub.hidden = true;
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.remove('active'));
+  }
+
+  function pruneFootballSurface(){
+    if(!routeState()) return;
+    ['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand'].forEach((id)=>document.getElementById(id)?.remove());
+    document.querySelectorAll('.next-match-ticker,.live-ticker').forEach((element)=>element.remove());
   }
 
   function teamCardHTML(team){
@@ -239,16 +239,22 @@
     grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : '<div class="multi-event-empty"><strong>Bu branşın son verileri hazırlanıyor.</strong><span>Yasal API kaynağı veri sunduğunda son gerçekleşen karşılaşmalar otomatik gösterilir.</span></div>';
   }
 
-  async function load(){
-    if(!feedPromise){
-      feedPromise = fetch('/api/sports/today?client=v8', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
+  async function load(sport){
+    const requestedSport=sport || activeSport;
+    if(!feedPromises.has(requestedSport)){
+      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v10`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');
+          const branchKeys=Object.keys(payload?.sports||{});
+          if(branchKeys.length!==1 || branchKeys[0]!==requestedSport) throw new Error('sports_branch_mismatch');
+          payload.sports[requestedSport]=(Array.isArray(payload.sports[requestedSport])?payload.sports[requestedSport]:[])
+            .filter((item)=>!item?.sport || item.sport===requestedSport);
           return payload;
-        }).catch((error) => { feedPromise = null; throw error; });
+        }).catch((error) => { feedPromises.delete(requestedSport); throw error; });
+      feedPromises.set(requestedSport,request);
     }
-    return feedPromise;
+    return feedPromises.get(requestedSport);
   }
 
   async function openHub(sport, view = 'home', updateUrl = true){
@@ -259,16 +265,27 @@
     if(sport && sport !== activeSport) activeLeague = 'all';
     activeSport = sport || activeSport;
     activeView = view;
+    const requestedSport = activeSport;
+    const requestedView = activeView;
+    const requestEpoch = ++hubRequestEpoch;
     if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
     document.body.classList.add('multisport-open');
+    updateBranchTicker([]);
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
     if(!hub || !grid) return;
     hub.hidden = false;
     grid.innerHTML = '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canli program hazirlaniyor</span></div>';
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.toggle('active', button.dataset.multiSport === activeSport));
-    try{ render(await load()); }
-    catch(_error){ grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>'; }
+    try{
+      const payload = await load(requestedSport);
+      if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
+      render(payload);
+    }
+    catch(_error){
+      if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
+      grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>';
+    }
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
@@ -301,6 +318,7 @@
       <nav class="multisport-view-nav" id="multiSportViews" aria-label="Branş bölümleri"></nav>
       <section class="multi-event-grid" id="multiSportGrid" aria-live="polite"></section>`;
     wrap.parentNode.insertBefore(hub, wrap);
+    pruneFootballSurface();
     hub.querySelectorAll('[data-multi-sport]').forEach((button) => button.addEventListener('click', () => openHub(button.dataset.multiSport,'home',true)));
     document.getElementById('tabBtnFootball')?.addEventListener('click', closeHub, true);
     document.getElementById('tabBtnPredict')?.addEventListener('click', closeHub, true);

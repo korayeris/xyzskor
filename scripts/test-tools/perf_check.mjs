@@ -1,7 +1,7 @@
 ﻿// Gercek mobil performans olcumu: CPU 4x yavaslatma + Fast 3G benzeri ag.
-import { chromium } from './lib/playwright-loader.mjs';
+import { launchChromium } from './lib/playwright-loader.mjs';
 
-const b = await chromium.launch({args:['--no-sandbox']});
+const b = await launchChromium();
 const ctx = await b.newContext({ viewport:{width:390,height:844}, userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1' });
 const page = await ctx.newPage();
 

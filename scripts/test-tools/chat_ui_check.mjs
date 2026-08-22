@@ -6,7 +6,7 @@
 const { dirname, join } = await import('node:path');
 const { fileURLToPath } = await import('node:url');
 const { mkdirSync } = await import('node:fs');
-import { chromium } from './lib/playwright-loader.mjs';
+import { launchChromium } from './lib/playwright-loader.mjs';
 const screenshotsDir = join(dirname(fileURLToPath(import.meta.url)), 'artifacts');
 mkdirSync(screenshotsDir, { recursive: true });
 
@@ -59,7 +59,7 @@ window.supabase = {
 `;
 
 async function run(label, { fake, viewport, loggedIn }) {
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await launchChromium();
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
   const errors = [];

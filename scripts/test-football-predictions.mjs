@@ -23,11 +23,21 @@ globalThis.fetch=async (input, init={})=>{
     if(settling) return Response.json({data:{...fixture,state:{short_name:'FT'},result_info:'Manchester City won.',scores:[{participant_id:9,description:'CURRENT',score:{goals:2}},{participant_id:19,description:'CURRENT',score:{goals:1}}]}});
     return Response.json({data:fixture});
   }
-  if(url.includes('/rest/v1/matches')) return Response.json([{id:'sportmonks:29999123'}]);
+  if(url.includes('/rest/v1/matches')) {
+    if((init.method || 'GET') === 'PATCH') return Response.json([{id:'sportmonks:29999123',status:'bitti'}]);
+    return Response.json([{id:'sportmonks:29999123'}]);
+  }
   if(url.includes('/rest/v1/predictions')) {
     if((init.method || 'GET') === 'POST') return Response.json([{pick:'1',score_home:2,score_away:1,submitted_at:'2026-08-19T00:00:00Z'}]);
     return Response.json([]);
   }
+  // NOT: production semasinda henuz challenge_week/reward migration backlog'u
+  // uygulanmadigi icin settlePendingFootballPredictions artik results/matches
+  // uzerinden ONCE kesinlesmis sonucu kalici olarak yazar (schema-safe finalize),
+  // ardindan odul/challenge RPC'sini firsatci olarak dener (bkz. worker/index.js
+  // 2026-08-22 audit notu).
+  if(url.includes('/rest/v1/results')) return Response.json([{match_id:'sportmonks:29999123',home:2,away:1}]);
+  if(url.includes('/rest/v1/provider_sync_runs')) return Response.json([]);
   if(url.includes('/rest/v1/rpc/settle_prediction_challenge_match')) return Response.json({settled:true,new_reward_claims:1});
   throw new Error(`Unexpected URL: ${url}`);
 };
@@ -64,6 +74,14 @@ assert.match(matchBody.challenge_week,/^\d{4}-\d{2}-\d{2}$/);
 settling=true;
 await worker.scheduled({},env,context);
 await scheduledPromise;
+const resultsWrite=calls.find((call)=>call.url.includes('/rest/v1/results') && call.init.method === 'POST');
+assert.ok(resultsWrite,'Doğrulanmış sonuç results tablosuna idempotent şekilde yazılmalı (schema-safe finalize).');
+assert.ok(resultsWrite.url.includes('on_conflict=match_id'),'Results upsert on_conflict=match_id ile idempotent olmalı.');
+assert.deepEqual(JSON.parse(resultsWrite.init.body).home,2);
+assert.deepEqual(JSON.parse(resultsWrite.init.body).away,1);
+const matchStatusWrite=calls.find((call)=>call.url.includes('/rest/v1/matches') && call.init.method === 'PATCH');
+assert.ok(matchStatusWrite,'Maç durumu bitti olarak PATCH edilmeli.');
+assert.equal(JSON.parse(matchStatusWrite.init.body).status,'bitti');
 const settleCall=calls.find((call)=>call.url.includes('/rest/v1/rpc/settle_prediction_challenge_match'));
 assert.ok(settleCall,'Finished challenge match should be settled by the scheduled worker.');
 assert.deepEqual(JSON.parse(settleCall.init.body),{p_match_id:'sportmonks:29999123',p_home:2,p_away:1});

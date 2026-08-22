@@ -80,6 +80,7 @@ const detailedRun = await runScenario({
 });
 assert.equal(detailedRun.elements.get('matchdayIntro').textContent, 'Maç tamamlandı · Sportmonks tarafından doğrulanan maç verisi', 'Tarihi eksik biten maç program bekleniyor dememeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-jump[\s\S]*Olaylar <b>1<\/b>[\s\S]*İstatistikler <b>2<\/b>/, 'Fixture ayrıntıları sayılı hızlı gezinme sunmalı.');
+assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /href="\/\?fixture=10001#matchdayLineups" data-matchday-section="matchdayLineups"/, 'Kadro bağlantısı fixture kimliğini korumalı; kök base URL yüzünden maçtan çıkmamalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-stat-comparison[\s\S]*Topa sahip olma[\s\S]*matchday-stat-bar[\s\S]*Korner/, 'Sağlayıcı istatistikleri öncelikli, Türkçe ve oranlı karşılaştırma çubuklarıyla sunulmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-team-logo[\s\S]*matchday-event-player[\s\S]*matchday-player-photo/, 'Takım ve oyuncu görselleri kadro sunumunda kullanılmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /Yanlış diziliş yerine resmî ilk 11 listeleniyor/, 'Eksik saha koordinatı uydurma diziliş üretmemeli.');

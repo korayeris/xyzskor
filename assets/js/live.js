@@ -157,8 +157,9 @@ async function loadFootballLeagueSelection(leagueKey){
   activeFootballLeague=requestedLeague;
   if(typeof window!=='undefined' && typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:football-league-change',{detail:{league:requestedLeague}}));
   activeFootballTeam='Tümü';
-  MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
-  if(typeof renderAll==='function') renderAll();
+  DATA_ERRORS={};
+  // Yeni lig yaniti gelene kadar mevcut DOM korunur. Onceki akis tum veriyi
+  // sifirlayip bos ekran render ettigi icin ag gecikmesini kullaniciya yansitiyordu.
   await loadFootballCoverage();
   if(activeFootballLeague!==requestedLeague) return false;
   if(footballCoverageUnavailable(requestedLeague)){
@@ -254,7 +255,7 @@ function renderTicker(){
   const completed=scoped.filter(m=>m.result||getResult(m.id)||m.status==='bitti').sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff)).slice(0,3).reverse();
   const upcoming=scoped.filter(m=>!m.result&&!getResult(m.id)&&new Date(m.kickoff).getTime()>now).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,6);
   const agenda=[...completed,...upcoming];
-  if(!agenda.length){ el.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">GÜNDEM MAÇLARI</span><span class="ticker-match">Seçili ligde yayınlanmış maç bulunmuyor</span>`; return; }
+  if(!agenda.length){ el.innerHTML = `<span class="ticker-match">Seçili ligde yayınlanmış maç bulunmuyor</span>`; return; }
   const logo=(src,name)=>safeLiveImage(src)?`<img src="${escapeHTML(src)}" alt="${escapeHTML(name)}" loading="lazy" onerror="this.remove()">`:'';
   const card=m=>{
     const result=m.result||getResult(m.id), finished=Boolean(result||m.status==='bitti');
@@ -264,7 +265,11 @@ function renderTicker(){
     const time=when.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
     return `<button class="agenda-match ${finished?'is-result':'is-upcoming'}" type="button" data-fixture-id="${escapeHTML(fixtureId)}" aria-label="${escapeHTML(m.ev)} ${escapeHTML(m.konuk)} maç merkezini aç"><span class="agenda-state">${finished?'MS':date}</span><span class="agenda-team">${logo(m.home_logo,m.ev)}<b>${escapeHTML(m.ev)}</b></span><strong class="agenda-score">${finished&&result?`${escapeHTML(result.home)}<i>–</i>${escapeHTML(result.away)}`:time}</strong><span class="agenda-team away">${logo(m.away_logo,m.konuk)}<b>${escapeHTML(m.konuk)}</b></span></button>`;
   };
-  el.innerHTML=`<div class="agenda-heading"><span class="ticker-dot"></span><b>GÜNDEM MAÇLARI</b><small>Son 3 · Yaklaşan 6</small></div><div class="agenda-track">${agenda.map(card).join('')}</div>`;
+  el.innerHTML=`<div class="agenda-track" aria-label="Sonuçlanan ve yaklaşan maçlar">${agenda.map(card).join('')}</div>`;
+  // Lig değişiminde önceki şeridin yatay konumu yeni lige taşınmamalı.
+  // Her lig aynı başlangıç noktasından açılır; kullanıcı isterse sonrasında kaydırır.
+  const agendaTrack=el.querySelector('.agenda-track');
+  if(agendaTrack) agendaTrack.scrollLeft=0;
 }
 
 /* ===================== CANLI VERİ SAĞLAYICI KATMANI ===================== */
@@ -336,10 +341,46 @@ function renderLiveStats(details, homeName, awayName){
   }).join('')}</div>`;
 }
 function renderLiveDetails(match){
-  const details = match && match.details || {};
+  const providedDetails = match && match.details;
+  const cached = typeof LIVE_MATCH_DETAIL_CACHE !== 'undefined' ? LIVE_MATCH_DETAIL_CACHE.get(match?.id) : null;
+  const details = providedDetails || cached || {};
   const homeName = match && match.home && match.home.name || '';
   const awayName = match && match.away && match.away.name || '';
+  // match.details dogrudan saglanmissa (ör. eski cagiran veya test harness)
+  // agdan tekrar cekmeye gerek yok. Production canli akisinda (bkz.
+  // handleFootballLive) details artik minimal ucta HIC gelmiyor; bu durumda
+  // ayri /events ve /statistics uclarindan lazy olarak doldurulur.
+  if(!providedDetails && typeof fetchLiveMatchDetailIfNeeded === 'function') fetchLiveMatchDetailIfNeeded(match?.id);
   return `<div class="matchday-grid live-details"><section class="matchday-card"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderLiveEvents(details)}</section><section class="matchday-card"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderLiveStats(details,homeName,awayName)}</section></div>`;
+}
+// Canlı kartın gol/kart/istatistik bölümü artık ana 5 saniyelik canlı uçtan
+// değil ayrı /events ve /statistics uçlarından (kendi cache TTL degerleriyle)
+// beslenir (bkz handoff madde 3, pahalı include zinciri hot path disina
+// tasindi). Sonuç
+// gelene kadar bir önceki bilinen değer (varsa) gösterilmeye devam eder;
+// hiçbir zaman uydurma veri gösterilmez, yalnızca "henüz yayınlanmadı" boş
+// durumu ile gerçek veri arasında geçiş yapılır.
+async function fetchLiveMatchDetailIfNeeded(fixtureId){
+  if(!fixtureId) return;
+  const cached = LIVE_MATCH_DETAIL_CACHE.get(fixtureId);
+  if(cached && Date.now()-cached.fetchedAt < LIVE_MATCH_DETAIL_TTL_MS) return;
+  if(LIVE_MATCH_DETAIL_PENDING.has(fixtureId)) return;
+  LIVE_MATCH_DETAIL_PENDING.add(fixtureId);
+  try{
+    const [eventsRes, statsRes] = await Promise.all([
+      fetch(`/api/football/matches/${encodeURIComponent(fixtureId)}/events`,{headers:{Accept:'application/json'},cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`/api/football/matches/${encodeURIComponent(fixtureId)}/statistics`,{headers:{Accept:'application/json'},cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null),
+    ]);
+    LIVE_MATCH_DETAIL_CACHE.set(fixtureId, {
+      events: Array.isArray(eventsRes?.events) ? eventsRes.events : (cached?.events || []),
+      statistics: Array.isArray(statsRes?.statistics) ? statsRes.statistics : (cached?.statistics || []),
+      fetchedAt: Date.now(),
+    });
+    // Sadece bu fixture su an ekranda goruntuleniyorsa yeniden ciz (gereksiz
+    // tam sayfa yenilemesini onler).
+    if(document.getElementById('page-story')?.classList.contains('active')) renderLiveFeed();
+  }catch(_error){ /* iyilestirici katman; ana canli akisi engellemez */ }
+  finally{ LIVE_MATCH_DETAIL_PENDING.delete(fixtureId); }
 }
 function renderLiveFeed(){
   const list = document.getElementById('liveScoreList');
@@ -378,7 +419,7 @@ function renderLiveFeed(){
         <div class="live-teams">
           <div class="live-team">${liveTeamMark(home)}<span>${escapeLiveHTML(home.name || 'Takım adı alınamadı')}</span><span class="live-score">${homeScore}</span></div>
           <div class="live-team">${liveTeamMark(away)}<span>${escapeLiveHTML(away.name || 'Takım adı alınamadı')}</span><span class="live-score">${awayScore}</span></div>
-          ${renderLiveDetails(match)}
+          ${(match.details?.events?.length || match.details?.statistics?.length) ? renderLiveDetails(match) : ''}
         </div>
         <div class="live-state"><span class="live-minute">${view.live?'<span class="live-dot"></span>':''}${view.badge}</span><span class="live-state-label">${view.detail}</span></div>
       </article>`;
@@ -409,27 +450,50 @@ async function refreshLiveProviderHealth(){
   }catch(_error){ state.textContent = 'Canlı sağlayıcı durumu doğrulanamadı'; }
 }
 async function loadLiveFeed(force){
-  if(liveFeedLoading) return;
   refreshLiveProviderLabel();
   liveFeedLoading = true;
   renderLiveFeed();
+  // Onceki istek hala devam ediyorsa iptal et (lig degisimi/hizli ardisik
+  // cagrilar); AbortController olmadan yaninda calisan eski bir istek daha
+  // gec donup daha yeni veriyi ezebilirdi.
+  if(liveFeedAbortController) liveFeedAbortController.abort();
+  liveFeedAbortController = typeof AbortController!=='undefined' ? new AbortController() : null;
+  const mySeq = ++liveFeedRequestSeq;
+  const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
   try{
-    const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
     let data = null;
     let error = null;
     try{
-      const response = await fetch(`/api/football/live?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+      const response = await fetch(`/api/football/live?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:liveFeedAbortController?.signal});
       const providerData = await response.json().catch(()=>null);
-      if(!response.ok || !providerData || !Array.isArray(providerData.matches)) throw new Error(providerData?.error || 'Sportmonks canlı veri yanıtı geçersiz.');
+      // 503/429/vb. artik acikca hata; ancak 200 disi bir yanit da (stale
+      // snapshot donen basarili yanitlar haric) gecerli matches iceriyorsa degerlendirilir.
+      if(!providerData || !Array.isArray(providerData.matches)) throw new Error(providerData?.error || providerData?.reason || 'Sportmonks canlı veri yanıtı geçersiz.');
+      if(!response.ok && !providerData.stale) throw Object.assign(new Error(providerData?.error || providerData?.reason || `HTTP ${response.status}`), { payload:providerData });
       data = providerData;
-    }catch(providerError){ error = providerError; }
-    if(error || !data || !Array.isArray(data.matches)){
+    }catch(providerError){
+      if(providerError?.name === 'AbortError') throw providerError; // iptal edilen istek: eski cevabi hic isleme
+      error = providerError;
+      if(providerError?.payload) data = providerError.payload; // acik hata govdesinde bile matches:[] varsa kullanilabilir
+    }
+    if((error && (!data || !Array.isArray(data.matches) || data.matches.length===0)) || !data || !Array.isArray(data.matches)){
+      // Worker uzerinden hic ulasilamadiginda (ag hatasi, DNS, vb) son care olarak
+      // Supabase Edge Function uzerine dus (bkz supabase/functions/football-live).
       const result = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
       if(result.error || !result.data || !Array.isArray(result.data.matches)) throw error || result.error || new Error('Canlı veri yanıtı geçersiz.');
       data = result.data;
     }
+    // Bu isteğin cevabı gelene kadar daha yeni bir poll başlamışsa (sıra
+    // numarası ilerlemişse) bu cevap ARTIK ESKİdir; durumu güncelleme.
+    if(mySeq !== liveFeedRequestSeq) return;
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
-    LIVE_FEED = { matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(), stale:!!data.stale, error:null, loaded:true };
+    LIVE_FEED = {
+      matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(),
+      stale:!!data.stale, staleAgeSeconds:Number.isFinite(data.staleAgeSeconds) ? data.staleAgeSeconds : 0,
+      degraded:!!data.degraded, reason:data.reason || null, error:null, loaded:true,
+    };
+    window.dispatchEvent(new CustomEvent('xyz:live-feed-updated',{detail:{league,matches:data.matches,updatedAt:LIVE_FEED.updatedAt,stale:LIVE_FEED.stale}}));
+    liveFeedNextRefreshMs = clampLiveRefreshMs(Number(data.nextRefreshInSeconds) * 1000);
     data.matches.forEach(liveMatch=>{
       const stored=MATCHES.find(match=>match.id===liveMatch.id); if(!stored) return;
       stored.status=liveMatch.status==='halftime'?'devre_arasi':(liveMatch.status==='live'?'canlı':(liveMatch.status==='finished'?'bitti':stored.status));
@@ -438,22 +502,75 @@ async function loadLiveFeed(force){
       }
     });
   }catch(error){
+    if(error?.name === 'AbortError') return; // eski (iptal edilmis) istek: state veya render dokunulmaz, finally sira kontrolunu yapar
+    if(mySeq !== liveFeedRequestSeq) return; // eski/iptal edilmis istegin hatasi da gormezden gelinir
     console.warn('[XYZSkor canlı veri]', error);
     LIVE_FEED = { ...LIVE_FEED, error:error && error.message ? error.message : 'Bağlantı hatası', loaded:true, stale:LIVE_FEED.matches.length>0 };
+    liveFeedNextRefreshMs = clampLiveRefreshMs(LIVE_FEED_CONFIG.refreshMs * 2); // hata sonrasi biraz yavaslat
   }finally{
-    liveFeedLoading = false;
-    renderLiveFeed();
-    renderFootballQuickMatches();
+    if(mySeq === liveFeedRequestSeq){
+      liveFeedLoading = false;
+      renderLiveFeed();
+      renderFootballQuickMatches();
+      scheduleNextLivePoll();
+    }
   }
 }
+function clampLiveRefreshMs(value){
+  if(!Number.isFinite(value) || value<=0) return LIVE_FEED_CONFIG.refreshMs;
+  return Math.min(LIVE_FEED_MAX_REFRESH_MS, Math.max(LIVE_FEED_MIN_REFRESH_MS, value));
+}
+// setInterval yerine cakismayan recursive setTimeout: onceki istek bitmeden
+// (ve sunucunun bildirdigi adaptif nextRefreshInSeconds degerine gore) yenisi
+// baslamaz. Sekme gizliyken veya cihaz cevrimdisiyken hic zamanlayici kurmaz.
+function scheduleNextLivePoll(){
+  if(liveFeedHandle) clearTimeout(liveFeedHandle);
+  if(typeof document!=='undefined' && document.hidden){ liveFeedHandle=null; return; } // gorunur olunca handleLiveVisibilityChange hemen tetikler
+  if(typeof navigator!=='undefined' && navigator.onLine===false){ liveFeedHandle=null; return; } // online eventi hemen tetikler
+  const delay = typeof document!=='undefined' && document.hidden ? LIVE_FEED_HIDDEN_REFRESH_MS : liveFeedNextRefreshMs;
+  liveFeedHandle = setTimeout(()=>loadLiveFeed(false), delay);
+}
+function handleLiveVisibilityChange(){
+  if(typeof document==='undefined') return;
+  if(document.hidden){
+    if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
+    return;
+  }
+  // Sekme tekrar gorunur oldu: hemen tazele (bekletilen adaptif sureyi bekleme).
+  if(document.getElementById('page-story')?.classList.contains('active')) loadLiveFeed(false);
+}
+function handleLiveOnlineChange(){
+  if(typeof navigator==='undefined') return;
+  if(navigator.onLine === false){
+    if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
+    return;
+  }
+  if(document.getElementById('page-story')?.classList.contains('active')) loadLiveFeed(false);
+}
+function bindLiveFeedLifecycleListeners(){
+  if(liveFeedVisibilityBound || typeof window==='undefined') return;
+  liveFeedVisibilityBound = true;
+  document.addEventListener('visibilitychange', handleLiveVisibilityChange);
+  window.addEventListener('online', handleLiveOnlineChange);
+  window.addEventListener('offline', handleLiveOnlineChange);
+  // Lig degisince eski lig icin bekleyen isteği iptal edip yeni lig icin
+  // hemen tazele; aksi halde eski ligin gec gelen cevabi kisa sure yeni
+  // liginmis gibi gorunebilirdi (bkz. loadFootballLeagueSelection).
+  window.addEventListener('xyz:football-league-change', ()=>{
+    if(liveFeedAbortController) liveFeedAbortController.abort();
+    if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
+    if(document.getElementById('page-story')?.classList.contains('active')) loadLiveFeed(false);
+  });
+}
 function startLiveFeed(){
+  bindLiveFeedLifecycleListeners();
   refreshLiveProviderLabel();
   refreshLiveProviderHealth();
   loadLiveFeed(false);
-  if(!liveFeedHandle) liveFeedHandle = setInterval(()=>loadLiveFeed(false), LIVE_FEED_CONFIG.refreshMs);
 }
 function stopLiveFeed(){
-  if(liveFeedHandle){ clearInterval(liveFeedHandle); liveFeedHandle=null; }
+  if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
+  if(liveFeedAbortController){ liveFeedAbortController.abort(); liveFeedAbortController=null; }
 }
 
 /* ===================== MAIN TAB SWITCH ===================== */

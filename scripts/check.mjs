@@ -177,7 +177,10 @@ assert.doesNotMatch(html, /id="footballNewsSection"/i, 'Ana sayfadaki Gündem ak
 assert.match(html, /id="footballTransferStream"/i, 'Futbol alanında kaynaklı transfer modülü bulunmalı.');
 assert.match(html, /id="footballStandingsCompact"/i, 'Futbol alanında puan durumu özeti bulunmalı.');
 assert.match(appCss, /#footballOverviewView \.standings-rail\{grid-column:2;grid-row:2\/4\}/i, 'Puan durumu ana sayfada kaldırılan gündem alanının yerini kullanmalı.');
-assert.match(appSource, /\{ key:'super-lig'[\s\S]*\{ key:'premier-league'[\s\S]*\{ key:'la-liga'[\s\S]*\{ key:'champions-league'[\s\S]*\{ key:'europa-league'/i, 'Lig seçimi Süper Lig, Premier League, La Liga, UCL ve UEL sırasını korumalı.');
+assert.match(appSource, /\{ key:'super-lig'[\s\S]*\{ key:'premier-league'[\s\S]*\{ key:'la-liga'[\s\S]*\{ key:'bundesliga'[\s\S]*\{ key:'serie-a'[\s\S]*\{ key:'all'/i, 'Lig seçimi beş ulusal ligi ve Tüm ligler sırasını korumalı.');
+assert.doesNotMatch(appSource, /SELECTED_COMPETITIONS\s*=\s*\[[\s\S]*?key:'(?:champions-league|europa-league)'[\s\S]*?\];/i, 'UCL ve UEL özel paket etkinleşene kadar aktif lig seçiminde görünmemeli.');
+assert.match(appSource, /agendaTrack\.scrollLeft=0/, 'Lig değişiminde gündem maçları şeridi başlangıç konumuna dönmeli.');
+assert.match(appCss, /\.live-ticker \.agenda-match\{[^}]*height:65px[^}]*flex:0 0 292px/i, 'Masaüstü maç şeridi ligler arasında sabit kart ölçüsü kullanmalı.');
 assert.match(functionSource('loadLiveFeed'), /fetch\(`\/api\/football\/live\?league=\$\{encodeURIComponent\(league\)\}`[\s\S]*sb\.functions\.invoke/s, 'Lig bazlı Sportmonks canlı Worker akışı birincil, Supabase fonksiyonu yedek olmalı.');
 assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/i, 'Futbol içinde maç, gündem, transfer ve puan durumu erişimi bulunmalı.');
 assert.match(html, /data-football-route="home"[^>]*>Anasayfa</i, 'Futbol portalının ayrı bir Anasayfa rotası bulunmalı.');
@@ -191,8 +194,8 @@ assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden 
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
 assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/football\/x-media'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
-assert.match(functionSource('loadPreseasonPosts'), /fetch\('\/api\/football\/x-preseason'/, 'Hazırlık maçı akışı güncel lig kapsamlı uçtan alınmalı.');
-assert.match(appCss, /\.preseason-social-stage\{[^}]*grid-template-columns:1fr!important[^}]*overflow-y:auto/, 'Hazırlık maçı gönderileri tek kolon halinde aşağı doğru akmalı.');
+assert.doesNotMatch(html, /id="preseasonSocialSection"/i, 'Hazırlık maçı sosyal akışı ana sayfadan kaldırılmış kalmalı.');
+assert.doesNotMatch(html, /Güvenli Beta/i, 'Güvenli Beta bandı görünür sayfadan kaldırılmış kalmalı.');
 assert.match(appCss, /\.transfer-signal-stream\{[^}]*grid-auto-flow:row[^}]*overflow-y:auto/, 'X sinyal kaynakları okunaklı dikey akış kullanmalı.');
 assert.match(functionSource('boot'), /parseAppLocation[\s\S]*activeFootballLeague[\s\S]*await loadAllData\(\)/, 'Doğrudan lig URL’si veri yüklenmeden önce seçilmeli.');
 assert.match(dataSource, /payload\.league!==leagueKey/, 'Sportmonks sezon cevabı istenen lig anahtarıyla doğrulanmalı.');
@@ -210,6 +213,7 @@ assert.match(workerSource, /cost_profile:\s*"daily-capped-safe-mode"/, 'X akış
 assert.match(workerSource, /expansions:\s*"attachments\.media_keys"/, 'X akışı gönderiye bağlı gerçek medyayı expansion ile istemeli.');
 assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image_url,width,height,alt_text"/, 'X medya görselleri, video kapakları ve erişilebilir açıklamaları istemeli.');
 assert.match(liveFunctionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
+assert.match(liveFunctionSource('xEmptyFeedHTML'), /club-social-empty[\s\S]*club-social-empty-accounts/, 'Boş X akışı büyük sahte kartlar yerine kompakt hesap özeti göstermeli.');
 assert.match(appCss, /club-social-card\.has-media \.club-social-copy\{height:82px;min-height:82px/, 'Masaüstü X kartlarında medya başlangıç çizgisi eşitlenmeli.');
 assert.match(appCss, /club-social-media\.items-3\{grid-template-columns:minmax\(0,1\.28fr\) minmax\(0,\.72fr\)/, 'Üç görselli X gönderisi dengeli bir ana görsel kompozisyonu kullanmalı.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
@@ -231,13 +235,14 @@ assert.match(workerSource, /env\.YOUTUBE_API_KEY/, 'YouTube API anahtarı yalnı
 assert.match(workerSource, /s-maxage=5400/, 'YouTube aramaları kota dostu sunucu önbelleği kullanmalı.');
 assert.match(workerSource, /\/api\/media\/youtube/, 'Doğrulanmış YouTube medya ucu bulunmalı.');
 assert.match(workerSource, /env\.SPORTMONKS_API_TOKEN/, 'Sportmonks token yalnız sunucu ortamından okunmalı.');
-assert.match(workerSource, /sportmonksFixturePredictions\(fixtureId, token\)\.catch\(\(\)=>\[\]\)/, 'Prediction sağlayıcısı aksadığında temel maç merkezi çalışmaya devam etmeli.');
+assert.doesNotMatch(workerSource.match(/async function handleFootballMatchday[\s\S]*?\n}\n\nfunction normalizeLive/)?.[0] || '', /fetchFixtureTeamContext|sportmonksFixturePredictions/, 'Maç merkezi tek yenilemede ek Sportmonks çağrıları üretmemeli.');
 assert.match(workerSource, /function safeErrorMessage\(error\)/, 'Sağlayıcı hataları Worker istisnasına dönüşmeden güvenli JSON mesajına çevrilmeli.');
 assert.match(workerSource, /\/api\/football\/club/, 'Kulüp merkezi için Sportmonks sunucu adaptörü bulunmalı.');
 assert.match(workerSource, /lineups\.player/, 'Son resmî ilk 11 oyuncu ilişkisi Sportmonks sorgusuna dahil edilmeli.');
 assert.match(workerSource, /Number\(row\?\.type_id\) === 11/, 'Yalnız resmî başlangıç oyuncuları ilk 11 olarak kullanılmalı.');
 assert.match(html, /id="clubProfilePanel"/, 'Kulüpler alanında ayrıntılı kulüp merkezi bulunmalı.');
 assert.match(functionSource('loadClubProfile'), /fetch\(`\/api\/football\/club/, 'Kulüp merkezi aynı alan adlı sunucu adaptörünü kullanmalı.');
+assert.match(documentHtmlRaw, /matchday-live\.js\?v=305/, 'Maç merkezi istemci değişiklikleri immutable tarayıcı önbelleğini kırmalı.');
 assert.match(functionSource('clubLineupHTML'), /İsim uydurulmuyor/, 'Sağlayıcı verisi yokken oyuncu ismi uydurulmamalı.');
 assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Stadyum kartı yol tarifi bağlantısı üretmeli.');
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
@@ -305,7 +310,8 @@ assert.match(html, /id="authClose"/, 'Auth penceresinde mobilde erişilebilir ka
 assert.match(functionSource('openAuth'), /authClose.*focus/, 'Auth açıldığında odak pencere içine taşınmalı.');
 assert.match(functionSource('renderTicker'), /escapeHTML\(m\.ev\).*escapeHTML\(m\.konuk\)/s, 'Fikstür takım adları ticker HTML’ine kaçışla yazılmalı.');
 assert.match(functionSource('renderTicker'), /slice\(0,3\)[\s\S]*slice\(0,6\)/, 'Gündem şeridi son 3 sonucu ve yaklaşan 6 maçı sınırlamalı.');
-assert.match(functionSource('renderTicker'), /data-fixture-id[\s\S]*GÜNDEM MAÇLARI/, 'Gündem kartları maç merkezine açılabilmeli.');
+assert.match(functionSource('renderTicker'), /data-fixture-id[\s\S]*agenda-track/, 'Üst maç şeridi kartları maç merkezine açılabilmeli.');
+assert.doesNotMatch(functionSource('renderTicker'), /<b>GÜNDEM MAÇLARI<\/b>/, 'Üst maç şeridi gereksiz başlık kutusu taşımamalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_HTML_START/, 'Production build gizli prototip HTML’ini ayıklamalı.');
 assert.match(buildScript, /PRODUCTION_STRIP_LEGACY_JS_START/, 'Production build örnek market verisini ayıklamalı.');
 assert.match(buildScript, /createHash\("sha256"\)/, 'Production HTML değişen CSS ve JavaScript varlıklarını otomatik sürümlemeli.');
@@ -337,11 +343,11 @@ try {
     }
     if (url.includes('googleapis.com/youtube/v3/search')) {
       const channelId = new URL(url).searchParams.get('channelId') || 'unknown';
-      return Response.json({ items:[{ id:{videoId:`video-${channelId.slice(-6)}`}, snippet:{title:`Program ${channelId.slice(-4)}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}} }] });
+      return Response.json({ items:[{ id:{videoId:`video-${channelId.slice(-6)}`}, snippet:{title:`Futbol Programı ${channelId.slice(-4)}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}} }] });
     }
     if (url.includes('googleapis.com/youtube/v3/videos')) {
       const ids=(new URL(url).searchParams.get('id')||'').split(',').filter(Boolean);
-      return Response.json({items:ids.map(id=>({id,snippet:{title:`Program ${id}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}},contentDetails:{duration:'PT12M5S'}}))});
+      return Response.json({items:ids.map(id=>({id,snippet:{title:`Futbol Programı ${id}`,channelTitle:'Doğrulanmış Kanal',publishedAt:'2026-08-03T09:00:00Z',liveBroadcastContent:'none',thumbnails:{high:{url:'https://img.youtube.test/video.jpg'}}},contentDetails:{duration:'PT12M5S'}}))});
     }
     if (xCreditsDepleted) return Response.json({ error:'credits_depleted' }, { status:402 });
     if (url.includes('/2/users/by?')) {
@@ -392,12 +398,12 @@ try {
   const cachedFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(cachedFeed.status, 200, 'Önbellekteki X akışı kullanılabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, xCallsAfterFirst, 'İkinci istek 24 saatlik önbelleği aşmamalı.');
-  socialCache.delete('https://xyzskor.test/api/football/x-media-v2');
+  socialCache.delete('https://xyzskor.test/api/football/x-media-v4');
   const nextDayFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   await Promise.all(pendingCacheWrites);
   assert.equal(nextDayFeed.status, 200, 'Sonraki gün X akışı yeniden oluşturulabilmeli.');
   assert.equal(upstreamCalls.filter(url=>url.includes('api.x.com/2/')).length, 9, 'Sonraki gün yalnız dört paylaşım sorgusu yapılmalı; kulüp kimlikleri tekrar okunmamalı.');
-  socialCache.delete('https://xyzskor.test/api/football/x-media-v2');
+  socialCache.delete('https://xyzskor.test/api/football/x-media-v4');
   xCreditsDepleted = true;
   const staleFeed = await worker.fetch(new Request('https://xyzskor.test/api/social/x-media-v2'), { X_BEARER_TOKEN:'test-token' }, context);
   assert.equal(staleFeed.status, 200, 'X kesintisinde son doğrulanmış akış kullanılmalı.');
@@ -473,7 +479,11 @@ assert.match(liveSource, /function renderLiveFeed\([\s\S]*?renderLiveDetails\(ma
 // Ana mac merkezi fixture/date/takim fallback'i tasimamali. Gercek secim
 // davranisi scripts/test-matchday-live.mjs ile ayrica calistirilir.
 const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')];
+assert.match(matchdayLiveSource, /xyz:live-feed-updated[\s\S]*promoteLiveMatch/, 'Seçili ligdeki canlı maç ana maç vitrinine otomatik taşınmalı.');
 assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|Çorum FK|ÇFK/, 'Mac merkezi gecmis fixture veya takim fallbacklerine sabitlenmemeli.');
+assert.doesNotMatch(workerSource, /verifiedMatchdayRecoveryArchive|19746639/, 'Maç ayrıntısı fallbacki tek bir fixture kimliğine sabitlenmemeli.');
+assert.match(workerSource, /persistSeasonFixtures[\s\S]*readDueProviderFixtures[\s\S]*warmDueMatchdays/, 'Tüm maçlar sezon havuzundan kalıcı matchday hazırlığına bağlanmalı.');
+assert.match(workerSource, /matchdaySnapshotIsFresh[\s\S]*acquireSyncLock\(env, scopeKey, 25\)[\s\S]*persistMatchdaySnapshot/, 'Matchday sağlayıcı çağrısı tazelik, single-flight ve kalıcı snapshot ile korunmalı.');
 assert.match(matchdayLiveSource, /\/api\/football\/season\?league=\$\{encodeURIComponent\(activeMatchdayLeague\)\}/, 'Parametre yokken fixture secili lig sezon verisinden cozulmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
 assert.match(documentHtml, /LİGİN SIRADAKİ MAÇI[\s\S]*<h2 id="matchdayTitle"><\/h2><p>Seçili ligin maç, gündem ve puan durumu akışı<\/p>/, 'Kaynak HTML seçili lige bağlı nötr maç akışı placeholderı içermeli.');
@@ -507,8 +517,10 @@ assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.
 assert.match(liveFunctionSource('applyParsedLocation'), /loadFootballLeagueSelection\(parsed\.league\)/, 'Dogrudan rota ve popstate coverage-aware lig yukleyicisini kullanmali.');
 assert.match(liveFunctionSource('renderClubProfile'), /split\(\/\\s\+\/\).*toLocaleUpperCase/, 'Teknik direktor placeholderi ad bas harflerinden uretilmeli.');
 assert.match(workerSource, /available:fixturesAvailable/, 'Coverage availability gercek fikstur erisimiyle dogrulanmali.');
-assert.match(workerSource, /subscriptionReported:availableIds\.has\(leagueId\)/, 'Saglayicinin abonelik bildirimi ayri tanisal alan olarak korunmali.');
-assert.match(workerSource, /metadataAvailable:Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
+assert.match(workerSource, /subscriptionReported\s*=\s*availableIds\.has\(leagueId\)/, 'Saglayicinin abonelik bildirimi ayri tanisal alan olarak korunmali.');
+assert.match(workerSource, /metadataAvailable\s*=\s*Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
+assert.match(workerSource, /reason:"not_in_subscription"[\s\S]*capabilities:\{ fixtures:false/, 'Abonelik disi ligler neden ve yetenek matrisiyle fail-closed raporlanmali.');
+assert.match(workerSource, /subscribedById[\s\S]*subscribed, selected/, 'Coverage endpointi abonelikteki liglerin guvenli kimlik ve ad listesini dondurmeli.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.
 // Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim
@@ -526,21 +538,21 @@ for (const [label, source] of scriptFiles.map((file, index) => [file, scriptSour
 const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
 const mainTabCount = (documentHtml.match(/class="maintab/g) || []).length;
 assert.equal(mainTabCount, 2, 'Statik Futbol ve Predict sekmeleri korunmali; spor branslari dinamik kabuktan gelir.');
-assert.match(readme, /2\. Basketbol[\s\S]*3\. Voleybol[\s\S]*4\. Kayak[\s\S]*5\. Motor Sporları[\s\S]*6\. UFC/, 'README aktif spor branslarini listelemeli.');
+assert.match(readme, /2\. Basketbol[\s\S]*3\. Voleybol[\s\S]*4\. Motor Sporları[\s\S]*5\. UFC[\s\S]*6\. Predict/, 'README aktif spor branslarini listelemeli.');
 assert.doesNotMatch(readme, /henüz yayında değildir|Kod hazır, yayında değil/, 'README erisilebilir spor merkezlerini kapali gostermemeli.');
 
 const multisportSource = await readFile(new URL('../assets/js/multisport.js', import.meta.url), 'utf8');
+const sportBranchesSource = await readFile(new URL('../assets/js/sport-branches.js', import.meta.url), 'utf8');
 const motorsportsSource = await readFile(new URL('../assets/js/motorsports.js', import.meta.url), 'utf8');
 assert.match(multisportSource, /SPORT_LEAGUE_CATALOG[\s\S]*Sultanlar Ligi[\s\S]*Efeler Ligi/, 'Voleybol merkezi lig secimi sunmali.');
 assert.match(multisportSource, /volleyballPortalHTML/, 'Voleybol ana gorunumu ayri lig ve program yerlesimi kullanmali.');
-assert.match(multisportSource, /ski:\s*'Kayak'[\s\S]*ski:\s*\['Alp Disiplini Dünya Kupası'/, 'Kayak merkezi ve disiplin secimleri tanimli olmali.');
-assert.match(multisportSource, /kayak:'ski'/, 'Dogrudan kayak rotasi kayak merkezini acmali.');
-assert.match(multisportSource, /skiPortalHTML/, 'Kayak ana gorunumu ayri disiplin ve program yerlesimi kullanmali.');
-assert.match(appCss, /v175[\s\S]*ski-hero-v1\.webp/, 'Kayak sinematik hero asseti CSS katmanina baglanmali.');
+assert.doesNotMatch(multisportSource, /ski:\s*'Kayak'|kayak:'ski'/, 'Verisiz Kayak merkezi istemci rotalarinda kalmamali.');
+assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 'Verisiz Amerikan Futbolu merkezi istemci secimlerinde kalmamali.');
+assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
-assert.match(readme, /4\. Kayak/, 'README Kayak bransini aktif navigasyonda gostermeli.');
-assert.match(appCss, /v176[\s\S]*grid-template-areas:"main live" "lower lower"/, 'Futbol ana sayfasi mac programini onceleyen iki seviyeli duzeni kullanmali.');
-assert.match(appCss, /v177[\s\S]*minmax\(400px,420px\)[\s\S]*max-width:1180px/, 'Futbol panelleri dar alanda sikismak yerine tek kolona gecmeli.');
+assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');
+assert.match(appCss, /v176[\s\S]*grid-template-areas:"main" "lower"/, 'Futbol ana sayfasi kaldirilan hizli mac rayina yer ayirmamali.');
+assert.match(appCss, /v177[\s\S]*grid-template-columns:minmax\(0,1fr\)!important[\s\S]*max-width:1180px/, 'Futbol ana icerigi genis alani kullanip dar ekranda tek kolonda kalmali.');
 assert.match(matchdayLiveSource, /statisticLabels[\s\S]*Korner[\s\S]*Topa sahip olma/, 'Fixture istatistik etiketleri Turkce sunulmali.');
 assert.match(matchdayLiveSource, /matchday-jump[\s\S]*matchdayEvents[\s\S]*matchdayStatistics[\s\S]*matchdayLineups/, 'Fixture detayi olay, istatistik ve kadro hizli gezinmesini sunmali.');
 assert.match(appCss, /v178[\s\S]*matchday-jump[\s\S]*minmax\(380px,.75fr\)/, 'Fixture detay panelleri dengeli ve responsive yerlesmeli.');

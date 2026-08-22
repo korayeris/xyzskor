@@ -126,9 +126,14 @@ async function main() {
     assertEqual(body?.error, 'sportmonks_plan_restricted', 'live upstream 403 error code');
   }
   {
+    // 2026-08-22 mimari duzeltmesi: snapshot yokken upstream 500, ARTIK sahte
+    // "200 + bos matches" olarak maskelenmiyor (bu tam olarak handoff'un
+    // yasakladigi anti-pattern'di). Kalici snapshot yoksa acik 503 + makinece
+    // ayristirilabilir reason:"provider_unavailable" donuyor.
     const { status, body } = await run('live-500', '/api/football/live?league=super-lig', ALL_SECRETS_ENV, () => jsonUpstream({ message: 'boom' }, 500));
-    assertEqual(status, 200, 'live upstream 500 -> 200 degraded empty state');
+    assertEqual(status, 503, 'live upstream 500 (snapshot yok) -> 503 acik hata');
     assertEqual(body?.degraded, true, 'live upstream 500 degraded flag');
+    assertEqual(body?.reason, 'provider_unavailable', 'live upstream 500 reason kodu');
     assertEqual(body?.matches?.length, 0, 'live upstream 500 empty live list');
   }
 
@@ -267,6 +272,18 @@ async function main() {
     assertEqual(body?.confirmed?.[0]?.to, 'Galatasaray', 'transfers success -> hedef takım');
   }
   {
+    const { body } = await run('transfers-fail-closed', '/api/football/transfers?league=bundesliga', ALL_SECRETS_ENV, (u) => {
+      if (u.pathname === '/v3/football/transfers/latest') return jsonUpstream({ data: [
+        { id: 81, league_id: 82, player: { display_name: 'Bundesliga Oyuncusu' }, fromTeam: { name: 'Bayern München' }, toTeam: { name: 'Borussia Dortmund' } },
+        { id: 82, player: { display_name: 'Kapsam Dışı' }, fromTeam: { name: 'Rubio Ñú' }, toTeam: { name: 'TBC' } },
+      ] });
+      if (u.pathname === '/v3/football/transfer-rumours') return jsonUpstream({ data: [] });
+      return null;
+    });
+    assertEqual(body?.confirmed?.length, 1, 'takım filtresi yokken lig kimliksiz global transfer sızmaz');
+    assertEqual(body?.confirmed?.[0]?.name, 'Bundesliga Oyuncusu', 'yalnız doğrulanmış lig transferi kalır');
+  }
+  {
     const { status, body } = await run('transfers-partial-failure', '/api/football/transfers?league=super-lig', ALL_SECRETS_ENV, (u) => {
       if (u.pathname === '/v3/football/transfers/latest') return jsonUpstream({ message: 'boom' }, 500);
       if (u.pathname === '/v3/football/transfer-rumours') return jsonUpstream({ data: [] });
@@ -285,7 +302,10 @@ async function main() {
   }
   {
     const { status, body } = await run('coverage-success', '/api/football/coverage', ALL_SECRETS_ENV, (u) => {
-      if (u.pathname === '/v3/my/leagues') return jsonUpstream({ data: [{ id: 600, name: 'Süper Lig' }, { id: 2, name: 'Champions League' }] });
+      if (u.pathname === '/v3/my/leagues') return jsonUpstream({ data: [
+        { id: 600, name: 'Süper Lig' }, { id: 8, name: 'Premier League' }, { id: 564, name: 'La Liga' },
+        { id: 82, name: 'Bundesliga' }, { id: 384, name: 'Serie A' }, { id: 2, name: 'Champions League' },
+      ] });
       if (u.pathname.startsWith('/v3/football/leagues/')) {
         const id = u.pathname.split('/').pop();
         return jsonUpstream({ data: { id: Number(id), name: 'Lig ' + id, currentseason: { id: 1, is_current: true } } });
@@ -294,10 +314,13 @@ async function main() {
       return null;
     });
     assertEqual(status, 200, 'coverage success -> 200');
-    assertEqual(body?.selected?.length, 5, 'coverage success -> 5 seçili lig probe edildi');
-    assertEqual(body?.selected?.filter((row) => row.available).length, 5, 'coverage success -> fikstür erişimi olan ligler available=true');
-    assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 2, 'coverage success -> /my/leagues bildirimi ayrı tutulur');
-    assertTrue(body?.selected?.every((row) => row.metadataAvailable === true), 'coverage success -> metadata probe sonucu ayrıca raporlanır');
+    assertEqual(body?.selected?.length, 5, 'coverage success -> 5 aktif lig probe edildi');
+    assertEqual(body?.selected?.filter((row) => row.available).length, 5, 'coverage success -> abonelikte raporlanan beş aktif lig available=true');
+    assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 5, 'coverage success -> aktif liglerde /my/leagues bildirimi ayrı tutulur');
+    assertEqual(body?.subscribed?.length, 6, 'coverage success -> abonelikteki ligler gizlenmeden raporlanır');
+    assertTrue(body?.selected?.filter((row) => row.subscriptionReported).every((row) => row.metadataAvailable === true), 'coverage success -> abonelikteki liglerin metadata probe sonucu raporlanır');
+    assertEqual(body?.selected?.filter((row) => row.reason === 'not_in_subscription').length, 0, 'coverage success -> tüm aktif ligler abonelik kapsamında');
+    assertTrue(body?.selected?.every((row) => row.capabilities && typeof row.capabilities.fixtures === 'boolean'), 'coverage success -> lig yetenek matrisi döner');
   }
 
   console.log('\n=== 8) /api/media/youtube ===');
@@ -309,8 +332,8 @@ async function main() {
   }
   {
     const { status, body } = await run('youtube-success', '/api/media/youtube', ALL_SECRETS_ENV, (u) => {
-      if (u.pathname === '/youtube/v3/search') return jsonUpstream({ items: [{ id: { videoId: 'abc123' }, snippet: { title: 'Test Video', channelTitle: 'Test Kanal', publishedAt: '2026-08-01T00:00:00Z', thumbnails: { high: { url: 'https://img.example/test.jpg' } } } }] });
-      if (u.pathname === '/youtube/v3/videos') return jsonUpstream({ items: [{ id: 'abc123', snippet: { title: 'Test Video', thumbnails: { high: { url: 'https://img.example/test.jpg' } } }, contentDetails: { duration: 'PT5M' } }] });
+      if (u.pathname === '/youtube/v3/search') return jsonUpstream({ items: [{ id: { videoId: 'abc123' }, snippet: { title: 'Futbol Test Videosu', channelTitle: 'Test Kanal', publishedAt: '2026-08-01T00:00:00Z', thumbnails: { high: { url: 'https://img.example/test.jpg' } } } }] });
+      if (u.pathname === '/youtube/v3/videos') return jsonUpstream({ items: [{ id: 'abc123', snippet: { title: 'Futbol Test Videosu', thumbnails: { high: { url: 'https://img.example/test.jpg' } } }, contentDetails: { duration: 'PT5M' } }] });
       return null;
     });
     assertEqual(status, 200, 'youtube success -> 200');
