@@ -2180,12 +2180,6 @@ const MULTISPORT_FEEDS = Object.freeze({
   basketball: { host: "v1.basketball.api-sports.io", path: "games" },
   mma: { host: "v1.mma.api-sports.io", path: "fights" },
   volleyball: { host: "v1.volleyball.api-sports.io", path: "games" },
-  hockey: { host: "v1.hockey.api-sports.io", path: "games" },
-  rugby: { host: "v1.rugby.api-sports.io", path: "games" },
-  baseball: { host: "v1.baseball.api-sports.io", path: "games" },
-  handball: { host: "v1.handball.api-sports.io", path: "games" },
-  americanFootball: { host: "v1.american-football.api-sports.io", path: "games" },
-  australianFootball: { host: "v1.australian-football.api-sports.io", path: "games" },
 });
 
 function multisportDate() {
@@ -2469,6 +2463,11 @@ async function fetchAsset(request, env, pathname) {
 export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
+    const retiredSportRoutes = /^\/(kayak|buz-hokeyi|rugby|beyzbol|hentbol|amerikan-futbolu|avustralya-futbolu)(?:\/|$)/;
+    if (retiredSportRoutes.test(url.pathname)) return Response.redirect(new URL("/", url), 308);
+    if (/^\/(super-lig|premier-league|la-liga|champions-league|europa-league)\/news\/?$/.test(url.pathname)) {
+      return Response.redirect(new URL(url.pathname.replace(/\/news\/?$/, "/agenda"), url), 308);
+    }
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
     if (url.pathname === "/api/ufc") return handleCitoUfc(request, env, context);
     if (url.pathname.startsWith("/api/ufc/")) return handleCitoUfcProxy(request, env, context);

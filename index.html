@@ -577,7 +577,7 @@
     <button class="auth-close" id="authClose" type="button" aria-label="Üyelik penceresini kapat">×</button>
     <h3 id="authTitle">Üye Ol</h3>
     <div id="registerFields">
-      <div class="field"><label>Kullanıcı adı</label><input id="regUsername" placeholder="Kullanıcı adı"></div>
+      <div class="field"><label for="regUsername">Kullanıcı adı</label><input id="regUsername" name="username" autocomplete="username" placeholder="Kullanıcı adı" required></div>
       <div class="field"><label>Tuttuğun takım</label>
         <select id="regTeam">
           <option value="">Seç</option>
@@ -589,8 +589,8 @@
         </select>
       </div>
     </div>
-    <div class="field"><label>E-posta</label><input id="authEmail" type="email" placeholder="ornek@mail.com"></div>
-    <div class="field"><label>Şifre</label><input id="authPass" type="password" placeholder="••••••••"></div>
+    <div class="field"><label for="authEmail">E-posta</label><input id="authEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="ornek@mail.com" required></div>
+    <div class="field"><label for="authPass">Şifre</label><input id="authPass" name="password" type="password" autocomplete="current-password" minlength="8" placeholder="••••••••" required></div>
     <div class="err-msg" id="authErr"></div>
     <div class="modal-foot">
       <span class="switch-link" id="authSwitch">Zaten üye misin? Giriş yap</span>

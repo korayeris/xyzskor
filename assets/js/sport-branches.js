@@ -3,29 +3,13 @@
     ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
-    ["ski", "Kayak", "/kayak/"],
     ["motorsports", "Motor Sporları", "/motorsports/"],
-    ["mma", "UFC", "/ufc/"],
-    ["americanFootball", "Amerikan Futbolu", "/amerikan-futbolu/"]
-  ];
-  const secondary = [
-    ["hockey", "Buz Hokeyi", "/buz-hokeyi/"],
-    ["rugby", "Rugby", "/rugby/"],
-    ["baseball", "Beyzbol", "/beyzbol/"],
-    ["handball", "Hentbol", "/hentbol/"],
-    ["australianFootball", "Avustralya Futbolu", "/avustralya-futbolu/"]
+    ["mma", "UFC", "/ufc/"]
   ];
   const routeMap = {
     basketbol: "basketball",
     ufc: "mma",
     voleybol: "volleyball",
-    kayak: "ski",
-    "buz-hokeyi": "hockey",
-    rugby: "rugby",
-    beyzbol: "baseball",
-    hentbol: "handball",
-    "amerikan-futbolu": "americanFootball",
-    "avustralya-futbolu": "australianFootball",
     motorsports: "motorsports"
   };
   const active = routeMap[location.pathname.split("/").filter(Boolean)[0]] || "football";
@@ -74,18 +58,11 @@
     if (!header) return;
     const miniGame = document.getElementById("miniGoalGame");
     if (miniGame && active !== "football") miniGame.remove();
-    const activeSecondary = secondary.find(([key]) => key === active);
     const nav = document.createElement("nav");
     nav.className = "sport-branch-nav sport-branch-nav-compact";
     nav.setAttribute("aria-label", "Spor branslari");
     nav.innerHTML = `<div class="sport-branch-main">
       ${primary.map(([key, label, url]) => `<button class="sport-branch-button ${key === active ? "active" : ""}" data-branch="${key}" data-url="${url}">${label}</button>`).join("")}
-      <div class="sport-more-wrap">
-        <button class="sport-branch-button sport-more-button ${activeSecondary ? "active" : ""}" aria-expanded="false">${activeSecondary ? activeSecondary[1] : "Diger"}<span>+</span></button>
-        <div class="sport-more-menu" hidden>
-          ${secondary.map(([key, label, url]) => `<button class="sport-more-item ${key === active ? "active" : ""}" data-url="${url}">${label}</button>`).join("")}
-        </div>
-      </div>
       <button class="sport-branch-button sport-predict-button" data-action="predict">Predict</button>
     </div>`;
     header.after(nav);
@@ -98,16 +75,6 @@
       if (existing) existing.click();
       else location.assign("/predict/");
     });
-    const moreButton = nav.querySelector(".sport-more-button");
-    const menu = nav.querySelector(".sport-more-menu");
-    const close = () => { menu.hidden = true; moreButton.setAttribute("aria-expanded", "false"); };
-    moreButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      menu.hidden = !menu.hidden;
-      moreButton.setAttribute("aria-expanded", String(!menu.hidden));
-    });
-    document.addEventListener("click", close);
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
     refreshContextTicker();
     if (active !== "football" && active !== "motorsports") setTimeout(refreshMetrics);
   }

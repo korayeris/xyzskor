@@ -148,6 +148,20 @@ async function main() {
     ok(status === 409 && payload?.error === 'prediction_closed', 'canli mac icin tahmin kapali', `status=${status} body=${JSON.stringify(payload)}`);
   }
 
+  console.log('\n=== 7) Kullanımdan kaldırılan branş ve eski gündem rotaları ===');
+  {
+    const response = await worker.fetch(new Request('http://localhost/kayak/'), ENV, ctx);
+    ok(response.status === 308 && response.headers.get('location') === 'http://localhost/', 'verisiz branş ana ürüne yönlenir');
+  }
+  {
+    const response = await worker.fetch(new Request('http://localhost/amerikan-futbolu/ligler'), ENV, ctx);
+    ok(response.status === 308 && response.headers.get('location') === 'http://localhost/', 'Amerikan Futbolu boş sayfa bırakmaz');
+  }
+  {
+    const response = await worker.fetch(new Request('http://localhost/super-lig/news'), ENV, ctx);
+    ok(response.status === 308 && response.headers.get('location') === 'http://localhost/super-lig/agenda', 'eski news adresi kanonik gündeme yönlenir');
+  }
+
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);
   if (failures.length) { console.log(failures.map((f) => ' - ' + f).join('\n')); process.exit(1); }
 }

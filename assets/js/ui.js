@@ -215,6 +215,7 @@ function openAuth(mode){
   document.getElementById('registerFields').style.display = mode==='register' ? 'block' : 'none';
   const consentFields=document.getElementById('authConsentFields'); if(consentFields) consentFields.style.display = mode==='register' ? 'grid' : 'none';
   document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
+  document.getElementById('authPass').autocomplete = mode==='register' ? 'new-password' : 'current-password';
   document.getElementById('authSwitch').textContent = mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol';
   document.getElementById('authErr').classList.remove('show');
   document.getElementById('authErr').style.color = '';
@@ -1478,12 +1479,16 @@ async function renderYouTubeMedia(){
   // Bos kutu yerine gercek kart olcusunde skeleton goster.
   grid.innerHTML=skeletonCardsHTML(3,'youtube-skeleton-card');
   const league=activeFootballLeague;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),2500);
   try{
-    if(!youtubeMediaRequests.has(league)) youtubeMediaRequests.set(league,fetch(`/api/media/youtube?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok){ const error=new Error(payload?.error||'youtube_unavailable'); error.code=payload?.error; throw error; } return payload; }));
+    if(!youtubeMediaRequests.has(league)) youtubeMediaRequests.set(league,fetch(`/api/media/youtube?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'},signal:controller.signal}).then(async response=>{ const payload=await response.json().catch(()=>null); if(!response.ok){ const error=new Error(payload?.error||'youtube_unavailable'); error.code=payload?.error; throw error; } return payload; }));
     renderYouTubeItems(await youtubeMediaRequests.get(league),league);
   }catch(error){
     youtubeMediaRequests.delete(league);
     if(activeFootballLeague===league) renderYouTubeFallback(error?.code==='youtube_not_configured' ? 'unconfigured' : 'error',league);
+  }finally{
+    clearTimeout(timeout);
   }
 }
 function renderFootballTransfers(){
@@ -2320,8 +2325,7 @@ function xPostMediaHTML(club,post,targetURL){
 }
 function xPostCardHTML(club){
   const post=club.post||null;
-  if(!post) return '';
-  const cleanPostText=String(post.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
+  const cleanPostText=String(post?.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
   const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
   const mediaBody=xPostMediaHTML(club,post,targetURL);
@@ -2342,8 +2346,7 @@ function xPostCardHTML(club){
 }
 function preseasonCardHTML(club){
   const post=club.preseason_post||null;
-  if(!post) return '';
-  const cleanPostText=String(post.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
+  const cleanPostText=String(post?.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
   const targetURL=post?.url||club.url;
   const mediaBody=post?xPostMediaHTML(club,post,targetURL):'';
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
