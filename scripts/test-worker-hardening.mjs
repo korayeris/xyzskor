@@ -196,6 +196,7 @@ async function main() {
     ok(source.includes("['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand']"), 'Ã§oklu spor rotasÄ± futbol yÃ¼zeyini DOM\'dan kaldÄ±rÄ±r');
     ok(source.includes("'.next-match-ticker,.live-ticker'"), 'Ã§oklu spor rotasÄ± futbol ticker kapsayÄ±cÄ±sÄ±nÄ± DOM\'dan kaldÄ±rÄ±r');
     ok(source.includes('updateBranchTicker([]);'), 'branÅŸ verisi gelmeden futbol ticker\'Ä± temizlenir');
+    ok(source.includes('requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView'), 'geÃ§ dÃ¶nen eski branÅŸ yanÄ±tÄ± yeni ekranÄ± yeniden Ã§izemez');
   }
 
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);

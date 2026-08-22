@@ -9,6 +9,7 @@
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
+  let hubRequestEpoch = 0;
   const SPORT_LEAGUE_CATALOG = {
     volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi']
   };
@@ -264,6 +265,9 @@
     if(sport && sport !== activeSport) activeLeague = 'all';
     activeSport = sport || activeSport;
     activeView = view;
+    const requestedSport = activeSport;
+    const requestedView = activeView;
+    const requestEpoch = ++hubRequestEpoch;
     if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
     document.body.classList.add('multisport-open');
     updateBranchTicker([]);
@@ -273,8 +277,15 @@
     hub.hidden = false;
     grid.innerHTML = '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canli program hazirlaniyor</span></div>';
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.toggle('active', button.dataset.multiSport === activeSport));
-    try{ render(await load(activeSport)); }
-    catch(_error){ grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>'; }
+    try{
+      const payload = await load(requestedSport);
+      if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
+      render(payload);
+    }
+    catch(_error){
+      if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
+      grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>';
+    }
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
