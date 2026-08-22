@@ -39,6 +39,26 @@
     backButton.hidden = !active;
     if (!active) clearTimeout(timer);
   }
+  const detailSectionIds = new Set(["matchdayEvents", "matchdayStatistics", "matchdayLineups"]);
+  function detailSectionHref(sectionId) {
+    const url = new URL(location.pathname || "/", location.origin);
+    url.search = location.search;
+    url.hash = detailSectionIds.has(sectionId) ? sectionId : "";
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+  function scrollToDetailSection(sectionId, updateUrl = false) {
+    if (!detailSectionIds.has(sectionId)) return false;
+    const target = document.getElementById(sectionId);
+    if (!target) return false;
+    if (updateUrl) history.replaceState(history.state, "", detailSectionHref(sectionId));
+    requestAnimationFrame(() => target.scrollIntoView({ block: "start", behavior: "smooth" }));
+    return true;
+  }
+  function restoreDetailHash() {
+    const sectionId = String(location.hash || "").replace(/^#/, "");
+    if (!detailSectionIds.has(sectionId)) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollToDetailSection(sectionId)));
+  }
   const backButton = document.createElement("button");
   backButton.type = "button";
   backButton.className = "matchday-back";
@@ -269,10 +289,11 @@
       setDetailMode(false);
       return;
     }
-    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : isLiveFixture(f) ? "Skor yenileniyor" : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="#matchdayEvents">Olaylar <b>${events.length}</b></a><a href="#matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="#matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
+    root.innerHTML = `<div class="matchday-scoreboard"><div class="matchday-team">${imageTag(f.home_logo,homeName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(homeName))}</span>`}<strong>${esc(homeName)}</strong><small>${esc(homeFormation || "Diziliş bekleniyor")}</small></div><div class="matchday-score"><em>${esc(stateLabel(f))}</em><b>${hasScore ? `${esc(homeScore)} - ${esc(awayScore)}` : isLiveFixture(f) ? "Skor yenileniyor" : "- : -"}</b><small>${esc(fixtureTimeLabel(f))}</small></div><div class="matchday-team matchday-team--away">${imageTag(f.away_logo,awayName,"matchday-team-logo") || `<span>${esc(teamAbbreviation(awayName))}</span>`}<strong>${esc(awayName)}</strong><small>${esc(awayFormation || "Diziliş bekleniyor")}</small></div></div>${renderInsights(xg,predictions,homeName,awayName)}<nav class="matchday-jump" aria-label="Maç ayrıntıları"><a href="${detailSectionHref("matchdayEvents")}" data-matchday-section="matchdayEvents">Olaylar <b>${events.length}</b></a><a href="${detailSectionHref("matchdayStatistics")}" data-matchday-section="matchdayStatistics">İstatistikler <b>${stats.length}</b></a><a href="${detailSectionHref("matchdayLineups")}" data-matchday-section="matchdayLineups">Kadrolar <b>${lineups.length}</b></a></nav><div class="matchday-grid"><section class="matchday-card" id="matchdayEvents"><header><span>OLAY AKIŞI</span><h3>Gol, kart ve değişiklikler</h3></header>${renderEvents(events,homeName)}</section><section class="matchday-card" id="matchdayStatistics"><header><span>MAÇ İSTATİSTİKLERİ</span><h3>Sahanın sayıları</h3></header>${renderStats(stats,homeName)}</section></div><section class="matchday-card matchday-card--lineups" id="matchdayLineups"><header><span>RESMÎ KADROLAR</span><h3>İlk 11, yedekler ve diziliş</h3></header><div class="matchday-lineups">${renderTeamLineup(homeName, homeLineup, homeFormation)}${renderTeamLineup(awayName, awayLineup, awayFormation)}</div></section>`;
     root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderMatchPrediction(f,predictions,homeName,awayName)}<nav class="matchday-jump"`);
     if (teamContexts.length) root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderTeamContexts(teamContexts)}<nav class="matchday-jump"`);
     setDetailMode(true);
+    restoreDetailHash();
     hydrateOwnPrediction();
   }
   function renderEmpty() {
@@ -349,6 +370,12 @@
     if(live) promoteLiveMatch(live,event?.detail?.updatedAt);
   });
   root.addEventListener("click", (event) => {
+    const sectionLink = event.target.closest("[data-matchday-section]");
+    if (sectionLink) {
+      event.preventDefault();
+      scrollToDetailSection(sectionLink.dataset.matchdaySection, true);
+      return;
+    }
     const pickButton = event.target.closest(".matchday-provider-picks button[data-pick]");
     if (pickButton && !pickButton.disabled) {
       selectedPredictionPick = pickButton.dataset.pick || "";
