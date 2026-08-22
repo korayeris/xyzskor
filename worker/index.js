@@ -1352,7 +1352,10 @@ async function handleFootballTransfers(request, env, context) {
   const inScope = (row) => {
     const rowLeagueId = row?.provider_league_id || transferLeagueId(row);
     if (leagueIdSet.size && rowLeagueId && !leagueIdSet.has(String(rowLeagueId))) return false;
-    if (!teamSet.size) return leagueIdSet.size ? true : false;
+    // Takım listesi henüz yüklenmediyse lig kimliği olmayan global transferleri
+    // kabul etme. Aksi halde yeni lige ilk geçişte başka ülkelerin kayıtları
+    // cache'e girip o ligde görünür kalıyordu.
+    if (!teamSet.size) return Boolean(rowLeagueId && leagueIdSet.has(String(rowLeagueId)));
     return teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to));
   };
   const payload = {

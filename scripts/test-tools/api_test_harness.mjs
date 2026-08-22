@@ -267,6 +267,18 @@ async function main() {
     assertEqual(body?.confirmed?.[0]?.to, 'Galatasaray', 'transfers success -> hedef takım');
   }
   {
+    const { body } = await run('transfers-fail-closed', '/api/football/transfers?league=bundesliga', ALL_SECRETS_ENV, (u) => {
+      if (u.pathname === '/v3/football/transfers/latest') return jsonUpstream({ data: [
+        { id: 81, league_id: 82, player: { display_name: 'Bundesliga Oyuncusu' }, fromTeam: { name: 'Bayern München' }, toTeam: { name: 'Borussia Dortmund' } },
+        { id: 82, player: { display_name: 'Kapsam Dışı' }, fromTeam: { name: 'Rubio Ñú' }, toTeam: { name: 'TBC' } },
+      ] });
+      if (u.pathname === '/v3/football/transfer-rumours') return jsonUpstream({ data: [] });
+      return null;
+    });
+    assertEqual(body?.confirmed?.length, 1, 'takım filtresi yokken lig kimliksiz global transfer sızmaz');
+    assertEqual(body?.confirmed?.[0]?.name, 'Bundesliga Oyuncusu', 'yalnız doğrulanmış lig transferi kalır');
+  }
+  {
     const { status, body } = await run('transfers-partial-failure', '/api/football/transfers?league=super-lig', ALL_SECRETS_ENV, (u) => {
       if (u.pathname === '/v3/football/transfers/latest') return jsonUpstream({ message: 'boom' }, 500);
       if (u.pathname === '/v3/football/transfer-rumours') return jsonUpstream({ data: [] });
