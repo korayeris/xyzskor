@@ -476,7 +476,7 @@ async function loadLiveFeed(force){
       error = providerError;
       if(providerError?.payload) data = providerError.payload; // acik hata govdesinde bile matches:[] varsa kullanilabilir
     }
-    if((error && !data) || !data || !Array.isArray(data.matches)){
+    if((error && (!data || !Array.isArray(data.matches) || data.matches.length===0)) || !data || !Array.isArray(data.matches)){
       // Worker uzerinden hic ulasilamadiginda (ag hatasi, DNS, vb) son care olarak
       // Supabase Edge Function uzerine dus (bkz supabase/functions/football-live).
       const result = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
