@@ -528,8 +528,9 @@ function liveSnapshotChecksum(match) {
 // Basarili bir canli cekimden sonra her fixture icin son doğrulanmis
 // snapshot'i kalici olarak yazar (upsert). Edge cache kaybolsa/hic
 // calismasa bile bu tablo "son doğrulanmış skor" kaynağı olarak kalır.
-async function persistLiveSnapshots(env, leagueKey, matches) {
+async function persistLiveSnapshots(env, leagueKey, matches, previousRows = []) {
   if (!supabaseServiceKey(env) || !matches.length) return;
+  const previousByFixture = new Map(previousRows.map((row) => [String(row?.fixture_id || ""), row?.payload]));
   const rows = matches.map((match) => ({
     fixture_id: match.id,
     provider: "sportmonks",
@@ -539,7 +540,9 @@ async function persistLiveSnapshots(env, leagueKey, matches) {
     minute: Number.isFinite(match.minute) ? match.minute : null,
     home_score: Number.isFinite(match.home?.score) ? match.home.score : null,
     away_score: Number.isFinite(match.away?.score) ? match.away.score : null,
-    payload: match,
+    payload: previousByFixture.get(String(match.id))?.matchday
+      ? { ...match, matchday: previousByFixture.get(String(match.id)).matchday }
+      : match,
     provider_updated_at: new Date().toISOString(),
     fetched_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + LIVE_SNAPSHOT_TTL_SECONDS * 1000).toISOString(),
@@ -591,6 +594,71 @@ async function readLiveSnapshots(env, leagueKey) {
   } catch (_error) {
     return [];
   }
+}
+
+async function readMatchdaySnapshot(env, fixtureId) {
+  if (!supabaseServiceKey(env)) return null;
+  try {
+    const rows = await supabaseRest(
+      env,
+      `live_match_snapshots?fixture_id=eq.${encodeURIComponent(`sportmonks:${fixtureId}`)}&select=payload,fetched_at,provider_updated_at&limit=1`
+    );
+    const row = Array.isArray(rows) ? rows[0] : null;
+    const body = row?.payload?.matchday;
+    return body && typeof body === "object" ? { body, fetchedAt:row.fetched_at, providerUpdatedAt:row.provider_updated_at } : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function persistMatchdaySnapshot(env, fixtureId, body) {
+  if (!supabaseServiceKey(env) || !body?.fixture || !body?.details) return;
+  const fixture = body.fixture;
+  const providerLeagueId = String(fixture.provider_league_id || fixture.league_id || "");
+  const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+  if (!leagueKey) return;
+  const fixtureKey = `sportmonks:${fixtureId}`;
+  let previousPayload = null;
+  try {
+    const existing = await supabaseRest(env, `live_match_snapshots?fixture_id=eq.${encodeURIComponent(fixtureKey)}&select=payload&limit=1`);
+    previousPayload = Array.isArray(existing) ? existing[0]?.payload : null;
+  } catch (_error) { /* ilk snapshot olabilir */ }
+  const score = fixture.score || {};
+  const homeName = fixture.home_name || fixture.ev || fixture.home?.name || "Ev sahibi";
+  const awayName = fixture.away_name || fixture.konuk || fixture.away?.name || "Deplasman";
+  const payload = {
+    ...(previousPayload && typeof previousPayload === "object" ? previousPayload : {}),
+    id:fixtureKey,
+    leagueKey,
+    providerLeagueId,
+    startedAt:fixture.kickoff_utc || fixture.kickoff || fixture.starting_at || null,
+    status:fixture.status || "scheduled",
+    minute:Number.isFinite(Number(fixture.minute)) ? Number(fixture.minute) : null,
+    home:{ id:String(fixture.home_team_id || fixture.home?.id || ""), name:homeName, logo:fixture.home_logo || fixture.home?.image_path || null, score:Number.isFinite(Number(score.home)) ? Number(score.home) : null },
+    away:{ id:String(fixture.away_team_id || fixture.away?.id || ""), name:awayName, logo:fixture.away_logo || fixture.away?.image_path || null, score:Number.isFinite(Number(score.away)) ? Number(score.away) : null },
+    matchday:body,
+  };
+  try {
+    await supabaseRest(env, "live_match_snapshots?on_conflict=fixture_id", {
+      method:"POST",
+      headers:{ Prefer:"resolution=merge-duplicates,return=minimal" },
+      body:JSON.stringify({
+        fixture_id:fixtureKey,
+        provider:"sportmonks",
+        sport:"football",
+        league_key:leagueKey,
+        status:fixture.status || "scheduled",
+        minute:Number.isFinite(Number(fixture.minute)) ? Number(fixture.minute) : null,
+        home_score:Number.isFinite(Number(score.home)) ? Number(score.home) : null,
+        away_score:Number.isFinite(Number(score.away)) ? Number(score.away) : null,
+        payload,
+        provider_updated_at:body.updatedAt || new Date().toISOString(),
+        fetched_at:new Date().toISOString(),
+        expires_at:new Date(Date.now() + 24 * 3600000).toISOString(),
+        checksum:liveSnapshotChecksum(payload),
+      }),
+    });
+  } catch (_error) { /* cache yazimi ana yaniti engellemez */ }
 }
 
 // Her upstream cagri denemesini gozlemlenebilirlik icin kaydeder. Best-effort:
@@ -2125,7 +2193,9 @@ async function handleFootballMatchday(request, env, context) {
     };
     const kickoff = Date.parse(fixture?.kickoff_utc || row?.starting_at || "");
     const distance = Number.isFinite(kickoff) ? kickoff - Date.now() : Infinity;
-    const maxAge = distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
+    const providerState = String(fixture?.status || row?.state?.short_name || row?.state?.state || "").toLowerCase();
+    const finished = ["bitti", "ft", "aet", "pen", "finished", "after penalties", "after extra time"].includes(providerState);
+    const maxAge = finished ? 21600 : distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
     const activePeriod=details.periods.find((period)=>period?.ticking) || null;
     const derivedStatus=fixture?.status || (activePeriod ? "canlı" : null);
     const derivedMinute=Number.isFinite(Number(activePeriod?.minutes)) ? Number(activePeriod.minutes) : fixture?.minute ?? null;
@@ -2140,12 +2210,17 @@ async function handleFootballMatchday(request, env, context) {
     const response=jsonResponse(body, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=30` });
     writeEdgeCache(cache,cacheKey,response,context);
     writeEdgeCache(cache,staleKey,jsonResponse(body,200,{"Cache-Control":"public, max-age=14400, s-maxage=14400"}),context);
+    context.waitUntil(persistMatchdaySnapshot(env, fixtureId, body));
     return response;
   } catch (error) {
     const stale=await readEdgeCache(cache,staleKey);
     if(isUsableJsonCache(stale)) {
       const body=await stale.json().catch(()=>null);
       if(body) return jsonResponse({...body,stale:true,degraded:true,reason:"provider_unavailable"},200,{"Cache-Control":"public, max-age=30, s-maxage=30","X-Data-Stale":"true"});
+    }
+    const persisted = await readMatchdaySnapshot(env, fixtureId);
+    if (persisted?.body) {
+      return jsonResponse({ ...persisted.body, stale:true, degraded:true, reason:error?.status === 429 ? "provider_rate_limited" : "provider_unavailable", snapshotUpdatedAt:persisted.providerUpdatedAt || persisted.fetchedAt || null }, 200, { "Cache-Control":"public, max-age=60, s-maxage=300", "X-Data-Stale":"true" });
     }
     return jsonResponse({ error: "matchday_fetch_failed", message: safeErrorMessage(error), provider: "sportmonks" }, 502, { "Cache-Control": "no-store" });
   }
@@ -2260,7 +2335,7 @@ async function handleFootballLive(request, env, context) {
       .filter((fixture) => leagueIds.includes(String(fixture?.league_id)))
       .map((fixture) => normalizeLiveInplayMatch(fixture, league));
     context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: 200, outcome: "ok" }));
-    context.waitUntil(persistLiveSnapshots(env, league, matches));
+    context.waitUntil(persistLiveSnapshots(env, league, matches, snapshotRows));
     return jsonResponse({
       ...baseMeta,
       providerUpdatedAt: nowIso,
