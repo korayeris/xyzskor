@@ -242,6 +242,7 @@ assert.match(workerSource, /lineups\.player/, 'Son resmî ilk 11 oyuncu ilişkis
 assert.match(workerSource, /Number\(row\?\.type_id\) === 11/, 'Yalnız resmî başlangıç oyuncuları ilk 11 olarak kullanılmalı.');
 assert.match(html, /id="clubProfilePanel"/, 'Kulüpler alanında ayrıntılı kulüp merkezi bulunmalı.');
 assert.match(functionSource('loadClubProfile'), /fetch\(`\/api\/football\/club/, 'Kulüp merkezi aynı alan adlı sunucu adaptörünü kullanmalı.');
+assert.match(documentHtmlRaw, /matchday-live\.js\?v=299/, 'Maç merkezi istemci değişiklikleri immutable tarayıcı önbelleğini kırmalı.');
 assert.match(functionSource('clubLineupHTML'), /İsim uydurulmuyor/, 'Sağlayıcı verisi yokken oyuncu ismi uydurulmamalı.');
 assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Stadyum kartı yol tarifi bağlantısı üretmeli.');
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
