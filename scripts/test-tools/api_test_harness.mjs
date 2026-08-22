@@ -295,9 +295,11 @@ async function main() {
     });
     assertEqual(status, 200, 'coverage success -> 200');
     assertEqual(body?.selected?.length, 5, 'coverage success -> 5 seçili lig probe edildi');
-    assertEqual(body?.selected?.filter((row) => row.available).length, 5, 'coverage success -> fikstür erişimi olan ligler available=true');
+    assertEqual(body?.selected?.filter((row) => row.available).length, 2, 'coverage success -> yalnız abonelikte raporlanan ligler available=true');
     assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 2, 'coverage success -> /my/leagues bildirimi ayrı tutulur');
-    assertTrue(body?.selected?.every((row) => row.metadataAvailable === true), 'coverage success -> metadata probe sonucu ayrıca raporlanır');
+    assertTrue(body?.selected?.filter((row) => row.subscriptionReported).every((row) => row.metadataAvailable === true), 'coverage success -> abonelikteki liglerin metadata probe sonucu raporlanır');
+    assertEqual(body?.selected?.filter((row) => row.reason === 'not_in_subscription').length, 3, 'coverage success -> abonelik dışı liglerin nedeni açıkça raporlanır');
+    assertTrue(body?.selected?.every((row) => row.capabilities && typeof row.capabilities.fixtures === 'boolean'), 'coverage success -> lig yetenek matrisi döner');
   }
 
   console.log('\n=== 8) /api/media/youtube ===');

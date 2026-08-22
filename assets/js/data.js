@@ -170,6 +170,9 @@ function footballCoverageState(leagueKey){
 function footballCoverageUnavailable(leagueKey){ return footballCoverageState(leagueKey)?.available===false; }
 function footballCoverageMessage(leagueKey){
   const label=competitionLabelBySlug(leagueKey);
+  const reason=footballCoverageState(leagueKey)?.reason;
+  if(reason==='season_unavailable') return `${label} abonelikte yer alıyor ancak aktif sezon henüz sağlayıcı tarafından yayınlanmadı.`;
+  if(reason==='fixtures_unavailable') return `${label} abonelikte yer alıyor ancak fikstür erişimi şu anda kullanılamıyor.`;
   return `${label} mevcut veri sağlayıcı aboneliğinde yer almıyor. Kapsam açıldığında doğrulanmış maç ve tablo verileri burada otomatik yayınlanacak.`;
 }
 async function loadFootballCoverage(){
@@ -182,7 +185,7 @@ async function loadFootballCoverage(){
       const payload=await response.json().catch(()=>null);
       if(!response.ok || !Array.isArray(payload?.selected)) throw new Error('coverage_unavailable');
       FOOTBALL_COVERAGE_CACHE={
-        leagues:new Map(payload.selected.map(row=>[String(row.league),{available:row.available===true,currentSeasonId:row.currentSeasonId||null}])),
+        leagues:new Map(payload.selected.map(row=>[String(row.league),{available:row.available===true,currentSeasonId:row.currentSeasonId||null,reason:row.reason||null,capabilities:row.capabilities||null}])),
         updatedAt:payload.updatedAt||null,
         expiresAt:Date.now()+FOOTBALL_COVERAGE_CACHE_MS
       };

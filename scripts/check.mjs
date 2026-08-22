@@ -507,8 +507,9 @@ assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.
 assert.match(liveFunctionSource('applyParsedLocation'), /loadFootballLeagueSelection\(parsed\.league\)/, 'Dogrudan rota ve popstate coverage-aware lig yukleyicisini kullanmali.');
 assert.match(liveFunctionSource('renderClubProfile'), /split\(\/\\s\+\/\).*toLocaleUpperCase/, 'Teknik direktor placeholderi ad bas harflerinden uretilmeli.');
 assert.match(workerSource, /available:fixturesAvailable/, 'Coverage availability gercek fikstur erisimiyle dogrulanmali.');
-assert.match(workerSource, /subscriptionReported:availableIds\.has\(leagueId\)/, 'Saglayicinin abonelik bildirimi ayri tanisal alan olarak korunmali.');
-assert.match(workerSource, /metadataAvailable:Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
+assert.match(workerSource, /subscriptionReported\s*=\s*availableIds\.has\(leagueId\)/, 'Saglayicinin abonelik bildirimi ayri tanisal alan olarak korunmali.');
+assert.match(workerSource, /metadataAvailable\s*=\s*Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
+assert.match(workerSource, /reason:"not_in_subscription"[\s\S]*capabilities:\{ fixtures:false/, 'Abonelik disi ligler neden ve yetenek matrisiyle fail-closed raporlanmali.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.
 // Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim

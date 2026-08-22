@@ -1158,7 +1158,7 @@ async function handleFootballCoverage(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
-  const cacheUrl = new URL("/api/football/coverage-v6", request.url); cacheUrl.search = "";
+  const cacheUrl = new URL("/api/football/coverage-v7", request.url); cacheUrl.search = "";
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   try {
@@ -1175,20 +1175,30 @@ async function handleFootballCoverage(request, env, context) {
     visit(payload?.data);
     const selected = await Promise.all(Object.entries(SELECTED_LEAGUE_IDS_BY_KEY).filter(([key]) => key !== "all").map(async ([league, ids]) => {
       const leagueId = String(ids[0]);
+      const subscriptionReported = availableIds.has(leagueId);
+      if (!subscriptionReported) return {
+        league, leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[league] || null,
+        available:false, subscriptionReported:false, metadataAvailable:false,
+        currentSeasonId:null, reason:"not_in_subscription",
+        capabilities:{ fixtures:false, results:false, standings:false, live:false },
+      };
       try {
         const probe = await sportmonksRequest(`/leagues/${encodeURIComponent(leagueId)}?include=currentSeason`, token);
         const row = relationRows(probe?.data)[0] || null;
         const currentSeason = sportmonksCurrentSeason(row);
         let fixturesAvailable = false;
+        let scheduleStatus = null;
         if (currentSeason?.id) {
           try {
             await sportmonksRequest(`/schedules/seasons/${encodeURIComponent(currentSeason.id)}`, token);
             fixturesAvailable = true;
-          } catch (_error) {}
+          } catch (error) { scheduleStatus = error?.status || 502; }
         }
-        return { league, leagueId, name:row?.name || SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:fixturesAvailable, subscriptionReported:availableIds.has(leagueId), metadataAvailable:Boolean(row?.id), currentSeasonId:currentSeason?.id ? String(currentSeason.id) : null };
+        const metadataAvailable = Boolean(row?.id);
+        const reason = !metadataAvailable ? "metadata_unavailable" : !currentSeason?.id ? "season_unavailable" : !fixturesAvailable ? "fixtures_unavailable" : "ready";
+        return { league, leagueId, name:row?.name || SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:fixturesAvailable, subscriptionReported, metadataAvailable, currentSeasonId:currentSeason?.id ? String(currentSeason.id) : null, reason, status:scheduleStatus, capabilities:{ fixtures:fixturesAvailable, results:fixturesAvailable, standings:fixturesAvailable, live:fixturesAvailable } };
       } catch (error) {
-        return { league, leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:false, currentSeasonId:null, status:error?.status || 502 };
+        return { league, leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:false, subscriptionReported, metadataAvailable:false, currentSeasonId:null, reason:error?.status === 403 ? "plan_restricted" : "provider_error", status:error?.status || 502, capabilities:{ fixtures:false, results:false, standings:false, live:false } };
       }
     }));
     const response = jsonResponse({ source:"sportmonks-selected-league-probes", updatedAt:new Date().toISOString(), myLeaguesReportedCount:availableIds.size, selected }, 200, { "Cache-Control":"public, max-age=300, s-maxage=3600" });
