@@ -33,7 +33,7 @@
 
   async function refreshMetrics() {
     const hub = document.getElementById("multiSportHub");
-    if (!hub || active === "football" || active === "motorsports") return;
+    if (!hub || !["basketball", "volleyball"].includes(active)) return;
     let metrics = document.getElementById("multiSportMetrics");
     if (!metrics) {
       metrics = document.createElement("section");

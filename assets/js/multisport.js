@@ -238,6 +238,10 @@
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');
+          const branchKeys=Object.keys(payload?.sports||{});
+          if(branchKeys.length!==1 || branchKeys[0]!==requestedSport) throw new Error('sports_branch_mismatch');
+          payload.sports[requestedSport]=(Array.isArray(payload.sports[requestedSport])?payload.sports[requestedSport]:[])
+            .filter((item)=>!item?.sport || item.sport===requestedSport);
           return payload;
         }).catch((error) => { feedPromises.delete(requestedSport); throw error; });
       feedPromises.set(requestedSport,request);

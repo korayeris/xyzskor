@@ -19,19 +19,28 @@ const MODE = process.argv[2] || 'withdata';
 const PORT = Number(process.env.XYZSKOR_TEST_PORT || 4291);
 const BASE = `http://127.0.0.1:${PORT}`;
 const OUT = new URL('../../reports/screenshots/responsive/', import.meta.url);
-const VIEWPORTS = [
+const ALL_VIEWPORTS = [
   { name: '320-mobil-kucuk', width: 320, height: 720 },
   { name: '375-iphone-se', width: 375, height: 812 },
   { name: '390-iphone-14', width: 390, height: 844 },
   { name: '768-tablet', width: 768, height: 1024 },
   { name: '1440-masaustu', width: 1440, height: 900 },
 ];
-const ROUTES = [
+const ALL_ROUTES = [
   { name: 'anasayfa', path: '/' },
   { name: 'super-lig-maclar', path: '/super-lig/matches' },
   { name: 'predict', path: '/predict' },
   { name: 'basketbol', path: '/basketbol/' },
+  { name: 'voleybol', path: '/voleybol/' },
+  { name: 'ufc', path: '/ufc/' },
+  { name: 'formula-1', path: '/motorsports/formula-1' },
 ];
+const VIEWPORTS = process.env.XYZSKOR_TEST_VIEWPORT
+  ? ALL_VIEWPORTS.filter(({ width, name }) => String(width) === process.env.XYZSKOR_TEST_VIEWPORT || name === process.env.XYZSKOR_TEST_VIEWPORT)
+  : ALL_VIEWPORTS;
+const ROUTES = process.env.XYZSKOR_TEST_ROUTE
+  ? ALL_ROUTES.filter(({ name }) => name === process.env.XYZSKOR_TEST_ROUTE)
+  : ALL_ROUTES;
 
 let PASS = 0, FAIL = 0;
 const failures = [];
@@ -67,10 +76,20 @@ function mockFor(url) {
   if (url.includes('/api/social/')) return [{ source: 'mock', league: 'super-lig', updated_at: iso, clubs: [], publishers: [], items: [] }, 200];
   if (url.includes('/api/health')) return [{ status: 'ok', checks: {} }, 200];
   if (url.includes('/api/predict-game/status')) return [{ authenticated: false, reward_eligible: false, training: false }, 200];
-  if (url.includes('/api/sports/today')) return [{ source: 'mock', date: iso.slice(0,10), sports: { basketball: [
-    { id:'basket-1', sport:'basketball', league:'Basketbol Süper Ligi', status:'scheduled', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
-    { id:'kirli-football', sport:'football', league:'Süper Lig', status:'finished', first:{name:'Galatasaray'}, second:{name:'Beşiktaş'} },
-  ], volleyball: [] } }, 200];
+  if (url.includes('/api/sports/today')) {
+    const sport = new URL(url).searchParams.get('sport');
+    if(sport === 'basketball') return [{ source:'mock', date:iso.slice(0,10), sports:{ basketball:[
+      { id:'basket-1', sport:'basketball', league:'Basketbol Süper Ligi', status:'scheduled', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
+      { id:'kirli-football', sport:'football', league:'Süper Lig', status:'finished', first:{name:'Galatasaray'}, second:{name:'Beşiktaş'} },
+    ] } }, 200];
+    if(sport === 'volleyball') return [{ source:'mock', date:iso.slice(0,10), sports:{ volleyball:[
+      { id:'volley-1', sport:'volleyball', league:'Sultanlar Ligi', status:'scheduled', first:{name:'Eczacıbaşı'}, second:{name:'VakıfBank'} },
+      { id:'kirli-basket', sport:'basketball', league:'Basketbol Süper Ligi', status:'finished', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
+    ] } }, 200];
+    return [{ error:'invalid_sport' },400];
+  }
+  if (url.includes('/api/ufc/')) return [{ data:[] }, 200];
+  if (url.includes('/api/motorsports')) return [{ source:'mock', sport:'formula1', resource:'events', data:[] }, 200];
   return [{ error: 'not_mocked' }, 503];
 }
 
@@ -145,6 +164,9 @@ async function main() {
             overflowing.push({
               tag: el.tagName.toLowerCase(),
               cls: String(el.className || '').split(/\s+/).slice(0, 3).join('.'),
+              href: el.getAttribute('href') || '',
+              text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60),
+              parentCls: String(el.parentElement?.className || '').split(/\s+/).slice(0, 3).join('.'),
               overflowPx: Math.round(rect.right - vw),
             });
           }
@@ -176,11 +198,25 @@ async function main() {
       ok(metrics.overflowingCount === 0, `${tag}: viewport disina cikan eleman yok`, JSON.stringify(metrics.overflowingElements));
       ok(metrics.visibleTextLength > 200, `${tag}: sayfa icerik uretti`, `metin uzunlugu=${metrics.visibleTextLength}`);
       ok(metrics.skeletons === 0, `${tag}: yukleme iskeleti kalmadi`, `iskelet=${metrics.skeletons}`);
+      if(['anasayfa','super-lig-maclar','predict'].includes(route.name)){
+        ok(requestedApiPaths.every((path)=>!path.startsWith('/api/sports/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: futbol/Predict akisi diger spor API ailelerine dokunmuyor`, requestedApiPaths.join(' | '));
+      }
       if(route.name === 'basketbol'){
         ok(!/Galatasaray|Beşiktaş|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
         ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
         ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/')), `${tag}: arka planda futbol API'leri yuklenmiyor`, requestedApiPaths.join(' | '));
         ok(requestedApiPaths.some((path)=>path.startsWith('/api/sports/today?sport=basketball')), `${tag}: yalniz basketbol verisi isteniyor`, requestedApiPaths.join(' | '));
+      }
+      if(route.name === 'voleybol'){
+        ok(!/Anadolu Efes|Fenerbahçe Beko|Galatasaray|Beşiktaş/.test(metrics.multisportText), `${tag}: futbol ve basketbol verisi voleybola sizmiyor`, metrics.multisportText.slice(0,240));
+        ok(/Eczacıbaşı|VakıfBank/.test(metrics.multisportText), `${tag}: voleybol verisi gorunuyor`, metrics.multisportText.slice(0,240));
+        ok(requestedApiPaths.every((path)=>!path.startsWith('/api/football/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: yalniz voleybol API ailesi kullaniliyor`, requestedApiPaths.join(' | '));
+      }
+      if(route.name === 'ufc'){
+        ok(requestedApiPaths.every((path)=>path.startsWith('/api/ufc/')), `${tag}: UFC sayfasi baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));
+      }
+      if(route.name === 'formula-1'){
+        ok(requestedApiPaths.every((path)=>path.startsWith('/api/motorsports')), `${tag}: Motor Sporlari baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));
       }
       report.push({ route: route.name, viewport: viewport.name, mode: MODE, pageErrors, consoleErrors, metrics, screenshot: shot });
       await page.close();

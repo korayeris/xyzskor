@@ -2178,7 +2178,6 @@ async function handleInstagramFeed(request, env, context) {
 
 const MULTISPORT_FEEDS = Object.freeze({
   basketball: { host: "v1.basketball.api-sports.io", path: "games" },
-  mma: { host: "v1.mma.api-sports.io", path: "fights" },
   volleyball: { host: "v1.volleyball.api-sports.io", path: "games" },
 });
 
@@ -2295,35 +2294,22 @@ async function handleCitoUfcProxy(request, env, context) {
 
 async function handleMultisportToday(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
-  if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
-  const date = multisportDate();
   const requestedSport = new URL(request.url).searchParams.get("sport");
-  if (requestedSport && !Object.hasOwn(MULTISPORT_FEEDS, requestedSport)) {
+  if (!requestedSport) return jsonResponse({ error: "sport_required" }, 400, { "Cache-Control": "no-store" });
+  if (!Object.hasOwn(MULTISPORT_FEEDS, requestedSport)) {
     return jsonResponse({ error: "invalid_sport" }, 400, { "Cache-Control": "no-store" });
   }
+  if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
+  const date = multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v10?date=${date}&sport=${requestedSport || "all"}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v11?date=${date}&sport=${requestedSport}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
-  const selectedFeeds = Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport !== "mma" && (!requestedSport || sport === requestedSport));
+  const selectedFeeds = Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport === requestedSport);
   const entries = await Promise.all(selectedFeeds.map(async ([sport, feed]) => {
     const latestKey = new Request(new URL(`/api/sports/latest-v2/${sport}`, request.url), { method: "GET" });
     const latestCached = await readEdgeCache(cache, latestKey);
     try {
-      if (sport === "mma" && env.CITO_API_KEY) {
-        const cito = await fetchCitoUfc(env, "upcoming");
-        const eventRows = Array.isArray(cito?.data) ? cito.data : Array.isArray(cito?.events) ? cito.events : [];
-        return [sport, eventRows.slice(0, 30).map((event, index) => ({
-          id: event.id || event.dataId || event.slug || `ufc-${index}`,
-          league: event.name || event.title || event.slug || "UFC",
-          category: event.location || event.venue || "Fight Card",
-          time: event.date || event.startDate || event.startsAt || null,
-          timestamp: event.timestamp || null,
-          status: event.status || "scheduled", score: null,
-          first: { name: event.mainEvent?.fighter1?.name || event.mainEvent?.red?.name || event.name || "UFC Event", logo: event.mainEvent?.fighter1?.image || null, winner: null },
-          second: { name: event.mainEvent?.fighter2?.name || event.mainEvent?.blue?.name || event.venue || "Fight Card", logo: event.mainEvent?.fighter2?.image || null, winner: null }
-        }))];
-      }
       const attempts = await Promise.all([0, -1, -2, -3, -7].map(async (offset) => {
         const target = new Date(`${date}T12:00:00+03:00`);
         target.setDate(target.getDate() + offset);

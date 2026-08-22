@@ -18,7 +18,7 @@ const ok = (cond, label, detail) => {
 
 const mockAssets = { fetch: async () => new Response('<html>shell</html>', { status: 200, headers: { 'Content-Type': 'text/html' } }) };
 const ctx = { waitUntil: () => {} };
-const ENV = { ASSETS: mockAssets, SPORTMONKS_API_TOKEN: 'test-sportmonks-token', SUPABASE_URL: 'https://supabase.test', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key' };
+const ENV = { ASSETS: mockAssets, SPORTMONKS_API_TOKEN: 'test-sportmonks-token', API_SPORTS_KEY: 'api-sports-key', SUPABASE_URL: 'https://supabase.test', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key' };
 
 let SCENARIO = null;
 global.fetch = async (url, init) => {
@@ -164,8 +164,30 @@ async function main() {
   {
     const source = await (await import('node:fs/promises')).readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
     ok(source.includes('({ ...item, sport, provider:'), 'çoklu spor cache kaydı koleksiyon branşıyla zorla izole edilir');
-    ok(source.includes('/api/sports/today-v10?date='), 'kirli eski çoklu spor cache anahtarı geçersizleştirildi');
+    ok(source.includes('/api/sports/today-v11?date='), 'kirli eski çoklu spor cache anahtarı geçersizleştirildi');
     ok(source.includes('const attempts = await Promise.all([0, -1, -2, -3, -7]'), 'geçmiş gün spor sorguları seri yerine paralel çalışır');
+  }
+
+  console.log('\n=== 8) Çoklu spor API fail-closed branş sözleşmesi ===');
+  {
+    const { status, payload } = await call('/api/sports/today', () => null);
+    ok(status === 400 && payload?.error === 'sport_required', 'sport parametresi olmadan birleşik branş yanıtı verilmez');
+  }
+  {
+    const { status, payload } = await call('/api/sports/today?sport=football', () => null);
+    ok(status === 400 && payload?.error === 'invalid_sport', 'futbol çoklu-spor endpointine sokulmaz');
+  }
+  {
+    const upstreamHosts = new Set();
+    const { status, payload } = await call('/api/sports/today?sport=basketball', (u) => {
+      upstreamHosts.add(u.hostname);
+      if(u.hostname !== 'v1.basketball.api-sports.io') throw new Error('cross_branch_upstream:' + u.hostname);
+      return json({ response:[{ id:7, teams:{ home:{ name:'Anadolu Efes' }, away:{ name:'Fenerbahçe Beko' } }, league:{ name:'Basketbol Süper Ligi' }, status:{ long:'Scheduled' } }] });
+    });
+    ok(status === 200, 'basketbol branş isteği başarılı');
+    ok(JSON.stringify(Object.keys(payload?.sports||{})) === JSON.stringify(['basketball']), 'API yanıtı yalnız basketball anahtarını taşır', JSON.stringify(payload?.sports));
+    ok([...upstreamHosts].every((host)=>host === 'v1.basketball.api-sports.io'), 'basketbol isteği yalnız basketbol sağlayıcısına gider', [...upstreamHosts].join(','));
+    ok((payload?.sports?.basketball||[]).every((item)=>item.sport === 'basketball'), 'yanıttaki her kayıt zorunlu basketball etiketi taşır');
   }
 
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);

@@ -1,4 +1,7 @@
 (() => {
+  const productRoot = location.pathname.split('/').filter(Boolean)[0] || '';
+  if(['basketbol', 'voleybol', 'ufc', 'motorsports'].includes(productRoot)) return;
+
   const TARGET_GOALS = 10;
   const MAX_MISSES = 5;
   const POINTS_PER_GOAL = 5;

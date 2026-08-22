@@ -7491,6 +7491,9 @@ body.predict-product-open .predict-action .prediction-zone{border:0!important;ba
 body.predict-product-open .predict-evidence-row,body.predict-product-open .predict-match-footer{display:none!important}
 @media(max-width:520px){body.predict-product-open #page-league{padding-top:18px!important}.predict-list-head{margin-bottom:14px!important}body.predict-product-open .predict-list-head h2{font-size:18px!important}}
 
+/* Keep the five-item motorsport dock inside very narrow viewports. */
+@media(max-width:760px){.xms-mobile{grid-template-columns:repeat(5,minmax(0,1fr))}.xms-mobile a{min-width:0}}
+
 /* Predict akışı: tek yüzey, çizgisiz ve yumuşak geçişler */
 body.predict-product-open .predict-feed-column{padding:clamp(18px,3vw,34px);border-radius:28px;background:linear-gradient(180deg,#101519 0%,#0d1215 100%)}
 body.predict-product-open .predict-list-head{padding:4px 6px 22px!important}
