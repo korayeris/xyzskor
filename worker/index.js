@@ -1096,9 +1096,9 @@ async function handleYouTubeMedia(request, env, context) {
   if (!env.YOUTUBE_API_KEY) return jsonResponse({ error: "youtube_not_configured", channels: YOUTUBE_CHANNELS }, 503, { "Cache-Control": "no-store" });
   const requestUrl = new URL(request.url);
   const league = Object.hasOwn(YOUTUBE_QUERY_BY_LEAGUE, requestUrl.searchParams.get("league")) ? requestUrl.searchParams.get("league") : "all";
-  const cacheUrl = new URL(request.url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
+  const cacheUrl = new URL(request.url); cacheUrl.search = `?league=${encodeURIComponent(league)}&v=3`;
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const staleUrl = new URL(`/api/media/youtube-stale-v2/${encodeURIComponent(league)}`, request.url);
+  const staleUrl = new URL(`/api/media/youtube-stale-v3/${encodeURIComponent(league)}`, request.url);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
