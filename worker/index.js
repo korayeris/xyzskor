@@ -1100,9 +1100,13 @@ async function handleYouTubeMedia(request, env, context) {
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const staleUrl = new URL(`/api/media/youtube-stale-v3/${encodeURIComponent(league)}`, request.url);
   const staleKey = new Request(staleUrl.toString(), { method: "GET" });
+  const legacyUrl = new URL(request.url); legacyUrl.search = `?league=${encodeURIComponent(league)}`;
+  const legacyStaleUrl = new URL(`/api/media/youtube-stale-v2/${encodeURIComponent(league)}`, request.url);
   const cache = edgeCache();
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   const stale = await readEdgeCache(cache, staleKey);
+  const legacy = await readEdgeCache(cache, new Request(legacyUrl.toString(), { method: "GET" }))
+    || await readEdgeCache(cache, new Request(legacyStaleUrl.toString(), { method: "GET" }));
   try {
     if (!youtubeFeedRefreshPromises.has(league)) youtubeFeedRefreshPromises.set(league, fetchYouTubeMedia(env.YOUTUBE_API_KEY, league));
     const payload = await youtubeFeedRefreshPromises.get(league);
@@ -1114,6 +1118,15 @@ async function handleYouTubeMedia(request, env, context) {
     if (stale) {
       const headers = new Headers(stale.headers); headers.set("X-Data-Stale", "true"); headers.set("Warning", '110 - "Response is stale"');
       return new Response(stale.body, { status: 200, headers });
+    }
+    if (legacy) {
+      const legacyPayload = await legacy.json().catch(() => null);
+      if (legacyPayload && Array.isArray(legacyPayload.items)) {
+        const payload = { ...legacyPayload, league, items: legacyPayload.items.filter((item) => youtubeTitleMatchesLeague(item?.title, league)).slice(0, 8) };
+        const response = jsonResponse(payload, 200, { "Cache-Control": YOUTUBE_CACHE, "X-Data-Stale": "true", Warning: '110 - "Response is stale"' });
+        writeEdgeCache(cache, cacheKey, response, context);
+        return response;
+      }
     }
     return jsonResponse({ error: error?.status === 403 ? "youtube_quota_or_key_error" : "youtube_upstream_unavailable", channels: YOUTUBE_CHANNELS }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "900" });
   } finally {
