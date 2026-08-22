@@ -1057,16 +1057,22 @@ function renderFootballQuickMatches(){
   if(!rows.length){ area.innerHTML=footballEmpty('Maç bulunmuyor','Yayınlanmış fikstür veya doğrulanmış canlı maç kaydı henüz yok.'); return; }
   const title=document.getElementById('footballMatchesTitle');
   const note=document.getElementById('footballMatchesNote');
-  if(title) title.textContent='Sıradaki diğer maçlar';
-  if(note) note.textContent='Ana maç kartında gösterilmeyen en yakın fikstürler.';
+  if(title) title.textContent='Gündem maçları';
+  if(note) note.textContent='Sonuçlanan ve yaklaşan maçlar durum renkleriyle gösterilir.';
   const user = getCurrentUser();
   const overviewRows=rows.slice(0,12);
   area.innerHTML = overviewRows.map(m=>{
     const state = explicitMatchState(m); const result = getResult(m.id);
     const prediction = user && ALL_PREDICTIONS[m.id] && ALL_PREDICTIONS[m.id][user.id];
-    return `<button class="football-match-row" type="button" data-football-match="${escapeHTML(m.id)}" aria-label="${escapeHTML(m.ev)} ${escapeHTML(m.konuk)} maç merkezini aç">
+    const homeScore=Number(result?.home); const awayScore=Number(result?.away);
+    const hasResult=result && Number.isFinite(homeScore) && Number.isFinite(awayScore);
+    const outcome=hasResult?(homeScore===awayScore?'draw':homeScore>awayScore?'home-win':'away-win'):'';
+    const timing=state.live?'is-live-match':result||new Date(m.kickoff).getTime()<=Date.now()?'is-past-match':'is-upcoming-match';
+    const homeClass=outcome==='draw'?'is-draw':outcome==='home-win'?'is-winner':outcome==='away-win'?'is-loser':'';
+    const awayClass=outcome==='draw'?'is-draw':outcome==='away-win'?'is-winner':outcome==='home-win'?'is-loser':'';
+    return `<button class="football-match-row ${timing} ${outcome?`outcome-${outcome}`:''}" type="button" data-football-match="${escapeHTML(m.id)}" aria-label="${escapeHTML(m.ev)} ${escapeHTML(m.konuk)} maç merkezini aç">
       <span class="football-match-time"><strong>${escapeHTML(fmtTime(m.kickoff))}</strong>${escapeHTML(new Date(m.kickoff).toLocaleDateString('tr-TR',{day:'2-digit',month:'short'}))}</span>
-      <span class="football-match-teams"><span>${escapeHTML(m.ev)}</span><span>${escapeHTML(m.konuk)}</span></span>
+      <span class="football-match-teams"><span class="${homeClass}">${escapeHTML(m.ev)}</span><span class="${awayClass}">${escapeHTML(m.konuk)}</span></span>
       <span class="football-match-meta">${result ? `<span class="football-score">${escapeHTML(result.home)}–${escapeHTML(result.away)}</span>` : ''}<span class="football-state ${state.live?'live':''}">${escapeHTML(state.label)}</span>${prediction?'<span class="prediction-indicator">Tahminin var</span>':''}</span>
     </button>`;
   }).join('')+`<button class="football-quick-more" type="button" onclick="openFootballSection('matches')"><span>${escapeHTML(rows.length)} maçın tamamı</span><b>Maç merkezini aç →</b></button>`;
@@ -1109,15 +1115,7 @@ function renderMatchesHub(){
     const dateKey=String(match.kickoff||'').slice(0,10); const dateHead=dateKey!==lastDate?`<div class="matches-hub-date">${escapeHTML(matchHubDateLabel(match.kickoff))}</div>`:''; lastDate=dateKey;
     const state=explicitMatchState(match); const result=getResult(match.id); const score=result?`<span class="matches-hub-score"><b>${escapeHTML(result.home)}</b><i>–</i><b>${escapeHTML(result.away)}</b></span>`:`<span class="matches-hub-kickoff">${escapeHTML(fmtTime(match.kickoff))}</span>`;
     const competition=competitionName(match);
-    const homeScore=Number(result?.home); const awayScore=Number(result?.away);
-    const hasNumericResult=result && Number.isFinite(homeScore) && Number.isFinite(awayScore);
-    const outcome=hasNumericResult ? (homeScore===awayScore?'draw':homeScore>awayScore?'home-win':'away-win') : '';
-    const kickoffTime=new Date(match.kickoff).getTime();
-    const timingClass=state.live?'is-live-match':result||kickoffTime<=Date.now()?'is-past-match':'is-upcoming-match';
-    const homeOutcome=outcome==='draw'?'outcome-draw':outcome==='home-win'?'outcome-winner':outcome==='away-win'?'outcome-loser':'';
-    const awayOutcome=outcome==='draw'?'outcome-draw':outcome==='away-win'?'outcome-winner':outcome==='home-win'?'outcome-loser':'';
-    const outcomeLabel=outcome==='draw'?'berabere bitti':outcome==='home-win'?`${match.ev} kazandı`:`${match.konuk} kazandı`;
-    return `${dateHead}<button class="matches-hub-row ${timingClass} ${outcome?`outcome-${outcome}`:''}" type="button" data-match-hub-id="${escapeHTML(match.id)}" aria-label="${escapeHTML(match.ev)} ${escapeHTML(match.konuk)}${hasNumericResult?` ${homeScore} ${awayScore}, ${escapeHTML(outcomeLabel)}`:''}; maç merkezini aç"><span class="matches-hub-week">${escapeHTML(match.hafta||'—')}<small>HAFTA</small></span><span class="matches-hub-team home ${homeOutcome}">${crestHTML(match.ev,'sm')}<strong>${escapeHTML(match.ev)}</strong></span>${score}<span class="matches-hub-team away ${awayOutcome}"><strong>${escapeHTML(match.konuk)}</strong>${crestHTML(match.konuk,'sm')}</span><span class="matches-hub-state ${state.live?'live':''}">${escapeHTML(state.label)}</span><span class="matches-hub-venue"><b>${escapeHTML(competition)}</b><small>${escapeHTML(match.stadyum||'Stadyum bilgisi açıklanmadı')}</small></span><span class="matches-hub-open">Maç merkezi <b>→</b></span></button>`;
+    return `${dateHead}<button class="matches-hub-row" type="button" data-match-hub-id="${escapeHTML(match.id)}" aria-label="${escapeHTML(match.ev)} ${escapeHTML(match.konuk)} maç merkezini aç"><span class="matches-hub-week">${escapeHTML(match.hafta||'—')}<small>HAFTA</small></span><span class="matches-hub-team home">${crestHTML(match.ev,'sm')}<strong>${escapeHTML(match.ev)}</strong></span>${score}<span class="matches-hub-team away"><strong>${escapeHTML(match.konuk)}</strong>${crestHTML(match.konuk,'sm')}</span><span class="matches-hub-state ${state.live?'live':''}">${escapeHTML(state.label)}</span><span class="matches-hub-venue"><b>${escapeHTML(competition)}</b><small>${escapeHTML(match.stadyum||'Stadyum bilgisi açıklanmadı')}</small></span><span class="matches-hub-open">Maç merkezi <b>→</b></span></button>`;
   }).join('');
   area.querySelectorAll('[data-match-hub-id]').forEach(button=>{ button.onclick=()=>openMatchCenter(button.dataset.matchHubId); });
 }
