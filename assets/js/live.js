@@ -265,6 +265,10 @@ function renderTicker(){
     return `<button class="agenda-match ${finished?'is-result':'is-upcoming'}" type="button" data-fixture-id="${escapeHTML(fixtureId)}" aria-label="${escapeHTML(m.ev)} ${escapeHTML(m.konuk)} maç merkezini aç"><span class="agenda-state">${finished?'MS':date}</span><span class="agenda-team">${logo(m.home_logo,m.ev)}<b>${escapeHTML(m.ev)}</b></span><strong class="agenda-score">${finished&&result?`${escapeHTML(result.home)}<i>–</i>${escapeHTML(result.away)}`:time}</strong><span class="agenda-team away">${logo(m.away_logo,m.konuk)}<b>${escapeHTML(m.konuk)}</b></span></button>`;
   };
   el.innerHTML=`<div class="agenda-heading"><span class="ticker-dot"></span><b>GÜNDEM MAÇLARI</b><small>Son 3 · Yaklaşan 6</small></div><div class="agenda-track">${agenda.map(card).join('')}</div>`;
+  // Lig değişiminde önceki şeridin yatay konumu yeni lige taşınmamalı.
+  // Her lig aynı başlangıç noktasından açılır; kullanıcı isterse sonrasında kaydırır.
+  const agendaTrack=el.querySelector('.agenda-track');
+  if(agendaTrack) agendaTrack.scrollLeft=0;
 }
 
 /* ===================== CANLI VERİ SAĞLAYICI KATMANI ===================== */

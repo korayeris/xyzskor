@@ -179,6 +179,8 @@ assert.match(html, /id="footballStandingsCompact"/i, 'Futbol alanında puan duru
 assert.match(appCss, /#footballOverviewView \.standings-rail\{grid-column:2;grid-row:2\/4\}/i, 'Puan durumu ana sayfada kaldırılan gündem alanının yerini kullanmalı.');
 assert.match(appSource, /\{ key:'super-lig'[\s\S]*\{ key:'premier-league'[\s\S]*\{ key:'la-liga'[\s\S]*\{ key:'bundesliga'[\s\S]*\{ key:'serie-a'[\s\S]*\{ key:'all'/i, 'Lig seçimi beş ulusal ligi ve Tüm ligler sırasını korumalı.');
 assert.doesNotMatch(appSource, /SELECTED_COMPETITIONS\s*=\s*\[[\s\S]*?key:'(?:champions-league|europa-league)'[\s\S]*?\];/i, 'UCL ve UEL özel paket etkinleşene kadar aktif lig seçiminde görünmemeli.');
+assert.match(appSource, /agendaTrack\.scrollLeft=0/, 'Lig değişiminde gündem maçları şeridi başlangıç konumuna dönmeli.');
+assert.match(appCss, /\.live-ticker \.agenda-match\{[^}]*height:65px[^}]*flex:0 0 292px/i, 'Masaüstü maç şeridi ligler arasında sabit kart ölçüsü kullanmalı.');
 assert.match(functionSource('loadLiveFeed'), /fetch\(`\/api\/football\/live\?league=\$\{encodeURIComponent\(league\)\}`[\s\S]*sb\.functions\.invoke/s, 'Lig bazlı Sportmonks canlı Worker akışı birincil, Supabase fonksiyonu yedek olmalı.');
 assert.match(html, /id="footballContextNav"[^>]*aria-label="Futbol bölümleri"/i, 'Futbol içinde maç, gündem, transfer ve puan durumu erişimi bulunmalı.');
 assert.match(html, /data-football-route="home"[^>]*>Anasayfa</i, 'Futbol portalının ayrı bir Anasayfa rotası bulunmalı.');
