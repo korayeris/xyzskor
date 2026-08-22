@@ -1016,7 +1016,7 @@ function explicitMatchState(m){
   if(m.status==='ertelendi') return { label:'Ertelendi', live:false };
   if(m.status==='iptal') return { label:'İptal', live:false };
   if(getResult(m.id)) return { label:'Bitti', live:false };
-  return { label:new Date(m.kickoff).getTime()>Date.now() ? 'Yaklaşan' : 'Durum bekleniyor', live:false };
+  return { label:new Date(m.kickoff).getTime()>Date.now() ? 'Yaklaşan' : 'Sonuç açıklanmadı', live:false };
 }
 function matchIsCurrentFixture(match){
   if(!match) return false;
@@ -1341,7 +1341,7 @@ function renderPreseasonSocial(){
 function transferSignalCardHTML(entry){
   const account=entry?.account||entry||{};
   const post=entry?.post||account?.post||null;
-  const text=post ? escapeHTML(xPostDisplayText(post)) : 'Yeni sinyal postu bekleniyor.';
+  const text=post ? escapeHTML(xPostDisplayText(post)) : 'Güncel paylaşım bulunamadı.';
   const targetURL=post?.url||account?.url||'#';
   const media=post?xPostMediaHTML(account,post,targetURL):'';
   const avatar=account.profile_image_url?`<img src="${escapeHTML(account.profile_image_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:'𝕏';
@@ -1357,7 +1357,7 @@ function renderTransferSignals(shell){
     const posts=accounts.flatMap(account=>(Array.isArray(account.posts)&&account.posts.length?account.posts:[account.post]).filter(Boolean).map(post=>({account,post}))).sort((a,b)=>new Date(b.post.created_at||0)-new Date(a.post.created_at||0)).slice(0,5);
     if(!posts.length){
       const fallback=(accounts.length?accounts:rankedXClubs().slice(0,4)).map(account=>({account,post:null}));
-      shell.innerHTML=`<div class="transfer-signal-head"><span>X kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · canlı polling bekleniyor</small></div><div class="transfer-signal-stream">${fallback.map(transferSignalCardHTML).join('')}</div>`;
+      shell.innerHTML=`<div class="transfer-signal-head"><span>X kaynakları</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · günlük kontrol tamamlandı</small></div><div class="transfer-signal-stream">${fallback.map(transferSignalCardHTML).join('')}</div>`;
       return;
     }
     shell.innerHTML=`<div class="transfer-signal-head"><span>Son transfer sinyalleri</span><small>${escapeHTML(competitionShortBySlug(activeFootballLeague))} · ${posts.length} gönderi · ${accounts.length} kaynak</small></div><div class="transfer-signal-stream">${posts.map(transferSignalCardHTML).join('')}</div>`;
@@ -1600,9 +1600,9 @@ let instagramFeedRequest = null;
 let instagramFeedLeague = null;
 
 const INSTAGRAM_STATE_COPY = {
-  unconfigured: { status:'Bağlantı bekleniyor', title:'Instagram akışı henüz bağlanmadı.', body:'Instagram Business hesabı ve erişim anahtarı tanımlandığında gündemdeki gönderiler burada otomatik listelenir.' },
+  unconfigured: { status:'Bağlantı kurulmadı', title:'Instagram akışı kullanılamıyor.', body:'Instagram Business bağlantısı etkin olmadığı için bu bölüm veri göstermiyor.' },
   error: { status:'Akış geçici olarak alınamıyor', title:'Instagram gönderileri şu anda yüklenemedi.', body:'Bağlantı yeniden kurulduğunda gündem akışı otomatik güncellenecek.' },
-  empty: { status:'Yeni gönderi bekleniyor', title:'Bu lig için güncel Instagram gönderisi bulunamadı.', body:'Takip edilen etiketlerde yeni bir paylaşım yapıldığında burada görünecek.' },
+  empty: { status:'Yeni gönderi yok', title:'Bu lig için güncel Instagram gönderisi bulunamadı.', body:'Son kontrolde yayınlanabilir bir gönderi gelmedi.' },
 };
 
 function instagramStateHTML(reason){

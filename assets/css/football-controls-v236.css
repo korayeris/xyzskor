@@ -40,13 +40,13 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
 }
 @media(min-width:1181px){
   #footballOverviewView .football-home{
-    grid-template-columns:minmax(0,1fr) 370px!important;grid-template-areas:"live side" "main side"!important;
+    grid-template-columns:minmax(0,1fr) 370px!important;grid-template-areas:"main side"!important;
     gap:18px!important;align-items:start!important;
   }
   #footballOverviewView .football-left-column{grid-area:live!important;grid-column:1!important;grid-row:1!important}
-  #footballOverviewView .football-middle-column{grid-area:main!important;grid-column:1!important;grid-row:2!important}
+  #footballOverviewView .football-middle-column{grid-area:main!important;grid-column:1!important;grid-row:1!important}
   #footballOverviewView .football-right-column{
-    grid-area:side!important;grid-column:2!important;grid-row:1/3!important;display:flex!important;
+    grid-area:side!important;grid-column:2!important;grid-row:1!important;display:flex!important;
     flex-direction:column!important;gap:14px!important;min-width:0!important;overflow:visible!important;
   }
   #footballOverviewView .football-right-column .standings-rail{
@@ -57,7 +57,7 @@ body:not(.motorsport-open):not(.multisport-open):not(.ufc-premium-open) > #footb
   #footballOverviewView .football-right-column .portal-sponsor-rail{order:3!important;height:auto!important;min-height:220px!important;max-height:none!important}
 }
 @media(max-width:1180px){
-  #footballOverviewView .football-home{grid-template-columns:1fr!important;grid-template-areas:"live" "main" "side"!important}
+  #footballOverviewView .football-home{grid-template-columns:1fr!important;grid-template-areas:"main" "side"!important}
   #footballOverviewView .football-left-column{grid-area:live!important}
   #footballOverviewView .football-middle-column{grid-area:main!important}
   #footballOverviewView .football-right-column{grid-area:side!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}

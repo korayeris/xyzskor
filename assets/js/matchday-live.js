@@ -247,7 +247,10 @@
   async function refresh() {
     clearTimeout(timer);
     try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); render(payload); }
-    catch (_error) { sync.textContent = "Canlı bağlantı yeniden deneniyor"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>Bağlantı otomatik olarak yeniden denenecek.</span></div>'; }
+    catch (_error) {
+      if (currentFixture) sync.textContent = "Temel fikstür verisi · ayrıntılar kota yenilenince güncellenir";
+      else { sync.textContent = "Maç ayrıntıları alınamadı"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç ayrıntıları şu anda kullanılamıyor.</b><span>Fikstür listesinden başka bir maçı açabilirsin.</span></div>'; }
+    }
     timer = setTimeout(refresh, interval());
   }
   async function resolveFixture() {
@@ -258,10 +261,14 @@
       if (!selected) { renderEmpty(); timer = setTimeout(resolveFixture, 300000); return; }
       fixtureId = fixtureProviderId(selected);
       kickoff = Date.parse(fixtureKickoff(selected));
+      // Sezon endpointi fikstur, takim, logo, saat ve sonucu zaten dogruluyor.
+      // Zengin detay endpointi kota sinirina takilsa bile ana mac kartini bosaltma.
+      const seasonFixture = { ...selected, score:selected.score || selected.result || { home:null, away:null } };
+      render({ fixture:seasonFixture, details:{}, degraded:true, updatedAt:payload.updatedAt || new Date().toISOString() });
       await refresh();
     } catch (_error) {
-      sync.textContent = "Canlı bağlantı yeniden deneniyor";
-      root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç merkezi geçici olarak beklemede.</b><span>Bağlantı otomatik olarak yeniden denenecek.</span></div>';
+      sync.textContent = "Fikstür servisine ulaşılamadı";
+      root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç programı şu anda alınamıyor.</b><span>Yukarıdaki maç şeridi ve lig tablosu kullanılabilir.</span></div>';
       timer = setTimeout(resolveFixture, 300000);
     }
   }
