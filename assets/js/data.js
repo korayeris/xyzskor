@@ -150,9 +150,9 @@ const SELECTED_COMPETITIONS = [
   { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
   { key:'premier-league', label:'Premier League', short:'EPL', sportmonksId:'8' },
   { key:'la-liga', label:'La Liga', short:'La Liga', sportmonksId:'564' },
-  { key:'champions-league', label:'Şampiyonlar Ligi', short:'UCL', sportmonksId:'2' },
-  { key:'europa-league', label:'UEFA Avrupa Ligi', short:'UEL', sportmonksId:'5' },
-  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,2,5,564,8' }
+  // UCL ve UEL yapılandırmaları aşağıda korunuyor; özel paket yeniden
+  // etkinleştirilene kadar navigasyon ve toplu API sorgularına dahil edilmiyor.
+  { key:'all', label:'Tüm ligler', short:'Tümü', sportmonksId:'600,564,8' }
 ];
 const FOOTBALL_COVERAGE_CACHE_MS = 60 * 60 * 1000;
 const FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS = 30 * 1000;
@@ -199,7 +199,7 @@ async function loadFootballCoverage(){
   return footballCoverageRequest;
 }
 const LEAGUE_CONTEXT = {
-  all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Şampiyonlar Ligi, UEFA Avrupa Ligi, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
+  all:{headline:'3 lig genel görünümü',copy:'Süper Lig, La Liga ve Premier League verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
   'super-lig':{headline:'Süper Lig hafta vitrini',copy:'Türkiye futbol gündemi, maç akışı, kulüp verileri ve transfer hareketleri tek ekranda izlenir.',agenda:'Süper Lig gündemi',standings:'Süper Lig puan durumu',transfer:'Süper Lig transfer gelişmeleri'},
   'champions-league':{headline:'Şampiyonlar Ligi hafta vitrini',copy:'Turnuvanın maç akışı, puan tablosu, kulüp gündemi ve öne çıkan bağlamı aynı alanda sunulur.',agenda:'Şampiyonlar Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},
   'europa-league':{headline:'UEFA Avrupa Ligi hafta vitrini',copy:'UEFA Avrupa Ligi maçları, tablo, kulüp akışı ve sezon bağlamı tek akışta izlenir.',agenda:'UEFA Avrupa Ligi gündemi',standings:'Lig aşaması tablosu',transfer:'Turnuva takımları transfer gündemi'},

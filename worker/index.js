@@ -1,7 +1,7 @@
 const STATIC_CACHE = "public, max-age=31536000, immutable";
 const HTML_CACHE = "public, max-age=0, must-revalidate";
-// assets/js/data.js içindeki SELECTED_COMPETITIONS lig anahtarlarıyla (super-lig,
-// champions-league, europa-league, la-liga, premier-league) ve README'de listelenen
+// assets/js/data.js içindeki aktif SELECTED_COMPETITIONS lig anahtarlarıyla
+// (super-lig, la-liga, premier-league) ve README'de listelenen
 // ana sayfalarla senkron tutulmalıdır. "" kök path (/) için, "predict"/"football"
 // ürün alanları için, "legal" statik hukuki sayfalar için kullanılıyor.
 const KNOWN_APP_ROUTE_PREFIXES = new Set([
@@ -10,8 +10,6 @@ const KNOWN_APP_ROUTE_PREFIXES = new Set([
   "football",
   "legal",
   "super-lig",
-  "champions-league",
-  "europa-league",
   "la-liga",
   "premier-league",
 ]);
@@ -198,16 +196,12 @@ const SPORTMONKS_TEAM_SEARCH = Object.freeze({
 });
 const SELECTED_LEAGUE_IDS_BY_KEY = Object.freeze({
   "super-lig": ["600"],
-  "champions-league": ["2"],
-  "europa-league": ["5"],
   "la-liga": ["564"],
   "premier-league": ["8"],
-  all: ["600", "2", "5", "564", "8"],
+  all: ["600", "564", "8"],
 });
 const SELECTED_LEAGUE_NAMES_BY_KEY = Object.freeze({
   "super-lig": "Süper Lig",
-  "champions-league": "UEFA Champions League",
-  "europa-league": "UEFA Europa League",
   "la-liga": "LaLiga",
   "premier-league": "Premier League",
 });
