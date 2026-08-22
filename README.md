@@ -12,6 +12,73 @@ akışı production'da doğrulandı. Tek fikstüre özel kurtarma verisi kaldır
 aynı snapshot, kilit ve kota koruması artık seçili liglerdeki her fikstür için
 fikstür kimliği üzerinden çalışır.
 
+### Olay kaydı: Maç merkezinde veri neden kayboluyordu?
+
+#### Kullanıcıya görünen hata
+
+Fenerbahçe - Konyaspor maçı oynanırken skor sağlayıcıda `4-1` olmasına rağmen
+maç merkezi bir süre `- : -`, `Veri bekleniyor`, sıfır olay, sıfır istatistik
+ve boş kadro gösterebiliyordu. Sonradan aynı maç için elle eklenen kurtarma
+kaydı görüntüyü düzeltmişti; fakat bu çözüm yalnızca `19746639` numaralı
+fikstürü tanıyordu. Başka bir maç açıldığında sistem yeniden boş kalıyordu.
+
+#### Kök nedenler
+
+1. **Kurtarma verisi tek maça sabitlenmişti.** Worker içinde fikstür numarasını
+   kontrol eden ve sadece o karşılaşmaya kadro/olay/istatistik döndüren statik
+   bir arşiv bulunuyordu. Bu, veri mimarisi değil olay anına özel yamaydı.
+2. **Zengin maç verisi kalıcı cache okunmadan sağlayıcıdan isteniyordu.** Her
+   sayfa/sekme yenilemesi kadro, diziliş, olay ve istatistik içeren pahalı
+   Sportmonks çağrısını yeniden yapabiliyordu. Edge cache processler arasında
+   kalıcılık garantisi vermediği için trafik arttığında kota hızla tükeniyordu.
+3. **429 veya sağlayıcı kesintisinde genel geri dönüş yoktu.** İlgili maç için
+   daha önce doğrulanmış kalıcı kayıt bulunamazsa API `matchday_fetch_failed`
+   dönüyor, istemci de gerçekte oynanan maçı boş ekran gibi gösteriyordu.
+4. **Sezon fikstürleri maç hazırlama havuzuna yazılmıyordu.** Sistem yaklaşan
+   karşılaşmaları topluca bilmiyor; ayrıntı verisini ancak kullanıcı o maçı
+   açtıktan sonra istemeye çalışıyordu.
+5. **İstemci sabit aralıkla sorguluyordu.** Bitmiş, günler sonra oynanacak ve
+   canlı maç aynı sıklıkla yenilenebildiği için gereksiz çağrılar gerçek canlı
+   maçların kotasını tüketiyordu.
+
+#### Kalıcı çözüm
+
+- Statik `19746639` kurtarma arşivi ve eski matchday handler'ı tamamen
+  kaldırıldı. Kodda takım adına veya belirli fikstür numarasına bağlı üretim
+  fallback'i bulunmuyor.
+- Her karşılaşma `sportmonks:<fixtureId>` anahtarıyla bağımsız işleniyor.
+  Başarılı skor, olay, istatistik, kadro ve diziliş cevabının tamamı
+  `live_match_snapshots.payload.matchday` altında saklanıyor.
+- API önce kalıcı snapshot'ı okuyor. Snapshot maçın durumuna göre hâlâ tazeyse
+  Sportmonks'a gitmeden onu döndürüyor. Taze değilse maç kimliğine özel
+  `matchday:<fixtureId>` kilidi alıp yalnızca tek upstream çağrısına izin
+  veriyor.
+- Sağlayıcı `429`, `5xx`, timeout veya geçersiz içerik döndürürse son
+  doğrulanmış snapshot `stale:true`, `staleAgeSeconds` ve makinece okunabilir
+  `reason` alanıyla sunuluyor. Daha önce hiç doğrulanmış veri yoksa boş bir
+  `200` cevabı uydurulmuyor; açık hata dönüyor.
+- Sezon cevaplarındaki bütün maçlar `provider_fixtures` tablosuna yazılıyor.
+  Böylece aynı mekanizma Süper Lig, Premier League, La Liga, Bundesliga ve
+  Serie A kapsamındaki her fikstüre uygulanıyor. Zamanlanmış hazırlama bu
+  kataloğu kullanıyor; doğrudan maç isteği de zamanlayıcıdan bağımsız olarak
+  aynı güvenli senkronizasyon yolundan geçiyor.
+- Yenileme süresi sunucu tarafından belirleniyor: canlı pencere 10 saniye,
+  maç yaklaştıkça 60 saniye/5 dakika, uzak maçlarda 15 dakika–6 saat ve bitmiş
+  maçlarda 7 gün. İstemci `nextRefreshInSeconds` değerine uyar.
+- Resmî kadro veya diziliş sağlayıcı tarafından henüz yayımlanmadıysa oyuncu
+  uydurulmuyor. Arayüz açıkça `Resmî kadro henüz açıklanmadı` mesajını gösterir;
+  bu durum API arızasıyla karıştırılmaz.
+
+#### Tekrarını engelleyen kontroller
+
+`scripts/test-matchday-snapshots.mjs` dört genel fikstür senaryosunu doğrular:
+taze snapshot'ta sıfır provider çağrısı, 429 sırasında kadronun korunması,
+başarılı yeni maç cevabının kalıcılaştırılması ve eşzamanlı kilitte aynı
+snapshot'ın sunulması. `scripts/check.mjs` ayrıca üretim Worker'ında
+`19746639` veya tek maça özel kurtarma fonksiyonu yeniden görülürse build'i
+başarısız yapar. Lig izolasyonu ve sahte boş başarı yasağı da canlı mimari ve
+hardening paketlerinde ayrı regresyon testleridir.
+
 [Claude için canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
 
 XYZSKOR; koyu, teknik ve mobil uyumlu bir yayın deneyiminde canlı futbol
