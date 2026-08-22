@@ -64,6 +64,11 @@
     const valid = rows(fixtures).filter((fixture) => /^\d+$/.test(fixtureProviderId(fixture)) && Number.isFinite(Date.parse(fixtureKickoff(fixture))));
     const live = valid.filter((fixture) => isLiveFixture(fixture, now)).sort((a, b) => Date.parse(fixtureKickoff(a)) - Date.parse(fixtureKickoff(b)));
     if (live.length) return live[0];
+    const inPlayWindow = valid.filter((fixture) => {
+      const start=Date.parse(fixtureKickoff(fixture)), status=String(fixture.status || "").toLocaleLowerCase("tr-TR");
+      return start<=now && now<start+4*3600000 && !finishedStatuses.has(status) && !["iptal","ertelendi","cancelled","postponed"].includes(status);
+    }).sort((a,b)=>Date.parse(fixtureKickoff(b))-Date.parse(fixtureKickoff(a)));
+    if (inPlayWindow.length) return { ...inPlayWindow[0], status:"canlı", minute:Math.max(1,Math.min(120,Math.floor((now-Date.parse(fixtureKickoff(inPlayWindow[0])))/60000))) };
     const upcoming = valid.filter((fixture) => Date.parse(fixtureKickoff(fixture)) > now && !["iptal", "ertelendi"].includes(String(fixture.status || "").toLocaleLowerCase("tr-TR"))).sort((a, b) => Date.parse(fixtureKickoff(a)) - Date.parse(fixtureKickoff(b)));
     if (upcoming.length) return upcoming[0];
     return valid.filter((fixture) => Date.parse(fixtureKickoff(fixture)) <= now && (fixture.result || ["bitti", "ft", "aet", "pen"].includes(String(fixture.status || "").toLocaleLowerCase("tr-TR")))).sort((a, b) => Date.parse(fixtureKickoff(b)) - Date.parse(fixtureKickoff(a)))[0] || null;
