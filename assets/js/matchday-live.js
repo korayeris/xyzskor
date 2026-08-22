@@ -16,6 +16,7 @@
   let currentFixture = null;
   let currentStatsXg = [];
   let selectedPredictionPick = "";
+  let serverRefreshSeconds = 0;
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
@@ -325,12 +326,12 @@
   }
   async function refresh() {
     clearTimeout(timer);
-    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); render(payload); }
+    try { const response = await fetch(`/api/football/matchday?fixture=${encodeURIComponent(fixtureId)}`, { headers:{Accept:"application/json"}, cache: "no-store" }); const payload = await readApiJSON(response, "Maç verisi kısa süreliğine alınamadı."); serverRefreshSeconds = Math.max(5, Math.min(604800, Number(payload.nextRefreshInSeconds) || 0)); render(payload); }
     catch (_error) {
       if (currentFixture) sync.textContent = "Temel fikstür verisi · ayrıntılar kota yenilenince güncellenir";
       else if (!await renderSeasonFallbackForFixture().catch(()=>false)) { sync.textContent = "Maç ayrıntıları alınamadı"; root.innerHTML = '<div class="matchday-loading matchday-loading--error"><b>Maç ayrıntıları şu anda kullanılamıyor.</b><span>Fikstür listesinden başka bir maçı açabilirsin.</span></div>'; }
     }
-    timer = setTimeout(refresh, interval());
+    timer = setTimeout(refresh, serverRefreshSeconds ? serverRefreshSeconds * 1000 : interval());
   }
   async function resolveFixture() {
     try {

@@ -1,17 +1,16 @@
 # XYZSKOR
 
-## Canlı skor mimarisi (2026-08-22 durumu)
+## Canlı skor mimarisi (2026-08-23 durumu)
 
 `docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md` promptu uygulandı: merkezi
 ingest, kalıcı snapshot, single-flight kilit, circuit breaker, ayrıştırılmış
 API sözleşmeleri ve şema-güvenli sonuç kesinleştirmesi artık kodda mevcut ve
 gerçek testlerle doğrulandı (bkz. [Test ve build sonuçları](#test-ve-build-sonuçları)).
 
-Production'da doğrulanamayan tek madde: gerçek bir in-play Sportmonks
-fikstürü üzerinde uçtan uca gözlem (bu, canlı maç saatinde ve gerçek
-Sportmonks tokenıyla yapılmalıdır — geliştirme sırasında canlı maç yoktu).
-Mimarinin state machine'i (canlı → devre arası → bitti → kesinleşme) fake
-provider ile ayrıntılı test edilmiştir.
+Gerçek bir in-play Sportmonks fikstürü üzerinde skor ve zengin maç verisi
+akışı production'da doğrulandı. Tek fikstüre özel kurtarma verisi kaldırıldı;
+aynı snapshot, kilit ve kota koruması artık seçili liglerdeki her fikstür için
+fikstür kimliği üzerinden çalışır.
 
 [Claude için canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
 
@@ -164,6 +163,17 @@ Futbolun kaynak otoritesi Sportmonks'tur. Arayüz sahte skor veya tahmini olay �
   anahtar seçimidir; gerçek filtre sunucudaki `SELECTED_LEAGUE_IDS_BY_KEY`
   allowlist'i ve `selectedLeagueKeyForProviderLeagueId()` ile yapılır. Başka
   lig/branşın fixture'ı asla sızmaz (bkz. `scripts/test-live-architecture.mjs`).
+- **Tüm maçları önceden hazırlama:** Beş seçili ligin sezon fikstürleri en geç
+  altı saatte bir `provider_fixtures` tablosuna yazılır. Beş dakikalık cron,
+  başlama zamanına dört saat kalmış veya son 26 saat içinde başlamış maçların
+  zengin verisini maç kimliği bazında önceden ısıtır.
+- **Maç başına yenileme politikası:** Canlı pencere 10 saniye, maç öncesi
+  1–15 dakika 60 saniye, 15–60 dakika 5 dakika, 1–2 saat 15 dakika ve bitmiş
+  maçlar 7 gün TTL kullanır. İstemci bu süreyi sunucudan alır; her sekme sabit
+  aralıkla ayrı ayrı sağlayıcı kotası tüketmez.
+- **Kesintide veri koruma:** 429, 5xx, timeout, açık circuit breaker veya başka
+  bir eşzamanlı yenileme olduğunda son doğrulanmış kadro, diziliş, olay,
+  istatistik ve skor snapshot'ı sunulur; boş başarılı cevap üretilmez.
 
 ### Endpoint sözleşmeleri
 
@@ -173,7 +183,7 @@ Futbolun kaynak otoritesi Sportmonks'tur. Arayüz sahte skor veya tahmini olay �
 | `GET /api/football/matches/:fixtureId/events` | Gol/kart/değişiklik, ETag destekli | 8s, kalıcı dedup (`live_match_events`) |
 | `GET /api/football/matches/:fixtureId/details` | Kadro, diziliş, hakem, hava durumu | 300s/1800s |
 | `GET /api/football/matches/:fixtureId/statistics` | Maç istatistikleri | canlıyken 30s, bitince 1800s+ |
-| `GET /api/football/matchday?fixture=...` | Geriye uyumlu birleşik görünüm (yeni istemciler yukarıdaki uçları kullanmalı) | değişken |
+| `GET /api/football/matchday?fixture=...` | Maç kimliğine bağlı birleşik skor, olay, istatistik, kadro ve diziliş snapshot'ı | duruma göre 10sn–7gün |
 | `GET /api/health` | Yapılandırma + `live_score` gözlemlenebilirlik özeti (secret içermez) | no-store |
 
 `/api/football/live` yanıt gövdesi:
@@ -264,7 +274,7 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 ## Test ve build sonuçları
 
-2026-08-22 canlı skor mimarisi teslimatında çalıştırılan gerçek sonuçlar:
+2026-08-23 tüm maçlar için canlı skor mimarisi teslimatında çalıştırılan gerçek sonuçlar:
 
 | Komut | Sonuç |
 | --- | --- |
@@ -272,9 +282,10 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 | `npm run qa:api` | ✅ 155/155 |
 | `npm run qa:hardening` | ✅ 31/31 |
 | `npm run qa:matchday` | ✅ Geçti |
+| `npm run qa:matchday:snapshots` | ✅ 4/4 genel maç senaryosu |
 | `npm run qa:live-details` | ✅ Geçti |
 | `npm run qa:football-predictions` | ✅ Geçti (schema-safe finalize için güncellendi) |
-| `npm run qa:live-architecture` (yeni) | ✅ 24/24 |
+| `npm run qa:live-architecture` | ✅ 26/26 |
 | `npm run qa:responsive` (withdata) | ✅ 235/235 |
 | `npm run qa:responsive:nodata` | ⚠️ 15 hata — **ortam kısıtı**, temel (değişiklik öncesi) koda karşı doğrulandı, aynı 15 hata orada da var (basketbol/voleybol sağlayıcı anahtarı bu ortamda yok) |
 | `npm run qa:visual`, `qa:chat`, `qa:instagram`, `qa:match-center`, `qa:perf` | ✅ Temel koda karşı doğrulandı, sonuçlar aynı (bu ortamda ağ/secret kısıtları nedeniyle bazı beklenen hata durumları var, hiçbiri bu teslimatla ilgili regresyon değil) |

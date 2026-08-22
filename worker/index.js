@@ -661,6 +661,47 @@ async function persistMatchdaySnapshot(env, fixtureId, body) {
   } catch (_error) { /* cache yazimi ana yaniti engellemez */ }
 }
 
+async function persistSeasonFixtures(env, leagueKey, matches) {
+  if (!supabaseServiceKey(env) || !Array.isArray(matches) || !matches.length) return;
+  const rows = matches.map((fixture) => {
+    const providerFixtureId = String(fixture?.provider_fixture_id || fixture?.id || "").replace(/^sportmonks:/, "");
+    if (!/^\d+$/.test(providerFixtureId)) return null;
+    return {
+      provider:"sportmonks",
+      provider_fixture_id:providerFixtureId,
+      sport:"football",
+      league_key:leagueKey,
+      provider_league_id:String(fixture?.provider_league_id || "") || null,
+      season_id:String(fixture?.provider_season_id || "") || null,
+      kickoff_utc:fixture?.kickoff_utc || fixture?.kickoff || fixture?.starting_at || null,
+      home_provider_id:String(fixture?.home_team_id || fixture?.home?.id || "") || null,
+      away_provider_id:String(fixture?.away_team_id || fixture?.away?.id || "") || null,
+      canonical_state:fixture?.status || (fixture?.result ? "bitti" : "scheduled"),
+      updated_at:new Date().toISOString(),
+    };
+  }).filter(Boolean);
+  if (!rows.length) return;
+  try {
+    await supabaseRest(env, "provider_fixtures?on_conflict=provider,provider_fixture_id", {
+      method:"POST",
+      headers:{ Prefer:"resolution=merge-duplicates,return=minimal" },
+      body:JSON.stringify(rows),
+    });
+  } catch (_error) { /* sezon yanıtını engellemez */ }
+}
+
+async function readDueProviderFixtures(env, now = Date.now()) {
+  if (!supabaseServiceKey(env)) return [];
+  const from = new Date(now - 4 * 3600000).toISOString();
+  const until = new Date(now + 26 * 3600000).toISOString();
+  try {
+    const rows = await supabaseRest(env, `provider_fixtures?sport=eq.football&kickoff_utc=gte.${encodeURIComponent(from)}&kickoff_utc=lte.${encodeURIComponent(until)}&order=kickoff_utc.asc&limit=80&select=provider_fixture_id,league_key,kickoff_utc,canonical_state`);
+    return Array.isArray(rows) ? rows.filter((row) => SELECTED_LEAGUE_KEYS.has(String(row?.league_key || ""))) : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
 // Her upstream cagri denemesini gozlemlenebilirlik icin kaydeder. Best-effort:
 // bu kayit basarisiz olsa bile ana istek akisini bozmaz (context.waitUntil ile
 // cagirilmalidir).
@@ -2154,129 +2195,220 @@ async function handleFootballSeason(request, env, context) {
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   const cacheUrl = new URL(url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) {
+    context.waitUntil(cached.clone().json().then((payload) => persistSeasonFixtures(env, league, payload?.matches)).catch(() => {}));
+    return cached;
+  }
   try {
     const payload = await fetchSportmonksSeasonBundle(league, token);
     const response = jsonResponse(payload, 200, { "Cache-Control": SEASON_CACHE, "X-Data-Stale": "false" });
+    context.waitUntil(persistSeasonFixtures(env, league, payload.matches));
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
     return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "300" });
   }
 }
 
-// Sportmonks kotası dolmadan hemen önce doğrulanmış ve ekranda gözlemlenmiş
-// tamamlanmış maç arşivi. İlk başarılı kalıcı matchday snapshot'ı bu kaydın
-// yerini alır; bu seed yalnızca mevcut kota kesintisinde geçmiş maçın resmî
-// kadro/olay/istatistiklerini sıfıra düşürmemek için kullanılır.
-function verifiedMatchdayRecoveryArchive(fixtureId) {
-  if (String(fixtureId) !== "19746639") return null;
-  const lineup = (team, starters, substitutes) => [
-    ...starters.map((value, index) => {
-      const [number, player_name] = value.split("|");
-      const isKeeper = index === starters.length - 1;
-      return { team, player_name, number:Number(number), type_id:11, formation_position:isKeeper ? 1 : index + 2, is_keeper:isKeeper, verification_status:"provider", source:"Sportmonks verified snapshot" };
-    }),
-    ...substitutes.map((value) => { const [number, player_name] = value.split("|"); return { team, player_name, number:Number(number), type_id:12, verification_status:"provider", source:"Sportmonks verified snapshot" }; }),
-  ];
-  const homeLineup = lineup("Fenerbahçe",
-    ["19|Vedat Muriqi","11|Mason Greenwood","10|Marco Asensio","7|Kerem Aktürkoğlu","91|N'Golo Kanté","6|Mattéo Guendouzi","27|Nélson Semedo","37|Milan Škriniar","15|Nathan Aké","3|Archie Brown","31|Ederson"],
-    ["5|İsmail Yüksek","9|Romelu Lukaku","13|Tarık Çetin","14|Yiğit Efe Demir","17|İrfan Can Kahveci","18|Mert Müldür","22|Levent Mercan","28|Bartuğ Elmaz","45|Dorgeles Nene","70|Oğuz Aydın"]);
-  const awayLineup = lineup("Konyaspor",
-    ["11|Jackson Muleka","9|Deniz Türüç","7|Diogo Gonçalves","19|Ebrima Colley","66|Tóth Rajmund","77|Melih İbrahimoğlu","5|Uğurcan Yazğılı","15|Chidozie Awaziem","4|Adil Demirbağ","17|Yhoan Andzouana","1|Deniz Ertaş"],
-    ["3|Arif Boşluk","8|Marko Jevtovic","10|Enis Bardhi","22|Rayyan Baniya","25|Ömer Çobanoğlu","26|Arthur Masuaku","29|Egemen Aydın","45|Emir Bars","94|Enis Destan","99|Blaz Kramer"]);
-  const event = (minute, team, player, type, result = null, relatedPlayer = null) => ({ minute, team, player, type, result, relatedPlayer, verification_status:"provider" });
-  const events = [
-    event(7,"Fenerbahçe","Vedat Muriqi","Goal","1-0"), event(10,"Konyaspor","Ebrima Colley","Goal","1-1","Yhoan Andzouana"),
-    event(20,"Fenerbahçe","Mason Greenwood","Goal","2-1"), event(33,"Fenerbahçe","Marco Asensio","Goal","3-1","Mason Greenwood"),
-    event(49,"Fenerbahçe","Mason Greenwood","Goal","4-1","Vedat Muriqi"), event(90,"Konyaspor","Deniz Türüç","Goal","4-2"),
-    event(54,"Fenerbahçe","Dorgeles Nene","Substitution",null,"Kerem Aktürkoğlu"), event(60,"Konyaspor","Enis Bardhi","Substitution",null,"Diogo Gonçalves"),
-    event(60,"Konyaspor","Marko Jevtovic","Substitution",null,"Ebrima Colley"), event(63,"Fenerbahçe","Levent Mercan","Substitution",null,"Archie Brown"),
-    event(63,"Fenerbahçe","İsmail Yüksek","Substitution",null,"N'Golo Kanté"), event(68,"Fenerbahçe","Oğuz Aydın","Substitution",null,"Marco Asensio"),
-    event(69,"Fenerbahçe","Romelu Lukaku","Substitution",null,"Vedat Muriqi"), event(73,"Konyaspor","Enis Destan","Substitution",null,"Tóth Rajmund"),
-    event(73,"Konyaspor","Blaz Kramer","Substitution",null,"Jackson Muleka"), event(74,"Konyaspor","Arthur Masuaku","Substitution",null,"Uğurcan Yazğılı"),
-    event(79,"Konyaspor","Rayyan Baniya","Substitution",null,"Chidozie Awaziem"), event(85,"Fenerbahçe","Bartuğ Elmaz","Substitution",null,"Mason Greenwood"),
-    event(45,"Konyaspor","Adil Demirbağ","Yellow Card"), event(45,"Konyaspor","Deniz Türüç","Yellow Card"), event(61,"Konyaspor","Enis Bardhi","Yellow Card"),
-    event(16,"Fenerbahçe","Mason Greenwood","VAR"), event(20,"Fenerbahçe","Mason Greenwood","Missed Penalty"),
-  ];
-  const statistics = [];
-  [["Ball Possession %",49,51],["Shots Total",20,17],["Shots On Target",9,8],["Shots Insidebox",16,11],["Dangerous Attacks",41,52],["Attacks",95,85],["Corners",7,3],["Fouls",11,10],["Offsides",1,2],["Saves",6,5]].forEach(([label, home, away]) => {
-    statistics.push({ team:"Fenerbahçe", location:"home", label, value:home }, { team:"Konyaspor", location:"away", label, value:away });
-  });
+const MATCHDAY_FINISHED_STATES = new Set(["bitti", "ft", "aet", "pen", "finished", "after penalties", "after extra time"]);
+
+function matchdayRefreshSeconds(body, now = Date.now()) {
+  const fixture = body?.fixture || {};
+  const status = String(fixture.status || "").toLocaleLowerCase("tr-TR");
+  if (MATCHDAY_FINISHED_STATES.has(status)) return 7 * 86400;
+  const kickoff = Date.parse(fixture.kickoff_utc || fixture.kickoff || fixture.starting_at || "");
+  if (!Number.isFinite(kickoff)) return 300;
+  const distance = kickoff - now;
+  if (distance > 24 * 3600000) return 21600;
+  if (distance > 2 * 3600000) return 900;
+  if (distance > 60 * 60000) return 300;
+  if (distance > 15 * 60000) return 60;
+  if (distance > -4 * 3600000) return 10;
+  return 300;
+}
+
+function matchdaySnapshotIsFresh(snapshot, now = Date.now()) {
+  if (!snapshot?.body) return false;
+  const fetchedAt = Date.parse(snapshot.fetchedAt || snapshot.body.updatedAt || "");
+  if (!Number.isFinite(fetchedAt)) return false;
+  return now - fetchedAt <= matchdayRefreshSeconds(snapshot.body, now) * 1000;
+}
+
+function matchdayCacheHeader(body) {
+  const ttl = matchdayRefreshSeconds(body);
+  const browserTtl = Math.min(ttl, MATCHDAY_FINISHED_STATES.has(String(body?.fixture?.status || "").toLocaleLowerCase("tr-TR")) ? 21600 : 300);
+  return `public, max-age=${browserTtl}, s-maxage=${ttl}, stale-while-revalidate=${Math.max(30, Math.min(3600, ttl))}`;
+}
+
+async function fetchMatchdayProviderBody(fixtureId, token) {
+  const providerResult = await sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token);
+  const row = providerResult?.payload?.data || providerResult?.payload || {};
+  const fixture = normalizeProviderFixture(row, "sportmonks");
+  if (!fixture) {
+    const error = new Error("fixture_unavailable");
+    error.status = 404;
+    throw error;
+  }
+  const providerLeagueId = String(row?.league_id || row?.league?.id || fixture.provider_league_id || "");
+  const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+  if (!leagueKey) {
+    const error = new Error("fixture_out_of_scope");
+    error.status = 400;
+    throw error;
+  }
+  fixture.provider_league_id = providerLeagueId;
+  fixture.league_key = leagueKey;
+  const details = normalizeSportmonksFixtureDetails(row);
+  const participants = relationRows(row.participants);
+  const home = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "home") || participants[0] || {};
+  const away = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "away") || participants[1] || {};
+  const scores = relationRows(row.scores);
+  const scoreFor = (participant) => {
+    const matching = scores.filter((score) => String(score?.participant_id || "") === String(participant?.id || ""));
+    const preferred = matching.find((score) => /current|total|2nd_half/i.test(String(score?.description || score?.type?.name || ""))) || matching.at(-1);
+    const value = preferred?.score?.goals ?? preferred?.score ?? preferred?.goals;
+    return Number.isFinite(Number(value)) ? Number(value) : null;
+  };
+  const activePeriod = details.periods.find((period) => period?.ticking) || null;
+  const derivedStatus = fixture.status || (activePeriod ? "canlı" : null);
+  const derivedMinute = Number.isFinite(Number(activePeriod?.minutes)) ? Number(activePeriod.minutes) : fixture.minute ?? null;
   return {
-    source:"Sportmonks Football API · last verified snapshot",
+    source:"Sportmonks Football API",
     provider:"sportmonks",
-    updatedAt:"2026-08-22T20:29:05.000Z",
-    degraded:true,
-    fixture:{ id:"sportmonks:19746639", provider_fixture_id:"19746639", ev:"Fenerbahçe", konuk:"Konyaspor", home_name:"Fenerbahçe", away_name:"Konyaspor", kickoff:"2026-08-22T18:30:00.000Z", kickoff_utc:"2026-08-22T18:30:00.000Z", status:"bitti", provider_league_id:"600", provider_season_id:"28203", home_team_id:"88", away_team_id:"2632", home_logo:"https://cdn.sportmonks.com/images/soccer/teams/24/88.png", away_logo:"https://cdn.sportmonks.com/images/soccer/teams/8/2632.png", score:{ home:4, away:2 } },
-    details:{ lineups:[...homeLineup,...awayLineup], events, statistics, formations:[{ location:"home", formation:"4-2-3-1" },{ location:"away", formation:"4-2-3-1" }], absences:[], xg:[], predictions:[], periods:[], venue:null, referee:null, weather:null },
+    league:leagueKey,
+    updatedAt:new Date().toISOString(),
+    degraded:Boolean(providerResult?.degraded),
+    fixture:{ ...fixture, status:derivedStatus, minute:derivedMinute, score:{ home:scoreFor(home), away:scoreFor(away) } },
+    details,
   };
 }
 
-async function handleFootballMatchday(request, env, context) {
-  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
-  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
-  if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
-  const fixtureId = String(new URL(request.url).searchParams.get("fixture") || "").replace(/^sportmonks:/, "");
-  if (!/^\d+$/.test(fixtureId)) return jsonResponse({ error: "invalid_fixture" }, 400, { "Cache-Control": "no-store" });
-  const cache=edgeCache();
-  const cacheKey=new Request(new URL(`/api/football/matchday-cache/${fixtureId}`,request.url),{method:"GET"});
-  const staleKey=new Request(new URL(`/api/football/matchday-stale/${fixtureId}`,request.url),{method:"GET"});
-  const cached=await readEdgeCache(cache,cacheKey);
-  if(isUsableJsonCache(cached)) return cached;
+function matchdaySnapshotResponse(snapshot, { stale = false, reason = null } = {}) {
+  const fetchedAt = Date.parse(snapshot?.fetchedAt || snapshot?.body?.updatedAt || "");
+  const staleAgeSeconds = Number.isFinite(fetchedAt) ? Math.max(0, Math.round((Date.now() - fetchedAt) / 1000)) : 0;
+  return {
+    ...snapshot.body,
+    snapshot:true,
+    stale,
+    staleAgeSeconds,
+    degraded:stale || Boolean(snapshot.body?.degraded),
+    reason:reason || undefined,
+    snapshotUpdatedAt:snapshot.providerUpdatedAt || snapshot.fetchedAt || snapshot.body?.updatedAt || null,
+    nextRefreshInSeconds:matchdayRefreshSeconds(snapshot.body),
+  };
+}
 
+async function syncMatchdayFixture(env, fixtureId, { force = false } = {}) {
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token || !/^\d+$/.test(String(fixtureId))) return { outcome:"skipped" };
+  const existing = await readMatchdaySnapshot(env, fixtureId);
+  if (!force && matchdaySnapshotIsFresh(existing)) return { outcome:"fresh", snapshot:existing };
+  const scopeKey = `matchday:${fixtureId}`;
+  if (await isCircuitOpen(env, "matchday", scopeKey)) return { outcome:"circuit_open", snapshot:existing };
+  if (!await acquireSyncLock(env, scopeKey, 25)) return { outcome:"locked", snapshot:existing };
+  const startedAt = Date.now();
   try {
-    const providerResult = await sportmonksFixtureRequest(`/fixtures/${fixtureId}`, token);
-    const row = providerResult?.payload?.data || providerResult?.payload || {};
-    const fixture = normalizeProviderFixture(row, "sportmonks");
-    const details = normalizeSportmonksFixtureDetails(row);
-    const participants = relationRows(row.participants);
-    const home = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "home") || participants[0] || {};
-    const away = participants.find((item) => String(item?.meta?.location || "").toLowerCase() === "away") || participants[1] || {};
-    const scores = relationRows(row.scores);
-    const scoreFor = (participant) => {
-      const matching = scores.filter((score) => String(score?.participant_id || "") === String(participant?.id || ""));
-      const preferred = matching.find((score) => /current|total|2nd_half/i.test(String(score?.description || score?.type?.name || ""))) || matching.at(-1);
-      const value = preferred?.score?.goals ?? preferred?.score ?? preferred?.goals;
-      return Number.isFinite(Number(value)) ? Number(value) : null;
-    };
-    const kickoff = Date.parse(fixture?.kickoff_utc || row?.starting_at || "");
-    const distance = Number.isFinite(kickoff) ? kickoff - Date.now() : Infinity;
-    const providerState = String(fixture?.status || row?.state?.short_name || row?.state?.state || "").toLowerCase();
-    const finished = ["bitti", "ft", "aet", "pen", "finished", "after penalties", "after extra time"].includes(providerState);
-    const maxAge = finished ? 21600 : distance > 75 * 60 * 1000 ? 300 : distance > 15 * 60 * 1000 ? 60 : 8;
-    const activePeriod=details.periods.find((period)=>period?.ticking) || null;
-    const derivedStatus=fixture?.status || (activePeriod ? "canlı" : null);
-    const derivedMinute=Number.isFinite(Number(activePeriod?.minutes)) ? Number(activePeriod.minutes) : fixture?.minute ?? null;
-    const body = {
-      source: "Sportmonks Football API",
-      provider: "sportmonks",
-      updatedAt: new Date().toISOString(),
-      degraded: Boolean(providerResult?.degraded),
-      fixture: { ...fixture, status:derivedStatus, minute:derivedMinute, score: { home: scoreFor(home), away: scoreFor(away) } },
-      details
-    };
-    const response=jsonResponse(body, 200, { "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=30` });
-    writeEdgeCache(cache,cacheKey,response,context);
-    writeEdgeCache(cache,staleKey,jsonResponse(body,200,{"Cache-Control":"public, max-age=14400, s-maxage=14400"}),context);
-    context.waitUntil(persistMatchdaySnapshot(env, fixtureId, body));
-    return response;
+    const body = await fetchMatchdayProviderBody(fixtureId, token);
+    await persistMatchdaySnapshot(env, fixtureId, body);
+    await recordSyncRun(env, { endpointClass:"matchday", scopeKey, startedAt, httpStatus:200, outcome:"ok" });
+    return { outcome:"ok", body };
   } catch (error) {
-    const stale=await readEdgeCache(cache,staleKey);
-    if(isUsableJsonCache(stale)) {
-      const body=await stale.json().catch(()=>null);
-      if(body) return jsonResponse({...body,stale:true,degraded:true,reason:"provider_unavailable"},200,{"Cache-Control":"public, max-age=30, s-maxage=30","X-Data-Stale":"true"});
-    }
-    const persisted = await readMatchdaySnapshot(env, fixtureId);
-    if (persisted?.body) {
-      return jsonResponse({ ...persisted.body, stale:true, degraded:true, reason:error?.status === 429 ? "provider_rate_limited" : "provider_unavailable", snapshotUpdatedAt:persisted.providerUpdatedAt || persisted.fetchedAt || null }, 200, { "Cache-Control":"public, max-age=60, s-maxage=300", "X-Data-Stale":"true" });
-    }
-    const recovery = verifiedMatchdayRecoveryArchive(fixtureId);
-    if (recovery) {
-      context.waitUntil(persistMatchdaySnapshot(env, fixtureId, recovery));
-      return jsonResponse({ ...recovery, stale:true, reason:error?.status === 429 ? "provider_rate_limited" : "provider_unavailable" }, 200, { "Cache-Control":"public, max-age=300, s-maxage=21600", "X-Data-Stale":"true" });
-    }
-    return jsonResponse({ error: "matchday_fetch_failed", message: safeErrorMessage(error), provider: "sportmonks" }, 502, { "Cache-Control": "no-store" });
+    await recordSyncRun(env, { endpointClass:"matchday", scopeKey, startedAt, httpStatus:error?.status || 502, outcome:error?.status === 429 ? "rate_limited" : "upstream_error", rateLimitRemaining:error?.rateLimitRemaining ?? null, errorCode:safeErrorMessage(error) });
+    return { outcome:error?.status === 429 ? "rate_limited" : "failed", snapshot:existing, error };
   }
+}
+
+async function warmDueMatchdays(env) {
+  const due = await readDueProviderFixtures(env);
+  let attempted = 0;
+  for (const fixture of due) {
+    if (attempted >= 12) break;
+    const fixtureId = String(fixture?.provider_fixture_id || "");
+    if (!/^\d+$/.test(fixtureId)) continue;
+    const existing = await readMatchdaySnapshot(env, fixtureId);
+    if (matchdaySnapshotIsFresh(existing)) continue;
+    attempted += 1;
+    const result = await syncMatchdayFixture(env, fixtureId);
+    if (result.outcome === "rate_limited" || result.outcome === "circuit_open") break;
+  }
+}
+
+async function fixtureCatalogIsFresh(env, leagueKey, now = Date.now()) {
+  if (!supabaseServiceKey(env)) return false;
+  try {
+    const cutoff = new Date(now - 6 * 3600000).toISOString();
+    const rows = await supabaseRest(env, `provider_fixtures?sport=eq.football&league_key=eq.${encodeURIComponent(leagueKey)}&updated_at=gte.${encodeURIComponent(cutoff)}&select=provider_fixture_id&limit=1`);
+    return Array.isArray(rows) && rows.length > 0;
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function refreshFixtureCatalogs(env) {
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return;
+  const leagues = Object.keys(SELECTED_LEAGUE_IDS_BY_KEY).filter((key) => key !== "all");
+  for (const leagueKey of leagues) {
+    if (await fixtureCatalogIsFresh(env, leagueKey)) continue;
+    const scopeKey = `catalog:${leagueKey}`;
+    if (await isCircuitOpen(env, "catalog", scopeKey)) continue;
+    if (!await acquireSyncLock(env, scopeKey, 120)) continue;
+    const startedAt = Date.now();
+    try {
+      const payload = await fetchSportmonksSeasonBundle(leagueKey, token);
+      await persistSeasonFixtures(env, leagueKey, payload.matches);
+      await recordSyncRun(env, { endpointClass:"catalog", scopeKey, startedAt, httpStatus:200, outcome:"ok" });
+    } catch (error) {
+      await recordSyncRun(env, { endpointClass:"catalog", scopeKey, startedAt, httpStatus:error?.status || 502, outcome:error?.status === 429 ? "rate_limited" : "upstream_error", rateLimitRemaining:error?.rateLimitRemaining ?? null, errorCode:safeErrorMessage(error) });
+      if (error?.status === 429) break;
+    }
+  }
+}
+
+async function maintainMatchdayCatalog(env) {
+  await refreshFixtureCatalogs(env);
+  await warmDueMatchdays(env);
+}
+
+async function handleFootballMatchday(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
+  const fixtureId = String(new URL(request.url).searchParams.get("fixture") || "").replace(/^sportmonks:/, "");
+  if (!/^\d+$/.test(fixtureId)) return jsonResponse({ error:"invalid_fixture" }, 400, { "Cache-Control":"no-store" });
+  const cache = edgeCache();
+  const cacheKey = new Request(new URL(`/api/football/matchday-cache-v2/${fixtureId}`, request.url), { method:"GET" });
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+
+  const persisted = await readMatchdaySnapshot(env, fixtureId);
+  if (matchdaySnapshotIsFresh(persisted)) {
+    const body = matchdaySnapshotResponse(persisted);
+    const response = jsonResponse(body, 200, { "Cache-Control":matchdayCacheHeader(body), "X-Data-Stale":"false" });
+    writeEdgeCache(cache, cacheKey, response, context);
+    return response;
+  }
+
+  const result = await syncMatchdayFixture(env, fixtureId);
+  if (result.body) {
+    const body = { ...result.body, snapshot:false, stale:false, staleAgeSeconds:0, nextRefreshInSeconds:matchdayRefreshSeconds(result.body) };
+    const response = jsonResponse(body, 200, { "Cache-Control":matchdayCacheHeader(body), "X-Data-Stale":"false" });
+    writeEdgeCache(cache, cacheKey, response, context);
+    return response;
+  }
+
+  const fallback = result.snapshot || persisted;
+  if (fallback?.body) {
+    const reason = result.outcome === "rate_limited" ? "provider_rate_limited" : result.outcome === "locked" ? "sync_in_progress" : "provider_unavailable";
+    return jsonResponse(matchdaySnapshotResponse(fallback, { stale:true, reason }), 200, { "Cache-Control":"public, max-age=30, s-maxage=60", "X-Data-Stale":"true" });
+  }
+  const status = result.outcome === "rate_limited" ? 429 : result.error?.status === 400 ? 400 : 503;
+  return jsonResponse({
+    error:status === 429 ? "sportmonks_rate_limited" : result.error?.message === "fixture_out_of_scope" ? "fixture_out_of_scope" : "matchday_unavailable",
+    provider:"sportmonks",
+    reason:result.outcome,
+    retryAfterSeconds:status === 429 ? Math.max(30, Number(result.error?.retryAfter) || 30) : 5,
+  }, status, { "Cache-Control":"no-store", "Retry-After":status === 429 ? String(Math.max(30, Number(result.error?.retryAfter) || 30)) : "5" });
 }
 
 function normalizeLiveInplayMatch(fixture, leagueKey) {
@@ -3265,6 +3397,9 @@ export default {
     return withHeaders(response, pathname);
   },
   async scheduled(_controller, env, context) {
-    context.waitUntil(settlePendingFootballPredictions(env));
+    context.waitUntil(Promise.all([
+      settlePendingFootballPredictions(env),
+      maintainMatchdayCatalog(env),
+    ]));
   },
 };

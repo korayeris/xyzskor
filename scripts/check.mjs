@@ -242,7 +242,7 @@ assert.match(workerSource, /lineups\.player/, 'Son resmî ilk 11 oyuncu ilişkis
 assert.match(workerSource, /Number\(row\?\.type_id\) === 11/, 'Yalnız resmî başlangıç oyuncuları ilk 11 olarak kullanılmalı.');
 assert.match(html, /id="clubProfilePanel"/, 'Kulüpler alanında ayrıntılı kulüp merkezi bulunmalı.');
 assert.match(functionSource('loadClubProfile'), /fetch\(`\/api\/football\/club/, 'Kulüp merkezi aynı alan adlı sunucu adaptörünü kullanmalı.');
-assert.match(documentHtmlRaw, /matchday-live\.js\?v=299/, 'Maç merkezi istemci değişiklikleri immutable tarayıcı önbelleğini kırmalı.');
+assert.match(documentHtmlRaw, /matchday-live\.js\?v=305/, 'Maç merkezi istemci değişiklikleri immutable tarayıcı önbelleğini kırmalı.');
 assert.match(functionSource('clubLineupHTML'), /İsim uydurulmuyor/, 'Sağlayıcı verisi yokken oyuncu ismi uydurulmamalı.');
 assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Stadyum kartı yol tarifi bağlantısı üretmeli.');
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
@@ -481,6 +481,9 @@ assert.match(liveSource, /function renderLiveFeed\([\s\S]*?renderLiveDetails\(ma
 const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')];
 assert.match(matchdayLiveSource, /xyz:live-feed-updated[\s\S]*promoteLiveMatch/, 'Seçili ligdeki canlı maç ana maç vitrinine otomatik taşınmalı.');
 assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|Çorum FK|ÇFK/, 'Mac merkezi gecmis fixture veya takim fallbacklerine sabitlenmemeli.');
+assert.doesNotMatch(workerSource, /verifiedMatchdayRecoveryArchive|19746639/, 'Maç ayrıntısı fallbacki tek bir fixture kimliğine sabitlenmemeli.');
+assert.match(workerSource, /persistSeasonFixtures[\s\S]*readDueProviderFixtures[\s\S]*warmDueMatchdays/, 'Tüm maçlar sezon havuzundan kalıcı matchday hazırlığına bağlanmalı.');
+assert.match(workerSource, /matchdaySnapshotIsFresh[\s\S]*acquireSyncLock\(env, scopeKey, 25\)[\s\S]*persistMatchdaySnapshot/, 'Matchday sağlayıcı çağrısı tazelik, single-flight ve kalıcı snapshot ile korunmalı.');
 assert.match(matchdayLiveSource, /\/api\/football\/season\?league=\$\{encodeURIComponent\(activeMatchdayLeague\)\}/, 'Parametre yokken fixture secili lig sezon verisinden cozulmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
 assert.match(documentHtml, /LİGİN SIRADAKİ MAÇI[\s\S]*<h2 id="matchdayTitle"><\/h2><p>Seçili ligin maç, gündem ve puan durumu akışı<\/p>/, 'Kaynak HTML seçili lige bağlı nötr maç akışı placeholderı içermeli.');
