@@ -510,6 +510,7 @@ assert.match(workerSource, /available:fixturesAvailable/, 'Coverage availability
 assert.match(workerSource, /subscriptionReported\s*=\s*availableIds\.has\(leagueId\)/, 'Saglayicinin abonelik bildirimi ayri tanisal alan olarak korunmali.');
 assert.match(workerSource, /metadataAvailable\s*=\s*Boolean\(row\?\.id\)/, 'Lig metadata probe sonucu abonelikten ayri raporlanmali.');
 assert.match(workerSource, /reason:"not_in_subscription"[\s\S]*capabilities:\{ fixtures:false/, 'Abonelik disi ligler neden ve yetenek matrisiyle fail-closed raporlanmali.');
+assert.match(workerSource, /subscribedById[\s\S]*subscribed, selected/, 'Coverage endpointi abonelikteki liglerin guvenli kimlik ve ad listesini dondurmeli.');
 
 // Mukerrer top-level fonksiyon bildirimi bekcisi.
 // Gecmis olay: ui.js icinde 7 fonksiyon iki kez tanimliydi. Tarayicida son tanim

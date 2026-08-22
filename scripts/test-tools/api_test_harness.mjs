@@ -297,6 +297,7 @@ async function main() {
     assertEqual(body?.selected?.length, 5, 'coverage success -> 5 seçili lig probe edildi');
     assertEqual(body?.selected?.filter((row) => row.available).length, 2, 'coverage success -> yalnız abonelikte raporlanan ligler available=true');
     assertEqual(body?.selected?.filter((row) => row.subscriptionReported).length, 2, 'coverage success -> /my/leagues bildirimi ayrı tutulur');
+    assertEqual(body?.subscribed, [{ leagueId:'2', name:'Champions League' }, { leagueId:'600', name:'Süper Lig' }], 'coverage success -> abonelikteki liglerin kimlik ve adları açıkça döner');
     assertTrue(body?.selected?.filter((row) => row.subscriptionReported).every((row) => row.metadataAvailable === true), 'coverage success -> abonelikteki liglerin metadata probe sonucu raporlanır');
     assertEqual(body?.selected?.filter((row) => row.reason === 'not_in_subscription').length, 3, 'coverage success -> abonelik dışı liglerin nedeni açıkça raporlanır');
     assertTrue(body?.selected?.every((row) => row.capabilities && typeof row.capabilities.fixtures === 'boolean'), 'coverage success -> lig yetenek matrisi döner');

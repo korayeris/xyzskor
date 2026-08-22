@@ -1158,18 +1158,24 @@ async function handleFootballCoverage(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
-  const cacheUrl = new URL("/api/football/coverage-v7", request.url); cacheUrl.search = "";
+  const cacheUrl = new URL("/api/football/coverage-v8", request.url); cacheUrl.search = "";
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (isUsableJsonCache(cached)) return cached;
   try {
     const payload = await sportmonksCoreRequest("/my/leagues", token);
     const availableIds = new Set();
+    const subscribedById = new Map();
     const visit = (value, depth = 0) => {
       if (!value || depth > 6) return;
       if (Array.isArray(value)) { value.forEach((row) => visit(row, depth + 1)); return; }
       if (typeof value !== "object") return;
       const leagueId = value.league_id || value.league?.id || ((value.name || value.short_code || value.image_path) ? value.id : null);
-      if (leagueId !== null && leagueId !== undefined && String(leagueId)) availableIds.add(String(leagueId));
+      if (leagueId !== null && leagueId !== undefined && String(leagueId)) {
+        const id = String(leagueId);
+        availableIds.add(id);
+        const name = value.league?.name || value.name || value.short_code || null;
+        if (name && !subscribedById.has(id)) subscribedById.set(id, String(name));
+      }
       Object.values(value).forEach((row) => visit(row, depth + 1));
     };
     visit(payload?.data);
@@ -1201,7 +1207,8 @@ async function handleFootballCoverage(request, env, context) {
         return { league, leagueId, name:SELECTED_LEAGUE_NAMES_BY_KEY[league] || null, available:false, subscriptionReported, metadataAvailable:false, currentSeasonId:null, reason:error?.status === 403 ? "plan_restricted" : "provider_error", status:error?.status || 502, capabilities:{ fixtures:false, results:false, standings:false, live:false } };
       }
     }));
-    const response = jsonResponse({ source:"sportmonks-selected-league-probes", updatedAt:new Date().toISOString(), myLeaguesReportedCount:availableIds.size, selected }, 200, { "Cache-Control":"public, max-age=300, s-maxage=3600" });
+    const subscribed = [...availableIds].map((leagueId) => ({ leagueId, name:subscribedById.get(leagueId) || null })).sort((a,b) => String(a.name || a.leagueId).localeCompare(String(b.name || b.leagueId)));
+    const response = jsonResponse({ source:"sportmonks-selected-league-probes", updatedAt:new Date().toISOString(), myLeaguesReportedCount:availableIds.size, subscribed, selected }, 200, { "Cache-Control":"public, max-age=300, s-maxage=3600" });
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
     return jsonResponse({ error:error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider:"sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control":"no-store", "Retry-After":"300" });
