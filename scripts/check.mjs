@@ -478,6 +478,7 @@ assert.match(liveSource, /function renderLiveFeed\([\s\S]*?renderLiveDetails\(ma
 // Ana mac merkezi fixture/date/takim fallback'i tasimamali. Gercek secim
 // davranisi scripts/test-matchday-live.mjs ile ayrica calistirilir.
 const matchdayLiveSource = scriptSources[scriptFiles.indexOf('matchday-live.js')];
+assert.match(matchdayLiveSource, /xyz:live-feed-updated[\s\S]*promoteLiveMatch/, 'Seçili ligdeki canlı maç ana maç vitrinine otomatik taşınmalı.');
 assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|Çorum FK|ÇFK/, 'Mac merkezi gecmis fixture veya takim fallbacklerine sabitlenmemeli.');
 assert.match(matchdayLiveSource, /\/api\/football\/season\?league=\$\{encodeURIComponent\(activeMatchdayLeague\)\}/, 'Parametre yokken fixture secili lig sezon verisinden cozulmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');

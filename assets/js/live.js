@@ -419,7 +419,7 @@ function renderLiveFeed(){
         <div class="live-teams">
           <div class="live-team">${liveTeamMark(home)}<span>${escapeLiveHTML(home.name || 'Takım adı alınamadı')}</span><span class="live-score">${homeScore}</span></div>
           <div class="live-team">${liveTeamMark(away)}<span>${escapeLiveHTML(away.name || 'Takım adı alınamadı')}</span><span class="live-score">${awayScore}</span></div>
-          ${renderLiveDetails(match)}
+          ${(match.details?.events?.length || match.details?.statistics?.length) ? renderLiveDetails(match) : ''}
         </div>
         <div class="live-state"><span class="live-minute">${view.live?'<span class="live-dot"></span>':''}${view.badge}</span><span class="live-state-label">${view.detail}</span></div>
       </article>`;
@@ -492,6 +492,7 @@ async function loadLiveFeed(force){
       stale:!!data.stale, staleAgeSeconds:Number.isFinite(data.staleAgeSeconds) ? data.staleAgeSeconds : 0,
       degraded:!!data.degraded, reason:data.reason || null, error:null, loaded:true,
     };
+    window.dispatchEvent(new CustomEvent('xyz:live-feed-updated',{detail:{league,matches:data.matches,updatedAt:LIVE_FEED.updatedAt,stale:LIVE_FEED.stale}}));
     liveFeedNextRefreshMs = clampLiveRefreshMs(Number(data.nextRefreshInSeconds) * 1000);
     data.matches.forEach(liveMatch=>{
       const stored=MATCHES.find(match=>match.id===liveMatch.id); if(!stored) return;

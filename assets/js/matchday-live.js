@@ -68,6 +68,31 @@
     if (upcoming.length) return upcoming[0];
     return valid.filter((fixture) => Date.parse(fixtureKickoff(fixture)) <= now && (fixture.result || ["bitti", "ft", "aet", "pen"].includes(String(fixture.status || "").toLocaleLowerCase("tr-TR")))).sort((a, b) => Date.parse(fixtureKickoff(b)) - Date.parse(fixtureKickoff(a)))[0] || null;
   }
+  function fixtureFromLiveMatch(match) {
+    if (!match) return null;
+    return {
+      id:match.id, ev:match.home?.name || "", konuk:match.away?.name || "",
+      kickoff:match.startedAt || "", status:match.status === "halftime" ? "devre_arasi" : match.status === "finished" ? "bitti" : "canlı",
+      minute:match.minute, added_time:match.addedTime ?? null,
+      home_logo:match.home?.logo || null, away_logo:match.away?.logo || null,
+      score:{ home:match.home?.score ?? null, away:match.away?.score ?? null },
+      competition:match.competition || "", provider_league_id:match.providerLeagueId || null,
+    };
+  }
+  function liveMatchForLeague(matches) {
+    return rows(matches).find((match) => {
+      const leagueKey=String(match?.leagueKey || "");
+      return (activeMatchdayLeague === "all" || leagueKey === activeMatchdayLeague) && ["live","halftime"].includes(String(match?.status || "").toLowerCase());
+    }) || null;
+  }
+  async function promoteLiveMatch(match, updatedAt) {
+    const liveFixture=fixtureFromLiveMatch(match); if(!liveFixture) return false;
+    const nextId=fixtureProviderId(liveFixture), changed=nextId && nextId!==fixtureId;
+    fixtureId=nextId; kickoff=Date.parse(fixtureKickoff(liveFixture));
+    render({fixture:liveFixture,details:{},degraded:false,updatedAt:updatedAt || new Date().toISOString()});
+    if(changed) await refresh();
+    return true;
+  }
   function teamAbbreviation(name) {
     const words = String(name || "").trim().split(/\s+/u).filter(Boolean);
     if (!words.length) return "-";
@@ -255,6 +280,8 @@
   }
   async function resolveFixture() {
     try {
+      const existingLive=typeof LIVE_FEED !== "undefined" ? liveMatchForLeague(LIVE_FEED.matches) : null;
+      if(existingLive && await promoteLiveMatch(existingLive,LIVE_FEED.updatedAt)) return;
       const response = await fetch(`/api/football/season?league=${encodeURIComponent(activeMatchdayLeague)}`, { headers:{Accept:"application/json"}, cache:"no-store" });
       const payload = await readApiJSON(response, "Fikstür kısa süreliğine alınamadı.");
       const selected = selectFixture(payload.matches);
@@ -283,6 +310,10 @@
     sync.textContent = "Seçili lig fikstürü yükleniyor";
     root.innerHTML = '<div class="matchday-loading"><b>En yakın maç aranıyor.</b><span>Seçili ligin canlı veya yaklaşan fikstürü yükleniyor.</span></div>';
     resolveFixture();
+  });
+  window.addEventListener("xyz:live-feed-updated", (event) => {
+    const live=liveMatchForLeague(event?.detail?.matches);
+    if(live) promoteLiveMatch(live,event?.detail?.updatedAt);
   });
   root.addEventListener("click", (event) => {
     const pickButton = event.target.closest(".matchday-provider-picks button[data-pick]");
