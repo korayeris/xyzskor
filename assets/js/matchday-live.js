@@ -254,8 +254,10 @@
     if (intro) intro.textContent = `${fixtureTimeLabel(f)} · Sportmonks tarafından doğrulanan maç verisi`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
     const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
-    const homeFormation = formations[0]?.formation || formations[0]?.name || "";
-    const awayFormation = formations[1]?.formation || formations[1]?.name || "";
+    const homeFormationRow = formations.find((item)=>String(item?.location || "").toLowerCase()==="home") || formations.find((item)=>String(item?.participant_id || "")===String(f?.home_team_id || f?.home?.id || "")) || formations[0];
+    const awayFormationRow = formations.find((item)=>String(item?.location || "").toLowerCase()==="away") || formations.find((item)=>String(item?.participant_id || "")===String(f?.away_team_id || f?.away?.id || "")) || formations[1];
+    const homeFormation = homeFormationRow?.formation || homeFormationRow?.name || "";
+    const awayFormation = awayFormationRow?.formation || awayFormationRow?.name || "";
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
     sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
     const detailMode = Boolean(new URLSearchParams(location.search).get("fixture")) && params.get("view") !== "home";
