@@ -291,7 +291,9 @@
     const payload=await readApiJSON(response,"Temel fikstür verisi alınamadı.");
     const fixture=rows(payload.matches).find((item)=>fixtureProviderId(item)===fixtureId);
     if(!fixture) return false;
-    const seasonFixture={...fixture,score:fixture.score || fixture.result || {home:null,away:null}};
+    const start=Date.parse(fixtureKickoff(fixture)), now=Date.now(), status=String(fixture.status || "").toLocaleLowerCase("tr-TR");
+    const inPlay=Number.isFinite(start) && start<=now && now<start+4*3600000 && !finishedStatuses.has(status) && !["iptal","ertelendi","cancelled","postponed"].includes(status);
+    const seasonFixture={...fixture,status:inPlay?"canlı":fixture.status,minute:inPlay?Math.max(1,Math.min(120,Math.floor((now-start)/60000))):fixture.minute,score:fixture.score || fixture.result || {home:null,away:null}};
     render({fixture:seasonFixture,details:{},degraded:true,updatedAt:payload.updatedAt || new Date().toISOString()});
     sync.textContent="Temel fikstür gösteriliyor · ayrıntılar kota yenilenince tamamlanır";
     return true;
