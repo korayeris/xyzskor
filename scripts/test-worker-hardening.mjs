@@ -164,7 +164,8 @@ async function main() {
   {
     const source = await (await import('node:fs/promises')).readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
     ok(source.includes('({ ...item, sport, provider:'), 'çoklu spor cache kaydı koleksiyon branşıyla zorla izole edilir');
-    ok(source.includes('/api/sports/today-v9?date='), 'kirli eski çoklu spor cache anahtarı geçersizleştirildi');
+    ok(source.includes('/api/sports/today-v10?date='), 'kirli eski çoklu spor cache anahtarı geçersizleştirildi');
+    ok(source.includes('const attempts = await Promise.all([0, -1, -2, -3, -7]'), 'geçmiş gün spor sorguları seri yerine paralel çalışır');
   }
 
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);

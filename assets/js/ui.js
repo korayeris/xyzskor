@@ -2277,6 +2277,14 @@ function renderAll(){
   if(document.getElementById('page-story').classList.contains('active')) startLiveFeed();
 }
 async function boot(){
+  const productRoot=(location.pathname.split('/').filter(Boolean)[0]||'').toLowerCase();
+  if(['basketbol','voleybol','ufc','motorsports'].includes(productRoot)){
+    // Bağımsız branş merkezleri kendi veri katmanını yükler. Burada tüm futbol
+    // fikstürü, transferleri ve sosyal akışlarını başlatmak geçişi gereksiz yere
+    // birkaç saniye geciktirir ve ağ bağlantılarını tüketir.
+    renderNav();
+    return;
+  }
   document.getElementById('navRight').innerHTML = `<span class="mono" style="font-size:14px;color:var(--ink-dim);">Yükleniyor…</span>`;
   renderSkeletons();
   lastLoadError = null;

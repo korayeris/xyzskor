@@ -5,6 +5,7 @@
   let fixtureId = String(requestedFixture || "").replace(/^sportmonks:/, "");
   const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "champions-league", "europa-league", "all"]);
   const pathLeague = String(location.pathname || "").replace(/^\/+|\/+$/g, "").split("/")[0];
+  if (["basketbol", "voleybol", "ufc", "motorsports"].includes(pathLeague)) return;
   let activeMatchdayLeague = leagueRoutes.has(pathLeague) ? pathLeague : "super-lig";
   let kickoff = NaN;
   const root = document.getElementById("matchdayLiveRoot");

@@ -99,6 +99,7 @@ async function main() {
     for (const route of ROUTES) {
       const page = await ctx.newPage();
       const pageErrors = [], consoleErrors = [];
+      const requestedApiPaths = [];
       page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 240)));
       page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
       // Harici host (CDN, Supabase, gorsel) sandbox'ta yok; bos yanit ver.
@@ -107,6 +108,7 @@ async function main() {
         // Tek route katmani kullan: ikinci bir genel route, API mock'unu
         // `continue()` ile yanlışlıkla atlayıp canlı backend'e kaçırmasın.
         if (url.startsWith(BASE) && new URL(url).pathname.startsWith('/api/')) {
+          requestedApiPaths.push(new URL(url).pathname + new URL(url).search);
           const [body, status] = mockFor(url);
           return r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
         }
@@ -160,7 +162,7 @@ async function main() {
           smallTouchTargets: smallTargets,
           activeTabPage: document.querySelector('.tabpage.active')?.id || null,
           visibleTextLength: (document.body.innerText || '').trim().length,
-          skeletons: document.querySelectorAll('.skeleton').length,
+          skeletons: [...document.querySelectorAll('.skeleton')].filter((el)=>el.offsetWidth||el.offsetHeight).length,
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
         };
       });
@@ -177,6 +179,8 @@ async function main() {
       if(route.name === 'basketbol'){
         ok(!/Galatasaray|Beşiktaş|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
         ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
+        ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/')), `${tag}: arka planda futbol API'leri yuklenmiyor`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.some((path)=>path.startsWith('/api/sports/today?sport=basketball')), `${tag}: yalniz basketbol verisi isteniyor`, requestedApiPaths.join(' | '));
       }
       report.push({ route: route.name, viewport: viewport.name, mode: MODE, pageErrors, consoleErrors, metrics, screenshot: shot });
       await page.close();

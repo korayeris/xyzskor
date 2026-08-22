@@ -5,7 +5,7 @@
     volleyball: 'Voleybol'
   };
 
-  let feedPromise = null;
+  const feedPromises = new Map();
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
@@ -231,16 +231,18 @@
     grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : '<div class="multi-event-empty"><strong>Bu branşın son verileri hazırlanıyor.</strong><span>Yasal API kaynağı veri sunduğunda son gerçekleşen karşılaşmalar otomatik gösterilir.</span></div>';
   }
 
-  async function load(){
-    if(!feedPromise){
-      feedPromise = fetch('/api/sports/today?client=v9', { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
+  async function load(sport){
+    const requestedSport=sport || activeSport;
+    if(!feedPromises.has(requestedSport)){
+      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v10`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');
           return payload;
-        }).catch((error) => { feedPromise = null; throw error; });
+        }).catch((error) => { feedPromises.delete(requestedSport); throw error; });
+      feedPromises.set(requestedSport,request);
     }
-    return feedPromise;
+    return feedPromises.get(requestedSport);
   }
 
   async function openHub(sport, view = 'home', updateUrl = true){
@@ -259,7 +261,7 @@
     hub.hidden = false;
     grid.innerHTML = '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canli program hazirlaniyor</span></div>';
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.toggle('active', button.dataset.multiSport === activeSport));
-    try{ render(await load()); }
+    try{ render(await load(activeSport)); }
     catch(_error){ grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>'; }
     window.scrollTo({top:0,behavior:'smooth'});
   }

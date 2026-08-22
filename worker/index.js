@@ -2297,11 +2297,16 @@ async function handleMultisportToday(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
   const date = multisportDate();
+  const requestedSport = new URL(request.url).searchParams.get("sport");
+  if (requestedSport && !Object.hasOwn(MULTISPORT_FEEDS, requestedSport)) {
+    return jsonResponse({ error: "invalid_sport" }, 400, { "Cache-Control": "no-store" });
+  }
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v9?date=${date}`, request.url), { method: "GET" });
+  const cacheKey = new Request(new URL(`/api/sports/today-v10?date=${date}&sport=${requestedSport || "all"}`, request.url), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
-  const entries = await Promise.all(Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport !== "mma").map(async ([sport, feed]) => {
+  const selectedFeeds = Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport !== "mma" && (!requestedSport || sport === requestedSport));
+  const entries = await Promise.all(selectedFeeds.map(async ([sport, feed]) => {
     const latestKey = new Request(new URL(`/api/sports/latest-v2/${sport}`, request.url), { method: "GET" });
     const latestCached = await readEdgeCache(cache, latestKey);
     try {
@@ -2319,19 +2324,22 @@ async function handleMultisportToday(request, env, context) {
           second: { name: event.mainEvent?.fighter2?.name || event.mainEvent?.blue?.name || event.venue || "Fight Card", logo: event.mainEvent?.fighter2?.image || null, winner: null }
         }))];
       }
-      let rows = [], feedDate = date;
-      for (const offset of [0, -1, -2, -3, -7]) {
+      const attempts = await Promise.all([0, -1, -2, -3, -7].map(async (offset) => {
         const target = new Date(`${date}T12:00:00+03:00`);
         target.setDate(target.getDate() + offset);
         const queryDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(target);
         const url = new URL(`https://${feed.host}/${feed.path}`);
         url.searchParams.set("date", queryDate);
-        const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok || !payload || Object.keys(payload.errors || {}).length) continue;
-        rows = Array.isArray(payload.response) ? payload.response : [];
-        if (rows.length) { feedDate = queryDate; break; }
-      }
+        try {
+          const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
+          const payload = await response.json().catch(() => null);
+          if (!response.ok || !payload || Object.keys(payload.errors || {}).length) return { queryDate, rows: [] };
+          return { queryDate, rows: Array.isArray(payload.response) ? payload.response : [] };
+        } catch { return { queryDate, rows: [] }; }
+      }));
+      const selectedAttempt = attempts.find((attempt) => attempt.rows.length) || { queryDate: date, rows: [] };
+      const rows = selectedAttempt.rows;
+      const feedDate = selectedAttempt.queryDate;
       const items = rows.map((row) => ({ ...normalizeMultisportItem(sport, row), feedDate, archived: feedDate !== date })).filter((row) => row.id).slice(0, 60);
       if (items.length) {
         writeEdgeCache(cache, latestKey, jsonResponse({ sport, feedDate, items }, 200, { "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=7776000" }), context);
