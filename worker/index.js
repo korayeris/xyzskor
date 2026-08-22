@@ -261,7 +261,34 @@ function jsonResponse(payload, status = 200, extraHeaders = {}) {
 
 function safeErrorMessage(error) {
   const message=String(error?.providerMessage||error?.message||'provider_unavailable');
-  return message.replace(/[\r\n\t]/g,' ').slice(0,240);
+  // Saglayici hata metni istegin URLini yankilayabilir; token benzeri her degeri maskele.
+  return redactSecrets(message).replace(/[\r\n\t]/g,' ').slice(0,240);
+}
+
+// Saglayici mesajlarindan ve loglardan sizabilecek anahtarlari maskeler.
+function redactSecrets(value) {
+  return String(value == null ? '' : value)
+    .replace(/((?:api_token|access_token|apikey|api_key|key|token|bearer)["'\s:=]{0,4})([A-Za-z0-9._\-]{8,})/gi, (all, head) => `${head}[REDACTED]`);
+}
+
+// Saglayici JSON yerine HTML/hata sayfasi dondurdugunde sessizce bos veri
+// yayinlamak yerine acik hata uretir (bkz. XYZSKOR-devir: content-type kontrolu).
+async function parseProviderJson(response, provider) {
+  const contentType = String(response.headers.get('content-type') || '');
+  if (!/\bjson\b/i.test(contentType)) {
+    const error = new Error(`${provider}_invalid_content_type`);
+    error.status = response.ok ? 502 : response.status;
+    error.providerMessage = `Beklenen JSON yerine ${contentType || 'bilinmeyen'} alindi.`;
+    throw error;
+  }
+  try {
+    return await response.json();
+  } catch (parseError) {
+    const error = new Error(`${provider}_invalid_json`);
+    error.status = response.ok ? 502 : response.status;
+    error.providerMessage = 'Saglayici gecersiz JSON dondurdu.';
+    throw error;
+  }
 }
 
 const SUPABASE_URL_FALLBACK = "https://swhwmqbamzczztpfxctg.supabase.co";
@@ -1087,14 +1114,16 @@ async function sportmonksRequest(pathname, token) {
       headers: { Authorization: token, Accept: "application/json" },
       signal: controller.signal,
     });
-    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const payload = /\bjson\b/i.test(String(response.headers.get('content-type') || ''))
+        ? await response.json().catch(() => ({}))
+        : {};
       const error = new Error(`Sportmonks API ${response.status}`);
       error.status = response.status;
       error.providerMessage = payload?.message || null;
       throw error;
     }
-    return payload;
+    return await parseProviderJson(response, 'sportmonks');
   } finally {
     clearTimeout(timeout);
   }
@@ -1110,14 +1139,16 @@ async function sportmonksCoreRequest(pathname, token) {
       headers: { Authorization: token, Accept: "application/json" },
       signal: controller.signal,
     });
-    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const payload = /\bjson\b/i.test(String(response.headers.get('content-type') || ''))
+        ? await response.json().catch(() => ({}))
+        : {};
       const error = new Error(`Sportmonks API ${response.status}`);
       error.status = response.status;
       error.providerMessage = payload?.message || null;
       throw error;
     }
-    return payload;
+    return await parseProviderJson(response, 'sportmonks');
   } finally {
     clearTimeout(timeout);
   }
@@ -1254,6 +1285,9 @@ function normalizeSportmonksTransfer(row, kind) {
     date: textValue(row?.date, row?.updated_at, row?.created_at),
     source,
     sourceUrl: row?.source_url || row?.url || row?.source?.url || null,
+    // Lig izolasyonu icin ham satirdaki lig kimligi normalize edilen kayitta korunur;
+    // aksi halde transferLeagueId daima null doner ve lig filtresi olu kalir.
+    provider_league_id: transferLeagueId(row) ? String(transferLeagueId(row)) : null,
   };
 }
 
@@ -1280,12 +1314,12 @@ async function handleFootballTransfers(request, env, context) {
     sportmonksRequest(rumoursPath, token),
   ]);
   const errors = [];
-  if (confirmedResult.status === "rejected") errors.push({ source: "transfers", status: confirmedResult.reason?.status || 502, message: confirmedResult.reason?.providerMessage || confirmedResult.reason?.message || "unavailable" });
-  if (rumourResult.status === "rejected") errors.push({ source: "transfer-rumours", status: rumourResult.reason?.status || 502, message: rumourResult.reason?.providerMessage || rumourResult.reason?.message || "unavailable" });
+  if (confirmedResult.status === "rejected") errors.push({ source: "transfers", status: confirmedResult.reason?.status || 502, message: redactSecrets(confirmedResult.reason?.providerMessage || confirmedResult.reason?.message || "unavailable") });
+  if (rumourResult.status === "rejected") errors.push({ source: "transfer-rumours", status: rumourResult.reason?.status || 502, message: redactSecrets(rumourResult.reason?.providerMessage || rumourResult.reason?.message || "unavailable") });
   const confirmed = confirmedResult.status === "fulfilled" ? relationRows(confirmedResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "confirmed")) : [];
   const rumours = rumourResult.status === "fulfilled" ? relationRows(rumourResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "rumour")) : [];
   const inScope = (row) => {
-    const rowLeagueId = transferLeagueId(row);
+    const rowLeagueId = row?.provider_league_id || transferLeagueId(row);
     if (leagueIdSet.size && rowLeagueId && !leagueIdSet.has(String(rowLeagueId))) return false;
     if (!teamSet.size) return leagueIdSet.size ? true : false;
     return teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to));
@@ -1478,6 +1512,18 @@ async function sportmonksFixturePredictions(fixtureId, token) {
   }
 }
 
+// Sportmonks fixture id'sinden secili lig anahtarini cozer; fixture secili
+// liglerden hicbirine ait degilse null doner (lig izolasyonu invarianti).
+function selectedLeagueKeyForProviderLeagueId(providerLeagueId) {
+  const id = String(providerLeagueId || "");
+  if (!id) return null;
+  for (const [key, ids] of Object.entries(SELECTED_LEAGUE_IDS_BY_KEY)) {
+    if (key === "all") continue;
+    if (ids.map(String).includes(id)) return key;
+  }
+  return null;
+}
+
 async function verifiedSportmonksFixture(fixtureId, token) {
   const payload = await sportmonksRequest(`/fixtures/${encodeURIComponent(fixtureId)}?include=participants;state;league;venue`, token);
   const row = payload?.data || payload || {};
@@ -1487,6 +1533,17 @@ async function verifiedSportmonksFixture(fixtureId, token) {
     error.status = 404;
     throw error;
   }
+  // INVARIANT: fixture.league_id daima secili lig kumesinden biri olmalidir.
+  const providerLeagueId = String(row?.league_id || row?.league?.id || fixture.provider_league_id || "");
+  const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+  if (!leagueKey) {
+    const error = new Error("fixture_out_of_scope");
+    error.status = 400;
+    error.providerMessage = "Bu mac secili lig kapsaminda degil.";
+    throw error;
+  }
+  fixture.provider_league_id = providerLeagueId;
+  fixture.league_key = leagueKey;
   return fixture;
 }
 
@@ -1516,8 +1573,13 @@ async function handleFootballPrediction(request, env) {
   }
   try {
     const fixture = await verifiedSportmonksFixture(fixtureId, token);
-    if (["iptal", "ertelendi", "bitti", "canlÄ±", "devre_arasi"].includes(fixture.status) || Date.now() >= Date.parse(fixture.kickoff) - 15 * 60000) {
+    if (["iptal", "ertelendi", "bitti", "canlı", "devre_arasi"].includes(fixture.status) || Date.now() >= Date.parse(fixture.kickoff) - 15 * 60000) {
       return jsonResponse({ error:"prediction_closed" }, 409, { "Cache-Control":"no-store" });
+    }
+    // Istemciden gelen challenge_league, fixture'in gercek ligiyle eslesmezse
+    // challenge tablosuna baska ligden mac enjekte edilebilir.
+    if (challengeLeague && challengeLeague !== fixture.league_key) {
+      return jsonResponse({ error:"challenge_league_mismatch" }, 400, { "Cache-Control":"no-store" });
     }
     const matchRecord={ id:matchId, hafta:fixture.hafta || 1, ev:fixture.ev, konuk:fixture.konuk, kickoff:fixture.kickoff, stadyum:fixture.stadyum, verified:true, status:fixture.status, source:"sportmonks", challenge_week:challengeLeague ? currentChallengeWeek() : null, challenge_league:challengeLeague, updated_at:new Date().toISOString() };
     try {
@@ -1534,6 +1596,9 @@ async function handleFootballPrediction(request, env) {
     });
     return jsonResponse({ prediction:Array.isArray(saved) ? saved[0] || null : saved }, 200, { "Cache-Control":"no-store" });
   } catch (error) {
+    if (error?.message === "fixture_out_of_scope") {
+      return jsonResponse({ error:"fixture_out_of_scope", message:safeErrorMessage(error) }, 400, { "Cache-Control":"no-store" });
+    }
     return jsonResponse({ error:error?.status === 404 ? "fixture_unavailable" : "prediction_save_failed", message:safeErrorMessage(error) }, error?.status === 404 ? 404 : 502, { "Cache-Control":"no-store" });
   }
 }
