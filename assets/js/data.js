@@ -795,10 +795,23 @@ async function primeServerLeaderboards(hafta){
     return false;
   }
 }
+let COMMON_DATA_CACHE = null;
+const COMMON_DATA_CACHE_MS = 5 * 60 * 1000;
+function loadCommonData(){
+  if(COMMON_DATA_CACHE && Date.now()-COMMON_DATA_CACHE.savedAt < COMMON_DATA_CACHE_MS) return COMMON_DATA_CACHE.promise;
+  const promise=Promise.all([
+    moduleQuery(sb.from('matches').select('*').order('kickoff'), 'matches'),
+    moduleQuery(sb.from('match_analysis').select('*'), 'match_analysis'),
+    moduleQuery(sb.from('results').select('*'), 'results'),
+    moduleQuery(sb.from('rewards').select('*'), 'rewards'),
+    moduleQuery(sb.from('league_standings').select('*').order('points',{ascending:false}), 'league_standings'),
+    moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
+  ]).catch(error=>{ COMMON_DATA_CACHE=null; throw error; });
+  COMMON_DATA_CACHE={savedAt:Date.now(),promise};
+  return promise;
+}
 async function loadAllData(){
   DATA_ERRORS = {};
-  SERVER_LEADERBOARDS = new Map();
-  serverLeaderboardMode = 'unknown';
   const scopedSuperLig = isStrictSuperLigScope();
   let session = null;
   try{
@@ -808,16 +821,12 @@ async function loadAllData(){
   await ensureSeasonFixtures();
   const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
   const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});
-  const [matches, analysisRows, ownProfiles, ownPredictions, results, rewards, standings, stories] = await Promise.all([
-    moduleQuery(sb.from('matches').select('*').order('kickoff'), 'matches'),
-    moduleQuery(sb.from('match_analysis').select('*'), 'match_analysis'),
+  const [commonData, ownProfiles, ownPredictions] = await Promise.all([
+    loadCommonData(),
     moduleQuery(ownProfileQuery, 'own_profile'),
-    moduleQuery(ownPredictionsQuery, 'own_predictions'),
-    moduleQuery(sb.from('results').select('*'), 'results'),
-    moduleQuery(sb.from('rewards').select('*'), 'rewards'),
-    moduleQuery(sb.from('league_standings').select('*').order('points',{ascending:false}), 'league_standings'),
-    moduleQuery(sb.from('weekly_stories').select('*'), 'weekly_stories')
+    moduleQuery(ownPredictionsQuery, 'own_predictions')
   ]);
+  const [matches, analysisRows, results, rewards, standings, stories] = commonData;
   const providerBundle = await fetchProviderSeasonBundle(activeFootballLeague);
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];

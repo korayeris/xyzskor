@@ -335,7 +335,18 @@ function openFootballSection(section, button, updateUrl){
   const views={matches:'footballMatchesView',news:'footballNewsView',clubs:'footballClubsView',transfers:'footballTransfersView',standings:'footballStandingsView'};
   Object.entries(views).forEach(([key,id])=>{ const view=document.getElementById(id); if(view) view.hidden=key!==activeFootballSection; });
   document.querySelectorAll('.football-context-tab').forEach(tab=>tab.classList.toggle('active',tab.dataset.footballRoute===activeFootballSection));
-  renderFootballDataViews();
+  // Yalnizca gorunen paneli guncelle. Onceki davranis her tiklamada maclar,
+  // gundem, kulupler, transferler ve puan durumunun tamamini yeniden kuruyordu.
+  renderMatchesLeagueFilters();
+  updateLeagueScopedCopy();
+  const renderActiveView={
+    matches:renderMatchesHub,
+    news:renderNewsHub,
+    clubs:renderLeagueClubs,
+    transfers:renderTransferCenter,
+    standings:renderHistoricStandings
+  }[activeFootballSection];
+  if(renderActiveView) renderActiveView();
   if(updateUrl!==false && typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
   const target=dedicated ? document.getElementById(views[activeFootballSection]) : document.getElementById('footballOverviewView');
   if(target) requestAnimationFrame(()=>target.scrollIntoView({behavior:'smooth',block:'start'}));
@@ -732,15 +743,11 @@ function setTransferCenterTab(name, button, updateUrl){
 function renderFootballDataViews(){ renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderMatchesHub(); renderNewsHub(); renderLeagueClubs(); renderTransferCenter(); renderHistoricStandings(); }
 let leagueTransitionTimer = null;
 function playFootballLeagueTransition(fromKey, toKey){
-  if(!document.body || !toKey || fromKey===toKey) return;
+  if(!document.body) return;
   const transitionClasses = SELECTED_COMPETITIONS.flatMap(item=>[`league-transition-from-${item.key}`,`league-transition-to-${item.key}`]);
-  document.body.classList.remove('league-switching', ...transitionClasses);
   if(leagueTransitionTimer) clearTimeout(leagueTransitionTimer);
-  document.body.classList.add('league-switching', `league-transition-from-${fromKey||'super-lig'}`, `league-transition-to-${toKey}`);
-  leagueTransitionTimer = setTimeout(()=>{
-    document.body.classList.remove('league-switching', ...transitionClasses);
-    leagueTransitionTimer = null;
-  }, 560);
+  leagueTransitionTimer = null;
+  document.body.classList.remove('league-switching', ...transitionClasses);
 }
 function applyFootballLeagueTheme(){
   if(!document.body) return;

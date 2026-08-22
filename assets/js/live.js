@@ -157,8 +157,9 @@ async function loadFootballLeagueSelection(leagueKey){
   activeFootballLeague=requestedLeague;
   if(typeof window!=='undefined' && typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:football-league-change',{detail:{league:requestedLeague}}));
   activeFootballTeam='Tümü';
-  MATCHES=[]; STANDINGS=[]; ALL_RESULTS={}; WEEKLY_STORIES={}; DATA_ERRORS={};
-  if(typeof renderAll==='function') renderAll();
+  DATA_ERRORS={};
+  // Yeni lig yaniti gelene kadar mevcut DOM korunur. Onceki akis tum veriyi
+  // sifirlayip bos ekran render ettigi icin ag gecikmesini kullaniciya yansitiyordu.
   await loadFootballCoverage();
   if(activeFootballLeague!==requestedLeague) return false;
   if(footballCoverageUnavailable(requestedLeague)){
