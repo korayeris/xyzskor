@@ -75,7 +75,7 @@ const SPORTMONKS_TIMEOUT_MS = 12000;
 // Zengin include zinciri (lineups/statistics/weatherReport/events) BİLEREK
 // burada YOK: bu uç eskiden sportmonksFixtureRequest'in en pahalı include
 // setini her 5 saniyede bir çağırıyordu; kota tükenmesinin kök nedeni buydu.
-const LIVE_INPLAY_INCLUDES = "participants;scores;league;state";
+const LIVE_INPLAY_INCLUDES = "participants;scores;league;state;periods";
 // Worker isolate'leri arasında paylaşılan hafıza yok ve platformun (OpenAI
 // Sites) Cache API/Durable Object garantisi doğrulanamadığından, single-flight
 // tekilleştirme Supabase'teki sync_locks + try_acquire_sync_lock() RPC'si
@@ -2143,6 +2143,13 @@ function normalizeLiveInplayMatch(fixture, leagueKey) {
   const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
   const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
   const code = String(fixture?.state?.short_name || fixture?.state?.state || "LIVE").toUpperCase();
+  const periods = relationRows(fixture?.periods);
+  const tickingPeriod = periods.find((period) => period?.ticking) || periods.findLast?.((period) => period?.ended == null) || periods.at(-1);
+  const providerMinute = fixture?.state?.minute == null ? NaN : Number(fixture.state.minute);
+  const periodMinute = tickingPeriod?.minutes == null ? NaN : Number(tickingPeriod.minutes);
+  const minute = Number.isFinite(providerMinute) ? providerMinute : Number.isFinite(periodMinute) ? periodMinute : null;
+  const finished = /^(?:FT|AET|PEN|AFTER_PENALTIES|FINISHED)$/.test(code);
+  const halftime = /^(?:HT|BREAK)$/.test(code);
   return {
     id: `sportmonks:${fixture.id}`,
     leagueKey,
@@ -2151,8 +2158,9 @@ function normalizeLiveInplayMatch(fixture, leagueKey) {
     competitionLogo: fixture?.league?.image_path || null,
     country: fixture?.league?.country?.name || null,
     startedAt: fixture?.starting_at || null,
-    status: code === "HT" ? "halftime" : "live",
-    minute: Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null,
+    status: finished ? "finished" : halftime ? "halftime" : "live",
+    minute,
+    addedTime: Number.isFinite(Number(tickingPeriod?.time_added)) ? Number(tickingPeriod.time_added) : null,
     home: { id: String(home.id || ""), name: String(home.name || "Ev sahibi"), logo: home.image_path || null, score: sportmonksScore(fixture?.scores, home.id) },
     away: { id: String(away.id || ""), name: String(away.name || "Deplasman"), logo: away.image_path || null, score: sportmonksScore(fixture?.scores, away.id) },
   };

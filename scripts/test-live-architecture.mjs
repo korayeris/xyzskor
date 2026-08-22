@@ -67,6 +67,12 @@ const inplayFixture = (id, leagueId, homeScore, awayScore, minute = 42, code = '
   ] },
 });
 
+const periodMinuteFixture = {
+  ...inplayFixture(778, 600, 0, 0, null),
+  state: { short_name: 'LIVE', minute: null },
+  periods: [{ description: '2nd-half', ticking: true, minutes: 69, time_added: 2 }],
+};
+
 async function main() {
   console.log('\n=== 1) Kalıcı snapshot yokken upstream hatası -> açık hata (sahte 200 yok) ===');
   {
@@ -152,7 +158,20 @@ async function main() {
     ok(payload?.matches?.[0]?.id === 'sportmonks:2', 'doğru fixture (600 id) döndü', JSON.stringify(payload?.matches));
   }
 
-  console.log('\n=== 6) Canlı maç yok -> 200 + no_live_matches (hata değil) ===');
+  console.log('\n=== 6) Period dakikası fallback ===');
+  {
+    const { payload } = await call('/api/football/live?league=super-lig', (u) => {
+      if (u.hostname === 'supabase.test' && u.pathname.includes('rpc/try_acquire_sync_lock')) return json(true);
+      if (u.hostname === 'supabase.test' && u.pathname.startsWith('/rest/v1/live_match_snapshots')) return json([]);
+      if (u.hostname === 'supabase.test' && u.pathname.startsWith('/rest/v1/provider_sync_runs')) return json([]);
+      if (u.hostname === 'api.sportmonks.com') return json({ data: [periodMinuteFixture] });
+      return null;
+    });
+    ok(payload?.matches?.[0]?.minute === 69, 'state.minute yoksa aktif period dakikası kullanılır', JSON.stringify(payload?.matches));
+    ok(payload?.matches?.[0]?.addedTime === 2, 'aktif period uzatma dakikası korunur', JSON.stringify(payload?.matches));
+  }
+
+  console.log('\n=== 7) Canlı maç yok -> 200 + no_live_matches (hata değil) ===');
   {
     const { status, payload } = await call('/api/football/live?league=super-lig', (u) => {
       if (u.hostname === 'supabase.test' && u.pathname.includes('rpc/try_acquire_sync_lock')) return json(true);
