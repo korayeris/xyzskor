@@ -926,7 +926,7 @@ async function loadXClubPosts(){
   const stage=document.getElementById('clubSocialStage'); const clubs=rankedXClubs(); if(!stage||!clubs.length) return;
   const label=competitionLabelBySlug(activeFootballLeague);
   if (isXFeedPaused()) {
-    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,post:null,account_found:true,upstream_error:'x_feed_paused'})).join('');
+    stage.innerHTML=xEmptyFeedHTML(clubs,label,'paused');
     return;
   }
   stage.innerHTML=`<div class="club-social-loading"><span></span><strong>${escapeHTML(label)} kulüp paylaşımları yükleniyor…</strong></div>`;
@@ -944,12 +944,14 @@ async function loadXClubPosts(){
     if(activeFootballLeague!==requestedLeague) return;
     const apiClubs=new Map((payload.clubs||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
     const apiPublishers=new Map((payload.publishers||[]).map(club=>[String(club.handle||'').toLocaleLowerCase('tr-TR'),club]));
-    const publisherCards=(payload.publishers||[]).map(publisher=>xPostCardHTML({...publisher,...(apiPublishers.get(publisher.handle.toLocaleLowerCase('tr-TR'))||{})}));
-    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})})).join('')+publisherCards.join('');
+    const feedItems=clubs.map(club=>({...club,...(apiClubs.get(club.handle.toLocaleLowerCase('tr-TR'))||{})}))
+      .concat((payload.publishers||[]).map(publisher=>({...publisher,...(apiPublishers.get(publisher.handle.toLocaleLowerCase('tr-TR'))||{})})));
+    const populated=feedItems.filter(item=>item.post);
+    stage.innerHTML=populated.length ? populated.map(xPostCardHTML).join('') : xEmptyFeedHTML(feedItems,label,payload.status);
   }catch(error){
     xClubPostsRequest=null;
     const code=/credit|402|payment/i.test(String(error?.message||''))?'x_credits_depleted':'unavailable';
-    stage.innerHTML=clubs.map(club=>xPostCardHTML({...club,post:null,account_found:true,upstream_error:code})).join('');
+    stage.innerHTML=xEmptyFeedHTML(clubs,label,code);
   }
 }
 function scrollClubSocial(direction){
@@ -2347,6 +2349,15 @@ function xPostMediaHTML(club,post,targetURL){
     const fitClass=Number(item?.height||0) > Number(item?.width||0) * 1.18 ? 'is-portrait' : Number(item?.width||0) > Number(item?.height||0) * 1.75 ? 'is-wide' : 'is-balanced';
     return `<a class="club-social-media-item ${fitClass}" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(label)}"><img src="${escapeHTML(url)}" alt="${escapeHTML(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">${kind?`<span class="club-social-media-kind"><b aria-hidden="true">${item.type==='video'?'▶':'GIF'}</b>${escapeHTML(kind)}</span>`:''}</a>`;
   }).join('')}</div>`;
+}
+function xEmptyFeedHTML(accounts,label,status){
+  const unique=[...new Map((accounts||[]).filter(item=>item?.handle).map(item=>[String(item.handle).toLocaleLowerCase('tr-TR'),item])).values()].slice(0,6);
+  const limited=/credit|402|payment/i.test(String(status||''));
+  const paused=String(status||'')==='paused';
+  const title=limited?'X veri kotası yenileniyor':paused?'Sosyal akış günlük kontrolde':'Yeni kulüp paylaşımı bulunamadı';
+  const copy=limited?'Son doğrulanmış gönderiler korunuyor; kota yenilendiğinde akış otomatik güncellenecek.':paused?'Resmî hesaplar günde bir kez kontrol ediliyor. Yeni içerik geldiğinde bu alan kendiliğinden açılır.':`${label} kulüplerinin bağlı resmî hesaplarında yayımlanabilir yeni gönderi yok.`;
+  const links=unique.map(account=>`<a href="${escapeHTML(account.url||`https://x.com/${account.handle}`)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(account.team)} hesabını X'te aç"><span>${crestHTML(account.team,'xs')}</span><b>${escapeHTML(account.team)}</b><small>@${escapeHTML(account.handle)}</small><i aria-hidden="true">↗</i></a>`).join('');
+  return `<section class="club-social-empty" aria-label="${escapeHTML(label)} sosyal akış durumu"><div class="club-social-empty-mark" aria-hidden="true">𝕏</div><div class="club-social-empty-copy"><span>RESMÎ HESAPLAR</span><strong>${escapeHTML(title)}</strong><p>${escapeHTML(copy)}</p></div>${links?`<nav class="club-social-empty-accounts" aria-label="Bağlı resmî hesaplar">${links}</nav>`:''}</section>`;
 }
 function xPostCardHTML(club){
   const post=club.post||null;
