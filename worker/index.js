@@ -69,6 +69,23 @@ const TRANSFER_CACHE = "public, max-age=600, s-maxage=3600, stale-while-revalida
 const SEASON_CACHE = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600";
 const LIVE_API_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
 const SPORTMONKS_TIMEOUT_MS = 12000;
+
+// ===================== CANLI SKOR MİMARİSİ (bkz. docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md) =====================
+// Yalnızca /api/football/live (5sn poll edilen uç) tarafından kullanılır.
+// Zengin include zinciri (lineups/statistics/weatherReport/events) BİLEREK
+// burada YOK: bu uç eskiden sportmonksFixtureRequest'in en pahalı include
+// setini her 5 saniyede bir çağırıyordu; kota tükenmesinin kök nedeni buydu.
+const LIVE_INPLAY_INCLUDES = "participants;scores;league;state";
+// Worker isolate'leri arasında paylaşılan hafıza yok ve platformun (OpenAI
+// Sites) Cache API/Durable Object garantisi doğrulanamadığından, single-flight
+// tekilleştirme Supabase'teki sync_locks + try_acquire_sync_lock() RPC'si
+// üzerinden yapılır (bkz. migration 20260822200000).
+const LIVE_LOCK_TTL_SECONDS = 4;
+const LIVE_SNAPSHOT_TTL_SECONDS = 45; // canli olmayan/tamamlanmis snapshot'lar bu sureden sonra "stale" sayilir
+const LIVE_CIRCUIT_WINDOW = 5; // son N provider_sync_runs kaydina bakilir
+const LIVE_CIRCUIT_FAILURE_THRESHOLD = 3; // ust uste N basarisizlik -> circuit acik
+const LIVE_CIRCUIT_OPEN_SECONDS = 20; // circuit acikken upstream'e gidilmez
+const FINALIZE_CONFIRMATIONS_SECONDS = [15, 60, 300]; // mac sonu ucdan uca dogrulama takvimi (bilgi amacli; asil kesinlesme verifiedSportmonksFixture ile yapilir)
 const INSTAGRAM_TIMEOUT_MS = 9000;
 const INSTAGRAM_CACHE = "public, max-age=900, s-maxage=3600, stale-while-revalidate=21600";
 const INSTAGRAM_STALE_CACHE = "public, max-age=300, s-maxage=604800";
@@ -446,6 +463,181 @@ async function supabaseRest(env, path, init = {}) {
     throw error;
   }
   return payload;
+}
+
+// ===================== CANLI SKOR: KALICI SNAPSHOT + SINGLE-FLIGHT + CIRCUIT BREAKER =====================
+
+// Sportmonks livescores/inplay ucunu SADECE minimal include ile cagirir.
+// handleFootballMatchday/handleFootballFixture gibi zengin detay uclari bu
+// fonksiyonu KULLANMAZ; onlar sportmonksFixtureRequest'teki tam include
+// zincirini korur. Boylece 5sn'lik hot-path pahali alanlari asla istemez.
+async function sportmonksLiveInplayRequest(token) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SPORTMONKS_TIMEOUT_MS);
+  try {
+    const requestUrl = new URL("https://api.sportmonks.com/v3/football/livescores/inplay");
+    requestUrl.searchParams.set("api_token", token);
+    requestUrl.searchParams.set("include", LIVE_INPLAY_INCLUDES);
+    const response = await fetch(requestUrl.toString(), {
+      headers: { Authorization: token, Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const payload = /\bjson\b/i.test(String(response.headers.get("content-type") || ""))
+        ? await response.json().catch(() => ({}))
+        : {};
+      const error = new Error(`Sportmonks API ${response.status}`);
+      error.status = response.status;
+      error.providerMessage = payload?.message || null;
+      error.retryAfter = Number(response.headers.get("retry-after")) || null;
+      error.rateLimitRemaining = Number(response.headers.get("x-ratelimit-remaining")) || null;
+      throw error;
+    }
+    return await parseProviderJson(response, "sportmonks");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Bir kapsam (ör. "live:super-lig") icin single-flight kilidi almaya calisir.
+// true donerse cagiran upstream'e gidebilir; false donerse baska bir istek
+// zaten upstream'e gitmis/gitmektedir -- cagiran kalici snapshot sunmalidir.
+// Supabase yapilandirilmamissa (ör. yerel gelistirme) kilit kontrolu atlanir
+// ve dogrudan upstream'e izin verilir (fail-open, ozellik devre disi degil).
+async function acquireSyncLock(env, key, ttlSeconds = LIVE_LOCK_TTL_SECONDS) {
+  if (!supabaseServiceKey(env)) return true;
+  try {
+    const holder = `${key}:${crypto.randomUUID()}`;
+    const result = await supabaseRest(env, "rpc/try_acquire_sync_lock", {
+      method: "POST",
+      body: JSON.stringify({ p_key: key, p_holder: holder, p_ttl_seconds: ttlSeconds }),
+    });
+    return result === true;
+  } catch (_error) {
+    // Kilit altyapisi gecici olarak erisilemezse canli veriyi tamamen
+    // durdurmak yerine tekillestirmeyi atla (fail-open); circuit breaker ve
+    // provider_sync_runs zaten upstream tarafini ayrica korur.
+    return true;
+  }
+}
+
+function liveSnapshotChecksum(match) {
+  return redactSecrets(`${match.status}:${match.minute ?? ""}:${match.home?.score ?? ""}:${match.away?.score ?? ""}`);
+}
+
+// Basarili bir canli cekimden sonra her fixture icin son doğrulanmis
+// snapshot'i kalici olarak yazar (upsert). Edge cache kaybolsa/hic
+// calismasa bile bu tablo "son doğrulanmış skor" kaynağı olarak kalır.
+async function persistLiveSnapshots(env, leagueKey, matches) {
+  if (!supabaseServiceKey(env) || !matches.length) return;
+  const rows = matches.map((match) => ({
+    fixture_id: match.id,
+    provider: "sportmonks",
+    sport: "football",
+    league_key: leagueKey,
+    status: match.status,
+    minute: Number.isFinite(match.minute) ? match.minute : null,
+    home_score: Number.isFinite(match.home?.score) ? match.home.score : null,
+    away_score: Number.isFinite(match.away?.score) ? match.away.score : null,
+    payload: match,
+    provider_updated_at: new Date().toISOString(),
+    fetched_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + LIVE_SNAPSHOT_TTL_SECONDS * 1000).toISOString(),
+    checksum: liveSnapshotChecksum(match),
+  }));
+  try {
+    await supabaseRest(env, "live_match_snapshots?on_conflict=fixture_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(rows),
+    });
+  } catch (_error) {
+    // Snapshot yazimi basarisiz olsa bile canli yaniti kullaniciya
+    // ulastirmayi engellemez; yalnizca gelecekteki fallback zayiflar.
+  }
+  try {
+    const fixtureRows = matches.map((match) => ({
+      provider: "sportmonks",
+      provider_fixture_id: String(match.id).replace(/^sportmonks:/, ""),
+      sport: "football",
+      league_key: leagueKey,
+      provider_league_id: match.providerLeagueId ? String(match.providerLeagueId) : null,
+      home_provider_id: match.home?.id ? String(match.home.id) : null,
+      away_provider_id: match.away?.id ? String(match.away.id) : null,
+      canonical_state: match.status,
+      updated_at: new Date().toISOString(),
+    }));
+    await supabaseRest(env, "provider_fixtures?on_conflict=provider,provider_fixture_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(fixtureRows),
+    });
+  } catch (_error) { /* iyilestirici; hot path'i engellemez */ }
+}
+
+// Belirli bir lig icin en son kalici snapshot'lari okur (upstream basarisiz
+// oldugunda "son doğrulanmış skor" olarak sunulur). expires_at gecmis olsa
+// bile snapshot DONER (silinmez); cagiran taraf stale/staleAgeSeconds ile
+// bunu acikca etiketler -- boylece sonsuz "beklemede" yerine gercek son
+// bilinen durum gosterilir.
+async function readLiveSnapshots(env, leagueKey) {
+  if (!supabaseServiceKey(env)) return [];
+  try {
+    const rows = await supabaseRest(
+      env,
+      `live_match_snapshots?league_key=eq.${encodeURIComponent(leagueKey)}&select=fixture_id,status,payload,fetched_at,provider_updated_at`
+    );
+    return Array.isArray(rows) ? rows : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+// Her upstream cagri denemesini gozlemlenebilirlik icin kaydeder. Best-effort:
+// bu kayit basarisiz olsa bile ana istek akisini bozmaz (context.waitUntil ile
+// cagirilmalidir).
+async function recordSyncRun(env, { endpointClass, scopeKey, startedAt, httpStatus, outcome, rateLimitRemaining = null, rateLimitReset = null, errorCode = null }) {
+  if (!supabaseServiceKey(env)) return;
+  try {
+    await supabaseRest(env, "provider_sync_runs", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        endpoint_class: endpointClass,
+        scope_key: scopeKey,
+        started_at: new Date(startedAt).toISOString(),
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - startedAt,
+        http_status: httpStatus,
+        outcome,
+        rate_limit_remaining: rateLimitRemaining,
+        rate_limit_reset: rateLimitReset,
+        error_code: errorCode,
+      }),
+    });
+  } catch (_error) { /* gozlemlenebilirlik ikincildir */ }
+}
+
+// Son LIVE_CIRCUIT_WINDOW deneme ust uste basarisizsa (ok disi outcome)
+// circuit'i acik sayar; bu sirada upstream'e hic gidilmez, dogrudan kalici
+// snapshot sunulur. Boylece surekli 429/5xx alan bir saglayici sonsuz
+// yeniden denemeyle kotayi tuketmeye devam etmez.
+async function isCircuitOpen(env, endpointClass, scopeKey) {
+  if (!supabaseServiceKey(env)) return false;
+  try {
+    const rows = await supabaseRest(
+      env,
+      `provider_sync_runs?endpoint_class=eq.${encodeURIComponent(endpointClass)}&scope_key=eq.${encodeURIComponent(scopeKey)}&order=started_at.desc&limit=${LIVE_CIRCUIT_WINDOW}&select=outcome,finished_at`
+    );
+    if (!Array.isArray(rows) || rows.length < LIVE_CIRCUIT_FAILURE_THRESHOLD) return false;
+    const recentFailures = rows.slice(0, LIVE_CIRCUIT_FAILURE_THRESHOLD);
+    const allFailed = recentFailures.every((row) => row.outcome && row.outcome !== "ok");
+    if (!allFailed) return false;
+    const lastFailureAt = Date.parse(recentFailures[0]?.finished_at || "");
+    return Number.isFinite(lastFailureAt) && Date.now() - lastFailureAt < LIVE_CIRCUIT_OPEN_SECONDS * 1000;
+  } catch (_error) {
+    return false;
+  }
 }
 
 async function handlePredictGameStatus(request, env) {
@@ -1705,27 +1897,70 @@ function currentChallengeWeek(now = new Date()) {
   return monday.toISOString().slice(0, 10);
 }
 
+// NOT (2026-08-22 audit): bu fonksiyon oncesinde `matches.challenge_week`
+// kolonuna ve `settle_prediction_challenge_match` RPC'sine kosulsuz
+// guveniyordu. Production Supabase semasinda (proje swhwmqbamzczztpfxctg)
+// bu kolon/fonksiyon YOK -- ilk supabaseRest cagrisi her cron turunda
+// "column does not exist" ile patliyor ve scheduled() bunu hic yakalamadan
+// yutuyordu (sessiz sonsuz basarisizlik). Bu, README/memory'deki "silent
+// failure masking" aninin bir baska ornegi. Asagidaki surum:
+//  1) Yalnizca DOGRULANMIS kolonlara (matches.status, results) dayanir,
+//  2) Lig izolasyonu icin verifiedSportmonksFixture kullanir (baska ligden
+//     sonuc sizmasini engeller),
+//  3) results upsert + matches.status guncellemesi idempotenttir (ayni
+//     sonuc tekrar tekrar islense de veri degismez),
+//  4) challenge/reward RPC'sini FIRSATCI olarak dener; eksikse (42883/42703)
+//     provider_sync_runs'a acikca kaydeder, sessizce yutmaz.
 async function settlePendingFootballPredictions(env) {
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
-  if (!token || !supabaseServiceKey(env)) return { checked:0, settled:0 };
-  const cutoff = encodeURIComponent(new Date().toISOString());
-  const pending = await supabaseRest(env, `matches?source=eq.sportmonks&challenge_week=not.is.null&kickoff=lt.${cutoff}&status=neq.bitti&select=id&order=kickoff.asc&limit=24`);
+  if (!token || !supabaseServiceKey(env)) return { checked: 0, settled: 0 };
+  const startedAt = Date.now();
+  let pending = [];
+  try {
+    const cutoff = encodeURIComponent(new Date().toISOString());
+    pending = await supabaseRest(env, `matches?source=eq.sportmonks&kickoff=lt.${cutoff}&status=neq.bitti&select=id,status&order=kickoff.asc&limit=24`);
+  } catch (error) {
+    await recordSyncRun(env, { endpointClass: "finalize", scopeKey: "pending-query", startedAt, httpStatus: error?.status || 0, outcome: "schema_error", errorCode: safeErrorMessage(error) });
+    return { checked: 0, settled: 0, error: "pending_query_failed" };
+  }
   let settled = 0;
+  let rewardRpcMissing = false;
   for (const row of Array.isArray(pending) ? pending : []) {
     const fixtureId = String(row.id || "").replace(/^sportmonks:/, "");
     if (!/^\d+$/.test(fixtureId)) continue;
     try {
-      const payload = await sportmonksRequest(`/fixtures/${encodeURIComponent(fixtureId)}?include=participants;scores;state`, token);
-      const fixture = normalizeProviderFixture(payload?.data || payload || {}, null, null, null);
+      const fixture = await verifiedSportmonksFixture(fixtureId, token);
       if (fixture?.status !== "bitti" || !fixture.result) continue;
-      await supabaseRest(env, "rpc/settle_prediction_challenge_match", {
-        method:"POST",
-        body:JSON.stringify({ p_match_id:row.id, p_home:fixture.result.home, p_away:fixture.result.away }),
+      // Idempotent: ayni skor tekrar tekrar upsert edilse de sonuc degismez.
+      await supabaseRest(env, "results?on_conflict=match_id", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ match_id: row.id, home: fixture.result.home, away: fixture.result.away, scored_at: new Date().toISOString() }),
+      });
+      await supabaseRest(env, `matches?id=eq.${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ status: "bitti" }),
       });
       settled += 1;
-    } catch (_error) { /* sonraki cron turunda tekrar denenir */ }
+      if (!rewardRpcMissing) {
+        try {
+          await supabaseRest(env, "rpc/settle_prediction_challenge_match", {
+            method: "POST",
+            body: JSON.stringify({ p_match_id: row.id, p_home: fixture.result.home, p_away: fixture.result.away }),
+          });
+        } catch (rpcError) {
+          // 42883 = fonksiyon yok, 42703 = kolon yok (challenge_week vb).
+          // Bu, oduel/challenge migration backlog'unun henuz uygulanmadigi
+          // ANLAMINA gelir -- ayri, bilinen bir dagitim engelidir; canli
+          // skor kesinlestirmesini (results/matches) ENGELLEMEZ.
+          if (/42883|42703|does not exist/i.test(String(rpcError?.message || ""))) rewardRpcMissing = true;
+        }
+      }
+    } catch (_error) { /* bu fixture bir sonraki cron turunda tekrar denenir */ }
   }
-  return { checked:Array.isArray(pending) ? pending.length : 0, settled };
+  await recordSyncRun(env, { endpointClass: "finalize", scopeKey: "settle", startedAt, httpStatus: 200, outcome: rewardRpcMissing ? "partial_reward_rpc_missing" : "ok" });
+  return { checked: Array.isArray(pending) ? pending.length : 0, settled, rewardRpcMissing };
 }
 
 function utcDateWithOffset(days) {
@@ -1903,33 +2138,137 @@ async function handleFootballMatchday(request, env) {
   }
 }
 
+function normalizeLiveInplayMatch(fixture, leagueKey) {
+  const participants = relationRows(fixture?.participants);
+  const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
+  const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
+  const code = String(fixture?.state?.short_name || fixture?.state?.state || "LIVE").toUpperCase();
+  return {
+    id: `sportmonks:${fixture.id}`,
+    leagueKey,
+    providerLeagueId: fixture?.league_id ? String(fixture.league_id) : null,
+    competition: fixture?.league?.name || "Seçili lig",
+    competitionLogo: fixture?.league?.image_path || null,
+    country: fixture?.league?.country?.name || null,
+    startedAt: fixture?.starting_at || null,
+    status: code === "HT" ? "halftime" : "live",
+    minute: Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null,
+    home: { id: String(home.id || ""), name: String(home.name || "Ev sahibi"), logo: home.image_path || null, score: sportmonksScore(fixture?.scores, home.id) },
+    away: { id: String(away.id || ""), name: String(away.name || "Deplasman"), logo: away.image_path || null, score: sportmonksScore(fixture?.scores, away.id) },
+  };
+}
+
+// nextRefreshInSeconds: handoff #2'deki akilli yenileme takvimini
+// yansitir. Istemci bu degeri temel alarak bir sonraki poll'u planlar
+// (bkz. assets/js/live.js scheduleNextLivePoll); sunucu tarafi otorite budur.
+function nextRefreshSecondsFor(matches) {
+  if (matches.some((match) => match.status === "live")) return 6;
+  if (matches.some((match) => match.status === "halftime")) return 15;
+  return 60;
+}
+
+// Kalici bir snapshot satirindan API sozlesmesindeki "matches" ogesini geri
+// kurar. payload zaten normalizeLiveInplayMatch ciktisidir.
+function matchFromSnapshotRow(row) {
+  return row?.payload && typeof row.payload === "object" ? row.payload : null;
+}
+
 async function handleFootballLive(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
-  if (!token) return jsonResponse({ error: "sportmonks_not_configured", provider: "sportmonks" }, 503, { "Cache-Control": "no-store" });
   const league = validLeagueKey(new URL(request.url).searchParams.get("league"));
-  if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
+  if (!league) return jsonResponse({ error: "invalid_league" }, 400, { "Cache-Control": "no-store" });
+  const nowIso = new Date().toISOString();
+  const baseMeta = { provider: "sportmonks", league, updatedAt: nowIso };
+
+  if (!token) {
+    // Saglayici yapilandirilmamis: bunu "canli mac yok" ile karistirma, acikca
+    // ayirt edilebilir bir sebep kodu don. `error` alani geriye donuk
+    // uyumluluk icindir (istemci fallback mesaji icin okur); `reason` handoff
+    // #3'teki makinece ayristirilabilir sozlesmedir.
+    return jsonResponse({ ...baseMeta, error: "sportmonks_not_configured", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "not_configured", nextRefreshInSeconds: 60, matches: [] }, 503, { "Cache-Control": "no-store" });
+  }
+
   const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
-  const cacheUrl = new URL(request.url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
-  const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
-  const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
+  const scopeKey = `live:${league}`;
+
+  // Son doğrulanmış snapshot'ları her durumda hazır tut (basari/hata farketmez);
+  // upstream basarisiz olursa veya kilit alinamazsa buradan dönülür.
+  const snapshotRows = await readLiveSnapshots(env, league);
+  const snapshotMatches = snapshotRows.map(matchFromSnapshotRow).filter(Boolean);
+  const newestFetchedAt = snapshotRows.reduce((max, row) => {
+    const t = Date.parse(row?.fetched_at || "");
+    return Number.isFinite(t) ? Math.max(max, t) : max;
+  }, 0);
+  const staleAgeSeconds = newestFetchedAt ? Math.max(0, Math.round((Date.now() - newestFetchedAt) / 1000)) : null;
+
+  const respondWithSnapshot = (status, reason, degraded) => {
+    const nextRefreshInSeconds = nextRefreshSecondsFor(snapshotMatches);
+    return jsonResponse({
+      ...baseMeta,
+      providerUpdatedAt: newestFetchedAt ? new Date(newestFetchedAt).toISOString() : null,
+      stale: true,
+      staleAgeSeconds: staleAgeSeconds ?? 0,
+      degraded,
+      reason,
+      nextRefreshInSeconds,
+      matches: snapshotMatches,
+    }, status, { "Cache-Control": "no-store", "X-Data-Stale": "true" });
+  };
+
+  if (await isCircuitOpen(env, "live", scopeKey)) {
+    return snapshotMatches.length
+      ? respondWithSnapshot(200, "provider_unavailable", true)
+      : jsonResponse({ ...baseMeta, providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "provider_unavailable", nextRefreshInSeconds: 30, matches: [] }, 503, { "Cache-Control": "no-store", "Retry-After": "30" });
+  }
+
+  const acquired = await acquireSyncLock(env, scopeKey);
+  if (!acquired) {
+    // Baska bir istek su anda upstream'e gitmis durumda (single-flight).
+    // Kilit penceresi kisa oldugundan (LIVE_LOCK_TTL_SECONDS) snapshot
+    // pratikte guncel kabul edilir; yine de gercek yasi acikca raporlanir.
+    return snapshotMatches.length
+      ? jsonResponse({ ...baseMeta, providerUpdatedAt: newestFetchedAt ? new Date(newestFetchedAt).toISOString() : null, stale: false, staleAgeSeconds: staleAgeSeconds ?? 0, degraded: false, reason: snapshotMatches.length ? undefined : "no_live_matches", nextRefreshInSeconds: nextRefreshSecondsFor(snapshotMatches), matches: snapshotMatches }, 200, { "Cache-Control": "no-store" })
+      : jsonResponse({ ...baseMeta, providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: false, reason: "no_live_matches", nextRefreshInSeconds: 30, matches: [] }, 200, { "Cache-Control": "no-store" });
+  }
+
+  const startedAt = Date.now();
   try {
-    const liveResult = await sportmonksFixtureRequest("/livescores/inplay", token);
-    const payload = liveResult.payload;
-    const matches = relationRows(payload?.data).filter((fixture) => leagueIds.includes(String(fixture?.league_id))).map((fixture) => {
-      const participants = relationRows(fixture?.participants);
-      const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
-      const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
-      const code = String(fixture?.state?.short_name || fixture?.state?.state || "LIVE").toUpperCase();
-      return { id:`sportmonks:${fixture.id}`, competition:fixture?.league?.name || "Seçili lig", competitionLogo:fixture?.league?.image_path || null, country:fixture?.league?.country?.name || null, startedAt:fixture?.starting_at || null, status:code === "HT" ? "halftime" : "live", minute:Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null, home:{ id:String(home.id || ""), name:String(home.name || "Ev sahibi"), logo:home.image_path || null, score:sportmonksScore(fixture?.scores, home.id) }, away:{ id:String(away.id || ""), name:String(away.name || "Deplasman"), logo:away.image_path || null, score:sportmonksScore(fixture?.scores, away.id) }, details:normalizeSportmonksFixtureDetails(fixture) };
-    });
-    const response = jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches, coverage:{ matches:matches.length, includes:liveResult.includes.split(";") }, degraded:liveResult.degraded }, 200, { "Cache-Control": LIVE_API_CACHE });
-    writeEdgeCache(cache, cacheKey, response, context); return response;
+    const payload = await sportmonksLiveInplayRequest(token);
+    const matches = relationRows(payload?.data)
+      .filter((fixture) => leagueIds.includes(String(fixture?.league_id)))
+      .map((fixture) => normalizeLiveInplayMatch(fixture, league));
+    context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: 200, outcome: "ok" }));
+    context.waitUntil(persistLiveSnapshots(env, league, matches));
+    return jsonResponse({
+      ...baseMeta,
+      providerUpdatedAt: nowIso,
+      stale: false,
+      staleAgeSeconds: 0,
+      degraded: false,
+      reason: matches.length ? undefined : "no_live_matches",
+      nextRefreshInSeconds: nextRefreshSecondsFor(matches),
+      matches,
+    }, 200, { "Cache-Control": LIVE_API_CACHE });
   } catch (error) {
-    if (error?.status === 401 || error?.status === 403) {
-      return jsonResponse({ error: error.status === 401 ? "sportmonks_token_invalid" : "sportmonks_plan_restricted", provider: "sportmonks" }, error.status, { "Cache-Control": "no-store", "Retry-After": "30" });
+    const status = error?.status;
+    if (status === 401 || status === 403) {
+      context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: status, outcome: "config_error", errorCode: status === 401 ? "sportmonks_token_invalid" : "sportmonks_plan_restricted" }));
+      return jsonResponse({ ...baseMeta, error: status === 401 ? "sportmonks_token_invalid" : "sportmonks_plan_restricted", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: status === 401 ? "not_configured" : "plan_restricted", nextRefreshInSeconds: 60, matches: [] }, status, { "Cache-Control": "no-store", "Retry-After": "300" });
     }
-    return jsonResponse({ source:"sportmonks-football-api-v3", league, updatedAt:new Date().toISOString(), matches:[], coverage:{ matches:0, includes:[] }, degraded:true, errors:[{ module:"live", message:"sportmonks_upstream_unavailable" }] }, 200, { "Cache-Control":"public, max-age=15, stale-if-error=120", "X-Data-Stale":"true" });
+    if (status === 429) {
+      context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: 429, outcome: "rate_limited", rateLimitRemaining: error?.rateLimitRemaining ?? null }));
+      return snapshotMatches.length
+        ? respondWithSnapshot(200, "provider_rate_limited", true)
+        : jsonResponse({ ...baseMeta, error: "sportmonks_rate_limited", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "provider_rate_limited", nextRefreshInSeconds: Math.max(30, Number(error?.retryAfter) || 30), matches: [] }, 429, { "Cache-Control": "no-store", "Retry-After": String(Math.max(30, Number(error?.retryAfter) || 30)) });
+    }
+    // Timeout, 5xx, HTML/bozuk JSON (parseProviderJson zaten bunu hataya
+    // ceviriyor) -- hepsi ayni "provider_unavailable" siniftadir ama asla
+    // matches:[] BASARILI YANIT olarak maskelenmez.
+    context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: status || 0, outcome: error?.name === "AbortError" ? "timeout" : "upstream_error", errorCode: safeErrorMessage(error) }));
+    return snapshotMatches.length
+      ? respondWithSnapshot(200, "stale_snapshot", true)
+      : jsonResponse({ ...baseMeta, error: "sportmonks_upstream_unavailable", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "provider_unavailable", nextRefreshInSeconds: 20, matches: [] }, 503, { "Cache-Control": "no-store", "Retry-After": "20" });
   }
 }
 
@@ -1944,6 +2283,137 @@ async function handleFootballFixture(request, env) {
     return jsonResponse({ source:"sportmonks-football-api-v3", id:`sportmonks:${id}`, updatedAt:new Date().toISOString(), details:normalizeSportmonksFixtureDetails(result.payload?.data || {}), coverage:{ includes:result.includes.split(";") }, degraded:result.degraded }, 200, { "Cache-Control":SEASON_CACHE });
   } catch (error) {
     return jsonResponse({ error:error?.status===403?"sportmonks_plan_restricted":"sportmonks_fixture_unavailable" }, error?.status===403?403:502, { "Cache-Control":"no-store", "Retry-After":"60" });
+  }
+}
+
+// ===================== CANLI SKOR: AYRIŞTIRILMIŞ AYRINTI UÇLARI (handoff #3) =====================
+// /api/football/live artık zengin include zincirini hiç çağırmıyor (bkz.
+// handleFootballLive). Kadro/istatistik/olay gibi pahalı alanlar yalnızca
+// istemci gerçekten o sekmeyi açtığında, kendi cache anahtarı ve TTL'iyle
+// buradan çekilir.
+const MATCH_EVENTS_CACHE = "public, max-age=8, s-maxage=8, stale-while-revalidate=30";
+const MATCH_DETAILS_CACHE = "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600";
+const MATCH_STATISTICS_LIVE_CACHE = "public, max-age=30, s-maxage=30, stale-while-revalidate=60";
+const MATCH_STATISTICS_IDLE_CACHE = "public, max-age=1800, s-maxage=3600, stale-while-revalidate=21600";
+
+async function sportmonksFixtureWithInclude(fixtureId, include, token) {
+  const payload = await sportmonksRequest(`/fixtures/${encodeURIComponent(fixtureId)}?include=${encodeURIComponent(include)}`, token);
+  return payload?.data || payload || {};
+}
+
+function parseMatchFixtureId(pathname) {
+  const match = pathname.match(/^\/api\/football\/matches\/([^/]+)\/(events|details|statistics)$/);
+  if (!match) return null;
+  const id = decodeURIComponent(match[1]).replace(/^sportmonks:/, "");
+  return /^\d+$/.test(id) ? { id, resource: match[2] } : null;
+}
+
+function normalizeLiveEvent(row, teamById) {
+  const team = teamById.get(String(row?.participant_id));
+  return {
+    provider_event_id: row?.id != null ? String(row.id) : null,
+    minute: row?.minute ?? null,
+    extra_minute: row?.extra_minute ?? null,
+    team_provider_id: row?.participant_id != null ? String(row.participant_id) : null,
+    team: team?.name || null,
+    player_provider_id: row?.player_id != null ? String(row.player_id) : null,
+    player: row?.player_name || row?.player?.display_name || row?.player?.name || null,
+    type: row?.type?.name || row?.type?.code || row?.type || row?.addition || "Olay",
+    type_id: row?.type_id ?? null,
+    result: row?.result || null,
+  };
+}
+
+// Olaylari kalici olarak da yazar (provider_event_id ile dedup); boylece ayni
+// gol istemciye iki kez farkli sirayla gelse bile (ör. gec gelen eski cevap)
+// tekrar goruntulenmez -- benzersizlik veritabani duzeyinde garanti edilir.
+async function persistLiveEvents(env, fixtureId, leagueKey, events) {
+  if (!supabaseServiceKey(env) || !events.length) return;
+  const rows = events.filter((event) => event.provider_event_id).map((event) => ({
+    fixture_id: fixtureId,
+    provider_event_id: event.provider_event_id,
+    league_key: leagueKey,
+    team_provider_id: event.team_provider_id,
+    player_provider_id: event.player_provider_id,
+    type: event.type,
+    minute: event.minute,
+    extra_minute: event.extra_minute,
+    payload: event,
+  }));
+  if (!rows.length) return;
+  try {
+    await supabaseRest(env, "live_match_events?on_conflict=fixture_id,provider_event_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(rows),
+    });
+  } catch (_error) { /* dedup zaten unique constraint ile korunuyor; yazim hatasi hot path'i engellemez */ }
+}
+
+async function handleFootballMatchEvents(request, env, fixtureId) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
+  try {
+    const fixture = await sportmonksFixtureWithInclude(fixtureId, "participants;events.type;league;state", token);
+    const providerLeagueId = String(fixture?.league_id || fixture?.league?.id || "");
+    const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+    if (!leagueKey) return jsonResponse({ error: "fixture_out_of_scope" }, 400, { "Cache-Control": "no-store" });
+    const participants = relationRows(fixture?.participants);
+    const teamById = new Map(participants.map((team) => [String(team?.id), team]));
+    const events = relationRows(fixture?.events)
+      .map((row) => normalizeLiveEvent(row, teamById))
+      .filter((event) => event.provider_event_id)
+      .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0));
+    const etag = `"${events.map((event) => event.provider_event_id).join(",") || "empty"}"`;
+    if (request.headers.get("If-None-Match") === etag) {
+      return new Response(null, { status: 304, headers: { ...securityHeaders(), ETag: etag, "Cache-Control": MATCH_EVENTS_CACHE } });
+    }
+    // Kalici event dedup: best-effort, yaniti bloklamaz.
+    persistLiveEvents(env, `sportmonks:${fixtureId}`, leagueKey, events).catch(() => {});
+    return jsonResponse({ provider: "sportmonks", league: leagueKey, fixtureId: `sportmonks:${fixtureId}`, updatedAt: new Date().toISOString(), events }, 200, { "Cache-Control": MATCH_EVENTS_CACHE, ETag: etag });
+  } catch (error) {
+    return jsonResponse({ error: error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable" }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "30" });
+  }
+}
+
+async function handleFootballMatchDetails(request, env, fixtureId) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
+  try {
+    const fixture = await sportmonksFixtureWithInclude(
+      fixtureId,
+      "participants;league;state;venue;lineups.player;lineups.position;referees.referee;weatherReport;sidelined.player;formations;periods",
+      token
+    );
+    const providerLeagueId = String(fixture?.league_id || fixture?.league?.id || "");
+    const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+    if (!leagueKey) return jsonResponse({ error: "fixture_out_of_scope" }, 400, { "Cache-Control": "no-store" });
+    const details = normalizeSportmonksFixtureDetails(fixture);
+    delete details.events; // olaylar ayri uctan (/events) sunulur, burada tekrar edilmez
+    delete details.statistics; // istatistikler ayri uctan (/statistics) sunulur
+    return jsonResponse({ provider: "sportmonks", league: leagueKey, fixtureId: `sportmonks:${fixtureId}`, updatedAt: new Date().toISOString(), details }, 200, { "Cache-Control": MATCH_DETAILS_CACHE });
+  } catch (error) {
+    return jsonResponse({ error: error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable" }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "60" });
+  }
+}
+
+async function handleFootballMatchStatistics(request, env, fixtureId) {
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error: "sportmonks_not_configured" }, 503, { "Cache-Control": "no-store" });
+  try {
+    const fixture = await sportmonksFixtureWithInclude(fixtureId, "participants;league;state;statistics.type", token);
+    const providerLeagueId = String(fixture?.league_id || fixture?.league?.id || "");
+    const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+    if (!leagueKey) return jsonResponse({ error: "fixture_out_of_scope" }, 400, { "Cache-Control": "no-store" });
+    const stateCode = String(fixture?.state?.short_name || fixture?.state?.state || "").toUpperCase();
+    const isLive = ["1H", "2H", "ET", "P", "INT", "LIVE", "HT", "BT"].includes(stateCode);
+    const { statistics } = normalizeSportmonksFixtureDetails(fixture);
+    return jsonResponse({ provider: "sportmonks", league: leagueKey, fixtureId: `sportmonks:${fixtureId}`, updatedAt: new Date().toISOString(), statistics }, 200, { "Cache-Control": isLive ? MATCH_STATISTICS_LIVE_CACHE : MATCH_STATISTICS_IDLE_CACHE });
+  } catch (error) {
+    return jsonResponse({ error: error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable" }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "60" });
   }
 }
 
@@ -2460,7 +2930,37 @@ async function handleMultisportToday(request, env, context) {
   return response;
 }
 
-function handleHealth(request, env) {
+// Son N provider_sync_runs kaydindan lig basina ozet cikarir. Yalnizca
+// sayimlar/durum kodlari dondurulur; ham saglayici hata metni, URL veya
+// token asla /api/health uzerinden disari sizmaz (handoff #8).
+async function liveScoreHealthSummary(env) {
+  if (!supabaseServiceKey(env)) return { configured: false };
+  try {
+    const rows = await supabaseRest(env, `provider_sync_runs?endpoint_class=eq.live&order=started_at.desc&limit=40&select=scope_key,outcome,started_at`);
+    const snapshots = await supabaseRest(env, `live_match_snapshots?select=league_key,status,fetched_at`);
+    const byScope = new Map();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const key = row.scope_key || "unknown";
+      if (!byScope.has(key)) byScope.set(key, { ok: 0, failed: 0, lastOutcome: row.outcome, lastRunAt: row.started_at });
+      const entry = byScope.get(key);
+      if (row.outcome === "ok") entry.ok += 1; else entry.failed += 1;
+    }
+    const newestSnapshotAt = (Array.isArray(snapshots) ? snapshots : []).reduce((max, row) => {
+      const t = Date.parse(row?.fetched_at || "");
+      return Number.isFinite(t) ? Math.max(max, t) : max;
+    }, 0);
+    return {
+      configured: true,
+      leagues: Object.fromEntries(byScope),
+      snapshot_count: Array.isArray(snapshots) ? snapshots.length : 0,
+      newest_snapshot_age_seconds: newestSnapshotAt ? Math.max(0, Math.round((Date.now() - newestSnapshotAt) / 1000)) : null,
+    };
+  } catch (_error) {
+    return { configured: true, unavailable: true };
+  }
+}
+
+async function handleHealth(request, env) {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" });
   }
@@ -2480,6 +2980,7 @@ function handleHealth(request, env) {
       openblacktop_motorsports: env.OCBLACKTOP_API_KEY ? "configured" : "not_configured",
       instagram: env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_BUSINESS_ACCOUNT_ID ? "configured" : "not_configured"
     },
+    live_score: request.method === "GET" ? await liveScoreHealthSummary(env) : { configured: Boolean(supabaseServiceKey(env)) },
   };
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: jsonResponse(payload, 200, { "Cache-Control": "no-store" }).headers });
   return jsonResponse(payload, 200, { "Cache-Control": "no-store" });
@@ -2583,6 +3084,10 @@ export default {
     if (url.pathname === "/api/football/matchday") return handleFootballMatchday(request, env);
     if (url.pathname === "/api/football/prediction") return handleFootballPrediction(request, env);
     if (url.pathname === "/api/football/live") return handleFootballLive(request, env, context);
+    const matchResource = parseMatchFixtureId(url.pathname);
+    if (matchResource?.resource === "events") return handleFootballMatchEvents(request, env, matchResource.id);
+    if (matchResource?.resource === "details") return handleFootballMatchDetails(request, env, matchResource.id);
+    if (matchResource?.resource === "statistics") return handleFootballMatchStatistics(request, env, matchResource.id);
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
