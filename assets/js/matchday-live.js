@@ -95,7 +95,9 @@
   function liveMatchForLeague(matches) {
     return rows(matches).find((match) => {
       const leagueKey=String(match?.leagueKey || "");
-      return (activeMatchdayLeague === "all" || leagueKey === activeMatchdayLeague) && isLikelyInPlay(match);
+      const competition=String(match?.competition || "").toLocaleLowerCase("tr-TR");
+      const inferredKey=competition.includes("super") ? "super-lig" : competition.includes("premier") ? "premier-league" : competition.includes("la liga") ? "la-liga" : competition.includes("bundesliga") ? "bundesliga" : competition.includes("serie a") ? "serie-a" : "";
+      return (activeMatchdayLeague === "all" || leagueKey === activeMatchdayLeague || (!leagueKey && inferredKey === activeMatchdayLeague)) && isLikelyInPlay(match);
     }) || null;
   }
   async function promoteLiveMatch(match, updatedAt) {
