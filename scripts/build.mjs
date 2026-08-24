@@ -17,9 +17,12 @@ const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
 // chat.js daha önce parmak izine DAHİL DEĞİLDİ; bu yüzden yalnızca chat.js
 // değiştiğinde buildVersion aynı kalıyor ve tarayıcı eski dosyayı önbellekten
 // sunabiliyordu. Liste tek yere alınarak bu sınıf hata tekrarlanamaz hale getirildi.
-const CLIENT_JS_FILES = ["initial-route.js", "data.js", "analytics.js", "live.js", "match-center.js", "matchday-live.js", "predict-game.js", "ui.js", "chat.js", "multisport.js", "sport-branches.js", "motorsports.js", "ufc-hub.js", "compliance.js"];
+const CLIENT_JS_FILES = ["style-loader.js", "initial-route.js", "football-early.js", "data.js", "analytics.js", "live.js", "match-center.js", "matchday-live.js", "predict-game.js", "ui.js", "app-boot.js", "ui-extras.js", "chat.js", "multisport.js", "sport-branches.js", "motorsports.js", "ufc-hub.js", "compliance.js"];
 const clientFingerprintSources = await Promise.all([
   resolve(root, "assets", "css", "app.css"),
+  resolve(root, "assets", "css", "app-late.css"),
+  resolve(root, "assets", "css", "football-controls-v236.css"),
+  resolve(root, "assets", "css", "football-hub.css"),
   ...CLIENT_JS_FILES.map((file) => resolve(root, "assets", "js", file)),
 ].map((file) => readFile(file, "utf8")));
 const buildVersion = createHash("sha256").update([sourceHtml, ...clientFingerprintSources].join("\n")).digest("hex").slice(0, 10);
@@ -41,14 +44,157 @@ const versionedProductionHtml = productionHtml.replace(
     throw new Error(`Cache busting eksik: ${assetRefCount} asset referansından ${versionedCount} tanesi sürümlendi.`);
   }
 }
-const routeReadyHtml = versionedProductionHtml.replace("<head>", '<head>\n<base href="/">');
+// Production lets the early football request and stylesheet win the cold-load
+// network race, then app-boot requests/evaluates each dependency in its own
+// task. Static adjacent defer scripts collapsed into a single 300+ KB task.
+const productionCoreTemplates = [
+  ["data.js", "xyzDataTemplate"],
+  ["analytics.js", "xyzAnalyticsTemplate"],
+  ["live.js", "xyzLiveTemplate"],
+  ["match-center.js", "xyzMatchCenterTemplate"],
+  ["matchday-live.js", "xyzMatchdayTemplate"],
+  ["predict-game.js", "xyzPredictGameTemplate"],
+];
+const productionPostTemplates = [
+  ["chat.js", "xyzChatTemplate"],
+  ["multisport.js", "xyzMultisportTemplate"],
+  ["sport-branches.js", "xyzSportBranchesTemplate"],
+  ["motorsports.js", "xyzMotorsportsTemplate"],
+  ["ufc-hub.js", "xyzUfcHubTemplate"],
+];
+function moveDeferredScriptToTemplate(html, file, templateId) {
+  const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`<script defer src="([^"]*\\/${escaped}\\?v=[^"]+)"><\\/script>`);
+  let matched = false;
+  const output = html.replace(pattern, (_tag, src) => {
+    matched = true;
+    return `<template id="${templateId}"><script src="${src}"></script></template>`;
+  });
+  if (!matched) throw new Error(`Production dinamik script etiketi bulunamadi: ${file}`);
+  return output;
+}
+
+const uiStageTag = `<template id="xyzUiStageTemplate"><script src="/assets/js/ui-stage.js?v=${buildVersion}"></script></template>`;
+const uiRuntimeTag = `<template id="xyzUiRuntimeTemplate"><script src="/assets/js/ui-runtime.js?v=${buildVersion}"></script></template>`;
+let splitUiHtml = versionedProductionHtml.replace(
+  /<script defer src="(\/assets\/js\/ui\.js\?v=[^"]+)"><\/script>/,
+  `<template id="xyzUiCoreTemplate"><script src="$1"></script></template>\n${uiStageTag}\n${uiRuntimeTag}`,
+);
+if (splitUiHtml === versionedProductionHtml) {
+  throw new Error("Production UI runtime chunk etiketi eklenemedi.");
+}
+for (const [file, templateId] of [...productionCoreTemplates, ...productionPostTemplates]) {
+  splitUiHtml = moveDeferredScriptToTemplate(splitUiHtml, file, templateId);
+}
+const routeReadyHtml = splitUiHtml
+  .replace("<head>", `<head>\n<base href="/">`)
+  // Production route documents do not need indentation-only text nodes. The
+  // source remains readable, while Chromium has hundreds fewer parser nodes to
+  // create on a cold mobile navigation.
+  .replace(/>\s*\r?\n\s*</g, "><");
+
+function markerBounds(html, marker, label) {
+  const startMarker = `<!-- ${marker}_START -->`;
+  const endMarker = `<!-- ${marker}_END -->`;
+  const start = html.indexOf(startMarker);
+  const end = start >= 0 ? html.indexOf(endMarker, start + startMarker.length) : -1;
+  if (start < 0 || end <= start) throw new Error(`Production HTML isaretleri bulunamadi: ${label}`);
+  return { start, contentStart:start + startMarker.length, end, blockEnd:end + endMarker.length };
+}
+function markedContent(html, marker, label) {
+  const bounds = markerBounds(html, marker, label);
+  return html.slice(bounds.contentStart, bounds.end);
+}
+function removeMarkedBlock(html, marker, label) {
+  const bounds = markerBounds(html, marker, label);
+  return html.slice(0, bounds.start) + html.slice(bounds.blockEnd);
+}
+
+const canonicalFragments = {
+  "matchday.html": markedContent(routeReadyHtml, "XYZ_FRAGMENT_MATCHDAY", "matchday"),
+  "account-auth.html": [
+    markedContent(routeReadyHtml, "XYZ_FRAGMENT_ACCOUNT", "account"),
+    markedContent(routeReadyHtml, "XYZ_FRAGMENT_AUTH", "auth"),
+  ].join(""),
+  "news-match.html": [
+    markedContent(routeReadyHtml, "XYZ_FRAGMENT_NEWS", "news"),
+    markedContent(routeReadyHtml, "XYZ_FRAGMENT_MATCH_CENTER", "match-center"),
+  ].join(""),
+  "mobile.html": markedContent(routeReadyHtml, "XYZ_FRAGMENT_MOBILE", "mobile-nav"),
+  "chat.html": markedContent(routeReadyHtml, "XYZ_FRAGMENT_CHAT", "chat"),
+};
+
+// The aggregate root and bare league homes render from the early/canonical
+// football targets. Their hidden legacy home, section and Predict DOM is never
+// needed during the cold route. Section and product documents keep the full
+// source HTML below, so this is a route-specific production optimization only.
+let canonicalLeanHtml = routeReadyHtml
+  .replace(
+    /<div id="weekSelector"[\s\S]*?(?=<div class="tabpage" id="page-league">)/,
+    "</div></div>",
+  )
+  .replace(
+    /<div class="tabpage" id="page-league">[\s\S]*?(?=<!-- XYZ_CANONICAL_LATE_LEGACY_LIVE_START -->)/,
+    "",
+  );
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_CANONICAL_LATE_FOOTBALL_PRELUDE", "football-prelude");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_CANONICAL_LATE_LEGACY_LIVE", "legacy-live");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_FRAGMENT_ACCOUNT", "account");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_FRAGMENT_NEWS", "news");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_FRAGMENT_MATCH_CENTER", "match-center");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_FRAGMENT_AUTH", "auth");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_FRAGMENT_MOBILE", "mobile-nav");
+canonicalLeanHtml = removeMarkedBlock(canonicalLeanHtml, "XYZ_FRAGMENT_CHAT", "chat");
+if (canonicalLeanHtml === routeReadyHtml
+  || canonicalLeanHtml.includes('id="weekSelector"')
+  || canonicalLeanHtml.includes('id="footballMatchesView"')
+  || canonicalLeanHtml.includes('id="page-league"')) {
+  throw new Error("Canonical lean football shell ayıklanamadı.");
+}
+for (const essentialId of ["footballScoreboardHome", "footballLeagueOverview", "navRight", "liveTicker"]) {
+  if (!canonicalLeanHtml.includes(`id="${essentialId}"`)) throw new Error(`Canonical lean shell temel hedefi eksik: ${essentialId}`);
+}
+for (const lateId of ["footballContextNav", "footballLeagueCommand", "matchdayCommand", "miniGoalGame", "page-live", "accountOverlay", "authOverlay", "newsOverlay", "mcOverlay", "mobileBottomNav", "chatLauncher", "chatPanel"]) {
+  if (canonicalLeanHtml.includes(`id="${lateId}"`)) throw new Error(`Canonical lean shell gec DOM hedefini tasiyor: ${lateId}`);
+}
+const fragmentContracts = {
+  "matchday.html":["matchdayCommand", "matchdayLiveRoot"],
+  "account-auth.html":["accountOverlay", "accountClose", "authOverlay", "authSubmit"],
+  "news-match.html":["newsOverlay", "newsDetailClose", "mcOverlay", "mcTabs"],
+  "mobile.html":["mobileBottomNav"],
+  "chat.html":["chatLauncher", "chatPanel", "chatRoomList"],
+};
+for (const [file, ids] of Object.entries(fragmentContracts)) {
+  for (const id of ids) {
+    if (!canonicalFragments[file].includes(`id="${id}"`)) throw new Error(`Production fragment hedefi eksik: ${file}#${id}`);
+  }
+}
+if (!routeReadyHtml.includes('id="page-league"') || !routeReadyHtml.includes('id="footballMatchesView"')) {
+  throw new Error("Tam route HTML'i section/Predict hedeflerini korumalı.");
+}
+
+for (const templateId of [
+  "xyzDataTemplate", "xyzAnalyticsTemplate", "xyzLiveTemplate", "xyzMatchCenterTemplate", "xyzMatchdayTemplate",
+  "xyzPredictGameTemplate", "xyzUiCoreTemplate", "xyzUiStageTemplate", "xyzUiRuntimeTemplate",
+  "xyzUiExtrasTemplate", "xyzChatTemplate", "xyzMultisportTemplate", "xyzSportBranchesTemplate",
+  "xyzMotorsportsTemplate", "xyzUfcHubTemplate",
+]) {
+  if (!routeReadyHtml.includes(`id="${templateId}"`)) {
+    throw new Error(`Production dinamik script sablonu eksik: ${templateId}`);
+  }
+}
 
 if (productionHtml.includes("PRODUCTION_STRIP_LEGACY")) {
   throw new Error("Production HTML temizleme işaretleri eşleşmedi.");
 }
-await writeFile(resolve(dist, "client", "index.html"), routeReadyHtml);
+await writeFile(resolve(dist, "client", "index.html"), canonicalLeanHtml);
 await cp(resolve(root, "assets"), resolve(dist, "client", "assets"), { recursive: true });
 await cp(resolve(root, "legal"), resolve(dist, "client", "legal"), { recursive: true });
+const fragmentDirectory = resolve(dist, "client", "assets", "fragments");
+await mkdir(fragmentDirectory, { recursive: true });
+for (const [file, html] of Object.entries(canonicalFragments)) {
+  await writeFile(resolve(fragmentDirectory, file), html);
+}
 
 // Minify: esbuild `transform` API'si tek dosyayı bundle etmeden küçültür ve
 // top-level isimleri KORUR. Bu kritik, çünkü index.html'de 45 inline onclick
@@ -78,6 +224,31 @@ for (const file of CLIENT_JS_FILES) {
   if (productionSource.includes("PRODUCTION_STRIP_LEGACY")) {
     throw new Error(`${file} production temizleme işaretleri eşleşmedi.`);
   }
+  if (file === "ui.js") {
+    const stageMarker = "function fmtEditorialDate(value){";
+    const runtimeMarker = "function leagueOverviewCountry(key){";
+    const stageIndex = productionSource.indexOf(stageMarker);
+    const runtimeIndex = productionSource.indexOf(runtimeMarker);
+    if (stageIndex <= 0 || runtimeIndex <= stageIndex) throw new Error("ui.js production stage/runtime bölme sınırı bulunamadı.");
+    const chunks = [
+      { file:"ui.js", source:productionSource.slice(0, stageIndex) },
+      { file:"ui-stage.js", source:productionSource.slice(stageIndex, runtimeIndex) },
+      { file:"ui-runtime.js", source:productionSource.slice(runtimeIndex) },
+    ];
+    const outputs = [];
+    for (const chunk of chunks) {
+      const output = await minifyJs(chunk.source, chunk.file);
+      outputs.push(output);
+      sizeReport.push({ file:chunk.file, raw:chunk.source.length, out:output.length });
+      await writeFile(resolve(root, "dist", "client", "assets", "js", chunk.file), output);
+    }
+    for (const globalName of ["switchMainTab", "openFootballSection", "switchLeagueSection"]) {
+      if (productionSource.includes(`function ${globalName}`) && !outputs.some(output=>output.includes(globalName))) {
+        throw new Error(`${file}: minify sonrası global ad kayboldu: ${globalName}`);
+      }
+    }
+    continue;
+  }
   const minified = await minifyJs(productionSource, file);
   // Güvenlik ağı: inline handler'ların bağlı olduğu global adlar korunmalı.
   for (const globalName of ["switchMainTab", "openFootballSection", "switchLeagueSection"]) {
@@ -89,14 +260,15 @@ for (const file of CLIENT_JS_FILES) {
   await writeFile(targetPath, minified);
 }
 
-// CSS minify
-{
-  const cssSource = await readFile(resolve(root, "assets", "css", "app.css"), "utf8");
+// CSS minify. Üç katmanlı stil ayrımı cascade sırasını korurken tarayıcının
+// 600+ KB stili tek uzun ana-thread görevinde ayrıştırmasını önler.
+for (const cssFile of ["football-hub.css", "app.css", "app-late.css"]) {
+  const cssSource = await readFile(resolve(root, "assets", "css", cssFile), "utf8");
   const cssOut = minifyEnabled
     ? (await transform(cssSource, { loader: "css", minify: true, legalComments: "none" })).code
     : cssSource;
-  sizeReport.push({ file: "app.css", raw: cssSource.length, out: cssOut.length });
-  await writeFile(resolve(dist, "client", "assets", "css", "app.css"), cssOut);
+  sizeReport.push({ file: cssFile, raw: cssSource.length, out: cssOut.length });
+  await writeFile(resolve(dist, "client", "assets", "css", cssFile), cssOut);
 }
 
 await cp(resolve(root, "worker", "index.js"), resolve(dist, "server", "index.js"));
@@ -116,7 +288,7 @@ const routeDirectories = ["predict", "basketbol", "basketbol/maclar", "basketbol
 for (const route of routeDirectories) {
   const target = resolve(dist, "client", ...route.split("/"), "index.html");
   await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, routeReadyHtml);
+  await writeFile(target, leagues.includes(route) ? canonicalLeanHtml : routeReadyHtml);
 }
 
 if (minifyEnabled) {

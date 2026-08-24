@@ -42,13 +42,13 @@ type SeasonInfo = {
 };
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
-const DEFAULT_SELECTED_LEAGUE_IDS = ["600", "2", "5", "564", "8"];
+const DEFAULT_SELECTED_LEAGUE_IDS = ["600", "8", "564", "82", "384"];
 const SELECTED_LEAGUE_IDS_BY_KEY: Record<string, string[]> = {
   "super-lig": ["600"],
-  "champions-league": ["2"],
-  "europa-league": ["5"],
-  "la-liga": ["564"],
   "premier-league": ["8"],
+  "la-liga": ["564"],
+  "bundesliga": ["82"],
+  "serie-a": ["384"],
   "all": DEFAULT_SELECTED_LEAGUE_IDS,
 };
 
@@ -149,9 +149,9 @@ function sportmonksLeagueIds(): string[] {
 function sportmonksLeagueIdsForSelection(selection: unknown): string[] {
   const configured = sportmonksLeagueIds();
   const requested = String(selection || "super-lig").trim().toLowerCase();
-  const target = SELECTED_LEAGUE_IDS_BY_KEY[requested] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
-  const allowed = target.filter((id) => configured.includes(id));
-  return allowed.length ? allowed : target;
+  const target = SELECTED_LEAGUE_IDS_BY_KEY[requested];
+  if (!target) return [];
+  return target.filter((id) => configured.includes(id));
 }
 
 async function sportmonksGet(url: URL): Promise<any> {
@@ -483,10 +483,19 @@ Deno.serve(async (request) => {
   try { body = await request.json(); } catch (_) { body = {}; }
   const requestedScope = String(body?.scope || "selected-leagues");
   const baseScope = requestedScope === "turkey-super-lig-season" || requestedScope === "selected-leagues-season" ? "selected-leagues-season" : "selected-leagues";
-  const requestedLeague = String(body?.league || body?.league_key || body?.competition || "super-lig");
+  const requestedLeague = String(body?.league || body?.league_key || body?.competition || "super-lig").trim().toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(SELECTED_LEAGUE_IDS_BY_KEY, requestedLeague)) {
+    return response(request, { error:"Desteklenmeyen lig anahtarı." }, 400);
+  }
   const selectedLeagueIds = sportmonksLeagueIdsForSelection(requestedLeague);
+  if (!selectedLeagueIds.length) {
+    return response(request, { error:"Seçili lig sağlayıcı allowlist'inde etkin değil." }, 503);
+  }
   const scope = `${baseScope}:${selectedLeagueIds.join("-")}`;
   const provider = (Deno.env.get("FOOTBALL_DATA_PROVIDER") || "sportmonks").trim().toLowerCase();
+  if (provider === "api-football" && requestedLeague !== "super-lig") {
+    return response(request, { error:"API-Football yedeği yalnız super-lig kapsamını destekler." }, 503);
+  }
   const refreshSecret = Deno.env.get("LIVE_REFRESH_SECRET") || "";
   const force = Boolean(refreshSecret) && request.headers.get("x-refresh-key") === refreshSecret;
   const cached = await readCache(scope);

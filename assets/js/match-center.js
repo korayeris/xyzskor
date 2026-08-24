@@ -137,6 +137,9 @@ async function ensureMcData(matchId){
   return entry;
 }
 async function openMatchCenter(matchId, updateUrl){
+  if(typeof ensureXYZLegacyStyles==='function') ensureXYZLegacyStyles();
+  if(typeof ensureXYZUiExtras==='function') ensureXYZUiExtras();
+  if(typeof ensureXYZSupabaseClient==='function') ensureXYZSupabaseClient().catch(()=>{});
   const m = MATCHES.find(x=>x.id===matchId); if(!m) return;
   const fixtureCandidate = m.provider_fixture_id || m.fixture_id || m.provider_id || matchId;
   const fixtureMatch = String(fixtureCandidate || '').match(/(?:sportmonks:)?(\d{5,})/);

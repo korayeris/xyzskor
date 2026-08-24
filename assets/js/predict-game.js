@@ -36,6 +36,7 @@
   async function authHeaders(){
     const headers = { 'Content-Type':'application/json', Accept:'application/json' };
     try{
+      if(typeof ensureXYZSupabaseClient==='function') await ensureXYZSupabaseClient();
       if(typeof sb !== 'undefined' && sb?.auth?.getSession){
         const { data } = await sb.auth.getSession();
         if(data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;

@@ -284,7 +284,7 @@
     }
     catch(_error){
       if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
-      grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Futbol ve Predict kullanilmaya devam edebilir.</span></div>';
+      grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Son dogrulanmis program geldiginde burada gosterilecek.</span></div>';
     }
     window.scrollTo({top:0,behavior:'smooth'});
   }

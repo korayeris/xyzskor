@@ -2,6 +2,7 @@
   "use strict";
   const params = new URLSearchParams(location.search);
   const requestedFixture = params.get("fixture");
+  const requestedPredictionPick = ["1", "X", "2"].includes(params.get("pick")) ? params.get("pick") : "";
   let fixtureId = String(requestedFixture || "").replace(/^sportmonks:/, "");
   const leagueRoutes = new Set(["super-lig", "premier-league", "la-liga", "bundesliga", "serie-a", "all"]);
   const pathLeague = String(location.pathname || "").replace(/^\/+|\/+$/g, "").split("/")[0];
@@ -11,6 +12,16 @@
   const root = document.getElementById("matchdayLiveRoot");
   const sync = document.getElementById("matchdaySync");
   const command = document.getElementById("matchdayCommand");
+  // The new information architecture owns every non-detail football surface.
+  // Matchday is mounted only for an explicit fixture URL; otherwise it must not
+  // install polling/listeners or issue an implicit league season request.
+  if (!requestedFixture) {
+    if (command) {
+      command.hidden = true;
+      command.style.display = "none";
+    }
+    return;
+  }
   if (!root) return;
   let timer = 0;
   let currentFixture = null;
@@ -218,6 +229,7 @@
     return `<section class="matchday-user-predict" id="matchdayUserPredict"><header><div><span>XYZSKOR PREDICT</span><h3>Bu maç için tahminini yap</h3><p>SportMonks olasılıklarını incele, kendi 1 / X / 2 seçimini kaydet.</p></div><b>ÜCRETSİZ · BAHİS YOK</b></header><div class="matchday-provider-picks" aria-label="SportMonks maç sonucu olasılıkları"><button type="button" data-pick="1" ${closed ? "disabled" : ""}><small>1 · ${esc(homeName)}</small><strong>${esc(percentage(result.home))}</strong></button><button type="button" data-pick="X" ${closed ? "disabled" : ""}><small>X · Beraberlik</small><strong>${esc(percentage(result.draw))}</strong></button><button type="button" data-pick="2" ${closed ? "disabled" : ""}><small>2 · ${esc(awayName)}</small><strong>${esc(percentage(result.away))}</strong></button></div>${closed ? '<div class="matchday-predict-closed">Tahmin süresi maçtan 15 dakika önce kapandı.</div>' : `<div class="matchday-predict-score"><label>Kesin skor <input id="matchdayScoreHome" type="number" min="0" max="99" inputmode="numeric" aria-label="${esc(homeName)} skor tahmini"></label><span>–</span><label><input id="matchdayScoreAway" type="number" min="0" max="99" inputmode="numeric" aria-label="${esc(awayName)} skor tahmini"></label><button type="button" id="matchdayPredictSave">Tahminimi kaydet</button></div>`}<div class="matchday-predict-status" id="matchdayPredictStatus" role="status" aria-live="polite"></div></section>`;
   }
   async function predictionAuthToken() {
+    if (typeof ensureXYZSupabaseClient === "function") await ensureXYZSupabaseClient();
     if (typeof sb === "undefined" || !sb?.auth?.getSession) return "";
     const result = await sb.auth.getSession();
     return result?.data?.session?.access_token || "";
@@ -265,7 +277,7 @@
     const f = payload.fixture || {}, d = payload.details || {}, events = rows(d.events), stats = rows(d.statistics), lineups = rows(d.lineups), formations = rows(d.formations), xg=rows(d.xg), predictions=rows(d.predictions), teamContexts=rows(d.teamContexts);
     currentStatsXg=xg;
     currentFixture = f;
-    selectedPredictionPick = "";
+    selectedPredictionPick = requestedPredictionPick;
     const names = fixtureNames(f), homeName = names.home || "-", awayName = names.away || "-";
     const parsedKickoff = Date.parse(fixtureKickoff(f));
     if (Number.isFinite(parsedKickoff)) kickoff = parsedKickoff;
@@ -294,6 +306,9 @@
     root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderMatchPrediction(f,predictions,homeName,awayName)}<nav class="matchday-jump"`);
     if (teamContexts.length) root.innerHTML = root.innerHTML.replace('<nav class="matchday-jump"', `${renderTeamContexts(teamContexts)}<nav class="matchday-jump"`);
     setDetailMode(true);
+    if (selectedPredictionPick) {
+      root.querySelectorAll(".matchday-provider-picks button[data-pick]").forEach((button) => button.classList.toggle("is-selected", button.dataset.pick === selectedPredictionPick));
+    }
     restoreDetailHash();
     hydrateOwnPrediction();
   }
@@ -369,6 +384,9 @@
   window.addEventListener("xyz:live-feed-updated", (event) => {
     const live=liveMatchForLeague(event?.detail?.matches);
     if(live) promoteLiveMatch(live,event?.detail?.updatedAt);
+  });
+  window.addEventListener("xyz:supabase-ready", () => {
+    if(currentFixture) hydrateOwnPrediction();
   });
   root.addEventListener("click", (event) => {
     const sectionLink = event.target.closest("[data-matchday-section]");

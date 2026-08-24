@@ -172,7 +172,7 @@ async function loadFootballLeagueSelection(leagueKey){
   // İkisini seri bekletmek yerine aynı anda başlatırız.
   try{
     const coveragePromise=loadFootballCoverage().catch(()=>null);
-    const dataPromise=loadAllData();
+    const dataPromise=typeof loadFootballCriticalData==='function' ? loadFootballCriticalData() : loadAllData();
     await dataPromise;
     if(activeFootballLeague!==requestedLeague) return false;
     if(footballCoverageUnavailable(requestedLeague) && !MATCHES.length){
@@ -186,7 +186,6 @@ async function loadFootballLeagueSelection(leagueKey){
     if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
     if(typeof renderFootballLeagueScope==='function') renderFootballLeagueScope();
     else if(typeof renderAll==='function') renderAll();
-    if(typeof loadLiveFeed==='function') loadLiveFeed(false);
     coveragePromise.then(()=>{
       if(activeFootballLeague!==requestedLeague || MATCHES.length) return;
       if(footballCoverageUnavailable(requestedLeague)){
@@ -467,9 +466,35 @@ async function refreshLiveProviderHealth(){
     state.textContent = status === 'configured' ? 'Sportmonks · canlı bağlantı hazır' : 'Sportmonks · bağlantı yapılandırması eksik';
   }catch(_error){ state.textContent = 'Canlı sağlayıcı durumu doğrulanamadı'; }
 }
+async function verifyExitedLiveFixture(liveMatch){
+  const id=String(liveMatch?.id||'');
+  if(!id||LIVE_EXIT_VERIFICATION_PENDING.has(id)) return;
+  LIVE_EXIT_VERIFICATION_PENDING.add(id);
+  try{
+    const response=await fetch(`/api/football/fixture?id=${encodeURIComponent(id)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+    const payload=await response.json().catch(()=>null);
+    const fixture=payload?.fixture;
+    if(!response.ok||!fixture) return;
+    const stored=MATCHES.find(match=>String(match.id)===id); if(!stored) return;
+    Object.assign(stored,fixture,{livePendingVerification:false});
+    if(fixture.result&&Number.isFinite(Number(fixture.result.home))&&Number.isFinite(Number(fixture.result.away))){
+      stored.result={home:Number(fixture.result.home),away:Number(fixture.result.away)};
+      ALL_RESULTS[id]={...stored.result,scoredAt:Date.now()};
+    }
+    if(typeof activeFootballSection!=='undefined'&&activeFootballSection==='home'){
+      if(activeFootballLeague==='all'&&typeof renderFootballScoreboardHome==='function') renderFootballScoreboardHome();
+      else if(activeFootballLeague!=='all'&&typeof renderFootballLeagueOverview==='function') renderFootballLeagueOverview();
+    }
+  }catch(_error){}
+  finally{ LIVE_EXIT_VERIFICATION_PENDING.delete(id); }
+}
 async function loadLiveFeed(force){
+  const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
+  if(liveFeedLoading && liveFeedRequestScope===league && !force) return false;
+  liveFeedActiveScope = league;
   refreshLiveProviderLabel();
   liveFeedLoading = true;
+  liveFeedRequestScope = league;
   renderLiveFeed();
   // Onceki istek hala devam ediyorsa iptal et (lig degisimi/hizli ardisik
   // cagrilar); AbortController olmadan yaninda calisan eski bir istek daha
@@ -477,7 +502,7 @@ async function loadLiveFeed(force){
   if(liveFeedAbortController) liveFeedAbortController.abort();
   liveFeedAbortController = typeof AbortController!=='undefined' ? new AbortController() : null;
   const mySeq = ++liveFeedRequestSeq;
-  const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
+  let footballHomeSurfaceChanged = false;
   try{
     let data = null;
     let error = null;
@@ -497,6 +522,7 @@ async function loadLiveFeed(force){
     if((error && (!data || !Array.isArray(data.matches) || data.matches.length===0)) || !data || !Array.isArray(data.matches)){
       // Worker uzerinden hic ulasilamadiginda (ag hatasi, DNS, vb) son care olarak
       // Supabase Edge Function uzerine dus (bkz supabase/functions/football-live).
+      if(typeof ensureXYZSupabaseClient==='function') await ensureXYZSupabaseClient();
       const result = await sb.functions.invoke(LIVE_FEED_CONFIG.functionName, { body:{ scope:LIVE_FEED_CONFIG.scope, league, force:!!force } });
       if(result.error || !result.data || !Array.isArray(result.data.matches)) throw error || result.error || new Error('Canlı veri yanıtı geçersiz.');
       data = result.data;
@@ -505,6 +531,7 @@ async function loadLiveFeed(force){
     // numarası ilerlemişse) bu cevap ARTIK ESKİdir; durumu güncelleme.
     if(mySeq !== liveFeedRequestSeq) return;
     if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
+    const previousLiveMatches=Array.isArray(LIVE_FEED.matches)?LIVE_FEED.matches.slice():[];
     LIVE_FEED = {
       matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(),
       stale:!!data.stale, staleAgeSeconds:Number.isFinite(data.staleAgeSeconds) ? data.staleAgeSeconds : 0,
@@ -513,12 +540,40 @@ async function loadLiveFeed(force){
     window.dispatchEvent(new CustomEvent('xyz:live-feed-updated',{detail:{league,matches:data.matches,updatedAt:LIVE_FEED.updatedAt,stale:LIVE_FEED.stale}}));
     liveFeedNextRefreshMs = clampLiveRefreshMs(Number(data.nextRefreshInSeconds) * 1000);
     data.matches.forEach(liveMatch=>{
-      const stored=MATCHES.find(match=>match.id===liveMatch.id); if(!stored) return;
-      stored.status=liveMatch.status==='halftime'?'devre_arasi':(liveMatch.status==='live'?'canlı':(liveMatch.status==='finished'?'bitti':stored.status));
-      if(liveMatch.status==='finished' && liveMatch.home && liveMatch.away && liveMatch.home.score!=null && liveMatch.away.score!=null){
-        ALL_RESULTS[liveMatch.id]={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score), scoredAt:Date.now() };
+      let stored=MATCHES.find(match=>String(match.id)===String(liveMatch.id));
+      if(!stored&&typeof normalizedLiveMatch==='function'){
+        const normalized=normalizedLiveMatch(liveMatch);
+        if(normalized&&(league==='all'||normalized.league_key===league)){
+          MATCHES.push(normalized); stored=normalized; footballHomeSurfaceChanged=true;
+        }
+      }
+      if(!stored) return;
+      const nextStatus=liveMatch.status==='halftime'?'devre_arasi':(liveMatch.status==='live'?'canlı':(liveMatch.status==='finished'?'bitti':stored.status));
+      const nextMinute=Number.isFinite(Number(liveMatch.minute)) ? Math.max(0,Math.round(Number(liveMatch.minute))) : null;
+      if(stored.status!==nextStatus || (nextMinute!==null && Number(stored.minute)!==nextMinute)) footballHomeSurfaceChanged=true;
+      stored.status=nextStatus;
+      stored.livePendingVerification=false;
+      if(nextMinute!==null) stored.minute=nextMinute;
+      if(liveMatch.addedTime!=null && Number.isFinite(Number(liveMatch.addedTime))) stored.addedTime=Math.max(0,Math.round(Number(liveMatch.addedTime)));
+      if(liveMatch.home && liveMatch.away && liveMatch.home.score!=null && liveMatch.away.score!=null){
+        const nextResult={ home:Number(liveMatch.home.score), away:Number(liveMatch.away.score) };
+        const previousResult=stored.result || ALL_RESULTS[liveMatch.id];
+        if(!previousResult || Number(previousResult.home)!==nextResult.home || Number(previousResult.away)!==nextResult.away) footballHomeSurfaceChanged=true;
+        stored.result=nextResult;
+        if(liveMatch.status==='finished') ALL_RESULTS[liveMatch.id]={ ...nextResult, scoredAt:Date.now() };
       }
     });
+    if(!LIVE_FEED.stale){
+      const incomingIds=new Set(data.matches.map(match=>String(match.id)));
+      previousLiveMatches.filter(match=>!incomingIds.has(String(match.id))).forEach(previous=>{
+        const stored=MATCHES.find(match=>String(match.id)===String(previous.id));
+        if(!stored||!footballStatusIsLive(stored)) return;
+        stored.status='durum_guncelleniyor';
+        stored.livePendingVerification=true;
+        footballHomeSurfaceChanged=true;
+        verifyExitedLiveFixture(previous);
+      });
+    }
   }catch(error){
     if(error?.name === 'AbortError') return; // eski (iptal edilmis) istek: state veya render dokunulmaz, finally sira kontrolunu yapar
     if(mySeq !== liveFeedRequestSeq) return; // eski/iptal edilmis istegin hatasi da gormezden gelinir
@@ -528,8 +583,13 @@ async function loadLiveFeed(force){
   }finally{
     if(mySeq === liveFeedRequestSeq){
       liveFeedLoading = false;
+      liveFeedRequestScope = null;
       renderLiveFeed();
-      renderFootballQuickMatches();
+      if(typeof activeFootballSection==='undefined'||activeFootballSection!=='home') renderFootballQuickMatches();
+      if(footballHomeSurfaceChanged && typeof activeFootballSection!=='undefined' && activeFootballSection==='home'){
+        if(activeFootballLeague==='all' && typeof renderFootballScoreboardHome==='function') renderFootballScoreboardHome();
+        else if(activeFootballLeague!=='all' && typeof renderFootballLeagueOverview==='function') renderFootballLeagueOverview();
+      }
       scheduleNextLivePoll();
     }
   }
@@ -583,21 +643,33 @@ function bindLiveFeedLifecycleListeners(){
 function startLiveFeed(){
   bindLiveFeedLifecycleListeners();
   refreshLiveProviderLabel();
-  refreshLiveProviderHealth();
+  const scope=typeof footballLeagueRequestKey==='function'?footballLeagueRequestKey():activeFootballLeague;
+  if(Date.now()-liveProviderHealthCheckedAt>60000){ liveProviderHealthCheckedAt=Date.now(); refreshLiveProviderHealth(); }
+  if(liveFeedActiveScope===scope&&(liveFeedLoading||liveFeedHandle)) return;
+  liveFeedActiveScope=scope;
   loadLiveFeed(false);
 }
 function stopLiveFeed(){
   if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
   if(liveFeedAbortController){ liveFeedAbortController.abort(); liveFeedAbortController=null; }
+  liveFeedActiveScope=null;
+  liveFeedRequestScope=null;
 }
 
 /* ===================== MAIN TAB SWITCH ===================== */
 function switchMainTab(name, updateUrl){
   const product = ['league','predict'].includes(name) ? 'predict' : 'football';
+  const storyPage=document.getElementById('page-story');
+  const leaguePage=document.getElementById('page-league');
+  const livePage=document.getElementById('page-live');
+  if(product==='predict'&&!leaguePage){ location.assign('/predict'); return; }
+  if(product==='predict'&&typeof ensureXYZLegacyStyles==='function') ensureXYZLegacyStyles();
+  if(product==='predict'&&typeof ensureXYZUiExtras==='function') ensureXYZUiExtras();
+  if(product==='predict'&&typeof ensureXYZSupabaseClient==='function') ensureXYZSupabaseClient().catch(()=>{});
   document.body.classList.toggle('predict-product-open', product==='predict');
-  document.getElementById('page-story').classList.toggle('active', product==='football');
-  document.getElementById('page-league').classList.toggle('active', product==='predict');
-  document.getElementById('page-live').classList.toggle('active', product==='football');
+  storyPage?.classList.toggle('active', product==='football');
+  leaguePage?.classList.toggle('active', product==='predict');
+  livePage?.classList.toggle('active', product==='football');
   document.getElementById('tabBtnFootball').classList.toggle('active', product==='football');
   document.getElementById('tabBtnPredict').classList.toggle('active', product==='predict');
   const footballContextNav=document.getElementById('footballContextNav');
@@ -606,7 +678,7 @@ function switchMainTab(name, updateUrl){
   if(footballLeagueCommand) footballLeagueCommand.hidden=product!=='football';
   const matchdayCommand=document.getElementById('matchdayCommand');
   if(matchdayCommand) matchdayCommand.hidden=product!=='football';
-  if(product==='football' && name==='football' && typeof openFootballSection==='function') openFootballSection('home',null,false);
+  if(product==='football' && name==='football' && activeFootballSection!=='home' && typeof openFootballSection==='function') openFootballSection('home',null,false);
   if(product==='football') startLiveFeed(); else stopLiveFeed();
   if(product==='predict'){
     if(!MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
@@ -630,6 +702,7 @@ function switchLeagueSection(name, updateUrl){
   // rewards_admin_all) yapılıyor, ama admin olmayan bir kullanıcı devtools'tan
   // veya doğrudan çağrıyla buraya gelirse bölümü client tarafında da açmayalım.
   if(name === 'admin' && !getCurrentUser()?.is_admin) return;
+  if(!document.getElementById('page-league')){ location.assign('/predict'); return; }
   activeLeagueSection = name;
   ['predict','standings','leader','rewards','profile','admin'].forEach(n=>{
     const section = document.getElementById('lsec-'+n); if(section) section.classList.toggle('active', n===name);
@@ -648,8 +721,8 @@ function mbnGo(key){
   window.scrollTo({top:0, behavior:'smooth'});
 }
 function updateMobileNavActive(){
-  const footballActive = document.getElementById('page-story').classList.contains('active');
-  const leagueActive = document.getElementById('page-league').classList.contains('active');
+  const footballActive = Boolean(document.getElementById('page-story')?.classList.contains('active'));
+  const leagueActive = Boolean(document.getElementById('page-league')?.classList.contains('active'));
   const map = {
     'mbn-football': footballActive,
     'mbn-predict': leagueActive

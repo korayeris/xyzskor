@@ -10,6 +10,7 @@
 const CHAT_PAGE_SIZE = 50;
 const CHAT_BODY_LIMIT = 500;
 const CHAT_SEND_COOLDOWN_MS = 3000;
+const CHAT_LEAGUE_ALLOWLIST = new Set(['super-lig','premier-league','la-liga','bundesliga','serie-a']);
 
 const chatState = {
   open: false,
@@ -25,6 +26,7 @@ const chatState = {
   unread: 0,
   isModerator: false,
   pendingScroll: true,
+  authUserId: null,
 };
 
 /* ---------- yardımcılar ---------- */
@@ -57,7 +59,12 @@ function chatActiveRoom(){
 
 /* Aktif lig değiştiğinde ilgili odayı öne çıkarmak için. */
 function chatRoomForLeague(leagueKey){
+  if(!CHAT_LEAGUE_ALLOWLIST.has(String(leagueKey || ''))) return null;
   return chatState.rooms.find((room) => room.league_key === leagueKey) || null;
+}
+
+function chatRoomIsInCurrentScope(room){
+  return room?.kind !== 'league' || CHAT_LEAGUE_ALLOWLIST.has(String(room?.league_key || ''));
 }
 
 /* ---------- veri katmanı ---------- */
@@ -68,7 +75,9 @@ async function chatLoadRooms(){
     .eq('is_active', true)
     .order('sort_order', { ascending:true });
   if(error) throw error;
-  chatState.rooms = data || [];
+  // Database migration is authoritative; this filter is a fail-safe for stale
+  // replicas/caches so retired competition rooms never leak back into the UI.
+  chatState.rooms = (data || []).filter(chatRoomIsInCurrentScope);
   return chatState.rooms;
 }
 
@@ -369,10 +378,12 @@ async function chatOpenRoom(roomId){
 }
 
 async function chatInit(){
-  if(chatState.ready || !SUPABASE_READY) {
-    if(!SUPABASE_READY) renderChatPanel();
+  const authContextReady=typeof AUTH_CONTEXT_READY!=='undefined'&&AUTH_CONTEXT_READY;
+  if(chatState.ready || !SUPABASE_READY || !authContextReady) {
+    if(!SUPABASE_READY || !authContextReady) renderChatPanel();
     return;
   }
+  chatState.authUserId=getCurrentUser()?.id||null;
   chatState.loading = true;
   renderChatPanel();
   try{
@@ -422,7 +433,29 @@ function chatShowComposerError(message){
 
 function bindChatEvents(){
   const launcher = document.getElementById('chatLauncher');
-  if(launcher) launcher.addEventListener('click', () => chatToggle());
+  if(launcher) launcher.addEventListener('click', async () => {
+    if(typeof ensureXYZSupabaseClient==='function') ensureXYZSupabaseClient().catch(()=>{});
+    if(typeof ensureXYZLegacyStyles==='function') await ensureXYZLegacyStyles();
+    chatToggle();
+  });
+
+  window.addEventListener('xyz:supabase-ready',()=>{
+    if(chatState.open) renderChatPanel();
+  });
+  window.addEventListener('xyz:auth-context-ready',event=>{
+    const nextUserId=event?.detail?.userId||null;
+    if(chatState.ready&&chatState.authUserId===nextUserId){
+      if(chatState.open) renderChatPanel();
+      return;
+    }
+    chatUnsubscribe();
+    chatState.ready=false;
+    chatState.loading=false;
+    chatState.authUserId=nextUserId;
+    chatState.muted=null;
+    chatState.isModerator=false;
+    if(chatState.open) chatInit(); else renderChatPanel();
+  });
 
   const closeBtn = document.getElementById('chatCloseBtn');
   if(closeBtn) closeBtn.addEventListener('click', () => chatToggle(false));
