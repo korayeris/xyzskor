@@ -30,9 +30,11 @@ jobs:
         run: |
           npm run qa:supabase-lazy
           npm run qa:football-ia
+          npm run qa:demand-scope
           npm run qa:league-contract
           npm run qa:matchday
           npm run qa:live-architecture
+          npm run qa:live-quota
           npm run qa:hardening
       - name: Production build
         run: node scripts/build.mjs

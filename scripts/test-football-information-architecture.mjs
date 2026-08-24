@@ -100,6 +100,7 @@ const leanSectionContext = vm.createContext({
   document: { getElementById: () => null },
   location: { assign: (path) => sectionFallbacks.push(path) },
   buildFootballPath: (league, section) => `/${league}/${section}`,
+  abortLeagueTransferRequestsExcept() {},
 });
 vm.runInContext(sourceBetween(uiSource, 'function openFootballSection', 'function scrollFootballSection'), leanSectionContext, { filename:'lean-section-fallback.js' });
 vm.runInContext("openFootballSection('matches')", leanSectionContext);
@@ -311,8 +312,15 @@ const liveContext = vm.createContext({
   ALL_RESULTS: {},
   AbortController,
   CustomEvent: class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
+  document: {
+    hidden: false,
+    body: { classList: { contains: () => false } },
+    getElementById: (id) => id === 'page-story' ? { classList: { contains: (name) => name === 'active' } } : null,
+  },
   window: { dispatchEvent() {} },
   footballLeagueRequestKey: () => 'all',
+  footballLiveDemandActive: () => true,
+  stopLiveFeed() {},
   refreshLiveProviderLabel() {},
   renderLiveFeed() {},
   renderFootballQuickMatches() {},

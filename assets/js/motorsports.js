@@ -93,15 +93,18 @@
 
   let snapshotPromise;
   let liveTimer = 0;
-  async function api(sport, resource) {
+  let activeMotorSelection = null;
+  let activeMotorRequest = null;
+  let motorRequestEpoch = 0;
+  async function api(sport, resource, options={}) {
     if (resource === 'live') {
-      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=live`, { headers: { Accept: 'application/json' } });
+      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=live`, { headers: { Accept: 'application/json' }, signal:options.signal });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'live_unavailable');
       return payload;
     }
     if (dynamicResources.has(resource)) {
-      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=${encodeURIComponent(resource)}&limit=100&page=1&profile=v2`, { headers: { Accept: 'application/json' } });
+      const response = await fetch(`/api/motorsports?sport=${encodeURIComponent(sport)}&resource=${encodeURIComponent(resource)}&limit=100&page=1&profile=v2`, { headers: { Accept: 'application/json' }, signal:options.signal });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'motorsport_profile_unavailable');
       return payload;
@@ -134,10 +137,10 @@
     const list = rows(payload?.data);
     host.innerHTML = list.length ? `<div class="xms-data-list">${list.slice(0, 60).map((item, index) => itemCard(item, index, type)).join('')}</div>` : emptyState(empty, 'Bu seri icin kayit gelmediginde baska bir bransin verisi gosterilmez.');
   }
-  async function loadView(slug, view) {
+  async function loadViewOnce(slug, view, request) {
     const host = document.getElementById('xmsData');
     if (!host) return;
-    clearTimeout(liveTimer);
+    const current=()=>activeMotorRequest===request&&!request.controller?.signal.aborted&&!document.hidden&&isMotor()&&parts()[1]===slug&&activeMotorSelection?.scope===request.scope;
     host.innerHTML = '<div class="xms-loading"><i></i><span>Motor sporlari verisi yukleniyor</span></div>';
     if (unsupported[view]) {
       host.innerHTML = emptyState(...unsupported[view]);
@@ -147,10 +150,11 @@
       if (view === 'overview') {
         const teamResource = ['wec', 'le-mans'].includes(slug) ? 'standings' : 'standings-teams';
         const [events, drivers, teams] = await Promise.all([
-          api(slug, 'events'),
-          api(slug, 'standings-drivers').catch(() => ({ data: [] })),
-          api(slug, teamResource).catch(() => ({ data: [] }))
+          api(slug, 'events',{signal:request.controller?.signal}),
+          api(slug, 'standings-drivers',{signal:request.controller?.signal}).catch(() => ({ data: [] })),
+          api(slug, teamResource,{signal:request.controller?.signal}).catch(() => ({ data: [] }))
         ]);
+        if(!current()) return;
         updateMotorTicker(slug, rows(events.data));
         host.innerHTML = `<section class="xms-overview-block"><header><small>NEXT / RECENT EVENTS</small><h2>Yaris merkezi</h2></header><div class="xms-data-list">${rows(events.data).slice(0, 8).map((item, index) => itemCard(item, index, 'EVENT')).join('') || emptyState('Etkinlik bulunamadi.', 'Saglayicidan yeni takvim kaydi bekleniyor.')}</div></section><section class="xms-overview-split"><div><h2>${series[slug][2] === 'moto' ? 'Surucu siralamasi' : 'Pilot siralamasi'}</h2>${rows(drivers.data).slice(0, 8).map((item, index) => itemCard(item, index, 'DRIVER')).join('') || '<p>Kayit bekleniyor.</p>'}</div><div><h2>Takim / Uretici</h2>${rows(teams.data).slice(0, 8).map((item, index) => itemCard(item, index, 'TEAM')).join('') || '<p>Kayit bekleniyor.</p>'}</div></section>`;
         return;
@@ -160,17 +164,45 @@
         host.innerHTML = emptyState('Bu veri tipi pakette bulunmuyor.', 'Yanlis veya baska bir spor dalina ait veri gosterilmiyor.');
         return;
       }
-      const payload = await api(slug, resource);
+      const payload = await api(slug, resource,{signal:request.controller?.signal});
+      if(!current()) return;
       if (view === 'live' && !payload.liveSupported && rows(payload?.data).length === 0) {
         host.innerHTML = emptyState('Canli timing bu seride saglayici tarafindan sunulmuyor.', 'Takvim, sonuclar ve siralamalar statik API snapshotindan gosterilmeye devam eder.');
         return;
       }
       renderList(host, payload, view.toUpperCase(), `${series[slug][0]} icin ${view} kaydi bulunamadi.`);
-      if (view === 'live') liveTimer = window.setTimeout(() => loadView(slug, 'live'), 60000);
+      if (view === 'live'&&current()) liveTimer = window.setTimeout(() => loadView(slug, 'live'), 60000);
     } catch (error) {
-      host.innerHTML = emptyState('Veri akisi su anda yenileniyor.', error.message);
+      if(error?.name!=='AbortError'&&current()) host.innerHTML = emptyState('Veri akisi su anda yenileniyor.', error.message);
     }
   }
+  function loadView(slug,view){
+    const scope=`${slug}:${view}`;
+    activeMotorSelection={slug,view,scope};
+    clearTimeout(liveTimer);
+    liveTimer=0;
+    if(activeMotorRequest?.scope===scope&&!activeMotorRequest.controller?.signal.aborted) return activeMotorRequest.promise;
+    if(activeMotorRequest?.controller) activeMotorRequest.controller.abort();
+    const request={scope,controller:typeof AbortController!=='undefined'?new AbortController():null,epoch:++motorRequestEpoch,promise:null};
+    const promise=loadViewOnce(slug,view,request).finally(()=>{
+      if(activeMotorRequest===request) activeMotorRequest=null;
+    });
+    request.promise=promise;
+    activeMotorRequest=request;
+    return promise;
+  }
+  function stopMotorDemand(){
+    clearTimeout(liveTimer);
+    liveTimer=0;
+    motorRequestEpoch+=1;
+    if(activeMotorRequest?.controller) activeMotorRequest.controller.abort();
+    activeMotorRequest=null;
+  }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){ stopMotorDemand(); return; }
+    if(activeMotorSelection&&isMotor()) loadView(activeMotorSelection.slug,activeMotorSelection.view);
+  });
+  window.addEventListener('pagehide',stopMotorDemand);
   function shell(slug) {
     const [label, accent, discipline] = series[slug] || ['Motor Sporlari', '#ef3e4f', 'hub'];
     const detail = Boolean(series[slug]);

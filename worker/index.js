@@ -67,10 +67,27 @@ const YOUTUBE_TIMEOUT_MS = 8000;
 const CLUB_CACHE = "public, max-age=600, s-maxage=21600, stale-while-revalidate=86400";
 const CLUB_STALE_CACHE = "public, max-age=60, s-maxage=604800";
 const TRANSFER_CACHE = "public, max-age=600, s-maxage=3600, stale-while-revalidate=21600";
-const SEASON_CACHE = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600";
-const FOOTBALL_HOME_CACHE = "public, max-age=60, s-maxage=120, stale-while-revalidate=900";
+// Canli skor ayri /live ucundan geldigi icin sezon fiksturu ve puan tablosu
+// kullanici yenilemelerinde tekrar tekrar saglayiciya gitmemelidir. Browser
+// kisa surede yeniden dogrulayabilir; paylasilan edge/persistent cache daha
+// uzun tutulur.
+const SEASON_CACHE = "public, max-age=300, s-maxage=1800, stale-while-revalidate=21600";
+const FOOTBALL_HOME_CACHE = "public, max-age=120, s-maxage=300, stale-while-revalidate=3600";
 const LIVE_API_CACHE = "public, max-age=5, s-maxage=5, stale-while-revalidate=30";
 const SPORTMONKS_TIMEOUT_MS = 12000;
+const SEASON_SHARED_TTL_SECONDS = 1800;
+const SEASON_SHARED_STALE_SECONDS = 86400;
+const FOOTBALL_HOME_SHARED_TTL_SECONDS = 300;
+const FOOTBALL_HOME_SHARED_STALE_SECONDS = 3600;
+const SEASON_REFRESH_LOCK_SECONDS = 45;
+const FOOTBALL_HOME_REFRESH_LOCK_SECONDS = 60;
+// Gorunur bransta talep edilen pahali provider uclarinin cold-miss korumasi.
+// Provider timeout'u lease suresinden kisa tutulur; normal tamamlanmada holder
+// filtresiyle erken birakilir, crash durumunda TTL kilidi acar.
+const DEMAND_PROVIDER_TIMEOUT_MS = 10000;
+const DEMAND_PROVIDER_LOCK_SECONDS = 15;
+const MULTISPORT_SHARED_TTL_SECONDS = 900;
+const MULTISPORT_SHARED_STALE_SECONDS = 21600;
 
 // ===================== CANLI SKOR MİMARİSİ (bkz. docs/LIVE-SCORE-HANDOFF-2026-08-22.md) =====================
 // Yalnızca /api/football/live (5sn poll edilen uç) tarafından kullanılır.
@@ -82,7 +99,14 @@ const LIVE_INPLAY_INCLUDES = "participants;scores;league;state;periods";
 // Sites) Cache API/Durable Object garantisi doğrulanamadığından, single-flight
 // tekilleştirme Supabase'teki sync_locks + try_acquire_sync_lock() RPC'si
 // üzerinden yapılır (bkz. migration 20260822200000).
-const LIVE_LOCK_TTL_SECONDS = 4;
+// Provider isteginin 12sn timeout'undan uzun crash-guard. Basarili ya da
+// basarisiz her denemede holder'a bagli olarak erken birakilir; dolayisiyla
+// normal 6sn canli yenileme ritmini yavaslatmaz.
+const LIVE_LOCK_TTL_SECONDS = 15;
+const LIVE_SHARED_TTL_SECONDS = 5;
+const LIVE_SHARED_STALE_SECONDS = 45;
+const LIVE_PROVIDER_SCOPE_KEY = "live:provider-inplay";
+const LIVE_PROVIDER_CACHE_SCOPE = "worker:football-live:inplay:v1";
 const LIVE_SNAPSHOT_TTL_SECONDS = 45; // canli olmayan/tamamlanmis snapshot'lar bu sureden sonra "stale" sayilir
 const LIVE_CIRCUIT_WINDOW = 5; // son N provider_sync_runs kaydina bakilir
 const LIVE_CIRCUIT_FAILURE_THRESHOLD = 3; // ust uste N basarisizlik -> circuit acik
@@ -108,6 +132,13 @@ const xFeedRefreshPromises = new Map();
 const xPreseasonRefreshPromises = new Map();
 const youtubeFeedRefreshPromises = new Map();
 const clubProfileRefreshes = new Map();
+// Cache API ayni anda gelen miss'leri tek basina birlestirmez. Ayni Worker
+// isolate'indaki kullanicilar tek promise'i paylasir; isolate'ler arasi
+// tekillestirme asagidaki Supabase cache + sync_locks katmanindadir.
+const footballSeasonRefreshPromises = new Map();
+let footballHomeRefreshPromise = null;
+let footballLiveRefreshPromise = null;
+const providerDemandRefreshPromises = new Map();
 const X_CLUBS = [
   { team: "Galatasaray", handle: "GalatasaraySK", url: "https://x.com/GalatasaraySK" },
   { team: "Fenerbahçe", handle: "Fenerbahce", url: "https://x.com/Fenerbahce" },
@@ -467,6 +498,63 @@ async function supabaseRest(env, path, init = {}) {
   return payload;
 }
 
+// live_feed_cache adi tarihsel olsa da tablo sunucu tarafindaki saglayici
+// payload'lari icin genel, service-role-only bir key/value cache'tir. Sezon ve
+// bes-lig home snapshot'larini burada tutmak Cache API bulunmayan ya da farkli
+// isolate'lara dagilan calisma ortamlarinda her kullanicinin Sportmonks'a
+// gitmesini engeller.
+async function readProviderSharedCache(env, scope) {
+  if (!supabaseServiceKey(env)) return null;
+  try {
+    const rows = await supabaseRest(
+      env,
+      `live_feed_cache?scope=eq.${encodeURIComponent(scope)}&select=payload,fetched_at,expires_at&limit=1`
+    );
+    return Array.isArray(rows) ? rows[0] || null : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function writeProviderSharedCache(env, scope, payload, ttlSeconds, provider = "sportmonks") {
+  if (!supabaseServiceKey(env)) return false;
+  const fetchedAt = new Date();
+  try {
+    await supabaseRest(env, "live_feed_cache?on_conflict=scope", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        scope,
+        provider,
+        payload,
+        fetched_at: fetchedAt.toISOString(),
+        expires_at: new Date(fetchedAt.getTime() + ttlSeconds * 1000).toISOString(),
+      }),
+    });
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function providerSharedCacheFresh(row, now = Date.now()) {
+  const expiresAt = Date.parse(row?.expires_at || "");
+  return Boolean(row?.payload && Number.isFinite(expiresAt) && expiresAt > now);
+}
+
+function providerSharedCacheWithinStaleWindow(row, maxStaleSeconds, now = Date.now()) {
+  if (!row?.payload) return false;
+  const fetchedAt = Date.parse(row?.fetched_at || "");
+  return Number.isFinite(fetchedAt) && now - fetchedAt <= maxStaleSeconds * 1000;
+}
+
+function providerRefreshLockedError(scope) {
+  const error = new Error("provider_refresh_in_progress");
+  error.status = 503;
+  error.scope = scope;
+  return error;
+}
+
 // ===================== CANLI SKOR: KALICI SNAPSHOT + SINGLE-FLIGHT + CIRCUIT BREAKER =====================
 
 // Sportmonks livescores/inplay ucunu SADECE minimal include ile cagirir.
@@ -523,6 +611,143 @@ async function acquireSyncLock(env, key, ttlSeconds = LIVE_LOCK_TTL_SECONDS) {
   }
 }
 
+// Canli inplay hot-path'i kilidi timeout/crash durumunda TTL ile, normal
+// tamamlanmada ise yalnizca kendi holder degeriyle erkenden birakir. Holder
+// filtresi eski bir istegin daha yeni bir sahibin kilidini silmesini engeller.
+async function acquireSyncLease(env, key, ttlSeconds = LIVE_LOCK_TTL_SECONDS) {
+  if (!supabaseServiceKey(env)) return { acquired:true, holder:null };
+  const holder = `${key}:${crypto.randomUUID()}`;
+  try {
+    const result = await supabaseRest(env, "rpc/try_acquire_sync_lock", {
+      method: "POST",
+      body: JSON.stringify({ p_key:key, p_holder:holder, p_ttl_seconds:ttlSeconds }),
+    });
+    return { acquired:result === true, holder:result === true ? holder : null };
+  } catch (_error) {
+    // Kilit servisi erisilemezse canli ozelligi tamamen durmasin. Ortak
+    // 5sn snapshot yine olasi tekrarlarin buyuk kismini emer.
+    return { acquired:true, holder:null };
+  }
+}
+
+async function releaseSyncLease(env, key, holder) {
+  if (!supabaseServiceKey(env) || !holder) return;
+  try {
+    await supabaseRest(
+      env,
+      `sync_locks?lock_key=eq.${encodeURIComponent(key)}&holder=eq.${encodeURIComponent(holder)}`,
+      { method:"DELETE", headers:{ Prefer:"return=minimal" } }
+    );
+  } catch (_error) {
+    // TTL crash-guard kilidi en gec LIVE_LOCK_TTL_SECONDS icinde acar.
+  }
+}
+
+// Supabase live_feed_cache scope alanini sinirli ve sabit uzunlukta tutarken
+// farkli query kombinasyonlarini birbirinden ayirir. Kimlik ayrica cache
+// zarfinda saklanir; teorik hash cakismasi yanlis payload yayinlayamaz.
+function demandScopeHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value || "")) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function demandCacheEnvelope(row, identity, validatePayload) {
+  const envelope = row?.payload;
+  if (!envelope || envelope.version !== 1 || envelope.identity !== identity) return null;
+  return validatePayload(envelope.value) ? envelope.value : null;
+}
+
+async function resolveDemandProviderPayload({
+  env,
+  kind,
+  identity,
+  provider,
+  ttlSeconds,
+  staleSeconds,
+  lockSeconds = DEMAND_PROVIDER_LOCK_SECONDS,
+  validatePayload,
+  fetchPayload,
+}) {
+  const scope = `worker:demand:v1:${kind}:${demandScopeHash(identity)}`;
+  const lockKey = `provider:${scope}`;
+  let shared = await readProviderSharedCache(env, scope);
+  let sharedPayload = demandCacheEnvelope(shared, identity, validatePayload);
+  if (sharedPayload && providerSharedCacheFresh(shared)) {
+    return { payload:sharedPayload, stale:false, source:"shared-cache" };
+  }
+  const stale = sharedPayload && providerSharedCacheWithinStaleWindow(shared, staleSeconds)
+    ? { row:shared, payload:sharedPayload }
+    : null;
+
+  const lease = await acquireSyncLease(env, lockKey, lockSeconds);
+  if (!lease.acquired) {
+    // Lock sahibi cache yazimini ilk kontrol ile lease denemesi arasinda
+    // tamamlamis olabilir. Tekrar oku; hala yoksa ikinci upstream acma.
+    shared = await readProviderSharedCache(env, scope);
+    sharedPayload = demandCacheEnvelope(shared, identity, validatePayload);
+    if (sharedPayload && providerSharedCacheWithinStaleWindow(shared, staleSeconds)) {
+      return {
+        payload:sharedPayload,
+        stale:!providerSharedCacheFresh(shared),
+        source:"shared-cache-locked",
+      };
+    }
+    throw providerRefreshLockedError(scope);
+  }
+
+  try {
+    // Lease alinana kadar baska isolate yenilemeyi bitirmis olabilir.
+    shared = await readProviderSharedCache(env, scope);
+    sharedPayload = demandCacheEnvelope(shared, identity, validatePayload);
+    if (sharedPayload && providerSharedCacheFresh(shared)) {
+      return { payload:sharedPayload, stale:false, source:"shared-cache-after-lock" };
+    }
+
+    const payload = await fetchPayload();
+    if (!validatePayload(payload)) throw new Error(`${kind}_invalid_provider_payload`);
+    await writeProviderSharedCache(env, scope, {
+      version:1,
+      identity,
+      value:payload,
+    }, ttlSeconds, provider);
+    return { payload, stale:false, source:"provider" };
+  } catch (error) {
+    if (stale) return { payload:stale.payload, stale:true, source:"shared-cache-stale", error };
+    throw error;
+  } finally {
+    await releaseSyncLease(env, lockKey, lease.holder);
+  }
+}
+
+async function singleFlightDemandProvider(options) {
+  // Map key hash degil tam kimliktir: farkli sport/query kapsamlarinin ayni
+  // isolate icinde birbirini bekletmesi ya da payload paylasmasi imkansizdir.
+  const mapKey = `${options.kind}:${options.identity}`;
+  const existing = providerDemandRefreshPromises.get(mapKey);
+  if (existing) return existing;
+  const promise = resolveDemandProviderPayload(options);
+  providerDemandRefreshPromises.set(mapKey, promise);
+  try {
+    return await promise;
+  } finally {
+    if (providerDemandRefreshPromises.get(mapKey) === promise) providerDemandRefreshPromises.delete(mapKey);
+  }
+}
+
+async function fetchWithDemandTimeout(url, init = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEMAND_PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal:controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function liveSnapshotChecksum(match) {
   return redactSecrets(`${match.status}:${match.minute ?? ""}:${match.home?.score ?? ""}:${match.away?.score ?? ""}`);
 }
@@ -530,14 +755,19 @@ function liveSnapshotChecksum(match) {
 // Basarili bir canli cekimden sonra her fixture icin son doğrulanmis
 // snapshot'i kalici olarak yazar (upsert). Edge cache kaybolsa/hic
 // calismasa bile bu tablo "son doğrulanmış skor" kaynağı olarak kalır.
-async function persistLiveSnapshots(env, leagueKey, matches, previousRows = []) {
+async function persistLiveSnapshots(env, matches, previousRows = []) {
   if (!supabaseServiceKey(env) || !matches.length) return;
+  // Inplay upstream'i tum ligleri birlikte dondurur. Her satir provider
+  // league_id'den cozulmus kendi gercek lig anahtariyla yazilmalidir; "all"
+  // hicbir zaman kalici bir fixture kapsami degildir.
+  const scopedMatches = matches.filter((match) => FOOTBALL_HOME_LEAGUES.includes(match?.leagueKey));
+  if (!scopedMatches.length) return;
   const previousByFixture = new Map(previousRows.map((row) => [String(row?.fixture_id || ""), row?.payload]));
-  const rows = matches.map((match) => ({
+  const rows = scopedMatches.map((match) => ({
     fixture_id: match.id,
     provider: "sportmonks",
     sport: "football",
-    league_key: leagueKey,
+    league_key: match.leagueKey,
     status: match.status,
     minute: Number.isFinite(match.minute) ? match.minute : null,
     home_score: Number.isFinite(match.home?.score) ? match.home.score : null,
@@ -561,11 +791,11 @@ async function persistLiveSnapshots(env, leagueKey, matches, previousRows = []) 
     // ulastirmayi engellemez; yalnizca gelecekteki fallback zayiflar.
   }
   try {
-    const fixtureRows = matches.map((match) => ({
+    const fixtureRows = scopedMatches.map((match) => ({
       provider: "sportmonks",
       provider_fixture_id: String(match.id).replace(/^sportmonks:/, ""),
       sport: "football",
-      league_key: leagueKey,
+      league_key: match.leagueKey,
       provider_league_id: match.providerLeagueId ? String(match.providerLeagueId) : null,
       home_provider_id: match.home?.id ? String(match.home.id) : null,
       away_provider_id: match.away?.id ? String(match.away.id) : null,
@@ -588,11 +818,23 @@ async function persistLiveSnapshots(env, leagueKey, matches, previousRows = []) 
 async function readLiveSnapshots(env, leagueKey) {
   if (!supabaseServiceKey(env)) return [];
   try {
+    const leagueFilter = leagueKey === "all"
+      ? `in.(${FOOTBALL_HOME_LEAGUES.map((key) => encodeURIComponent(key)).join(",")})`
+      : `eq.${encodeURIComponent(leagueKey)}`;
     const rows = await supabaseRest(
       env,
-      `live_match_snapshots?league_key=eq.${encodeURIComponent(leagueKey)}&select=fixture_id,status,payload,fetched_at,provider_updated_at`
+      `live_match_snapshots?league_key=${leagueFilter}&select=fixture_id,league_key,status,payload,fetched_at,provider_updated_at`
     );
-    return Array.isArray(rows) ? rows : [];
+    if (!Array.isArray(rows)) return [];
+    return rows.filter((row) => {
+      const persistedKey = String(row?.league_key || row?.payload?.leagueKey || "");
+      // Tek-lig sorgusunda eski satirlar payload icinde leagueKey tasimiyor
+      // olabilir; DB filtresi zaten lig izolasyonunu saglamistir. "all"
+      // sorgusunda ise sadece acikca gercek lig anahtari olan satirlar kabul.
+      return leagueKey === "all"
+        ? FOOTBALL_HOME_LEAGUES.includes(persistedKey)
+        : !persistedKey || persistedKey === leagueKey;
+    });
   } catch (_error) {
     return [];
   }
@@ -2188,6 +2430,60 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
   };
 }
 
+function validSharedSeasonPayload(payload, league) {
+  return Boolean(
+    payload
+    && payload.league === league
+    && Array.isArray(payload.matches)
+    && Array.isArray(payload.standings)
+    && Array.isArray(payload.results)
+  );
+}
+
+async function resolveFootballSeasonBundle(env, league, token) {
+  const scope = `worker:football-season:v1:${league}`;
+  const lockKey = `provider:${scope}`;
+  let shared = await readProviderSharedCache(env, scope);
+  if (validSharedSeasonPayload(shared?.payload, league) && providerSharedCacheFresh(shared)) {
+    return { payload:shared.payload, stale:false, source:"shared-cache" };
+  }
+  const stale = validSharedSeasonPayload(shared?.payload, league)
+    && providerSharedCacheWithinStaleWindow(shared, SEASON_SHARED_STALE_SECONDS)
+    ? shared
+    : null;
+  const acquired = await acquireSyncLock(env, lockKey, SEASON_REFRESH_LOCK_SECONDS);
+  if (!acquired) {
+    // Kilidi alan baska isolate cache'i bu kontrol ile yazmis olabilir.
+    shared = await readProviderSharedCache(env, scope);
+    if (validSharedSeasonPayload(shared?.payload, league)
+      && providerSharedCacheWithinStaleWindow(shared, SEASON_SHARED_STALE_SECONDS)) {
+      return { payload:shared.payload, stale:!providerSharedCacheFresh(shared), source:"shared-cache-locked" };
+    }
+    throw providerRefreshLockedError(scope);
+  }
+  try {
+    const payload = await fetchSportmonksSeasonBundle(league, token);
+    // Cross-isolate bekleyenler response donmeden once snapshot'i gorebilsin.
+    await writeProviderSharedCache(env, scope, payload, SEASON_SHARED_TTL_SECONDS);
+    return { payload, stale:false, source:"provider" };
+  } catch (error) {
+    if (stale) return { payload:stale.payload, stale:true, source:"shared-cache-stale", error };
+    throw error;
+  }
+}
+
+async function singleFlightFootballSeason(env, league, token) {
+  const existing = footballSeasonRefreshPromises.get(league);
+  if (existing) return existing;
+  const promise = resolveFootballSeasonBundle(env, league, token);
+  footballSeasonRefreshPromises.set(league, promise);
+  try {
+    return await promise;
+  } finally {
+    if (footballSeasonRefreshPromises.get(league) === promise) footballSeasonRefreshPromises.delete(league);
+  }
+}
+
 async function handleFootballSeason(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
@@ -2198,17 +2494,20 @@ async function handleFootballSeason(request, env, context) {
   const cacheUrl = new URL(url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
-  if (isUsableJsonCache(cached)) {
-    context.waitUntil(cached.clone().json().then((payload) => persistSeasonFixtures(env, league, payload?.matches)).catch(() => {}));
-    return cached;
-  }
+  if (isUsableJsonCache(cached)) return cached;
   try {
-    const payload = await fetchSportmonksSeasonBundle(league, token);
-    const response = jsonResponse(payload, 200, { "Cache-Control": SEASON_CACHE, "X-Data-Stale": "false" });
-    context.waitUntil(persistSeasonFixtures(env, league, payload.matches));
+    const result = await singleFlightFootballSeason(env, league, token);
+    const payload = result.payload;
+    const response = jsonResponse(payload, 200, {
+      "Cache-Control": result.stale ? "public, max-age=30, s-maxage=60, stale-while-revalidate=300" : SEASON_CACHE,
+      "X-Data-Stale": result.stale ? "true" : "false",
+      "X-Data-Cache": result.source,
+    });
+    if (result.source === "provider") context.waitUntil(persistSeasonFixtures(env, league, payload.matches));
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
-    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider: "sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control": "no-store", "Retry-After": "300" });
+    const locked = error?.message === "provider_refresh_in_progress";
+    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : locked ? "provider_refresh_in_progress" : "sportmonks_upstream_unavailable", provider: "sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : locked ? 503 : 502, { "Cache-Control": "no-store", "Retry-After": locked ? "3" : "300" });
   }
 }
 
@@ -2262,16 +2561,38 @@ function compactFootballHomePayload(bundles) {
   };
 }
 
-async function handleFootballHome(request, env, context) {
-  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
-  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
-  if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
-  const url = new URL(request.url);
-  const cacheUrl = new URL("/api/football/home", url.origin);
-  const cache = edgeCache();
-  const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
-  const cached = await readEdgeCache(cache, cacheKey);
-  if (isUsableJsonCache(cached)) return cached;
+function validSharedFootballHomePayload(payload) {
+  return Boolean(
+    payload
+    && payload.league === "all"
+    && Array.isArray(payload.matches)
+    && payload.standingsByLeague
+    && typeof payload.standingsByLeague === "object"
+    && payload.availability
+    && typeof payload.availability === "object"
+  );
+}
+
+async function resolveFootballHomeBundle(url, env, context) {
+  const scope = "worker:football-home:v1";
+  const lockKey = `provider:${scope}`;
+  let shared = await readProviderSharedCache(env, scope);
+  if (validSharedFootballHomePayload(shared?.payload) && providerSharedCacheFresh(shared)) {
+    return { payload:shared.payload, stale:false, source:"shared-cache" };
+  }
+  const stale = validSharedFootballHomePayload(shared?.payload)
+    && providerSharedCacheWithinStaleWindow(shared, FOOTBALL_HOME_SHARED_STALE_SECONDS)
+    ? shared
+    : null;
+  const acquired = await acquireSyncLock(env, lockKey, FOOTBALL_HOME_REFRESH_LOCK_SECONDS);
+  if (!acquired) {
+    shared = await readProviderSharedCache(env, scope);
+    if (validSharedFootballHomePayload(shared?.payload)
+      && providerSharedCacheWithinStaleWindow(shared, FOOTBALL_HOME_SHARED_STALE_SECONDS)) {
+      return { payload:shared.payload, stale:!providerSharedCacheFresh(shared), source:"shared-cache-locked" };
+    }
+    throw providerRefreshLockedError(scope);
+  }
 
   const settled = await Promise.allSettled(FOOTBALL_HOME_LEAGUES.map(async (league) => {
     const seasonUrl = new URL("/api/football/season", url.origin);
@@ -2286,11 +2607,51 @@ async function handleFootballHome(request, env, context) {
     return payload;
   }));
   const bundles = FOOTBALL_HOME_LEAGUES.map((league, index) => ({ league, bundle:settled[index].status === "fulfilled" ? settled[index].value : null }));
+  if (!bundles.some((entry) => entry.bundle) && stale) {
+    return { payload:stale.payload, stale:true, source:"shared-cache-stale" };
+  }
   const payload = compactFootballHomePayload(bundles);
   payload.errors = settled.flatMap((result, index) => result.status === "rejected" ? [{ league:FOOTBALL_HOME_LEAGUES[index], status:result.reason?.status || 502, message:result.reason?.message || "unavailable" }] : []);
-  const response = jsonResponse(payload, 200, { "Cache-Control":FOOTBALL_HOME_CACHE, "X-Data-Partial":payload.errors.length ? "true" : "false" });
-  writeEdgeCache(cache, cacheKey, response, context);
-  return response;
+  await writeProviderSharedCache(env, scope, payload, FOOTBALL_HOME_SHARED_TTL_SECONDS);
+  return { payload, stale:false, source:"provider" };
+}
+
+async function singleFlightFootballHome(url, env, context) {
+  if (footballHomeRefreshPromise) return footballHomeRefreshPromise;
+  const promise = resolveFootballHomeBundle(url, env, context);
+  footballHomeRefreshPromise = promise;
+  try {
+    return await promise;
+  } finally {
+    if (footballHomeRefreshPromise === promise) footballHomeRefreshPromise = null;
+  }
+}
+
+async function handleFootballHome(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
+  const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
+  if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
+  const url = new URL(request.url);
+  const cacheUrl = new URL("/api/football/home", url.origin);
+  const cache = edgeCache();
+  const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+  try {
+    const result = await singleFlightFootballHome(url, env, context);
+    const payload = result.payload;
+    const response = jsonResponse(payload, 200, {
+      "Cache-Control":result.stale ? "public, max-age=30, s-maxage=60, stale-while-revalidate=300" : FOOTBALL_HOME_CACHE,
+      "X-Data-Partial":payload.errors?.length ? "true" : "false",
+      "X-Data-Stale":result.stale ? "true" : "false",
+      "X-Data-Cache":result.source,
+    });
+    writeEdgeCache(cache, cacheKey, response, context);
+    return response;
+  } catch (error) {
+    const locked = error?.message === "provider_refresh_in_progress";
+    return jsonResponse({ error:locked ? "provider_refresh_in_progress" : "football_home_unavailable", provider:"sportmonks", detail:safeErrorMessage(error) }, locked ? 503 : 502, { "Cache-Control":"no-store", "Retry-After":locked ? "3" : "60" });
+  }
 }
 
 const MATCHDAY_FINISHED_STATES = new Set(["bitti", "ft", "aet", "pen", "finished", "after penalties", "after extra time"]);
@@ -2494,7 +2855,9 @@ async function handleFootballMatchday(request, env, context) {
   }, status, { "Cache-Control":"no-store", "Retry-After":status === 429 ? String(Math.max(30, Number(result.error?.retryAfter) || 30)) : "5" });
 }
 
-function normalizeLiveInplayMatch(fixture, leagueKey) {
+function normalizeLiveInplayMatch(fixture) {
+  const leagueKey = selectedLeagueKeyForProviderLeagueId(fixture?.league_id || fixture?.league?.id);
+  if (!leagueKey) return null;
   const participants = relationRows(fixture?.participants);
   const home = participants.find((team) => team?.meta?.location === "home") || participants[0] || {};
   const away = participants.find((team) => team?.meta?.location === "away") || participants[1] || {};
@@ -2533,8 +2896,136 @@ function nextRefreshSecondsFor(matches) {
 
 // Kalici bir snapshot satirindan API sozlesmesindeki "matches" ogesini geri
 // kurar. payload zaten normalizeLiveInplayMatch ciktisidir.
-function matchFromSnapshotRow(row) {
-  return row?.payload && typeof row.payload === "object" ? row.payload : null;
+function matchFromSnapshotRow(row, requestedLeague) {
+  const payload = row?.payload && typeof row.payload === "object" ? row.payload : null;
+  if (!payload) return null;
+  const providerKey = selectedLeagueKeyForProviderLeagueId(payload?.providerLeagueId);
+  const persistedKey = String(row?.league_key || payload?.leagueKey || "");
+  if (providerKey && persistedKey && providerKey !== persistedKey) return null;
+  const fallbackKey = requestedLeague && requestedLeague !== "all" ? requestedLeague : null;
+  const leagueKey = providerKey || (FOOTBALL_HOME_LEAGUES.includes(persistedKey) ? persistedKey : null) || fallbackKey;
+  if (!leagueKey || !FOOTBALL_HOME_LEAGUES.includes(leagueKey)) return null;
+  if (requestedLeague !== "all" && leagueKey !== requestedLeague) return null;
+  return { ...payload, leagueKey };
+}
+
+function liveMatchesForLeague(matches, league) {
+  return (Array.isArray(matches) ? matches : []).filter((match) => {
+    const providerKey = selectedLeagueKeyForProviderLeagueId(match?.providerLeagueId);
+    if (!providerKey || match?.leagueKey !== providerKey) return false;
+    return league === "all" ? FOOTBALL_HOME_LEAGUES.includes(providerKey) : providerKey === league;
+  });
+}
+
+function validSharedLivePayload(payload) {
+  return Boolean(
+    payload
+    && Array.isArray(payload.matches)
+    && payload.matches.every((match) => {
+      const providerKey = selectedLeagueKeyForProviderLeagueId(match?.providerLeagueId);
+      return Boolean(providerKey && match?.leagueKey === providerKey);
+    })
+  );
+}
+
+function sharedLiveResult(row, source) {
+  const fetchedAt = Date.parse(row?.fetched_at || "");
+  const stale = !providerSharedCacheFresh(row);
+  return {
+    outcome:"ok",
+    source,
+    providerUpdatedAt:row?.payload?.providerUpdatedAt || row?.fetched_at || new Date().toISOString(),
+    stale,
+    staleAgeSeconds:Number.isFinite(fetchedAt) ? Math.max(0, Math.round((Date.now() - fetchedAt) / 1000)) : 0,
+    matches:liveMatchesForLeague(row?.payload?.matches, "all"),
+  };
+}
+
+// Sportmonks /livescores/inplay provider-global bir uctur. Route kapsamindan
+// bagimsiz tek istek yapilir; sonuc provider league_id ile gercek bes lige
+// ayrilir, ortak snapshot'a yazilir ve route handler'i sonradan strict filtreler.
+async function resolveFootballLiveInplay(env, token, context) {
+  let shared = await readProviderSharedCache(env, LIVE_PROVIDER_CACHE_SCOPE);
+  if (validSharedLivePayload(shared?.payload) && providerSharedCacheFresh(shared)) {
+    return sharedLiveResult(shared, "shared-cache");
+  }
+
+  if (await isCircuitOpen(env, "live", LIVE_PROVIDER_SCOPE_KEY)) {
+    return { outcome:"circuit_open" };
+  }
+
+  const lease = await acquireSyncLease(env, LIVE_PROVIDER_SCOPE_KEY, LIVE_LOCK_TTL_SECONDS);
+  if (!lease.acquired) {
+    shared = await readProviderSharedCache(env, LIVE_PROVIDER_CACHE_SCOPE);
+    if (validSharedLivePayload(shared?.payload)
+      && providerSharedCacheWithinStaleWindow(shared, LIVE_SHARED_STALE_SECONDS)) {
+      return { ...sharedLiveResult(shared, "shared-cache-locked"), outcome:"locked" };
+    }
+    return { outcome:"locked" };
+  }
+
+  const startedAt = Date.now();
+  try {
+    // Ilk cache kontrolu ile lock alimi arasinda baska isolate yenilemeyi
+    // bitirmis olabilir. Kilit sahibiyken tekrar bakip gereksiz upstream'i kes.
+    shared = await readProviderSharedCache(env, LIVE_PROVIDER_CACHE_SCOPE);
+    if (validSharedLivePayload(shared?.payload) && providerSharedCacheFresh(shared)) {
+      return sharedLiveResult(shared, "shared-cache-after-lock");
+    }
+
+    const payload = await sportmonksLiveInplayRequest(token);
+    const matches = relationRows(payload?.data)
+      .map((fixture) => normalizeLiveInplayMatch(fixture))
+      .filter(Boolean);
+    const providerUpdatedAt = new Date().toISOString();
+
+    // Bos sonuc da yazilir: dogrulanmis "canli mac yok" yaniti diger lig
+    // isteklerinin ayni 5sn pencerede provider'a yeniden gitmesini engeller.
+    await writeProviderSharedCache(env, LIVE_PROVIDER_CACHE_SCOPE, {
+      providerUpdatedAt,
+      matches,
+    }, LIVE_SHARED_TTL_SECONDS);
+    const previousRows = await readLiveSnapshots(env, "all");
+    await persistLiveSnapshots(env, matches, previousRows);
+    context.waitUntil(recordSyncRun(env, {
+      endpointClass:"live", scopeKey:LIVE_PROVIDER_SCOPE_KEY, startedAt,
+      httpStatus:200, outcome:"ok",
+    }));
+    return { outcome:"ok", source:"provider", providerUpdatedAt, matches };
+  } catch (error) {
+    const status = Number(error?.status) || 0;
+    const outcome = status === 401 || status === 403
+      ? "config_error"
+      : status === 429
+        ? "rate_limited"
+        : error?.name === "AbortError"
+          ? "timeout"
+          : "upstream_error";
+    context.waitUntil(recordSyncRun(env, {
+      endpointClass:"live", scopeKey:LIVE_PROVIDER_SCOPE_KEY, startedAt,
+      httpStatus:status, outcome,
+      rateLimitRemaining:error?.rateLimitRemaining ?? null,
+      errorCode:status === 401
+        ? "sportmonks_token_invalid"
+        : status === 403
+          ? "sportmonks_plan_restricted"
+          : safeErrorMessage(error),
+    }));
+    return { outcome:"error", error };
+  } finally {
+    await releaseSyncLease(env, LIVE_PROVIDER_SCOPE_KEY, lease.holder);
+  }
+}
+
+async function singleFlightFootballLiveInplay(env, token, context) {
+  if (footballLiveRefreshPromise) return footballLiveRefreshPromise;
+  const promise = resolveFootballLiveInplay(env, token, context);
+  footballLiveRefreshPromise = promise;
+  try {
+    return await promise;
+  } finally {
+    if (footballLiveRefreshPromise === promise) footballLiveRefreshPromise = null;
+  }
 }
 
 async function handleFootballLive(request, env, context) {
@@ -2553,13 +3044,10 @@ async function handleFootballLive(request, env, context) {
     return jsonResponse({ ...baseMeta, error: "sportmonks_not_configured", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "not_configured", nextRefreshInSeconds: 60, matches: [] }, 503, { "Cache-Control": "no-store" });
   }
 
-  const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
-  const scopeKey = `live:${league}`;
-
   // Son doğrulanmış snapshot'ları her durumda hazır tut (basari/hata farketmez);
   // upstream basarisiz olursa veya kilit alinamazsa buradan dönülür.
   const snapshotRows = await readLiveSnapshots(env, league);
-  const snapshotMatches = snapshotRows.map(matchFromSnapshotRow).filter(Boolean);
+  const snapshotMatches = snapshotRows.map((row) => matchFromSnapshotRow(row, league)).filter(Boolean);
   const newestFetchedAt = snapshotRows.reduce((max, row) => {
     const t = Date.parse(row?.fetched_at || "");
     return Number.isFinite(t) ? Math.max(max, t) : max;
@@ -2580,33 +3068,70 @@ async function handleFootballLive(request, env, context) {
     }, status, { "Cache-Control": "no-store", "X-Data-Stale": "true" });
   };
 
-  if (await isCircuitOpen(env, "live", scopeKey)) {
+  const liveResult = await singleFlightFootballLiveInplay(env, token, context);
+
+  if (liveResult.outcome === "circuit_open") {
     return snapshotMatches.length
       ? respondWithSnapshot(200, "provider_unavailable", true)
       : jsonResponse({ ...baseMeta, providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "provider_unavailable", nextRefreshInSeconds: 30, matches: [] }, 503, { "Cache-Control": "no-store", "Retry-After": "30" });
   }
 
-  const acquired = await acquireSyncLock(env, scopeKey);
-  if (!acquired) {
-    // Baska bir istek su anda upstream'e gitmis durumda (single-flight).
-    // Kilit penceresi kisa oldugundan (LIVE_LOCK_TTL_SECONDS) snapshot
-    // pratikte guncel kabul edilir; yine de gercek yasi acikca raporlanir.
-    return snapshotMatches.length
-      ? jsonResponse({ ...baseMeta, providerUpdatedAt: newestFetchedAt ? new Date(newestFetchedAt).toISOString() : null, stale: false, staleAgeSeconds: staleAgeSeconds ?? 0, degraded: false, reason: snapshotMatches.length ? undefined : "no_live_matches", nextRefreshInSeconds: nextRefreshSecondsFor(snapshotMatches), matches: snapshotMatches }, 200, { "Cache-Control": "no-store" })
-      : jsonResponse({ ...baseMeta, providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: false, reason: "no_live_matches", nextRefreshInSeconds: 30, matches: [] }, 200, { "Cache-Control": "no-store" });
+  if (liveResult.outcome === "locked") {
+    // Baska bir isolate provider-global yenilemeyi yapiyor. Ortak cache daha
+    // once yazildiysa onu, aksi halde yalnizca istenen ligin snapshot'ini sun.
+    const hasSharedResult = Array.isArray(liveResult.matches);
+    const lockedMatches = hasSharedResult
+      ? liveMatchesForLeague(liveResult.matches, league)
+      : snapshotMatches;
+    const lockedUpdatedAt = liveResult.providerUpdatedAt
+      || (newestFetchedAt ? new Date(newestFetchedAt).toISOString() : null);
+    if (hasSharedResult && liveResult.stale) {
+      // 5sn freshness'i bitmis ama 45sn guvenli stale penceresindeki ortak
+      // skor, lock kaybeden istek icin korunur. Bu veri yeni/otoritatif ya da
+      // dogrulanmis "mac yok" gibi sunulamaz; yenileme hala baska isolate'tadir.
+      return jsonResponse({
+        ...baseMeta,
+        providerUpdatedAt:lockedUpdatedAt,
+        stale:true,
+        staleAgeSeconds:liveResult.staleAgeSeconds ?? 0,
+        degraded:true,
+        reason:"sync_in_progress",
+        nextRefreshInSeconds:2,
+        matches:lockedMatches,
+      }, 200, {
+        "Cache-Control":"no-store",
+        "X-Data-Stale":"true",
+        "Retry-After":"2",
+      });
+    }
+    if (!hasSharedResult && snapshotMatches.length) {
+      return jsonResponse({
+        ...baseMeta,
+        providerUpdatedAt:lockedUpdatedAt,
+        stale:true,
+        staleAgeSeconds:staleAgeSeconds ?? 0,
+        degraded:true,
+        reason:"sync_in_progress",
+        nextRefreshInSeconds:2,
+        matches:snapshotMatches,
+      }, 200, {
+        "Cache-Control":"no-store",
+        "X-Data-Stale":"true",
+        "Retry-After":"2",
+      });
+    }
+    return lockedMatches.length
+      ? jsonResponse({ ...baseMeta, providerUpdatedAt: lockedUpdatedAt, stale: false, staleAgeSeconds: staleAgeSeconds ?? 0, degraded: false, nextRefreshInSeconds: nextRefreshSecondsFor(lockedMatches), matches: lockedMatches }, 200, { "Cache-Control": "no-store" })
+      : hasSharedResult
+        ? jsonResponse({ ...baseMeta, providerUpdatedAt: lockedUpdatedAt, stale: false, staleAgeSeconds: 0, degraded: false, reason: "no_live_matches", nextRefreshInSeconds: 30, matches: [] }, 200, { "Cache-Control": "no-store" })
+        : jsonResponse({ ...baseMeta, providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "sync_in_progress", nextRefreshInSeconds: 2, matches: [] }, 503, { "Cache-Control":"no-store", "Retry-After":"2" });
   }
 
-  const startedAt = Date.now();
-  try {
-    const payload = await sportmonksLiveInplayRequest(token);
-    const matches = relationRows(payload?.data)
-      .filter((fixture) => leagueIds.includes(String(fixture?.league_id)))
-      .map((fixture) => normalizeLiveInplayMatch(fixture, league));
-    context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: 200, outcome: "ok" }));
-    context.waitUntil(persistLiveSnapshots(env, league, matches, snapshotRows));
+  if (liveResult.outcome === "ok") {
+    const matches = liveMatchesForLeague(liveResult.matches, league);
     return jsonResponse({
       ...baseMeta,
-      providerUpdatedAt: nowIso,
+      providerUpdatedAt: liveResult.providerUpdatedAt,
       stale: false,
       staleAgeSeconds: 0,
       degraded: false,
@@ -2614,14 +3139,15 @@ async function handleFootballLive(request, env, context) {
       nextRefreshInSeconds: nextRefreshSecondsFor(matches),
       matches,
     }, 200, { "Cache-Control": LIVE_API_CACHE });
-  } catch (error) {
+  }
+
+  {
+    const error = liveResult.error || new Error("sportmonks_upstream_unavailable");
     const status = error?.status;
     if (status === 401 || status === 403) {
-      context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: status, outcome: "config_error", errorCode: status === 401 ? "sportmonks_token_invalid" : "sportmonks_plan_restricted" }));
       return jsonResponse({ ...baseMeta, error: status === 401 ? "sportmonks_token_invalid" : "sportmonks_plan_restricted", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: status === 401 ? "not_configured" : "plan_restricted", nextRefreshInSeconds: 60, matches: [] }, status, { "Cache-Control": "no-store", "Retry-After": "300" });
     }
     if (status === 429) {
-      context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: 429, outcome: "rate_limited", rateLimitRemaining: error?.rateLimitRemaining ?? null }));
       return snapshotMatches.length
         ? respondWithSnapshot(200, "provider_rate_limited", true)
         : jsonResponse({ ...baseMeta, error: "sportmonks_rate_limited", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "provider_rate_limited", nextRefreshInSeconds: Math.max(30, Number(error?.retryAfter) || 30), matches: [] }, 429, { "Cache-Control": "no-store", "Retry-After": String(Math.max(30, Number(error?.retryAfter) || 30)) });
@@ -2629,7 +3155,6 @@ async function handleFootballLive(request, env, context) {
     // Timeout, 5xx, HTML/bozuk JSON (parseProviderJson zaten bunu hataya
     // ceviriyor) -- hepsi ayni "provider_unavailable" siniftadir ama asla
     // matches:[] BASARILI YANIT olarak maskelenmez.
-    context.waitUntil(recordSyncRun(env, { endpointClass: "live", scopeKey, startedAt, httpStatus: status || 0, outcome: error?.name === "AbortError" ? "timeout" : "upstream_error", errorCode: safeErrorMessage(error) }));
     return snapshotMatches.length
       ? respondWithSnapshot(200, "stale_snapshot", true)
       : jsonResponse({ ...baseMeta, error: "sportmonks_upstream_unavailable", providerUpdatedAt: null, stale: false, staleAgeSeconds: 0, degraded: true, reason: "provider_unavailable", nextRefreshInSeconds: 20, matches: [] }, 503, { "Cache-Control": "no-store", "Retry-After": "20" });
@@ -3170,7 +3695,7 @@ async function fetchCitoUfc(env, resourceKey, query = new URLSearchParams()) {
   for (const key of ["page", "limit", "division", "hasStats"]) {
     const value = query.get(key); if (value) upstream.searchParams.set(key, value);
   }
-  const response = await fetch(upstream, { headers: { "x-api-key": env.CITO_API_KEY, Accept: "application/json" } });
+  const response = await fetchWithDemandTimeout(upstream, { headers: { "x-api-key": env.CITO_API_KEY, Accept: "application/json" } });
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload) throw new Error(`cito_ufc_unavailable_${response.status}`);
   return payload;
@@ -3185,14 +3710,44 @@ async function handleCitoUfc(request, env, context) {
   const cacheKey = new Request(new URL(`/api/ufc/cache/${resource}?${input.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
+  const ttl = resource === "live" ? 15 : resource === "upcoming" ? 21600 : resource === "rankings" ? 86400 : 604800;
+  const query = new URLSearchParams();
+  for (const key of ["page", "limit", "division", "hasStats"]) {
+    const value = input.searchParams.get(key);
+    if (value) query.set(key, value);
+  }
+  const identity = `${resource}?${query}`;
   try {
-    const data = await fetchCitoUfc(env, resource, input.searchParams);
-    const ttl = resource === "live" ? 15 : resource === "upcoming" ? 21600 : resource === "rankings" ? 86400 : 604800;
-    const output = jsonResponse({ source: "citoapi", resource, updatedAt: new Date().toISOString(), data }, 200, { "Cache-Control": `public, max-age=${Math.min(ttl, 21600)}, s-maxage=${ttl}, stale-while-revalidate=86400` });
+    const result = await singleFlightDemandProvider({
+      env,
+      kind:"cito-ufc",
+      identity,
+      provider:"citoapi",
+      ttlSeconds:ttl,
+      staleSeconds:resource === "live" ? 60 : Math.max(86400, ttl),
+      validatePayload:(payload) => Boolean(payload && payload.resource === resource && payload.data != null),
+      fetchPayload:async () => ({
+        source:"citoapi",
+        resource,
+        updatedAt:new Date().toISOString(),
+        data:await fetchCitoUfc(env, resource, query),
+      }),
+    });
+    const output = jsonResponse(result.payload, 200, {
+      "Cache-Control":result.stale
+        ? "public, max-age=15, s-maxage=30, stale-while-revalidate=120"
+        : `public, max-age=${Math.min(ttl, 21600)}, s-maxage=${ttl}, stale-while-revalidate=86400`,
+      "X-Data-Cache":result.source,
+      "X-Data-Stale":result.stale ? "true" : "false",
+    });
     writeEdgeCache(cache, cacheKey, output, context);
     return output;
   } catch (error) {
-    return jsonResponse({ error: error?.message || "cito_ufc_unavailable" }, 502, { "Cache-Control": "no-store" });
+    const locked = error?.message === "provider_refresh_in_progress";
+    return jsonResponse({ error:locked ? "provider_refresh_in_progress" : error?.message || "cito_ufc_unavailable" }, locked ? 503 : 502, {
+      "Cache-Control":"no-store",
+      "Retry-After":locked ? "1" : "60",
+    });
   }
 }
 
@@ -3214,70 +3769,120 @@ async function handleCitoUfcProxy(request, env, context) {
   const cacheKey = new Request(new URL(`/api/ufc/proxy-cache/${route}?${upstream.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
+  const identity = `${route}?${upstream.searchParams}`;
   try {
-    const response = await fetch(upstream, { headers: { "x-api-key": env.CITO_API_KEY, Accept: "application/json" } });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || data == null) return jsonResponse({ error: "cito_ufc_upstream_unavailable", status: response.status }, 502, { "Cache-Control": "no-store" });
-    const output = jsonResponse({ source: "citoapi", route, updatedAt: new Date().toISOString(), data }, 200, { "Cache-Control": `public, max-age=${Math.min(ttl, 21600)}, s-maxage=${ttl}, stale-while-revalidate=86400` });
+    const result = await singleFlightDemandProvider({
+      env,
+      kind:"cito-ufc-proxy",
+      identity,
+      provider:"citoapi",
+      ttlSeconds:ttl,
+      staleSeconds:live ? 60 : Math.max(86400, ttl),
+      validatePayload:(payload) => Boolean(payload && payload.route === route && payload.data != null),
+      fetchPayload:async () => {
+        const response = await fetchWithDemandTimeout(upstream, { headers:{ "x-api-key":env.CITO_API_KEY, Accept:"application/json" } });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || data == null) {
+          const error = new Error("cito_ufc_upstream_unavailable");
+          error.status = response.status;
+          throw error;
+        }
+        return { source:"citoapi", route, updatedAt:new Date().toISOString(), data };
+      },
+    });
+    const output = jsonResponse(result.payload, 200, {
+      "Cache-Control":result.stale
+        ? "public, max-age=15, s-maxage=30, stale-while-revalidate=120"
+        : `public, max-age=${Math.min(ttl, 21600)}, s-maxage=${ttl}, stale-while-revalidate=86400`,
+      "X-Data-Cache":result.source,
+      "X-Data-Stale":result.stale ? "true" : "false",
+    });
     writeEdgeCache(cache, cacheKey, output, context);
     return output;
-  } catch (_error) {
-    return jsonResponse({ error: "cito_ufc_upstream_unavailable" }, 502, { "Cache-Control": "no-store" });
+  } catch (error) {
+    const locked = error?.message === "provider_refresh_in_progress";
+    return jsonResponse({ error:locked ? "provider_refresh_in_progress" : "cito_ufc_upstream_unavailable" }, locked ? 503 : 502, {
+      "Cache-Control":"no-store",
+      "Retry-After":locked ? "1" : "60",
+    });
   }
 }
 
-async function handleMultisportToday(request, env, context) {
+function apiSportsUpstreamError(status = 502, payload = null, retryAfter = null) {
+  const providerStatus = Number(status) || 0;
+  const detail = (() => {
+    try { return JSON.stringify(payload || {}); } catch { return ""; }
+  })();
+  const rateLimited = providerStatus === 429 || /rate|limit|quota/i.test(detail);
+  const error = new Error(rateLimited ? "api_sports_rate_limited" : "api_sports_upstream_unavailable");
+  error.status = rateLimited ? 429 : 502;
+  error.providerStatus = providerStatus || null;
+  error.retryAfter = Math.max(1, Number(retryAfter) || (rateLimited ? 60 : 10));
+  return error;
+}
+
+// Bu fonksiyon yalniz singleFlightDemandProvider icindeki lock sahibinden
+// cagrilir. Provider payload'ini mevcut normalize/latest-fallback sozlesmesiyle
+// uretir; dis route handler'i asagida ortak cache ve lease'i uygular.
+async function fetchMultisportTodayProviderResponse(request, env, context, demandSport = null, demandDate = null) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
-  const requestedSport = new URL(request.url).searchParams.get("sport");
+  const requestedSport = demandSport || new URL(request.url).searchParams.get("sport");
   if (!requestedSport) return jsonResponse({ error: "sport_required" }, 400, { "Cache-Control": "no-store" });
   if (!Object.hasOwn(MULTISPORT_FEEDS, requestedSport)) {
     return jsonResponse({ error: "invalid_sport" }, 400, { "Cache-Control": "no-store" });
   }
   if (!env.API_SPORTS_KEY) return jsonResponse({ error: "api_sports_not_configured" }, 503, { "Cache-Control": "no-store" });
-  const date = multisportDate();
+  // Dis handler'in identity anahtariyla ayni gun degerini kullan. Gece yarisi
+  // sinirinda iki ayri Date okumasi cache kimligi/payload tarihini ayirmasin.
+  const date = demandDate || multisportDate();
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/sports/today-v11?date=${date}&sport=${requestedSport}`, request.url), { method: "GET" });
-  const cached = await readEdgeCache(cache, cacheKey);
-  if (isUsableJsonCache(cached)) return cached;
   const selectedFeeds = Object.entries(MULTISPORT_FEEDS).filter(([sport]) => sport === requestedSport);
   const entries = await Promise.all(selectedFeeds.map(async ([sport, feed]) => {
     const latestKey = new Request(new URL(`/api/sports/latest-v2/${sport}`, request.url), { method: "GET" });
     const latestCached = await readEdgeCache(cache, latestKey);
     try {
-      const attempts = await Promise.all([0, -1, -2, -3, -7].map(async (offset) => {
-        const target = new Date(`${date}T12:00:00+03:00`);
-        target.setDate(target.getDate() + offset);
-        const queryDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(target);
-        const url = new URL(`https://${feed.host}/${feed.path}`);
-        url.searchParams.set("date", queryDate);
-        try {
-          const response = await fetch(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
-          const payload = await response.json().catch(() => null);
-          if (!response.ok || !payload || Object.keys(payload.errors || {}).length) return { queryDate, rows: [] };
-          return { queryDate, rows: Array.isArray(payload.response) ? payload.response : [] };
-        } catch { return { queryDate, rows: [] }; }
-      }));
-      const selectedAttempt = attempts.find((attempt) => attempt.rows.length) || { queryDate: date, rows: [] };
-      const rows = selectedAttempt.rows;
-      const feedDate = selectedAttempt.queryDate;
+      // Today endpointi yalniz kullanicinin baktigi bugunu sorgular. Eski akis
+      // tek ekran icin 0,-1,-2,-3,-7 gunlerini paralel cagirip her cold miss'i
+      // bes saglayici kredisine ceviriyordu. Gecmis veri yalniz daha once
+      // dogrulanip latest cache'e yazildiysa fallback olarak kullanilir.
+      const url = new URL(`https://${feed.host}/${feed.path}`);
+      url.searchParams.set("date", date);
+      const upstream = await fetchWithDemandTimeout(url, { headers: { "x-apisports-key": env.API_SPORTS_KEY, Accept: "application/json" } });
+      const contentType = String(upstream.headers.get("content-type") || "");
+      const jsonContent = /\bjson\b/i.test(contentType);
+      const upstreamPayload = jsonContent ? await upstream.json().catch(() => null) : null;
+      if (!upstream.ok) {
+        throw apiSportsUpstreamError(upstream.status, upstreamPayload, upstream.headers.get("retry-after"));
+      }
+      if (!jsonContent || !upstreamPayload || Object.keys(upstreamPayload.errors || {}).length || !Array.isArray(upstreamPayload.response)) {
+        throw apiSportsUpstreamError(502, upstreamPayload);
+      }
+      // Yalniz bu dogrulanmis 2xx + JSON + errors={} + response=[] yolu
+      // otoritatif bos sonuc sayilir ve cache'lenebilir.
+      const rows = upstreamPayload.response;
+      const feedDate = date;
       const items = rows.map((row) => ({ ...normalizeMultisportItem(sport, row), feedDate, archived: feedDate !== date })).filter((row) => row.id).slice(0, 60);
       if (items.length) {
         writeEdgeCache(cache, latestKey, jsonResponse({ sport, feedDate, items }, 200, { "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=7776000" }), context);
-        return [sport, items];
       }
+      return [sport, items, { stale:false }];
+    } catch (error) {
       if (isUsableJsonCache(latestCached)) {
-        const previous = await latestCached.json();
-        return [sport, Array.isArray(previous?.items) ? previous.items.map((item) => ({ ...item, archived: true })) : []];
+        const previous = await latestCached.json().catch(() => null);
+        const archivedItems = Array.isArray(previous?.items)
+          ? previous.items.map((item) => ({ ...item, archived:true }))
+          : [];
+        return [sport, archivedItems, {
+          stale:true,
+          status:error?.status === 429 ? 429 : 502,
+          retryAfter:Math.max(1, Number(error?.retryAfter) || 10),
+        }];
       }
-      return [sport, []];
-    } catch (_error) {
-      if (isUsableJsonCache(latestCached)) {
-        const previous = await latestCached.json();
-        return [sport, Array.isArray(previous?.items) ? previous.items.map((item) => ({ ...item, archived: true })) : []];
-      }
-      return [sport, []];
+      if (error?.name === "AbortError") throw apiSportsUpstreamError(502, { reason:"timeout" });
+      throw error?.status ? error : apiSportsUpstreamError(502, { reason:error?.message || "network_error" });
     }
   }));
+  const fallbackMeta = entries.map((entry) => entry[2]).find((meta) => meta?.stale) || null;
   const isolatedEntries = entries.map(([sport, items]) => [
     sport,
     (Array.isArray(items) ? items : [])
@@ -3293,9 +3898,106 @@ async function handleMultisportToday(request, env, context) {
     sports: Object.fromEntries(isolatedEntries),
     coverage: Object.fromEntries(isolatedEntries.map(([sport, items]) => [sport, items.length]))
   };
-  const response = jsonResponse(payload, 200, { "Cache-Control": "public, max-age=0, s-maxage=900, stale-while-revalidate=21600" });
-  writeEdgeCache(cache, cacheKey, response, context);
+  const response = jsonResponse(payload, 200, {
+    "Cache-Control":fallbackMeta ? "no-store" : "public, max-age=0, s-maxage=900, stale-while-revalidate=21600",
+    "X-Data-Stale":fallbackMeta ? "true" : "false",
+    ...(fallbackMeta ? {
+      "X-Upstream-Status":String(fallbackMeta.status || 502),
+      "Retry-After":String(fallbackMeta.retryAfter || 10),
+    } : {}),
+  });
   return response;
+}
+
+function validSharedMultisportPayload(payload, sport, date) {
+  const keys = payload?.sports && typeof payload.sports === "object" ? Object.keys(payload.sports) : [];
+  const items = payload?.sports?.[sport];
+  return Boolean(
+    payload
+    && payload.date === date
+    && keys.length === 1
+    && keys[0] === sport
+    && Array.isArray(items)
+    && items.every((item) => item?.sport === sport)
+  );
+}
+
+async function handleMultisportToday(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
+  const requestedSport = new URL(request.url).searchParams.get("sport");
+  if (!requestedSport) return jsonResponse({ error:"sport_required" }, 400, { "Cache-Control":"no-store" });
+  if (!Object.hasOwn(MULTISPORT_FEEDS, requestedSport)) {
+    return jsonResponse({ error:"invalid_sport" }, 400, { "Cache-Control":"no-store" });
+  }
+  if (!env.API_SPORTS_KEY) return jsonResponse({ error:"api_sports_not_configured" }, 503, { "Cache-Control":"no-store" });
+  const date = multisportDate();
+  const cache = edgeCache();
+  const cacheKey = new Request(new URL(`/api/sports/today-v12?date=${date}&sport=${requestedSport}`, request.url), { method:"GET" });
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+
+  try {
+    const identity = `${requestedSport}:${date}`;
+    const result = await singleFlightDemandProvider({
+      env,
+      kind:"multisport-today",
+      identity,
+      provider:"api-sports",
+      ttlSeconds:MULTISPORT_SHARED_TTL_SECONDS,
+      staleSeconds:MULTISPORT_SHARED_STALE_SECONDS,
+      validatePayload:(payload) => validSharedMultisportPayload(payload, requestedSport, date),
+      fetchPayload:async () => {
+        const response = await fetchMultisportTodayProviderResponse(request, env, context, requestedSport, date);
+        const payload = await response.json().catch(() => null);
+        if (response.headers.get("x-data-stale") === "true" && validSharedMultisportPayload(payload, requestedSport, date)) {
+          // latest edge snapshot kullanilabilir, fakat bunu provider basarisi
+          // gibi persistent/route cache'e yeniden yazma.
+          const error = new Error("api_sports_upstream_unavailable");
+          error.status = Number(response.headers.get("x-upstream-status")) === 429 ? 429 : 502;
+          error.retryAfter = Math.max(1, Number(response.headers.get("retry-after")) || 10);
+          error.fallbackPayload = payload;
+          throw error;
+        }
+        if (!response.ok || !validSharedMultisportPayload(payload, requestedSport, date)) {
+          const error = new Error(payload?.error || "api_sports_upstream_unavailable");
+          error.status = response.status;
+          throw error;
+        }
+        return payload;
+      },
+    });
+    const response = jsonResponse(result.payload, 200, {
+      "Cache-Control":result.stale
+        ? "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
+        : "public, max-age=0, s-maxage=900, stale-while-revalidate=21600",
+      "X-Data-Cache":result.source,
+      "X-Data-Stale":result.stale ? "true" : "false",
+    });
+    writeEdgeCache(cache, cacheKey, response, context);
+    return response;
+  } catch (error) {
+    const locked = error?.message === "provider_refresh_in_progress";
+    const rateLimited = error?.status === 429;
+    if (error?.fallbackPayload && validSharedMultisportPayload(error.fallbackPayload, requestedSport, date)) {
+      return jsonResponse({
+        ...error.fallbackPayload,
+        stale:true,
+        degraded:true,
+        reason:rateLimited ? "provider_rate_limited" : "provider_unavailable",
+      }, 200, {
+        "Cache-Control":"no-store",
+        "X-Data-Stale":"true",
+        "Retry-After":String(Math.max(1, Number(error?.retryAfter) || 10)),
+      });
+    }
+    return jsonResponse({
+      error:locked ? "provider_refresh_in_progress" : rateLimited ? "api_sports_rate_limited" : "api_sports_upstream_unavailable",
+      provider:"api-sports",
+    }, locked ? 503 : rateLimited ? 429 : 502, {
+      "Cache-Control":"no-store",
+      "Retry-After":locked ? "1" : String(Math.max(1, Number(error?.retryAfter) || (rateLimited ? 60 : 10))),
+    });
+  }
 }
 
 // Son N provider_sync_runs kaydindan lig basina ozet cikarir. Yalnizca
@@ -3386,17 +4088,49 @@ async function handleMotorsportData(request, env, context) {
   const cacheKey = new Request(new URL(`/api/motorsports/cache/${sport}/${resourceKey}?${upstream.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
+  const identity = `${sport}/${resourceKey}?${upstream.searchParams}`;
+  const sharedTtl = live ? 60 : resourceKey === "events" ? 300 : 604800;
   try {
-    const response = await fetch(upstream, { headers: { "x-api-key": env.OCBLACKTOP_API_KEY, Accept: "application/json" } });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || data == null) return jsonResponse({ error: "motorsport_upstream_unavailable", status: response.status }, 502, { "Cache-Control": "no-store" });
-    const payload = { source: "orange-cat-blacktop", sport, resource: resourceKey, liveSupported: ["formula1", "nascar", "wrc"].includes(sport), updatedAt: new Date().toISOString(), data };
+    const result = await singleFlightDemandProvider({
+      env,
+      kind:"motorsports",
+      identity,
+      provider:"orange-cat-blacktop",
+      ttlSeconds:sharedTtl,
+      staleSeconds:live ? 120 : resourceKey === "events" ? 3600 : 1209600,
+      validatePayload:(payload) => Boolean(payload && payload.sport === sport && payload.resource === resourceKey && payload.data != null),
+      fetchPayload:async () => {
+        const response = await fetchWithDemandTimeout(upstream, { headers:{ "x-api-key":env.OCBLACKTOP_API_KEY, Accept:"application/json" } });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || data == null) {
+          const error = new Error("motorsport_upstream_unavailable");
+          error.status = response.status;
+          throw error;
+        }
+        return {
+          source:"orange-cat-blacktop",
+          sport,
+          resource:resourceKey,
+          liveSupported:["formula1", "nascar", "wrc"].includes(sport),
+          updatedAt:new Date().toISOString(),
+          data,
+        };
+      },
+    });
     const cacheControl = live ? "public, max-age=30, s-maxage=60" : resourceKey === "events" ? "public, max-age=120, s-maxage=300" : "public, max-age=21600, s-maxage=604800, stale-while-revalidate=86400";
-    const output = jsonResponse(payload, 200, { "Cache-Control": cacheControl });
+    const output = jsonResponse(result.payload, 200, {
+      "Cache-Control":result.stale ? "public, max-age=15, s-maxage=30, stale-while-revalidate=120" : cacheControl,
+      "X-Data-Cache":result.source,
+      "X-Data-Stale":result.stale ? "true" : "false",
+    });
     writeEdgeCache(cache, cacheKey, output, context);
     return output;
-  } catch (_error) {
-    return jsonResponse({ error: "motorsport_upstream_unavailable" }, 502, { "Cache-Control": "no-store" });
+  } catch (error) {
+    const locked = error?.message === "provider_refresh_in_progress";
+    return jsonResponse({ error:locked ? "provider_refresh_in_progress" : "motorsport_upstream_unavailable" }, locked ? 503 : 502, {
+      "Cache-Control":"no-store",
+      "Retry-After":locked ? "1" : "60",
+    });
   }
 }
 

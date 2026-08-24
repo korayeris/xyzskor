@@ -367,17 +367,19 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 | --- | --- |
 | `npm run check` | ✅ Geçti |
 | `npm run qa:api` | ✅ 155/155 |
-| `npm run qa:hardening` | ✅ 37/37 |
+| `npm run qa:hardening` | ✅ 68/68; futbol home/season, canlı, basketbol/voleybol, UFC ve motorsporu single-flight/kota/hata-semantiği kontrolleri dahil |
 | `npm run qa:matchday` | ✅ Geçti |
 | `npm run qa:supabase-lazy` | ✅ Geçti |
 | `npm run qa:matchday:snapshots` | ✅ 4/4 genel maç senaryosu |
 | `npm run qa:live-details` | ✅ Geçti |
 | `npm run qa:football-predictions` | ✅ Geçti (schema-safe finalize için güncellendi) |
 | `npm run qa:football-ia` | ✅ Geçti |
+| `npm run qa:demand-scope` | ✅ Geçti; görünür rota sahipliği, iptal ve API adetleri doğrulandı |
 | `npm run qa:league-contract` | ✅ Beş lig anahtarı/ID'si, Edge Function, sohbet allowlist'i ve ileri/geri migration sözleşmesi geçti |
-| `npm run qa:live-architecture` | ✅ 26/26 |
-| `npm run qa:responsive` (withdata) | ✅ 60 sayfa senaryosu, 796/796 kontrol |
-| `npm run qa:responsive:nodata` | ✅ 60 sayfa senaryosu, 525/525 kontrol |
+| `npm run qa:live-architecture` | ✅ 43/43 |
+| `npm run qa:live-quota` | ✅ Geçti; `all + 5 lig` paralel fallback çağrısı tek upstream |
+| `npm run qa:responsive` (withdata) | ✅ 60 sayfa senaryosu, 876/876 kontrol |
+| `npm run qa:responsive:nodata` | ✅ 60 sayfa senaryosu, 535/535 kontrol |
 | `npm run qa:dist` | ✅ 32/32; kanonik kök, tek-lig, Predict, hesap/sohbet ve açık fixture senaryoları iki ardışık koşuda geçti |
 | `npm run qa:perf` | ✅ Release kapısı geçti; ham sonuç `reports/performance/release-performance-report.json` içinde |
 | `npm run qa:predict-security` | ✅ Geçti |
@@ -425,7 +427,7 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 - `/` tek bir lige değil, Süper Lig, Premier League, La Liga, Bundesliga ve Serie A maç merkezine açılır.
 - Beş lig isteği birbirini beklemez; aynı anda başlatılır. Ekran ilk HTML boyamasında hazır bir maç merkezi kabuğu gösterir.
-- Başarılı toplu sonuç 10 dakika tarayıcı önbelleğinde tutulur. Aynı kullanıcı sayfayı yenilediğinde maçlar ağ yanıtını beklemeden önbellekten çizilir; doğruluğu korumak için tek bir arka plan `/api/football/home` isteği de hemen başlatılır ve gelen doğrulanmış cevap ekranı kontrollü biçimde yeniler.
+- Başarılı toplu sonuç 10 dakika tarayıcı önbelleğinde tutulur. Aynı kullanıcı sayfayı yenilediğinde maçlar ağ yanıtını beklemeden önbellekten çizilir ve taze süre içinde yeni `/api/football/home` isteği açılmaz. Önbellek eskimişse son doğrulanmış veri anında çizilirken yalnız bir arka plan `/api/football/home` isteği başlatılır.
 - Lig seçimi `/super-lig`, `/premier-league`, `/la-liga`, `/bundesliga` veya `/serie-a` rotasına gider ve yalnız seçilen ligin sezon verisini kullanır.
 - Oturum bilgisi sekme ömründe bir kez okunur; lig geçişi kapsam kontrolünü beklemez. Kapsam denetimi arka planda çalışırken önbellekteki doğrulanmış lig paketi hemen çizilir.
 - Ana vitrindeki her karşılaşma maç merkezine bağlıdır; `Predict` ve `1 / X / 2` girişleri aynı doğrulanmış fixture kimliğini taşır.
@@ -493,10 +495,18 @@ kesinleştirir:
   puan durumu satırını taşır.
 - Home cevabı edge üzerinde kısa süreli taze cache ve
   `stale-while-revalidate` ile korunur. Tarayıcıdaki `v3` kompakt cache 10
-  dakika tazeyse doğrudan kullanılır; süresi dolmuş son doğrulanmış veri de
+  dakika tazeyse ağ isteği başlatılmadan doğrudan kullanılır; süresi dolmuş son doğrulanmış veri de
   ilk boyamayı bekletmeden gösterilir ve tek `/api/football/home` isteğiyle
   arka planda yenilenir. Başarılı revalidate cevabı kontrollü
   `xyz:football-home-refreshed` olayıyla ekrana uygulanır.
+- Tarayıcı gerçek HTTP `503` aldığında aynı görünür kapsam için `Retry-After`
+  döngüsü kurmaz: root en fazla bir `/api/football/home`, tek lig en fazla bir
+  `/api/football/season?league=<lig>` isteği yapar. Yeniden deneme ancak yeni bir
+  görünür kullanıcı talebinde veya edge/provider cache katmanında gerçekleşir.
+- Stale root cache anında çizilirken arka plandaki tek SWR isteğinin
+  `AbortController` sahibi ağ promise’i sonuçlanana kadar korunur. Kullanıcı lig
+  ya da Predict kapsamına geçerse eski `/home` isteği iptal edilir; geç gelen
+  cevap state’e, refresh olayına veya browser cache’ine uygulanmaz.
 - Eşzamanlı home yenilemeleri `footballHomeNetworkRequest` üzerinde tek
   promise'e birleştirilir. Canlı akış da lig kapsamını izler; aynı kapsamda
   devam eden istek varken ikinci istek başlatılmaz. Lig gerçekten değişirse
@@ -543,8 +553,8 @@ kesinleştirir:
 - `initial-route.js`, görünür HTML'den önce kanonik rota sınıflarını ve lig
   dataset'ini kurar. Fixture yoksa kökte tek `/api/football/home`, tek-lig
   genel bakışında yalnız URL'deki lige ait tek `/api/football/season` isteğini
-  başlatır. `data.js`/`ui.js` aynı global promise'i devralır; ilk isteği tekrar
-  etmez.
+  başlatır; ilgili tarayıcı cache'i tazeyse bu ağ isteği de sıfırdır.
+  `data.js`/`ui.js` aynı global promise'i devralır; ilk isteği tekrar etmez.
 - Production build, hesap/auth, haber/maç merkezi, mobil navigasyon, sohbet ve
   açık fixture DOM'unu sürümlü same-origin fragmentlere ayırır. Zorunlu
   fragmentler uygulama chunk'larından önce eklenir; mobil/sohbet gibi ikincil
@@ -570,18 +580,78 @@ kesinleştirir:
   kadar bekler. Sohbet düğmesi paneli göstermeden önce geç stil promise'ini
   tamamlar.
 - Üretim build'i üzerinde 390×844, 4× CPU yavaşlatma ve Fast 3G profiliyle üç
-  bağımsız soğuk çalıştırma release kapısıdır. Son ölçümde medyan FCP **552 ms**,
-  dolu beş-lig vitrini **1.374 sn**, Premier League geçişi **414 ms**, doğrudan
-  Süper Lig kabuğu **641 ms**, dolu Süper Lig görünümü **1.456 sn** ve en uzun
-  görev **185 ms** ölçüldü; yinelenen API isteği, lig kapsam ihlali, console ve
+  bağımsız soğuk çalıştırma release kapısıdır. Son ölçümde medyan FCP **548 ms**,
+  dolu beş-lig vitrini **1.419 sn**, Premier League geçişi **481 ms**, doğrudan
+  Süper Lig kabuğu **681 ms**, dolu Süper Lig görünümü **1.428 sn** ve en uzun
+  görev **210 ms** ölçüldü; yinelenen API isteği, lig kapsam ihlali, console ve
   page error sayıları sıfırdı. Ham kanıt
   `reports/performance/release-performance-report.json` dosyasına yazılır.
 
-v312'de değişen first-party istemci dosyaları (`app.css`, `app-late.css`,
+### Görünür talep sahipliği ve sağlayıcı kotası (v313)
+
+v313'te her ağ isteğinin tek bir görünür sahibi vardır. Sayfa, lig veya branş
+değiştiğinde eski kapsamın zamanlayıcısı durur ve devam eden istek
+`AbortController` ile ağ seviyesinde iptal edilir:
+
+- `/` ve `/all`, ekranda beş ligi birlikte gösterdiği için tek bilinçli toplama
+  istisnasıdır. Tarayıcı taze cache'te `home=0`, stale/cold durumda en fazla
+  `GET /api/football/home ×1` yapar; hiçbir hata yolu beş ayrı season isteğine
+  fan-out etmez. Canlı akış yalnız görünürken `league=all` kapsamında çalışır.
+- `/<lig>` yalnız URL'deki ligin season ve live kapsamını kullanır. Hızlı lig
+  geçişinde eski season/live isteği iptal edilir; geç gelen eski cevap yeni lig
+  DOM'una uygulanmaz.
+- `/predict` yalnız kullanıcının seçtiği ligin sezon paketini ister (`all` için
+  güvenli varsayılan Süper Lig). Futbol ana sayfası, diğer ligler, ortak altı
+  Supabase tablosu, sağlık ve coverage uçları Predict açılışında otomatik
+  sorgulanmaz. Görünür Predict ekranında yalnız ödül metinleri, oturum sahibinin
+  kendi tahminleri ve yalnız bu tahmin kimliklerine ait sonuçlar dar kapsamda
+  yüklenir; hesap veya ekran değişince istek iptal edilir.
+- `?fixture=<id>` yalnız o fixture'ın matchday verisini yeniler. Home, season ve
+  genel live poll kurulmaz; ayrıntı kotası doluysa yedek istek yalnız aynı
+  `GET /api/football/fixture?id=<id>` kaydıdır. Kullanıcının kayıtlı tahmini
+  fixture+oturum başına cache/single-flight ile bir kez okunur.
+- Basketbol ve voleybol yalnız seçili branş için bir
+  `GET /api/sports/today?sport=<branş>` isteğinin sahibidir. Branş butonları
+  ikinci bir API isteği üretmez; geçişte eski branş isteği iptal edilir.
+  Motorsporu canlı poll'u yalnız görünür seri/canlı sekmesinde çalışır.
+- Transfer akışı yalnız transfer yüzeyi veya lig genel bakışındaki ilgili blok
+  viewport'a girdiğinde yüklenir. Gizli sekme, Predict, başka spor ya da başka
+  futbol alt sekmesi canlı/transfer sorgusu üretmez. Oturum açma, çıkış ve takım
+  değişimi yalnız hesap bağlamını yeniler; bütün spor verisini tekrar çekmez.
+- `/api/health` ve `/api/football/coverage` kullanıcı sayfası açılışının kritik
+  yolundan çıkarılmıştır; operasyon amaçlı kontroller görünür ürün verisinin
+  yerine çalıştırılmaz.
+
+Sunucu tarafında bu istekler kullanıcı başına sağlayıcı çağrısına dönüşmez:
+
+- Football season paketleri lig başına 30 dakika, beş-lig home paketi 5 dakika
+  kalıcı shared cache'te tutulur. Aynı isolate promise single-flight, farklı
+  isolate'lar Supabase `sync_locks` lease'i ve `live_feed_cache` snapshot'ı
+  paylaşır.
+- Sportmonks `livescores/inplay` provider-global tek akıştır. `all` ve beş lig
+  aynı anda istense de 15 saniyelik holder-safe lease ve 5 saniyelik ortak
+  snapshot sayesinde bir provider çağrısı yapılır; sonuç gerçek
+  `providerLeagueId` ile liglere ayrılıp route çıkışında tekrar filtrelenir.
+  Kilit sahibi yenilerken doğrulanmış snapshot yoksa ikinci provider çağrısı
+  açılmaz; istemciye `503 sync_in_progress` döner ve mevcut canlı skor korunur.
+- Spor `today` ucu yalnız seçili branşın bugünkü tarihini sorgular; eski
+  `0,-1,-2,-3,-7` beş-gün fan-out'u kaldırılmıştır. Aynı branş+tarih cold-miss
+  çağrıları da keyed single-flight/shared lease ile birleşir. Sağlayıcı
+  4xx/5xx/HTML/timeout döndürürse bu durum "maç yok" diye başarıya çevrilmez
+  veya shared cache'e yazılmaz; yalnız doğrulanmış başarılı boş cevap cache'lenir.
+- Worker'a gerçek bir ağ/DNS erişim hatası olmadıkça Supabase canlı fallback'i
+  çağrılmaz. Structured `429/503` yanıtı ikinci sağlayıcı zinciri açmaz. Gerçek
+  fallback de Worker ile aynı global lock/cache anahtarlarını kullandığı için
+  provider kotasını çift tüketmez.
+
+Bu sözleşmeyi `npm run qa:demand-scope`, `npm run qa:live-architecture`,
+`npm run qa:live-quota` ve `npm run qa:hardening` korur.
+
+v313'te yayınlanan first-party istemci dosyaları (`app.css`, `app-late.css`,
 `football-hub.css`, `style-loader.js`, `initial-route.js`, `football-early.js`,
 `data.js`, `live.js`, `match-center.js`, `matchday-live.js`, `predict-game.js`,
-`ui.js`, `app-boot.js`, `ui-extras.js`, `chat.js`, `multisport.js`) aynı
-`?v=312` cache-busting
+`ui.js`, `app-boot.js`, `ui-extras.js`, `chat.js`, `multisport.js`,
+`sport-branches.js`, `motorsports.js`) aynı `?v=313` cache-busting
 sürümünü taşır. Production build ayrıca içerik hash'i üreterek bu manuel
 sürümün üzerinde ikinci bir immutable-cache güvenlik katmanı uygular.
 
@@ -589,12 +659,15 @@ Kanonik ilk-açılış API sözleşmesi:
 
 | Yüzey | Tam olarak izin verilen futbol istekleri | Yasaklanan tekrarlar |
 | --- | --- | --- |
-| `/`, `/all` (`fixture` yok) | `/api/football/home ×1`, `/api/football/live?league=all ×1` | `season=0`, `matchday=0`, `health=0`, ikinci home/live yok |
-| `/super-lig` | `/api/football/season?league=super-lig ×1`, `/api/football/live?league=super-lig ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
-| `/premier-league` | `/api/football/season?league=premier-league ×1`, `/api/football/live?league=premier-league ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
-| `/la-liga` | `/api/football/season?league=la-liga ×1`, `/api/football/live?league=la-liga ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
-| `/bundesliga` | `/api/football/season?league=bundesliga ×1`, `/api/football/live?league=bundesliga ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
-| `/serie-a` | `/api/football/season?league=serie-a ×1`, `/api/football/live?league=serie-a ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/`, `/all` (`fixture` yok) | Taze cache: `home=0`; stale/cold: `/api/football/home ×1`. Görünürken `/api/football/live?league=all ×1` | `season=0`, `matchday=0`, `health=0`, `coverage=0`, ikinci home/live yok |
+| `/super-lig` | Taze cache: `season=0`; stale/cold: `/api/football/season?league=super-lig ×1`. Görünürken kendi live isteği | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/premier-league` | Taze cache: `season=0`; stale/cold: `/api/football/season?league=premier-league ×1`. Görünürken kendi live isteği | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/la-liga` | Taze cache: `season=0`; stale/cold: `/api/football/season?league=la-liga ×1`. Görünürken kendi live isteği | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/bundesliga` | Taze cache: `season=0`; stale/cold: `/api/football/season?league=bundesliga ×1`. Görünürken kendi live isteği | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/serie-a` | Taze cache: `season=0`; stale/cold: `/api/football/season?league=serie-a ×1`. Görünürken kendi live isteği | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/predict` | Yalnız seçili lig season paketi (`all → super-lig`) | `home=0`, `live=0`, diğer lig season=0, ortak tablo fan-out'u yok |
+| `?fixture=<id>` (view değeri fark etmez) | `/api/football/matchday?fixture=<id> ×1`; hata durumunda yalnız aynı `/api/football/fixture?id=<id> ×1` | `home=0`, `season=0`, genel live=0 |
+| `/basketbol`, `/voleybol` | Yalnız görünür branş için `/api/sports/today?sport=<branş> ×1` | Diğer branş=0, football API=0, branch-nav tekrarı=0 |
 
 `/index.html` kökün, `/all` ise aggregate kapsamın uyumluluk takma adıdır.
 `?fixture=<id>` açıkça verilmedikçe matchday zinciri kurulmaz. Lig genel
@@ -607,9 +680,11 @@ Regresyon komutları:
 npm run check
 npm run qa:supabase-lazy
 npm run qa:football-ia
+npm run qa:demand-scope
 npm run qa:league-contract
 npm run qa:matchday
 npm run qa:live-architecture
+npm run qa:live-quota
 npm run qa:hardening
 npm run qa:dist
 npm run qa:responsive
@@ -624,7 +699,7 @@ tüm futbol rotalarında sıfır matchday isteği/listener sözleşmesini korur.
 
 `npm run check`; kritik CSS'in 9 KB sınırını, `football-hub.css` kapsamını,
 `app-late.css` template'inin inert kalmasını, `ui.js → ui-extras.js template →
-app-boot.js` sırasını, zorunlu boot sahipliğini ve bütün v312 cache anahtarlarını
+app-boot.js` sırasını, zorunlu boot sahipliğini ve bütün v313 cache anahtarlarını
 statik olarak denetler. `qa:responsive` withdata modu; 320, 375, 390, 768 ve
 1440 genişliklerinde kök ile beş lig genel bakışını ayrı ayrı açar. Her koşuda
 `requestedApiPaths` listesini rapora yazar; yukarıdaki kesin istek adetlerini,

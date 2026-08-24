@@ -364,9 +364,15 @@
     }, 0);
   }
   function readyHome(payload) {
+    var stillHome = function () {
+      var path = location.pathname.replace(/^\/+|\/+$/g, "");
+      var route = new URLSearchParams(location.search);
+      return (!path || path === "index.html" || path === "all") && !route.get("fixture") && !document.hidden;
+    };
     var paint = function () {
+      if (!stillHome()) return;
       if (document.getElementById("footballScoreboardHome")) render(payload);
-      else document.addEventListener("DOMContentLoaded", function () { render(payload); }, { once:true });
+      else document.addEventListener("DOMContentLoaded", function () { if(stillHome()) render(payload); }, { once:true });
     };
     var styleReady = window.__XYZ_FOOTBALL_HUB_READY__;
     if (styleReady && typeof styleReady.then === "function") styleReady.then(function () { setTimeout(paint, 0); });

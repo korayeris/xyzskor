@@ -289,6 +289,7 @@ async function main() {
           visibleLegacyLiveCenter: (()=>{ const el=document.getElementById('page-live'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
           tickerText: document.getElementById('liveTicker')?.innerText?.trim() || '',
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
+          multisportMetricsText: document.getElementById('multiSportMetrics')?.innerText || '',
           canonicalRuntime: {
             hubReady: document.getElementById('xyzFootballHubStyle')?.media === 'all',
             legacyStylesPresent: Boolean(document.getElementById('xyzLegacyStylesheet')),
@@ -325,11 +326,14 @@ async function main() {
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/sports/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: futbol/Predict akisi diger spor API ailelerine dokunmuyor`, requestedApiPaths.join(' | '));
       }
       if(MODE==='withdata'&&route.name==='anasayfa'){
+        const rootFootballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/'));
+        ok(JSON.stringify([...rootFootballPaths].sort())===JSON.stringify(['/api/football/home','/api/football/live?league=all'].sort()), `${tag}: aggregate futbol acilisi tam olarak home + all live istiyor`, rootFootballPaths.join(' | '));
         ok(requestedApiPaths.filter((path)=>path==='/api/football/home').length===1, `${tag}: bes lig tek kompakt home istegiyle geliyor`, requestedApiPaths.join(' | '));
         ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/season')||path.startsWith('/api/football/matchday')), `${tag}: aggregate kokte season/matchday tekrari yok`, requestedApiPaths.join(' | '));
         const rootLivePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/live'));
         ok(rootLivePaths.length===1&&rootLivePaths[0]==='/api/football/live?league=all', `${tag}: aggregate canli poll ilk acilista tek ve all kapsamli`, requestedApiPaths.join(' | '));
-        ok(requestedApiPaths.filter((path)=>path==='/api/health').length===1, `${tag}: saglayici saglik kontrolu tek istek`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter((path)=>path==='/api/football/coverage').length===0, `${tag}: aggregate acilis otomatik coverage istemiyor`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter((path)=>path==='/api/health').length===0, `${tag}: gorunur skor verisi disinda health istegi yok`, requestedApiPaths.join(' | '));
         ok(!metrics.visibleLegacyLiveCenter, `${tag}: kanonik vitrin disinda ikinci canli merkez yok`);
       }
       if(MODE==='withdata'&&FOOTBALL_OVERVIEW_ROUTES.has(route.name)){
@@ -338,11 +342,14 @@ async function main() {
         const homePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/home'));
         const matchdayPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/matchday'));
         const livePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/live'));
+        const leagueFootballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/'));
+        ok(JSON.stringify([...leagueFootballPaths].sort())===JSON.stringify([`/api/football/season?league=${league}`,`/api/football/live?league=${league}`].sort()), `${tag}: lig acilisi tam olarak kendi season + live kapsaminda`, leagueFootballPaths.join(' | '));
         ok(seasonPaths.length===1&&seasonPaths[0]===`/api/football/season?league=${league}`, `${tag}: lig genel bakisi yalniz kendi sezonunu bir kez istiyor`, requestedApiPaths.join(' | '));
         ok(homePaths.length===0, `${tag}: lig genel bakisi aggregate home istemiyor`, requestedApiPaths.join(' | '));
         ok(matchdayPaths.length===0, `${tag}: fixture secilmeden matchday istegi yok`, requestedApiPaths.join(' | '));
         ok(livePaths.length===1&&livePaths[0]===`/api/football/live?league=${league}`, `${tag}: lig canli poll ilk acilista yalniz kendi ligini bir kez istiyor`, requestedApiPaths.join(' | '));
-        ok(requestedApiPaths.filter((path)=>path==='/api/health').length===1, `${tag}: lig saglik kontrolu tek istek`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter((path)=>path==='/api/football/coverage').length===0, `${tag}: lig acilisi otomatik coverage istemiyor`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter((path)=>path==='/api/health').length===0, `${tag}: gorunur lig verisi disinda health istegi yok`, requestedApiPaths.join(' | '));
         ok(!metrics.visibleLegacyLiveCenter, `${tag}: lig genel bakisinda ikinci canli merkez yok`);
         ok(!/Fikstür yükleniyor/i.test(metrics.tickerText), `${tag}: veri geldikten sonra yukleniyor mesaji kalmiyor`, metrics.tickerText);
       }
@@ -350,15 +357,22 @@ async function main() {
         ok(!/Galatasaray|Beşiktaş|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
         if(MODE==='withdata') ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
         ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/')), `${tag}: arka planda futbol API'leri yuklenmiyor`, requestedApiPaths.join(' | '));
-        ok(requestedApiPaths.some((path)=>path.startsWith('/api/sports/today?sport=basketball')), `${tag}: yalniz basketbol verisi isteniyor`, requestedApiPaths.join(' | '));
+        const basketballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/sports/today'));
+        ok(basketballPaths.length===1&&basketballPaths[0].startsWith('/api/sports/today?sport=basketball'), `${tag}: basketbol verisi yalniz bir kez ve kendi scope'unda isteniyor`, requestedApiPaths.join(' | '));
+        if(MODE==='withdata') ok(/1\s*Gunluk etkinlik/i.test(metrics.multisportMetricsText), `${tag}: basketbol metrikleri ikinci fetch olmadan ortak payload ile doluyor`, metrics.multisportMetricsText);
       }
       if(route.name === 'voleybol'){
         ok(!/Anadolu Efes|Fenerbahçe Beko|Galatasaray|Beşiktaş/.test(metrics.multisportText), `${tag}: futbol ve basketbol verisi voleybola sizmiyor`, metrics.multisportText.slice(0,240));
         if(MODE==='withdata') ok(/Eczacıbaşı|VakıfBank/.test(metrics.multisportText), `${tag}: voleybol verisi gorunuyor`, metrics.multisportText.slice(0,240));
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/football/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: yalniz voleybol API ailesi kullaniliyor`, requestedApiPaths.join(' | '));
+        const volleyballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/sports/today'));
+        ok(volleyballPaths.length===1&&volleyballPaths[0].startsWith('/api/sports/today?sport=volleyball'), `${tag}: voleybol verisi yalniz bir kez ve kendi scope'unda isteniyor`, requestedApiPaths.join(' | '));
+        if(MODE==='withdata') ok(/1\s*Gunluk etkinlik/i.test(metrics.multisportMetricsText), `${tag}: voleybol metrikleri ikinci fetch olmadan ortak payload ile doluyor`, metrics.multisportMetricsText);
       }
       if(route.name === 'ufc'){
         ok(requestedApiPaths.every((path)=>path.startsWith('/api/ufc/')), `${tag}: UFC sayfasi baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));
+        const duplicateUfcPaths=[...new Set(requestedApiPaths.filter((path,index)=>requestedApiPaths.indexOf(path)!==index))];
+        ok(duplicateUfcPaths.length===0, `${tag}: UFC ayni provider endpointini iki kez istemiyor`, duplicateUfcPaths.join(' | '));
       }
       if(route.name === 'formula-1'){
         ok(requestedApiPaths.every((path)=>path.startsWith('/api/motorsports')), `${tag}: Motor Sporlari baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));

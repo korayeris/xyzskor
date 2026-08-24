@@ -164,8 +164,8 @@ async function main() {
   {
     const source = await (await import('node:fs/promises')).readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
     ok(source.includes('({ ...item, sport, provider:'), 'çoklu spor cache kaydı koleksiyon branşıyla zorla izole edilir');
-    ok(source.includes('/api/sports/today-v11?date='), 'kirli eski çoklu spor cache anahtarı geçersizleştirildi');
-    ok(source.includes('const attempts = await Promise.all([0, -1, -2, -3, -7]'), 'geçmiş gün spor sorguları seri yerine paralel çalışır');
+    ok(source.includes('/api/sports/today-v12?date='), 'demand-scope çoklu spor cache anahtarı sürümlendi');
+    ok(!source.includes('Promise.all([0, -1, -2, -3, -7]'), 'today endpointi görünmeyen geçmiş günleri toplu sorgulamaz');
   }
 
   console.log('\n=== 8) Çoklu spor API fail-closed branş sözleşmesi ===');
@@ -179,14 +179,22 @@ async function main() {
   }
   {
     const upstreamHosts = new Set();
+    let upstreamCalls = 0;
+    let requestedDate = null;
     const { status, payload } = await call('/api/sports/today?sport=basketball', (u) => {
-      upstreamHosts.add(u.hostname);
+      // Supabase ortak cache/lease kontrol duzlemidir; provider kota sayimina
+      // yalniz API-Sports veri hostlari dahildir.
+      if (u.hostname === 'supabase.test') return null;
       if(u.hostname !== 'v1.basketball.api-sports.io') throw new Error('cross_branch_upstream:' + u.hostname);
+      upstreamHosts.add(u.hostname);
+      upstreamCalls += 1;
+      requestedDate = u.searchParams.get('date');
       return json({ response:[{ id:7, teams:{ home:{ name:'Anadolu Efes' }, away:{ name:'Fenerbahçe Beko' } }, league:{ name:'Basketbol Süper Ligi' }, status:{ long:'Scheduled' } }] });
     });
     ok(status === 200, 'basketbol branş isteği başarılı');
     ok(JSON.stringify(Object.keys(payload?.sports||{})) === JSON.stringify(['basketball']), 'API yanıtı yalnız basketball anahtarını taşır', JSON.stringify(payload?.sports));
     ok([...upstreamHosts].every((host)=>host === 'v1.basketball.api-sports.io'), 'basketbol isteği yalnız basketbol sağlayıcısına gider', [...upstreamHosts].join(','));
+    ok(upstreamCalls === 1 && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate || ''), 'today isteği yalnız bugün için tek upstream çağrı yapar', `calls=${upstreamCalls} date=${requestedDate}`);
     ok((payload?.sports?.basketball||[]).every((item)=>item.sport === 'basketball'), 'yanıttaki her kayıt zorunlu basketball etiketi taşır');
   }
 
@@ -220,7 +228,266 @@ async function main() {
     ok(Array.isArray(payload?.errors) && payload.errors.length === 0, 'basarili bes lig yanitinda hata siniri temizdir', JSON.stringify(payload?.errors));
   }
 
-  console.log('\n=== 11) Statik varlik cache butunlugu ===');
+  console.log('\n=== 11) Provider kota single-flight ve kalici cache ===');
+  {
+    const quotaEnv = { ...ENV };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    let providerCalls = 0;
+    SCENARIO = async (u) => {
+      if(u.hostname !== 'api.sportmonks.com') return null;
+      providerCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 12));
+      const leagueMatch = u.pathname.match(/\/v3\/football\/leagues\/(\d+)$/);
+      if(leagueMatch) return json({ data:{ id:leagueMatch[1], name:`League ${leagueMatch[1]}`, currentSeason:{ id:`season-${leagueMatch[1]}` } } });
+      if(u.pathname.includes('/v3/football/standings/seasons/')) return json({ data:[] });
+      if(u.pathname.includes('/v3/football/schedules/seasons/')) return json({ data:[] });
+      throw new Error('unexpected_provider_path:' + u.pathname);
+    };
+    const responses = await Promise.all(Array.from({ length:12 }, () => worker.fetch(new Request('http://localhost/api/football/season?league=serie-a'), quotaEnv, ctx)));
+    ok(responses.every((response) => response.status === 200), 'ayni lig icin eszamanli season istekleri basarili', responses.map((response)=>response.status).join(','));
+    ok(providerCalls === 3, '12 eszamanli season istegi tek provider zincirini paylasir', `calls=${providerCalls}`);
+  }
+  {
+    const quotaEnv = { ...ENV };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    let providerCalls = 0;
+    SCENARIO = async (u) => {
+      if(u.hostname !== 'api.sportmonks.com') return null;
+      providerCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 12));
+      const leagueMatch = u.pathname.match(/\/v3\/football\/leagues\/(\d+)$/);
+      if(leagueMatch) return json({ data:{ id:leagueMatch[1], name:`League ${leagueMatch[1]}`, currentSeason:{ id:`season-${leagueMatch[1]}` } } });
+      if(u.pathname.includes('/v3/football/standings/seasons/')) return json({ data:[] });
+      if(u.pathname.includes('/v3/football/schedules/seasons/')) return json({ data:[] });
+      throw new Error('unexpected_provider_path:' + u.pathname);
+    };
+    const responses = await Promise.all(Array.from({ length:10 }, () => worker.fetch(new Request('http://localhost/api/football/home'), quotaEnv, ctx)));
+    ok(responses.every((response) => response.status === 200), 'eszamanli home istekleri basarili', responses.map((response)=>response.status).join(','));
+    ok(providerCalls === 15, '10 eszamanli home istegi bes liglik zinciri yalniz bir kez calistirir', `calls=${providerCalls}`);
+  }
+  {
+    let storedSharedRow = null;
+    let providerCalls = 0;
+    SCENARIO = async (u, init = {}) => {
+      if(u.hostname === 'supabase.test' && u.pathname === '/rest/v1/live_feed_cache') {
+        if(String(init.method || 'GET').toUpperCase() === 'POST') {
+          const body = JSON.parse(String(init.body || '{}'));
+          storedSharedRow = { payload:body.payload, fetched_at:body.fetched_at, expires_at:body.expires_at };
+          return json([]);
+        }
+        return json(storedSharedRow ? [storedSharedRow] : []);
+      }
+      if(u.hostname === 'supabase.test' && u.pathname === '/rest/v1/rpc/try_acquire_sync_lock') return json(true);
+      if(u.hostname === 'api.sportmonks.com') {
+        providerCalls += 1;
+        const leagueMatch = u.pathname.match(/\/v3\/football\/leagues\/(\d+)$/);
+        if(leagueMatch) return json({ data:{ id:leagueMatch[1], name:'Premier League', currentSeason:{ id:'season-8' } } });
+        if(u.pathname.includes('/v3/football/standings/seasons/')) return json({ data:[] });
+        if(u.pathname.includes('/v3/football/schedules/seasons/')) return json({ data:[] });
+      }
+      throw new Error('unexpected_shared_cache_path:' + u.toString());
+    };
+    const first = await worker.fetch(new Request('http://localhost/api/football/season?league=premier-league'), ENV, ctx);
+    const second = await worker.fetch(new Request('http://localhost/api/football/season?league=premier-league'), ENV, ctx);
+    ok(first.status === 200 && second.status === 200, 'kalici season snapshot ardisik isteklerde kullanilir', `${first.status}/${second.status}`);
+    ok(providerCalls === 3 && second.headers.get('x-data-cache') === 'shared-cache', 'ikinci isolate-benzeri cache miss provider yerine live_feed_cache okur', `calls=${providerCalls} cache=${second.headers.get('x-data-cache')}`);
+  }
+
+  console.log('\n=== 12) Gorunen bransta demand single-flight ve paylasilan lease ===');
+  {
+    const quotaEnv = { ...ENV };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    let upstreamCalls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname !== 'v1.basketball.api-sports.io') throw new Error('unexpected_multisport_host:' + u.hostname);
+      upstreamCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return json({ response:[{ id:701, teams:{ home:{ name:'A' }, away:{ name:'B' } }, league:{ name:'BSL' }, status:{ long:'Scheduled' } }] });
+    };
+    const responses = await Promise.all(Array.from({ length:20 }, () => worker.fetch(
+      new Request('http://localhost/api/sports/today?sport=basketball'), quotaEnv, ctx
+    )));
+    ok(responses.every((response) => response.status === 200), '20 paralel ayni basketbol kapsami basarili', responses.map((response) => response.status).join(','));
+    ok(upstreamCalls === 1, '20 paralel ayni sport+date yalniz bir upstream cagirir', `calls=${upstreamCalls}`);
+  }
+  {
+    const quotaEnv = { ...ENV };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    const calls = { basketball:0, volleyball:0 };
+    SCENARIO = async (u) => {
+      const sport = u.hostname.startsWith('v1.basketball.') ? 'basketball'
+        : u.hostname.startsWith('v1.volleyball.') ? 'volleyball'
+          : null;
+      if (!sport) throw new Error('unexpected_multisport_host:' + u.hostname);
+      calls[sport] += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return json({ response:[{ id:sport === 'basketball' ? 702 : 703, teams:{ home:{ name:'A' }, away:{ name:'B' } }, league:{ name:sport }, status:{ long:'Scheduled' } }] });
+    };
+    const paths = [
+      ...Array.from({ length:10 }, () => '/api/sports/today?sport=basketball'),
+      ...Array.from({ length:10 }, () => '/api/sports/today?sport=volleyball'),
+    ];
+    const responses = await Promise.all(paths.map((path) => worker.fetch(new Request('http://localhost' + path), quotaEnv, ctx)));
+    const payloads = await Promise.all(responses.map((response) => response.json()));
+    ok(calls.basketball === 1 && calls.volleyball === 1, 'basketbol ve voleybol bagimsiz keyed single-flight kullanir', JSON.stringify(calls));
+    ok(payloads.slice(0, 10).every((payload) => Object.keys(payload.sports || {}).join() === 'basketball')
+      && payloads.slice(10).every((payload) => Object.keys(payload.sports || {}).join() === 'volleyball'),
+    'farkli bransta payload izolasyonu korunur');
+  }
+  {
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Istanbul', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+    const sharedPayload = {
+      source:'api-sports-free', date, updatedAt:new Date().toISOString(),
+      sports:{ basketball:[{ id:704, sport:'basketball', provider:'api-sports' }] },
+      coverage:{ basketball:1 },
+    };
+    const sharedRow = {
+      payload:{ version:1, identity:`basketball:${date}`, value:sharedPayload },
+      fetched_at:new Date().toISOString(),
+      expires_at:new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    };
+    let sharedReads = 0;
+    let upstreamCalls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/live_feed_cache') {
+        sharedReads += 1;
+        return json(sharedReads === 1 ? [] : [sharedRow]);
+      }
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/rpc/try_acquire_sync_lock') return json(false);
+      if (u.hostname.endsWith('.api-sports.io')) { upstreamCalls += 1; return json({ response:[] }); }
+      throw new Error('unexpected_locked_demand_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/sports/today?sport=basketball'), ENV, ctx);
+    const payload = await response.clone().json();
+    ok(response.status === 200 && response.headers.get('x-data-cache') === 'shared-cache-locked', 'baska isolate lock sahibiyken yazilan ortak cache sunulur', `status=${response.status} cache=${response.headers.get('x-data-cache')}`);
+    ok(upstreamCalls === 0 && payload?.sports?.basketball?.[0]?.id === 704, 'lock kaybeden isolate ikinci upstream acmaz', `calls=${upstreamCalls}`);
+  }
+  {
+    let storedSharedRow = null;
+    let upstreamCalls = 0;
+    let lockCalls = 0;
+    SCENARIO = async (u, init = {}) => {
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/live_feed_cache') {
+        if (String(init.method || 'GET').toUpperCase() === 'POST') {
+          const body = JSON.parse(String(init.body || '{}'));
+          storedSharedRow = { payload:body.payload, fetched_at:body.fetched_at, expires_at:body.expires_at };
+          return json([]);
+        }
+        return json(storedSharedRow ? [storedSharedRow] : []);
+      }
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/rpc/try_acquire_sync_lock') {
+        lockCalls += 1;
+        return json(true);
+      }
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/sync_locks') return json([]);
+      if (u.hostname === 'v1.basketball.api-sports.io') {
+        upstreamCalls += 1;
+        return json({ response:[{ id:705, teams:{ home:{ name:'A' }, away:{ name:'B' } }, league:{ name:'BSL' }, status:{ long:'Scheduled' } }] });
+      }
+      throw new Error('unexpected_demand_holder_path:' + u.toString());
+    };
+    const first = await worker.fetch(new Request('http://localhost/api/sports/today?sport=basketball'), ENV, ctx);
+    const second = await worker.fetch(new Request('http://localhost/api/sports/today?sport=basketball'), ENV, ctx);
+    ok(first.status === 200 && second.status === 200, 'lease sahibi ortak cache yazdiktan sonra ardil istek basarili');
+    ok(upstreamCalls === 1 && lockCalls === 1 && second.headers.get('x-data-cache') === 'shared-cache',
+      'holder yolu tek upstream yapar; sonraki isolate ortak cache okur', `upstream=${upstreamCalls} locks=${lockCalls} cache=${second.headers.get('x-data-cache')}`);
+  }
+  {
+    let upstreamCalls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/live_feed_cache') return json([]);
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/rpc/try_acquire_sync_lock') return json(false);
+      if (u.hostname.endsWith('.api-sports.io')) { upstreamCalls += 1; return json({ response:[] }); }
+      throw new Error('unexpected_locked_empty_demand_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/sports/today?sport=volleyball'), ENV, ctx);
+    const payload = await response.json();
+    ok(response.status === 503 && payload?.error === 'provider_refresh_in_progress', 'lock sahibi henuz cache yazmadiysa acik sync-in-progress doner');
+    ok(upstreamCalls === 0, 'lock kaybeden ve cache bulamayan isolate yine upstream acmaz', `calls=${upstreamCalls}`);
+  }
+  {
+    const quotaEnv = { ...ENV };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    const cases = [
+      { label:'4xx', expected:502, response:() => json({ message:'Bad Request' }, 400) },
+      { label:'429', expected:429, response:() => json({ message:'Rate limit' }, 429, { 'Retry-After':'45' }) },
+      { label:'HTML', expected:502, response:() => html(200) },
+      { label:'timeout', expected:502, response:() => { throw new DOMException('aborted', 'AbortError'); } },
+    ];
+    for (const testCase of cases) {
+      SCENARIO = async (u) => {
+        if (u.hostname === 'v1.basketball.api-sports.io') return testCase.response();
+        throw new Error('unexpected_multisport_failure_host:' + u.hostname);
+      };
+      const response = await worker.fetch(new Request('http://localhost/api/sports/today?sport=basketball'), quotaEnv, ctx);
+      const payload = await response.json();
+      ok(response.status === testCase.expected, `${testCase.label} + latest cache yok -> acik ${testCase.expected}`, `status=${response.status}`);
+      ok(!payload?.sports, `${testCase.label} provider hatasi bos sports:[] 200 olarak maskelenmez`, JSON.stringify(payload));
+    }
+  }
+  {
+    let sharedCacheWrites = 0;
+    SCENARIO = async (u, init = {}) => {
+      const method = String(init.method || 'GET').toUpperCase();
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/live_feed_cache') {
+        if (method === 'POST') sharedCacheWrites += 1;
+        return json([]);
+      }
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/rpc/try_acquire_sync_lock') return json(true);
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/sync_locks') return json([]);
+      if (u.hostname === 'v1.volleyball.api-sports.io') return json({ message:'provider down' }, 500);
+      throw new Error('unexpected_multisport_500_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/sports/today?sport=volleyball'), ENV, ctx);
+    const payload = await response.json();
+    ok(response.status === 502 && payload?.error === 'api_sports_upstream_unavailable', '5xx + latest/shared cache yok -> 502');
+    ok(sharedCacheWrites === 0, 'provider 5xx bos basari payloadi olarak persistent cachee yazilmaz', `writes=${sharedCacheWrites}`);
+  }
+  {
+    let sharedCacheWrites = 0;
+    SCENARIO = async (u, init = {}) => {
+      const method = String(init.method || 'GET').toUpperCase();
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/live_feed_cache') {
+        if (method === 'POST') sharedCacheWrites += 1;
+        return json([]);
+      }
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/rpc/try_acquire_sync_lock') return json(true);
+      if (u.hostname === 'supabase.test' && u.pathname === '/rest/v1/sync_locks') return json([]);
+      if (u.hostname === 'v1.volleyball.api-sports.io') return json({ errors:{}, response:[] });
+      throw new Error('unexpected_multisport_empty_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/sports/today?sport=volleyball'), ENV, ctx);
+    const payload = await response.json();
+    ok(response.status === 200 && Array.isArray(payload?.sports?.volleyball) && payload.sports.volleyball.length === 0,
+      'dogrulanmis 2xx JSON response=[] gercek bos sonuc olarak kabul edilir');
+    ok(sharedCacheWrites === 1, 'yalniz dogrulanmis bos provider cevabi persistent cachee yazilabilir', `writes=${sharedCacheWrites}`);
+  }
+  {
+    const quotaEnv = { ...ENV, CITO_API_KEY:'cito-key', OCBLACKTOP_API_KEY:'blacktop-key' };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    const calls = { ufc:0, motorsports:0 };
+    SCENARIO = async (u) => {
+      if (u.hostname === 'api.citoapi.com') {
+        calls.ufc += 1;
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        return json({ events:[{ id:'ufc-1' }] });
+      }
+      if (u.hostname === 'api.ocblacktop.com') {
+        calls.motorsports += 1;
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        return json({ drivers:[{ id:'driver-1' }] });
+      }
+      throw new Error('unexpected_optional_demand_host:' + u.hostname);
+    };
+    const responses = await Promise.all([
+      ...Array.from({ length:10 }, () => worker.fetch(new Request('http://localhost/api/ufc?resource=upcoming'), quotaEnv, ctx)),
+      ...Array.from({ length:10 }, () => worker.fetch(new Request('http://localhost/api/motorsports?sport=formula-1&resource=drivers'), quotaEnv, ctx)),
+    ]);
+    ok(responses.every((response) => response.status === 200), 'UFC upcoming ve motorspor proxy paralel cold-miss yanitlari basarili');
+    ok(calls.ufc === 1 && calls.motorsports === 1, 'UFC ve motorspor cold-missleri de scope basina tek upstream kullanir', JSON.stringify(calls));
+  }
+
+  console.log('\n=== 13) Statik varlik cache butunlugu ===');
   {
     const versioned = await worker.fetch(new Request('http://localhost/assets/js/app.js?v=release-hash'), ENV, ctx);
     const unversioned = await worker.fetch(new Request('http://localhost/assets/img/team.webp'), ENV, ctx);

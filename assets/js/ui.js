@@ -176,12 +176,12 @@ function renderAccountContent(){
   const teamSelect=document.getElementById('accountTeamSelect'); const teamSave=document.getElementById('accountTeamSave');
   if(teamSelect && teamSave && !u.team_changed){
     teamSelect.onchange=()=>{ teamSave.disabled=teamSelect.value===u.team; };
-    teamSave.onclick=async()=>{ if(await changeTeam(teamSelect.value)){ await loadAllData(); renderAll(); renderAccountContent(); } };
+    teamSave.onclick=async()=>{ if(await changeTeam(teamSelect.value)){ await refreshAccountContext(); refreshVisibleAccountViews(); } };
   }
   if(u.is_admin) document.getElementById('accountAdmin').onclick = () => { closeAccount(); switchMainTab('predict'); switchLeagueSection('admin'); };
   document.getElementById('accountPredictShortcut').onclick = () => { closeAccount(); switchMainTab('predict'); window.scrollTo({top:0,behavior:'smooth'}); };
   if(u.is_admin) initMemberAdminConsole();
-  document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await loadAllData(); renderAll(); };
+  document.getElementById('accountLogout').onclick = async () => { closeAccount(); await logoutUser(); await refreshAccountContext(); refreshVisibleAccountViews(); };
 }
 function openAccount(){
   if(typeof ensureXYZSupabaseClient==='function') ensureXYZSupabaseClient().catch(()=>{});
@@ -192,6 +192,13 @@ function openAccount(){
 function refreshAccountPresentation(){
   renderNav();
   if(document.getElementById('accountOverlay')?.classList.contains('show')) renderAccountContent();
+}
+function refreshVisibleAccountViews(){
+  refreshAccountPresentation();
+  if(!document.body.classList.contains('predict-product-open')) return;
+  if(typeof renderProgress==='function') renderProgress();
+  if(typeof renderRewards==='function') renderRewards();
+  if(typeof renderProfile==='function') renderProfile();
 }
 window.addEventListener('xyz:supabase-ready',refreshAccountPresentation);
 window.addEventListener('xyz:auth-context-ready',refreshAccountPresentation);
@@ -266,7 +273,7 @@ document.getElementById('authSubmit').onclick = async () => {
   if(res.pending){ errEl.textContent = res.message; errEl.style.color = 'var(--ok)'; errEl.classList.add('show'); const resendButton=document.getElementById('authResend'); if(resendButton) resendButton.hidden=false; return; }
   errEl.style.color = '';
   closeAuth();
-  await loadAllData(); renderAll();
+  await refreshAccountContext(); refreshVisibleAccountViews();
 };
 document.getElementById('authResend').onclick = async () => {
   const button=document.getElementById('authResend');
@@ -340,6 +347,9 @@ function setFootballOverviewChromeHidden(hidden){
 function openFootballSection(section, button, updateUrl){
   const valid=['home','matches','news','clubs','transfers','standings'];
   activeFootballSection=valid.includes(section)?section:'home';
+  if(!(activeFootballSection==='transfers'&&activeFootballLeague==='all')){
+    abortLeagueTransferRequestsExcept(['home','transfers'].includes(activeFootballSection)?activeFootballLeague:null);
+  }
   const dedicated=activeFootballSection!=='home';
   const views={matches:'footballMatchesView',news:'footballNewsView',clubs:'footballClubsView',transfers:'footballTransfersView',standings:'footballStandingsView'};
   if(dedicated&&!document.getElementById(views[activeFootballSection])){
@@ -372,6 +382,7 @@ function openFootballSection(section, button, updateUrl){
   }[activeFootballSection];
   if(renderActiveView) renderActiveView();
   if(updateUrl!==false && typeof updatePath==='function' && typeof buildFootballPath==='function') updatePath(buildFootballPath(activeFootballLeague, activeFootballSection, activeTransferCenterTab));
+  if(['home','matches'].includes(activeFootballSection)) startLiveFeed(); else stopLiveFeed();
   const target=dedicated ? document.getElementById(views[activeFootballSection]) : document.getElementById('footballOverviewView');
   if(target) requestAnimationFrame(()=>target.scrollIntoView({behavior:'smooth',block:'start'}));
 }
@@ -605,6 +616,19 @@ function setTransferClubFilter(team){
 const TRANSFER_PLAYER_PHOTOS=Object.freeze({});
 const leagueTransferCache=new Map();
 const leagueTransferRequests=new Map();
+const leagueTransferControllers=new Map();
+function abortLeagueTransferRequestsExcept(leagueKey){
+  leagueTransferControllers.forEach((controller,scope)=>{
+    if(leagueKey&&scope===leagueKey) return;
+    controller.abort();
+    leagueTransferControllers.delete(scope);
+    leagueTransferRequests.delete(scope);
+  });
+}
+if(typeof window!=='undefined') window.addEventListener('xyz:football-league-change',event=>{
+  const nextLeague=event?.detail?.league;
+  abortLeagueTransferRequestsExcept(nextLeague&&nextLeague!=='all'?nextLeague:null);
+});
 function leagueTeamNamesForKey(leagueKey){
   if(!leagueKey || leagueKey==='all') return [];
   const teamSet=new Set();
@@ -678,7 +702,9 @@ function requestLeagueTransferFeed(leagueKey){
   if(leagueTransferCache.has(leagueKey)) return Promise.resolve(true);
   if(leagueTransferRequests.has(leagueKey)) return leagueTransferRequests.get(leagueKey);
   const teams=leagueTeamNamesForKey(leagueKey).slice(0,80).join('|');
-  const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}`,{headers:{Accept:'application/json'},cache:'no-store'})
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  if(controller) leagueTransferControllers.set(leagueKey,controller);
+  const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal})
     .then(async response=>{
       const payload=await response.json().catch(()=>({}));
       if(!response.ok || payload?.league!==leagueKey) throw new Error(payload?.error||'transfer_feed_scope_mismatch');
@@ -691,10 +717,14 @@ function requestLeagueTransferFeed(leagueKey){
       return true;
     })
     .catch(error=>{
+      if(error?.name==='AbortError') return false;
       leagueTransferCache.set(leagueKey,{confirmed:[],rumours:[],errors:[{message:error.message||'transfer_feed_unavailable'}],updatedAt:new Date().toISOString()});
       return false;
     })
-    .finally(()=>leagueTransferRequests.delete(leagueKey));
+    .finally(()=>{
+      if(leagueTransferRequests.get(leagueKey)===request) leagueTransferRequests.delete(leagueKey);
+      if(leagueTransferControllers.get(leagueKey)===controller) leagueTransferControllers.delete(leagueKey);
+    });
   leagueTransferRequests.set(leagueKey,request);
   return request;
 }
@@ -721,12 +751,12 @@ function renderHistoricStandings(){
 function renderTransferCenter(){
   const area=document.getElementById('transferCenterList');
   const summary=document.getElementById('transferCenterSummary');
-  if(!area || !summary) return;
+  if(!area || !summary || activeFootballSection!=='transfers') return;
   renderTransferCenterFilters();
   if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>item.key!=='all').every(item=>leagueTransferCache.has(item.key))){
     summary.innerHTML=`<strong>Tüm ligler transfer merkezi</strong><span>Seçili liglerin transfer ve söylenti kayıtları kontrol ediliyor.</span>`;
     area.innerHTML=`<div class="league-scoped-empty transfer-provider-empty is-loading"><span>Tümü</span><strong>Lig bazlı transfer verileri çekiliyor</strong><p>Seçili liglerin resmî işlem, görüşme ve söylenti kayıtları aynı merkezde toplanacak.</p></div><div class="transfer-signal-shell" data-transfer-signals></div>`;
-    ensureAllLeagueTransferFeeds().then(()=>{ if(activeFootballLeague==='all') renderTransferCenter(); });
+    ensureAllLeagueTransferFeeds().then(()=>{ if(activeFootballLeague==='all'&&activeFootballSection==='transfers') renderTransferCenter(); });
     renderTransferSignals(area.querySelector('[data-transfer-signals]'));
     return;
   }
@@ -735,7 +765,7 @@ function renderTransferCenter(){
     const requestedLeague=activeFootballLeague;
     summary.innerHTML=`<strong>${escapeHTML(label)} transfer merkezi</strong><span>Sportmonks transfer ve söylenti kayıtları kontrol ediliyor.</span>`;
     area.innerHTML=`<div class="league-scoped-empty transfer-provider-empty is-loading"><span>${escapeHTML(label)}</span><strong>Canlı transfer verisi çekiliyor</strong><p>Oyuncu fotoğrafı, kulüp rotası, ücret ve kaynak alanları gerçek veri geldikçe burada görünecek.</p></div><div class="transfer-signal-shell" data-transfer-signals></div>`;
-    ensureLeagueTransferFeed().then(()=>{ if(activeFootballLeague===requestedLeague) renderTransferCenter(); });
+    ensureLeagueTransferFeed().then(()=>{ if(activeFootballLeague===requestedLeague&&activeFootballSection==='transfers') renderTransferCenter(); });
     renderTransferSignals(area.querySelector('[data-transfer-signals]'));
     return;
   }
@@ -796,8 +826,6 @@ function applyFootballLeagueTheme(){
 }
 function renderFootballLeaguePickerInto(area){
   if(!area) return;
-  const coverageWasLoaded=Boolean(FOOTBALL_COVERAGE_CACHE?.expiresAt>Date.now());
-  if(!coverageWasLoaded) loadFootballCoverage().then(result=>{ if(result) renderMatchesLeagueFilters(); });
   applyFootballLeagueTheme();
   const commandTitle=document.getElementById('footballLeagueCommandTitle');
   if(commandTitle) commandTitle.textContent=competitionLabelBySlug(activeFootballLeague);
@@ -1547,11 +1575,6 @@ async function renderYouTubeMedia(){
 function renderFootballTransfers(){
   const area=document.getElementById('footballTransferStream'); if(!area) return;
   const signalShellMarkup=`<div class="transfer-signal-shell" data-transfer-signals></div>`;
-  if(activeFootballLeague==='all' && !SELECTED_COMPETITIONS.filter(item=>item.key!=='all').every(item=>leagueTransferCache.has(item.key))){
-    ensureAllLeagueTransferFeeds().then(()=>renderFootballTransfers());
-  }else if(activeFootballLeague!=='all' && !leagueTransferCache.has(activeFootballLeague)){
-    ensureLeagueTransferFeed().then(()=>renderFootballTransfers());
-  }
   if(activeFootballLeague!=='all'){
     const label=competitionLabelBySlug(activeFootballLeague);
     const rows=leagueTransferRecords('confirmed').slice(0,6);
@@ -1724,15 +1747,49 @@ function scheduleFootballLazyModule(key,targetId,loader){
   footballLazyModuleObservers.get(key)?.disconnect();
   const run=()=>{ if(target.dataset.lazySignature===signature) loader(); };
   if(typeof IntersectionObserver!=='function'){
-    setTimeout(run,0);
+    // Eski tarayıcı yedeği de gizli bloğu önden çağırmaz. Scroll/resize ile
+    // yalnız gerçek viewport kesişmesi oluştuğunda aynı loader çalışır.
+    let stopped=false;
+    const cleanup=()=>{
+      if(stopped) return;
+      stopped=true;
+      window.removeEventListener('scroll',check);
+      window.removeEventListener('resize',check);
+    };
+    const check=()=>{
+      if(stopped||!target.isConnected) return;
+      const rect=target.getBoundingClientRect?.();
+      const viewportHeight=window.innerHeight||document.documentElement?.clientHeight||0;
+      if(!rect||rect.bottom<0||rect.top>viewportHeight) return;
+      cleanup(); footballLazyModuleObservers.delete(key); run();
+    };
+    footballLazyModuleObservers.set(key,{disconnect:cleanup});
+    window.addEventListener('scroll',check,{passive:true});
+    window.addEventListener('resize',check);
+    setTimeout(check,0);
     return;
   }
   const observer=new IntersectionObserver(entries=>{
     if(!entries.some(entry=>entry.isIntersecting)) return;
     observer.disconnect(); footballLazyModuleObservers.delete(key); run();
-  },{rootMargin:'600px 0px'});
+  // Sağlayıcı kotası için önden 600 px prefetch yapma: transfer verisi ancak
+  // kullanıcı blok gerçekten viewport'a girdiğinde bu görünümün sahibi olur.
+  },{rootMargin:'0px',threshold:0.01});
   footballLazyModuleObservers.set(key,observer);
   observer.observe(target);
+}
+function scheduleLeagueOverviewTransferFeed(root,leagueKey){
+  if(!root||activeFootballLeague!==leagueKey||activeFootballSection!=='home'||leagueTransferCache.has(leagueKey)) return;
+  const target=root.querySelector('.league-overview-lower');
+  if(!target) return;
+  target.id='leagueOverviewLower';
+  if(!leagueTransferRequests.has(leagueKey)) delete target.dataset.lazySignature;
+  scheduleFootballLazyModule(`league-overview-transfer-${leagueKey}`,target.id,async()=>{
+    if(activeFootballLeague!==leagueKey||activeFootballSection!=='home'||!root.isConnected) return;
+    await requestLeagueTransferFeed(leagueKey);
+    if(activeFootballLeague!==leagueKey||activeFootballSection!=='home'||!root.isConnected) return;
+    if(target.childElementCount) target.innerHTML=leagueOverviewLowerHTML();
+  });
 }
 function footballHomeMatchState(match){
   const result=match.result || (typeof getResult==='function' ? getResult(match.id) : null);
@@ -2044,7 +2101,11 @@ function renderFootballLeagueOverview(){
           const metricsRoot=root.querySelector('.league-overview-metrics'); if(metricsRoot) metricsRoot.innerHTML=leagueOverviewMetricCards(rows);
           deferOverviewTask(()=>{
             if(!stillCurrent()) return;
-            const lowerRoot=root.querySelector('.league-overview-lower'); if(lowerRoot) lowerRoot.innerHTML=leagueOverviewLowerHTML();
+            const lowerRoot=root.querySelector('.league-overview-lower');
+            if(lowerRoot){
+              lowerRoot.innerHTML=leagueOverviewLowerHTML();
+              scheduleLeagueOverviewTransferFeed(root,leagueKey);
+            }
           },0);
         },120);
       };
@@ -2078,11 +2139,6 @@ function renderFootballLeagueOverview(){
       },0);
     },0);
   },0);
-  if(!leagueTransferCache.has(leagueKey)) requestLeagueTransferFeed(leagueKey).then(()=>{
-    if(activeFootballLeague!==leagueKey||activeFootballSection!=='home') return;
-    const lowerRoot=root.querySelector('.league-overview-lower');
-    if(lowerRoot?.childElementCount) lowerRoot.innerHTML=leagueOverviewLowerHTML();
-  });
 }
 function renderFootballHome(){
   if(activeFootballLeague==='all'){ renderFootballScoreboardHome(); return; }
@@ -2599,7 +2655,7 @@ function renderRewards(){
     const inputs = adminPanel.querySelectorAll('.rewardInput'); const newRewards = JSON.parse(JSON.stringify(REWARDS));
     inputs.forEach(inp => { const t = inp.dataset.team, s = parseInt(inp.dataset.sira); newRewards[t][s-1].aciklama = inp.value; });
     const ok = await saveRewardsData(newRewards);
-    if(ok){ await loadAllData(); renderRewards(); }
+    if(ok){ REWARDS=newRewards; renderRewards(); }
     const st = document.getElementById('rewardStatus'); if(st){ st.textContent=ok?'Kaydedildi.':'Kaydedilemedi; yetkini ve bağlantını kontrol et.'; st.classList.add('show'); }
   };
 }
@@ -2659,7 +2715,7 @@ function renderProfile(){
   const teamSelect = document.getElementById('teamChangeSelect');
   if(btn && teamSelect && !u.team_changed){
     teamSelect.onchange = () => { btn.disabled = teamSelect.value===u.team; };
-    btn.onclick = async () => { const newTeam = teamSelect.value; if(await changeTeam(newTeam)){ await loadAllData(); renderAll(); } };
+    btn.onclick = async () => { const newTeam = teamSelect.value; if(await changeTeam(newTeam)){ await refreshAccountContext(); refreshVisibleAccountViews(); } };
   }
 }
 
@@ -2680,7 +2736,7 @@ if(adminSaveBtn) adminSaveBtn.onclick = async () => {
   const statusEl = document.getElementById('adminStatus');
   if(homeRaw==='' || awayRaw==='' || !Number.isInteger(home) || !Number.isInteger(away) || home<0 || away<0 || home>99 || away>99){ statusEl.textContent='0 ile 99 arasında geçerli skor gir.'; statusEl.classList.add('show'); return; }
   const ok = await setResult(matchId, home, away);
-  if(ok){ await loadAllData(); renderAll(); }
+  if(ok){ ALL_RESULTS[matchId]={home,away,scoredAt:Date.now()}; renderAll(); }
   const nextStatusEl = document.getElementById('adminStatus');
   nextStatusEl.textContent = ok ? 'Sonuç kaydedildi, puanlar yeniden hesaplandı.' : 'Kaydedilemedi (yetkin yok olabilir).';
   nextStatusEl.classList.add('show');
@@ -2769,13 +2825,23 @@ async function boot(){
   }
   document.getElementById('navRight').innerHTML = `<span class="mono" style="font-size:14px;color:var(--ink-dim);">Yükleniyor…</span>`;
   const initialParsed = typeof parseAppLocation==='function' ? parseAppLocation() : parseHash();
+  const explicitFixture=Boolean(new URLSearchParams(location.search).get('fixture'));
+  const predictOnlyBoot=productRoot==='predict';
   if(!(initialParsed && initialParsed.type==='football-route' && initialParsed.league==='all')) renderSkeletons();
   lastLoadError = null;
   try{
     const parsed = initialParsed;
-    if(parsed && parsed.type==='football-route') activeFootballLeague = parsed.league || 'super-lig';
-    const fastFootballBoot=Boolean(parsed && (parsed.type==='football-route'||parsed.type==='match'));
-    if(fastFootballBoot && typeof loadFootballCriticalData==='function') await loadFootballCriticalData();
+    if(parsed && parsed.type==='football-route'){
+      activeFootballLeague = parsed.league || 'super-lig';
+      activeFootballSection = parsed.section || 'home';
+    }
+    const matchOnlyBoot=explicitFixture||parsed?.type==='match';
+    const fastFootballBoot=Boolean(!explicitFixture&&parsed&&parsed.type==='football-route');
+    if(matchOnlyBoot||predictOnlyBoot){
+      // Matchday ve Predict kendi gorunen, dar veri akislarinin sahibidir;
+      // arkadaki football home/common zinciri bu rotalarda baslatilmaz.
+    }
+    else if(fastFootballBoot && typeof loadFootballCriticalData==='function') await loadFootballCriticalData();
     else await loadAllData();
     lastLoadError = null;
     const weeks = getAvailableWeeks();
@@ -2793,15 +2859,11 @@ async function boot(){
     }
     else if(parsed && parsed.type==='football-section'){ switchMainTab('football',false); if(parsed.value==='transfers') setTransferCenterTab(parsed.sub||'confirmed',null,false); openFootballSection(parsed.value,null,false); }
     else if(parsed && parsed.type==='product'){ switchMainTab(parsed.value, false); if(parsed.value==='predict') switchLeagueSection(parsed.section||'predict',false); }
-    if(fastFootballBoot){
-      const hydrateLeague=activeFootballLeague;
-      // Hesap ve ortak tablolar futbolun ilk boyamasini engellemez. Arka plan
-      // hydrasyonu ayni ligde kaldigimiz surece yalniz ilgili gorunumu tazeler.
-      Promise.resolve().then(()=>loadAllData()).then(ok=>{
-        if(!ok||activeFootballLeague!==hydrateLeague) return;
-        setTimeout(renderNav,0);
-        if(activeFootballSection==='home'&&activeFootballLeague!=='all') setTimeout(renderFootballHome,0);
-      }).catch(error=>console.warn('[XYZSkor arka plan verisi]',error));
+    if(fastFootballBoot||matchOnlyBoot||predictOnlyBoot){
+      // Ilk futbol boyamasindan sonra yalniz navigasyon icin gereken oturum ve
+      // kullanicinin kendi profili hydrate edilir. Predict, odul ve ortak
+      // tablolar kendi gorunumleri acilmadan sorgulanmaz.
+      Promise.resolve().then(()=>loadAccountContext()).catch(error=>console.warn('[XYZSkor hesap baglami]',error));
     }
   }catch(e){
     console.error('[XYZSkor] boot() veri yükleme başarısız:', e);

@@ -165,13 +165,25 @@ async function loadFootballLeagueSelection(leagueKey){
   if(typeof window!=='undefined' && typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:football-league-change',{detail:{league:requestedLeague}}));
   activeFootballTeam='Tümü';
   DATA_ERRORS={};
+  if(typeof document!=='undefined'&&document.body?.classList?.contains('predict-product-open')){
+    try{
+      await loadPredictChallengeSelection();
+      if(activeFootballLeague!==requestedLeague) return false;
+      if(document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
+      if(typeof renderMatchesLeagueFilters==='function') renderMatchesLeagueFilters();
+      return true;
+    }catch(error){
+      if(document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
+      DATA_ERRORS.provider=error?.message||'Tahmin fiksturu yenilenemedi.';
+      return false;
+    }
+  }
   // Yeni lig yaniti gelene kadar mevcut DOM korunur. Onceki akis tum veriyi
   // sifirlayip bos ekran render ettigi icin ag gecikmesini kullaniciya yansitiyordu.
   if(typeof renderTicker==='function') renderTicker();
   // Coverage yardımcı kontrolü ile gerçek lig verisi birbirinden bağımsızdır.
   // İkisini seri bekletmek yerine aynı anda başlatırız.
   try{
-    const coveragePromise=loadFootballCoverage().catch(()=>null);
     const dataPromise=typeof loadFootballCriticalData==='function' ? loadFootballCriticalData() : loadAllData();
     await dataPromise;
     if(activeFootballLeague!==requestedLeague) return false;
@@ -186,13 +198,6 @@ async function loadFootballLeagueSelection(leagueKey){
     if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
     if(typeof renderFootballLeagueScope==='function') renderFootballLeagueScope();
     else if(typeof renderAll==='function') renderAll();
-    coveragePromise.then(()=>{
-      if(activeFootballLeague!==requestedLeague || MATCHES.length) return;
-      if(footballCoverageUnavailable(requestedLeague)){
-        DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
-        if(typeof renderAll==='function') renderAll();
-      }
-    });
     return true;
   }catch(error){
     if(activeFootballLeague!==requestedLeague) return false;
@@ -489,6 +494,10 @@ async function verifyExitedLiveFixture(liveMatch){
   finally{ LIVE_EXIT_VERIFICATION_PENDING.delete(id); }
 }
 async function loadLiveFeed(force){
+  if(!footballLiveDemandActive()){
+    stopLiveFeed();
+    return false;
+  }
   const league = typeof footballLeagueRequestKey === 'function' ? footballLeagueRequestKey() : activeFootballLeague;
   if(liveFeedLoading && liveFeedRequestScope===league && !force) return false;
   liveFeedActiveScope = league;
@@ -506,9 +515,11 @@ async function loadLiveFeed(force){
   try{
     let data = null;
     let error = null;
+    let workerResponded = false;
     try{
       const response = await fetch(`/api/football/live?league=${encodeURIComponent(league)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:liveFeedAbortController?.signal});
       const providerData = await response.json().catch(()=>null);
+      workerResponded=Boolean(providerData&&typeof providerData==='object'&&(Array.isArray(providerData.matches)||providerData.error||providerData.reason));
       // 503/429/vb. artik acikca hata; ancak 200 disi bir yanit da (stale
       // snapshot donen basarili yanitlar haric) gecerli matches iceriyorsa degerlendirilir.
       if(!providerData || !Array.isArray(providerData.matches)) throw new Error(providerData?.error || providerData?.reason || 'Sportmonks canlı veri yanıtı geçersiz.');
@@ -517,9 +528,8 @@ async function loadLiveFeed(force){
     }catch(providerError){
       if(providerError?.name === 'AbortError') throw providerError; // iptal edilen istek: eski cevabi hic isleme
       error = providerError;
-      if(providerError?.payload) data = providerError.payload; // acik hata govdesinde bile matches:[] varsa kullanilabilir
     }
-    if((error && (!data || !Array.isArray(data.matches) || data.matches.length===0)) || !data || !Array.isArray(data.matches)){
+    if(!workerResponded&&((error && (!data || !Array.isArray(data.matches) || data.matches.length===0)) || !data || !Array.isArray(data.matches))){
       // Worker uzerinden hic ulasilamadiginda (ag hatasi, DNS, vb) son care olarak
       // Supabase Edge Function uzerine dus (bkz supabase/functions/football-live).
       if(typeof ensureXYZSupabaseClient==='function') await ensureXYZSupabaseClient();
@@ -530,7 +540,7 @@ async function loadLiveFeed(force){
     // Bu isteğin cevabı gelene kadar daha yeni bir poll başlamışsa (sıra
     // numarası ilerlemişse) bu cevap ARTIK ESKİdir; durumu güncelleme.
     if(mySeq !== liveFeedRequestSeq) return;
-    if(!data || !Array.isArray(data.matches)) throw new Error('Canlı veri yanıtı geçersiz.');
+    if(!data || !Array.isArray(data.matches)) throw error || new Error('Canlı veri yanıtı geçersiz.');
     const previousLiveMatches=Array.isArray(LIVE_FEED.matches)?LIVE_FEED.matches.slice():[];
     LIVE_FEED = {
       matches:data.matches, updatedAt:data.updatedAt || new Date().toISOString(),
@@ -594,6 +604,20 @@ async function loadLiveFeed(force){
     }
   }
 }
+function footballLiveDemandActive(){
+  if(typeof document==='undefined'||document.hidden===true) return false;
+  if(typeof navigator!=='undefined'&&navigator.onLine===false) return false;
+  if(document.body?.classList?.contains('predict-product-open')) return false;
+  if(typeof location!=='undefined'){
+    const root=(location.pathname||'/').split('/').filter(Boolean)[0]?.toLowerCase()||'';
+    if(['predict','basketbol','voleybol','motorsports','ufc'].includes(root)) return false;
+    if(/(?:^|[?&])fixture=/.test(location.search||'')) return false;
+  }
+  const story=document.getElementById('page-story');
+  if(!story?.classList?.contains('active')) return false;
+  if(typeof activeFootballSection!=='undefined'&&!['home','matches'].includes(activeFootballSection)) return false;
+  return true;
+}
 function clampLiveRefreshMs(value){
   if(!Number.isFinite(value) || value<=0) return LIVE_FEED_CONFIG.refreshMs;
   return Math.min(LIVE_FEED_MAX_REFRESH_MS, Math.max(LIVE_FEED_MIN_REFRESH_MS, value));
@@ -603,27 +627,25 @@ function clampLiveRefreshMs(value){
 // baslamaz. Sekme gizliyken veya cihaz cevrimdisiyken hic zamanlayici kurmaz.
 function scheduleNextLivePoll(){
   if(liveFeedHandle) clearTimeout(liveFeedHandle);
-  if(typeof document!=='undefined' && document.hidden){ liveFeedHandle=null; return; } // gorunur olunca handleLiveVisibilityChange hemen tetikler
-  if(typeof navigator!=='undefined' && navigator.onLine===false){ liveFeedHandle=null; return; } // online eventi hemen tetikler
-  const delay = typeof document!=='undefined' && document.hidden ? LIVE_FEED_HIDDEN_REFRESH_MS : liveFeedNextRefreshMs;
-  liveFeedHandle = setTimeout(()=>loadLiveFeed(false), delay);
+  if(!footballLiveDemandActive()){ liveFeedHandle=null; return; }
+  liveFeedHandle = setTimeout(()=>loadLiveFeed(false), liveFeedNextRefreshMs);
 }
 function handleLiveVisibilityChange(){
   if(typeof document==='undefined') return;
   if(document.hidden){
-    if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
+    stopLiveFeed();
     return;
   }
   // Sekme tekrar gorunur oldu: hemen tazele (bekletilen adaptif sureyi bekleme).
-  if(document.getElementById('page-story')?.classList.contains('active')) loadLiveFeed(false);
+  if(footballLiveDemandActive()) startLiveFeed();
 }
 function handleLiveOnlineChange(){
   if(typeof navigator==='undefined') return;
   if(navigator.onLine === false){
-    if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
+    stopLiveFeed();
     return;
   }
-  if(document.getElementById('page-story')?.classList.contains('active')) loadLiveFeed(false);
+  if(footballLiveDemandActive()) startLiveFeed();
 }
 function bindLiveFeedLifecycleListeners(){
   if(liveFeedVisibilityBound || typeof window==='undefined') return;
@@ -635,16 +657,18 @@ function bindLiveFeedLifecycleListeners(){
   // hemen tazele; aksi halde eski ligin gec gelen cevabi kisa sure yeni
   // liginmis gibi gorunebilirdi (bkz. loadFootballLeagueSelection).
   window.addEventListener('xyz:football-league-change', ()=>{
-    if(liveFeedAbortController) liveFeedAbortController.abort();
-    if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
-    if(document.getElementById('page-story')?.classList.contains('active')) loadLiveFeed(false);
+    stopLiveFeed();
+    if(footballLiveDemandActive()) startLiveFeed();
   });
 }
 function startLiveFeed(){
   bindLiveFeedLifecycleListeners();
+  if(!footballLiveDemandActive()){
+    stopLiveFeed();
+    return;
+  }
   refreshLiveProviderLabel();
   const scope=typeof footballLeagueRequestKey==='function'?footballLeagueRequestKey():activeFootballLeague;
-  if(Date.now()-liveProviderHealthCheckedAt>60000){ liveProviderHealthCheckedAt=Date.now(); refreshLiveProviderHealth(); }
   if(liveFeedActiveScope===scope&&(liveFeedLoading||liveFeedHandle)) return;
   liveFeedActiveScope=scope;
   loadLiveFeed(false);
@@ -652,6 +676,8 @@ function startLiveFeed(){
 function stopLiveFeed(){
   if(liveFeedHandle){ clearTimeout(liveFeedHandle); liveFeedHandle=null; }
   if(liveFeedAbortController){ liveFeedAbortController.abort(); liveFeedAbortController=null; }
+  liveFeedRequestSeq+=1;
+  liveFeedLoading=false;
   liveFeedActiveScope=null;
   liveFeedRequestScope=null;
 }
@@ -679,14 +705,22 @@ function switchMainTab(name, updateUrl){
   const matchdayCommand=document.getElementById('matchdayCommand');
   if(matchdayCommand) matchdayCommand.hidden=product!=='football';
   if(product==='football' && name==='football' && activeFootballSection!=='home' && typeof openFootballSection==='function') openFootballSection('home',null,false);
-  if(product==='football') startLiveFeed(); else stopLiveFeed();
+  if(product==='football'){
+    if(typeof abortPredictChallengeSelection==='function') abortPredictChallengeSelection();
+    if(typeof abortPredictOwnedContext==='function') abortPredictOwnedContext();
+    startLiveFeed();
+  }else{
+    stopLiveFeed();
+    if(typeof abortFootballCriticalData==='function') abortFootballCriticalData();
+  }
   if(product==='predict'){
-    if(!MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
     if(typeof loadPredictChallengeSelection==='function') loadPredictChallengeSelection();
-    loadVisibleLeaderboards();
+    if(typeof loadPredictOwnedContext==='function') loadPredictOwnedContext().catch(error=>console.warn('[XYZSkor Predict baglami]',error));
+    if(typeof activeLeagueSection!=='undefined'&&activeLeagueSection==='leader') loadVisibleLeaderboards();
     if(updateUrl !== false) window.scrollTo({top:0,behavior:'smooth'});
   }
   if(updateUrl !== false) updatePath(buildProductPath(name));
+  if(product==='football'&&updateUrl!==false) startLiveFeed();
   updateMobileNavActive();
 }
 function openStories(){
@@ -709,6 +743,7 @@ function switchLeagueSection(name, updateUrl){
     const btn = document.getElementById('lst-'+n); if(btn) btn.classList.toggle('active', n===name);
   });
   updateMobileNavActive();
+  if(['predict','rewards','profile'].includes(name)&&typeof loadPredictOwnedContext==='function') loadPredictOwnedContext().catch(()=>{});
   if(name==='leader') loadVisibleLeaderboards();
   if(updateUrl!==false) updatePath(buildProductPath('predict'));
 }

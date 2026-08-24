@@ -9,12 +9,15 @@ type Team = {
 
 type NormalizedMatch = {
   id: string;
+  leagueKey: string;
+  providerLeagueId: string;
   competition: string;
   competitionLogo: string | null;
   country: string | null;
   startedAt: string | null;
   status: "scheduled" | "live" | "halftime" | "finished";
   minute: number | null;
+  addedTime?: number | null;
   home: Team;
   away: Team;
 };
@@ -22,6 +25,12 @@ type NormalizedMatch = {
 type ProviderResult = {
   matches: NormalizedMatch[];
   updatedAt: string;
+};
+
+type LiveResolution = {
+  result: ProviderResult;
+  stale: boolean;
+  reason: string | null;
 };
 
 type SeasonSyncResult = {
@@ -51,6 +60,16 @@ const SELECTED_LEAGUE_IDS_BY_KEY: Record<string, string[]> = {
   "serie-a": ["384"],
   "all": DEFAULT_SELECTED_LEAGUE_IDS,
 };
+const LIVE_PROVIDER_SCOPE_KEY = "live:provider-inplay";
+// Worker ile ayni kalici cache satirini kullanir. Boylece Worker'dan Edge
+// Function'a dusen bir istemci de ayni bes saniyelik provider sonucunu okur;
+// fallback yeni bir Sportmonks istegi baslatmaz.
+const LIVE_PROVIDER_CACHE_SCOPE = "worker:football-live:inplay:v1";
+const LIVE_PROVIDER_CACHE_SECONDS = 5;
+const LIVE_PROVIDER_STALE_SECONDS = 45;
+const LIVE_PROVIDER_LOCK_SECONDS = 15;
+const SPORTMONKS_TIMEOUT_MS = 12_000;
+let sportmonksLiveRefreshPromise: Promise<LiveResolution> | null = null;
 
 function allowedOrigin(request: Request): string {
   const origin = request.headers.get("origin") || "";
@@ -85,9 +104,9 @@ function requireSecret(name: string): string {
 
 function normalizedStatus(shortCode: string, elapsed: unknown): NormalizedMatch["status"] {
   const code = String(shortCode || "").toUpperCase();
+  if (["FT", "AET", "PEN", "AFTER_PENALTIES", "FINISHED"].includes(code)) return "finished";
   if (["HT", "BT"].includes(code)) return "halftime";
   if (["1H", "2H", "ET", "P", "INT", "LIVE"].includes(code) || Number(elapsed) > 0) return "live";
-  if (["FT", "AET", "PEN"].includes(code)) return "finished";
   return "scheduled";
 }
 
@@ -108,6 +127,8 @@ async function apiFootballAdapter(): Promise<ProviderResult> {
     })
     .map((row: any): NormalizedMatch => ({
       id: `api-football:${row.fixture.id}`,
+      leagueKey: "super-lig",
+      providerLeagueId: String(row?.league?.id ?? ""),
       competition: String(row.league?.name || "Süper Lig"),
       competitionLogo: row.league?.logo || null,
       country: row.league?.country || "Turkey",
@@ -131,8 +152,13 @@ async function apiFootballAdapter(): Promise<ProviderResult> {
   return { matches, updatedAt: new Date().toISOString() };
 }
 
-function sportmonksCurrentScore(scores: any[], participantId: unknown): number | null {
-  const candidates = (Array.isArray(scores) ? scores : []).filter((score) => String(score?.participant_id) === String(participantId));
+function sportmonksRelationRows(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  return Array.isArray(value?.data) ? value.data : [];
+}
+
+function sportmonksCurrentScore(scores: any, participantId: unknown): number | null {
+  const candidates = sportmonksRelationRows(scores).filter((score) => String(score?.participant_id) === String(participantId));
   const current = candidates.find((score) => String(score?.description || "").toUpperCase() === "CURRENT") || candidates.at(-1);
   const goals = current?.score?.goals;
   return goals !== null && goals !== undefined && Number.isFinite(Number(goals)) ? Number(goals) : null;
@@ -154,36 +180,63 @@ function sportmonksLeagueIdsForSelection(selection: unknown): string[] {
   return target.filter((id) => configured.includes(id));
 }
 
-async function sportmonksGet(url: URL): Promise<any> {
-  url.searchParams.set("api_token", requireSecret("SPORTMONKS_API_TOKEN"));
-  const upstream = await fetch(url);
-  const payload = await upstream.json();
-  if (!upstream.ok) throw new Error(`Sportmonks ${upstream.status}: ${payload?.message || "istek başarısız"}`);
-  return payload;
+function selectedLeagueKeyForProviderLeagueId(providerLeagueId: unknown): string | null {
+  const id = String(providerLeagueId ?? "").trim();
+  if (!id) return null;
+  for (const [key, ids] of Object.entries(SELECTED_LEAGUE_IDS_BY_KEY)) {
+    if (key !== "all" && ids.includes(id)) return key;
+  }
+  return null;
 }
 
-async function sportmonksAdapter(leagueIds = sportmonksLeagueIds()): Promise<ProviderResult> {
+async function sportmonksGet(url: URL): Promise<any> {
+  url.searchParams.set("api_token", requireSecret("SPORTMONKS_API_TOKEN"));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SPORTMONKS_TIMEOUT_MS);
+  try {
+    const upstream = await fetch(url, { headers:{ Accept:"application/json" }, signal:controller.signal });
+    const contentType = String(upstream.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json")) throw new Error(`Sportmonks ${upstream.status}: invalid_content_type`);
+    const payload = await upstream.json();
+    if (!upstream.ok) throw new Error(`Sportmonks ${upstream.status}: ${payload?.message || "istek başarısız"}`);
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function sportmonksAdapter(leagueIds = sportmonksLeagueIdsForSelection("all")): Promise<ProviderResult> {
   if (!leagueIds.length) throw new Error("SPORTMONKS_LEAGUE_IDS yapılandırılmamış.");
   const url = new URL("https://api.sportmonks.com/v3/football/livescores/inplay");
-  url.searchParams.set("include", "participants;scores;league;state");
+  url.searchParams.set("include", "participants;scores;league;state;periods");
   const payload = await sportmonksGet(url);
 
   const rows = Array.isArray(payload?.data) ? payload.data : [];
   const matches = rows
-    .filter((fixture: any) => leagueIds.includes(String(fixture?.league_id)))
+    .filter((fixture: any) => leagueIds.includes(String(fixture?.league_id)) && selectedLeagueKeyForProviderLeagueId(fixture?.league_id))
     .map((fixture: any): NormalizedMatch => {
-      const participants = Array.isArray(fixture?.participants) ? fixture.participants : [];
+      const participants = sportmonksRelationRows(fixture?.participants);
       const home = participants.find((team: any) => team?.meta?.location === "home") || participants[0] || {};
       const away = participants.find((team: any) => team?.meta?.location === "away") || participants[1] || {};
       const stateCode = String(fixture?.state?.short_name || fixture?.state?.state || "LIVE").toUpperCase();
+      const periods = sportmonksRelationRows(fixture?.periods);
+      const tickingPeriod = periods.find((period: any) => period?.ticking) || periods.at(-1);
+      const stateMinute = fixture?.state?.minute == null ? NaN : Number(fixture.state.minute);
+      const periodMinute = tickingPeriod?.minutes == null ? NaN : Number(tickingPeriod.minutes);
+      const providerLeagueId = String(fixture?.league_id ?? "");
+      const leagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+      if (!leagueKey) throw new Error("fixture_out_of_scope");
       return {
         id: `sportmonks:${fixture.id}`,
+        leagueKey,
+        providerLeagueId,
         competition: String(fixture?.league?.name || "Süper Lig"),
         competitionLogo: fixture?.league?.image_path || null,
         country: fixture?.league?.country?.name || fixture?.country?.name || null,
         startedAt: fixture?.starting_at || null,
         status: normalizedStatus(stateCode, fixture?.state?.minute),
-        minute: Number.isFinite(Number(fixture?.state?.minute)) ? Number(fixture.state.minute) : null,
+        minute: Number.isFinite(stateMinute) ? stateMinute : Number.isFinite(periodMinute) ? periodMinute : null,
+        addedTime: Number.isFinite(Number(tickingPeriod?.time_added)) ? Number(tickingPeriod.time_added) : null,
         home: { id:String(home.id ?? ""), name:String(home.name || "Ev sahibi"), logo:home.image_path || null, score:sportmonksCurrentScore(fixture?.scores, home.id) },
         away: { id:String(away.id ?? ""), name:String(away.name || "Deplasman"), logo:away.image_path || null, score:sportmonksCurrentScore(fixture?.scores, away.id) },
       };
@@ -441,6 +494,191 @@ async function writeCache(scope: string, provider: string, result: unknown, ttlS
   });
 }
 
+function liveCoordinationError(code: "sync_in_progress" | "coordination_unavailable"): Error {
+  return Object.assign(new Error(code), { code });
+}
+
+function isValidSharedSportmonksMatch(match: any, enabledLeagueIds: string[]): match is NormalizedMatch {
+  const providerLeagueId = String(match?.providerLeagueId ?? "");
+  const resolvedLeagueKey = selectedLeagueKeyForProviderLeagueId(providerLeagueId);
+  return Boolean(
+    match
+    && enabledLeagueIds.includes(providerLeagueId)
+    && resolvedLeagueKey
+    && String(match.leagueKey || "") === resolvedLeagueKey
+  );
+}
+
+function sharedSportmonksResult(cacheRow: any, enabledLeagueIds: string[]): ProviderResult | null {
+  const payload = cacheRow?.payload;
+  if (!payload || !Array.isArray(payload.matches)) return null;
+  // Fail closed: eski/bozuk cache satirinda leagueKey kaniti olmayan tek bir
+  // kayit bile varsa bu satir route cevabi olarak kullanilmaz.
+  if (!payload.matches.every((match: any) => isValidSharedSportmonksMatch(match, enabledLeagueIds))) return null;
+  return {
+    matches: payload.matches,
+    updatedAt: String(payload.providerUpdatedAt || payload.updatedAt || cacheRow?.fetched_at || new Date().toISOString()),
+  };
+}
+
+function providerLiveCacheFresh(cacheRow: any): boolean {
+  const expiresAt = Date.parse(String(cacheRow?.expires_at || ""));
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
+function providerLiveCacheWithinStaleWindow(cacheRow: any): boolean {
+  const fetchedAt = Date.parse(String(cacheRow?.fetched_at || ""));
+  return Number.isFinite(fetchedAt) && Date.now() - fetchedAt <= LIVE_PROVIDER_STALE_SECONDS * 1000;
+}
+
+async function readProviderLiveCache() {
+  const admin = adminClient();
+  if (!admin) throw liveCoordinationError("coordination_unavailable");
+  const { data, error } = await admin
+    .from("live_feed_cache")
+    .select("payload,fetched_at,expires_at")
+    .eq("scope", LIVE_PROVIDER_CACHE_SCOPE)
+    .maybeSingle();
+  if (error) throw liveCoordinationError("coordination_unavailable");
+  return data;
+}
+
+async function writeProviderLiveCache(result: ProviderResult) {
+  const admin = adminClient();
+  if (!admin) throw liveCoordinationError("coordination_unavailable");
+  const fetchedAt = new Date();
+  const { error } = await admin.from("live_feed_cache").upsert({
+    scope: LIVE_PROVIDER_CACHE_SCOPE,
+    provider: "sportmonks",
+    // Worker'in okuyabildigi ortak sema. Route anahtari burada yoktur;
+    // her mac kendi providerLeagueId + gercek leagueKey ikilisini tasir.
+    payload: { providerUpdatedAt:result.updatedAt, matches:result.matches },
+    fetched_at: fetchedAt.toISOString(),
+    expires_at: new Date(fetchedAt.getTime() + LIVE_PROVIDER_CACHE_SECONDS * 1000).toISOString(),
+  });
+  if (error) throw liveCoordinationError("coordination_unavailable");
+}
+
+async function acquireProviderLiveLease() {
+  const admin = adminClient();
+  if (!admin) throw liveCoordinationError("coordination_unavailable");
+  const holder = `${LIVE_PROVIDER_SCOPE_KEY}:${crypto.randomUUID()}`;
+  const { data, error } = await admin.rpc("try_acquire_sync_lock", {
+    p_key: LIVE_PROVIDER_SCOPE_KEY,
+    p_holder: holder,
+    p_ttl_seconds: LIVE_PROVIDER_LOCK_SECONDS,
+  });
+  if (error) throw liveCoordinationError("coordination_unavailable");
+  return { acquired:data === true, holder:data === true ? holder : null };
+}
+
+async function releaseProviderLiveLease(holder: string | null) {
+  if (!holder) return;
+  const admin = adminClient();
+  if (!admin) return;
+  try {
+    await admin
+      .from("sync_locks")
+      .delete()
+      .eq("lock_key", LIVE_PROVIDER_SCOPE_KEY)
+      .eq("holder", holder);
+  } catch (_) {
+    // 15 saniyelik lease crash-guard olarak kendiliginden sona erer.
+  }
+}
+
+function liveResultForRequestedLeague(result: ProviderResult, requestedLeague: string, enabledLeagueIds: string[]): ProviderResult {
+  const matches = result.matches.filter((match) => {
+    if (!isValidSharedSportmonksMatch(match, enabledLeagueIds)) return false;
+    return requestedLeague === "all" || match.leagueKey === requestedLeague;
+  });
+  return { ...result, matches };
+}
+
+function nextRefreshSecondsFor(matches: NormalizedMatch[]): number {
+  if (matches.some((match) => match.status === "live")) return 6;
+  if (matches.some((match) => match.status === "halftime")) return 15;
+  return 60;
+}
+
+async function readVerifiedLiveSnapshots(requestedLeague: string, enabledLeagueIds: string[]): Promise<ProviderResult | null> {
+  const admin = adminClient();
+  if (!admin) return null;
+  try {
+    let query = admin.from("live_match_snapshots").select("league_key,payload,fetched_at");
+    query = requestedLeague === "all"
+      ? query.in("league_key", Object.keys(SELECTED_LEAGUE_IDS_BY_KEY).filter((key) => key !== "all"))
+      : query.eq("league_key", requestedLeague);
+    const { data, error } = await query;
+    if (error || !Array.isArray(data) || !data.length) return null;
+    const matches = data
+      .map((row: any) => row?.payload)
+      .filter((match: any) => isValidSharedSportmonksMatch(match, enabledLeagueIds))
+      .filter((match: NormalizedMatch) => requestedLeague === "all" || match.leagueKey === requestedLeague);
+    if (!matches.length) return null;
+    const newest = data.reduce((max: number, row: any) => Math.max(max, Date.parse(String(row?.fetched_at || "")) || 0), 0);
+    return { matches, updatedAt:newest ? new Date(newest).toISOString() : new Date().toISOString() };
+  } catch (_) {
+    return null;
+  }
+}
+
+async function resolveSportmonksLive(force: boolean): Promise<LiveResolution> {
+  const enabledLeagueIds = sportmonksLeagueIdsForSelection("all");
+  if (!enabledLeagueIds.length) throw liveCoordinationError("coordination_unavailable");
+  let cacheRow = await readProviderLiveCache();
+  let cachedResult = sharedSportmonksResult(cacheRow, enabledLeagueIds);
+  if (!force && cachedResult && providerLiveCacheFresh(cacheRow)) {
+    return { result:cachedResult, stale:false, reason:null };
+  }
+
+  const lease = await acquireProviderLiveLease();
+  if (!lease.acquired) {
+    // Worker yenilemeyi yapiyor olabilir. Ayni global cache'i tekrar oku;
+    // cache henuz yazilmadiysa kesinlikle ikinci provider istegi acma.
+    cacheRow = await readProviderLiveCache();
+    cachedResult = sharedSportmonksResult(cacheRow, enabledLeagueIds);
+    if (cachedResult && providerLiveCacheWithinStaleWindow(cacheRow)) {
+      return { result:cachedResult, stale:true, reason:"sync_in_progress" };
+    }
+    throw liveCoordinationError("sync_in_progress");
+  }
+
+  try {
+    // Cache kontrolu ile lock arasinda Worker sonucu yazmis olabilir.
+    cacheRow = await readProviderLiveCache();
+    cachedResult = sharedSportmonksResult(cacheRow, enabledLeagueIds);
+    if (!force && cachedResult && providerLiveCacheFresh(cacheRow)) {
+      return { result:cachedResult, stale:false, reason:null };
+    }
+
+    const result = await sportmonksAdapter(enabledLeagueIds);
+    await persistFinishedLiveMatches(result);
+    await writeProviderLiveCache(result);
+    return { result, stale:false, reason:null };
+  } catch (error) {
+    cacheRow = await readProviderLiveCache().catch(() => null);
+    cachedResult = sharedSportmonksResult(cacheRow, enabledLeagueIds);
+    if (cachedResult && providerLiveCacheWithinStaleWindow(cacheRow)) {
+      return { result:cachedResult, stale:true, reason:"provider_unavailable" };
+    }
+    throw error;
+  } finally {
+    await releaseProviderLiveLease(lease.holder);
+  }
+}
+
+async function singleFlightSportmonksLive(force: boolean): Promise<LiveResolution> {
+  if (sportmonksLiveRefreshPromise) return sportmonksLiveRefreshPromise;
+  const promise = resolveSportmonksLive(force);
+  sportmonksLiveRefreshPromise = promise;
+  try {
+    return await promise;
+  } finally {
+    if (sportmonksLiveRefreshPromise === promise) sportmonksLiveRefreshPromise = null;
+  }
+}
+
 function envSeconds(name: string, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(Deno.env.get(name));
   return Math.max(minimum, Math.min(maximum, Number.isFinite(parsed) ? parsed : fallback));
@@ -498,7 +736,7 @@ Deno.serve(async (request) => {
   }
   const refreshSecret = Deno.env.get("LIVE_REFRESH_SECRET") || "";
   const force = Boolean(refreshSecret) && request.headers.get("x-refresh-key") === refreshSecret;
-  const cached = await readCache(scope);
+  const cached = baseScope === "selected-leagues-season" ? await readCache(scope) : null;
 
   if (baseScope === "selected-leagues-season") {
     const seasonTtl = envSeconds("SEASON_CACHE_SECONDS", 21600, 300, 86400);
@@ -522,24 +760,75 @@ Deno.serve(async (request) => {
     }
   }
 
-  if (!force && cached?.payload) {
-    const cachedTtl = ttlForResult(cached.payload as ProviderResult);
-    const stateAwareExpiry = new Date(cached.fetched_at).getTime() + cachedTtl * 1000;
-    const storedExpiry = new Date(cached.expires_at).getTime();
+  if (provider === "sportmonks") {
+    const enabledLeagueIds = sportmonksLeagueIdsForSelection("all");
+    try {
+      const resolution = await singleFlightSportmonksLive(force);
+      const scoped = liveResultForRequestedLeague(resolution.result, requestedLeague, enabledLeagueIds);
+      const reason = resolution.reason || (scoped.matches.length ? null : "no_live_matches");
+      return response(request, {
+        ...scoped,
+        provider:"sportmonks",
+        league:requestedLeague,
+        providerUpdatedAt:scoped.updatedAt,
+        stale:resolution.stale,
+        staleAgeSeconds:resolution.stale ? Math.max(0, Math.round((Date.now() - Date.parse(scoped.updatedAt)) / 1000) || 0) : 0,
+        degraded:resolution.stale,
+        reason,
+        nextRefreshInSeconds:nextRefreshSecondsFor(scoped.matches),
+      }, 200, resolution.stale ? "no-store" : cacheControlFor(LIVE_PROVIDER_CACHE_SECONDS));
+    } catch (error) {
+      const reason = String((error as any)?.code || "provider_unavailable");
+      const snapshot = await readVerifiedLiveSnapshots(requestedLeague, enabledLeagueIds);
+      if (snapshot) {
+        return response(request, {
+          ...snapshot,
+          provider:"sportmonks",
+          league:requestedLeague,
+          providerUpdatedAt:snapshot.updatedAt,
+          stale:true,
+          staleAgeSeconds:Math.max(0, Math.round((Date.now() - Date.parse(snapshot.updatedAt)) / 1000) || 0),
+          degraded:true,
+          reason,
+          nextRefreshInSeconds:nextRefreshSecondsFor(snapshot.matches),
+        }, 200, "no-store");
+      }
+      // Mesajda upstream govdesi, URL veya token yoktur.
+      console.error("[football-live]", reason);
+      return response(request, {
+        error:"live_data_unavailable",
+        provider:"sportmonks",
+        league:requestedLeague,
+        providerUpdatedAt:null,
+        stale:false,
+        staleAgeSeconds:0,
+        degraded:true,
+        reason,
+        nextRefreshInSeconds:reason === "sync_in_progress" ? 2 : 20,
+        matches:[],
+      }, 503);
+    }
+  }
+
+  const apiFallbackCache = await readCache(scope);
+
+  if (!force && apiFallbackCache?.payload) {
+    const cachedTtl = ttlForResult(apiFallbackCache.payload as ProviderResult);
+    const stateAwareExpiry = new Date(apiFallbackCache.fetched_at).getTime() + cachedTtl * 1000;
+    const storedExpiry = new Date(apiFallbackCache.expires_at).getTime();
     if (Math.min(stateAwareExpiry, storedExpiry) > Date.now()) {
-      return response(request, { ...cached.payload, stale:false }, 200, cacheControlFor(cachedTtl));
+      return response(request, { ...apiFallbackCache.payload, stale:false }, 200, cacheControlFor(cachedTtl));
     }
   }
 
   try {
-    const result = provider === "sportmonks" ? await sportmonksAdapter(selectedLeagueIds) : await apiFootballAdapter();
+    const result = await apiFootballAdapter();
     const ttlSeconds = ttlForResult(result);
-    if (provider === "sportmonks") await persistFinishedLiveMatches(result);
     await writeCache(scope, provider, result, ttlSeconds);
     return response(request, { ...result, stale:false }, 200, cacheControlFor(ttlSeconds));
   } catch (error) {
     console.error("[football-live]", error instanceof Error ? error.message : error);
-    if (cached?.payload) return response(request, { ...cached.payload, stale:true }, 200, "no-store");
+    if (apiFallbackCache?.payload) return response(request, { ...apiFallbackCache.payload, stale:true }, 200, "no-store");
     return response(request, { error:"Canlı veri geçici olarak kullanılamıyor." }, 503);
   }
 });

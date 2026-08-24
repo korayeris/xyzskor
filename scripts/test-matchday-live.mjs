@@ -4,14 +4,15 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 
-async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {} }) {
+async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {}, fixtureFallback = null, matchdayFailures = 0, sessionToken = '' }) {
   const requests = [];
   const listeners = new Map();
   const timers = [];
   let seasonRequest = 0;
+  let matchdayRequest = 0;
   const elements = new Map();
   const element = (id) => {
-    if (!elements.has(id)) elements.set(id, { id, hidden:false, textContent:'', innerHTML:'', style:{}, classList:{ toggle() {} }, nextElementSibling:null, appendChild() {}, addEventListener() {} });
+    if (!elements.has(id)) elements.set(id, { id, hidden:false, isConnected:true, textContent:'', innerHTML:'', style:{}, classList:{ toggle() {}, add() {}, remove() {} }, nextElementSibling:null, appendChild() {}, addEventListener() {}, querySelectorAll:() => [] });
     return elements.get(id);
   };
   const title = element('matchdayTitle');
@@ -29,8 +30,19 @@ async function runScenario({ pathname = '/super-lig', search = '', matches = [],
     },
     window:{ addEventListener:(name,handler) => listeners.set(`window:${name}`,handler), location:{ hash:'' } },
     setTimeout:(handler) => { timers.push(handler); return timers.length; }, clearTimeout() {},
-    fetch:async (url) => {
+    fetch:async (url, options = {}) => {
       requests.push(String(url));
+      if (String(url).includes('/api/football/prediction?')) {
+        return { ok:true, json:async () => ({ prediction:null }) };
+      }
+      if (String(url).includes('/api/football/fixture?')) {
+        return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:fixtureFallback || detailFixture, details:{} }) };
+      }
+      if (String(url).includes('/api/football/matchday?')) {
+        matchdayRequest += 1;
+        if (matchdayRequest <= matchdayFailures) return { ok:false, status:503, json:async () => ({ error:'sync_in_progress' }) };
+        return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:detailDetails }) };
+      }
       if (String(url).includes('/season?')) {
         const available = seasonResponses || [matches];
         const selected = available[Math.min(seasonRequest, available.length - 1)];
@@ -38,7 +50,8 @@ async function runScenario({ pathname = '/super-lig', search = '', matches = [],
         return { ok:true, json:async () => ({ matches:selected }) };
       }
       return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:detailDetails }) };
-    }
+    },
+    sb:sessionToken ? { auth:{ getSession:async () => ({ data:{ session:{ access_token:sessionToken } } }) } } : undefined
   };
   vm.runInNewContext(source, context, { filename:'matchday-live.js' });
   await new Promise((resolve) => setImmediate(resolve));
@@ -95,12 +108,40 @@ const overrideRun = await runScenario({ pathname:'/all', search:'?fixture=987654
 assert.equal(overrideRun.requests.length, 1, 'Fixture override sezon isteğini atlamalı.');
 assert.match(overrideRun.requests[0], /fixture=987654$/, 'Fixture override aynen kullanılmalı.');
 
-const leagueScoped = { id:'sportmonks:20002', ev:'EPL Ev', konuk:'EPL Konuk', kickoff:iso(10800000), status:null };
-const overrideLeagueRun = await runScenario({ search:'?fixture=987654', matches:[leagueScoped], detailFixture:{ ...leagueScoped, score:{} } });
+const overrideLeagueRun = await runScenario({ search:'?fixture=987654', detailFixture:{ id:'sportmonks:987654', ev:'Aynı Ev', konuk:'Aynı Konuk', kickoff:iso(10800000), status:null, score:{} } });
 overrideLeagueRun.listeners.get('window:xyz:football-league-change')({ detail:{ league:'premier-league' } });
 await new Promise((resolve) => setImmediate(resolve));
 await new Promise((resolve) => setImmediate(resolve));
-assert.equal(overrideLeagueRun.requests[1], '/api/football/season?league=premier-league', 'Lig değişince eski fixture override bırakılıp seçili lig sorgulanmalı.');
-assert.match(overrideLeagueRun.requests[2], /fixture=20002$/, 'Seçili lig kendi en yakın fixture kimliğini kullanmalı.');
+assert.equal(overrideLeagueRun.requests.length, 2, 'Lig değişimi yalnız görünür fixture isteğini bir kez yenilemeli.');
+assert.match(overrideLeagueRun.requests[1], /\/api\/football\/matchday\?fixture=987654$/, 'Lig değişimi explicit fixture kimliğini korumalı.');
+assert.equal(overrideLeagueRun.requests.filter((url) => /\/(?:home|season)(?:\?|$)/.test(url)).length, 0, 'Explicit fixture lig değişiminde home/season paketi istememeli.');
+
+const fallbackFixture = { id:'sportmonks:30001', ev:'Fallback Ev', konuk:'Fallback Konuk', kickoff:iso(3600000), status:null, score:{} };
+const fallbackRun = await runScenario({
+  search:'?fixture=30001',
+  detailFixture:fallbackFixture,
+  fixtureFallback:fallbackFixture,
+  matchdayFailures:1
+});
+assert.deepEqual(fallbackRun.requests.slice(0, 2), [
+  '/api/football/matchday?fixture=30001',
+  '/api/football/fixture?id=30001'
+], 'Matchday 5xx yalnız aynı fixture için tek, sınırlı fallback yapmalı.');
+assert.equal(fallbackRun.requests.filter((url) => /\/api\/football\/season(?:\?|$)/.test(url)).length, 0, 'Matchday fallback hiçbir koşulda tüm sezonu istememeli.');
+
+const predictionRun = await runScenario({
+  search:'?fixture=40001',
+  detailFixture:{ id:'sportmonks:40001', ev:'Tahmin Ev', konuk:'Tahmin Konuk', kickoff:iso(3600000), status:null, score:{} },
+  sessionToken:'prediction-token'
+});
+for (let poll = 0; poll < 2; poll += 1) {
+  const nextPoll = predictionRun.timers.shift();
+  assert.equal(typeof nextPoll, 'function', `Poll ${poll + 1} zamanlayıcısı kurulmalı.`);
+  nextPoll();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+}
+assert.equal(predictionRun.requests.filter((url) => url.includes('/api/football/matchday?fixture=40001')).length, 3, 'İlk render ve iki skor poll aynı fixture detayını yenilemeli.');
+assert.equal(predictionRun.requests.filter((url) => url.includes('/api/football/prediction?fixture=40001')).length, 1, 'Aynı fixture ve auth bağlamında tahmin GET yalnız bir kez yapılmalı.');
 
 console.log('Matchday resolver checks passed.');

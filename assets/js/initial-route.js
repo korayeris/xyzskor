@@ -1,9 +1,10 @@
 (function () {
-  "use strict";
-  try {
-    var route = new URLSearchParams(location.search);
-    var hasFixture = Boolean(route.get("fixture") && route.get("view") !== "home");
-    if (hasFixture) document.body.classList.add("matchday-detail-open");
+    "use strict";
+    try {
+      var route = new URLSearchParams(location.search);
+    var requestedFixture = Boolean(route.get("fixture"));
+    var detailFixture = requestedFixture && route.get("view") !== "home";
+    if (detailFixture) document.body.classList.add("matchday-detail-open");
     var league = location.pathname.replace(/^\/+|\/+$/g, "");
     var homeLeagues = ["super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"];
     var isFootballRoot = !league || league === "index.html" || league === "all";
@@ -13,24 +14,39 @@
       document.body.dataset.footballLeague = "all";
       document.body.dataset.footballThemeReady = "1";
     }
-    if (!hasFixture && homeLeagues.indexOf(league) >= 0) {
+    if (!requestedFixture && homeLeagues.indexOf(league) >= 0) {
       document.body.classList.add("football-league-overview-mode");
       document.body.dataset.footballLeagueLoading = league;
     }
 
-    function requestJSON(path) {
-      return fetch(path, { headers:{ Accept:"application/json" }, cache:"no-store" })
+    function requestJSON(path, controller) {
+      return fetch(path, { headers:{ Accept:"application/json" }, cache:"no-store", signal:controller && controller.signal })
         .then(function (response) { return response.json().catch(function () { return null; }).then(function (payload) { return response.ok ? payload : null; }); })
         .catch(function () { return null; });
     }
-    if (!hasFixture && isFootballRoot && typeof fetch === "function") {
+    if (!requestedFixture && isFootballRoot && typeof fetch === "function") {
+      var homeFresh = false;
       try {
         var cachedRecord = JSON.parse(localStorage.getItem("xyzskor:football-home:v3") || "null");
         window.__XYZ_EARLY_HOME_CACHE__ = cachedRecord && cachedRecord.payload ? cachedRecord.payload : null;
+        homeFresh = Boolean(cachedRecord && cachedRecord.savedAt && Date.now() - cachedRecord.savedAt < 10 * 60 * 1000 && cachedRecord.payload);
       } catch (_) { window.__XYZ_EARLY_HOME_CACHE__ = null; }
-      window.__XYZ_FOOTBALL_HOME_REQUEST__ = requestJSON("/api/football/home");
-    } else if (!hasFixture && homeLeagues.indexOf(league) >= 0 && typeof fetch === "function") {
-      window.__XYZ_FOOTBALL_SEASON_REQUEST__ = { league:league, promise:requestJSON("/api/football/season?league=" + encodeURIComponent(league)) };
+      var homeController = !homeFresh && typeof AbortController !== "undefined" ? new AbortController() : null;
+      window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__ = homeController;
+      window.__XYZ_FOOTBALL_HOME_REQUEST__ = homeFresh ? Promise.resolve(window.__XYZ_EARLY_HOME_CACHE__) : requestJSON("/api/football/home", homeController);
+    } else if (!requestedFixture && homeLeagues.indexOf(league) >= 0 && typeof fetch === "function") {
+      var seasonRecord = null;
+      try {
+        seasonRecord = typeof sessionStorage !== "undefined" ? JSON.parse(sessionStorage.getItem("xyzskor:provider-season:" + league) || "null") : null;
+      } catch (_) { seasonRecord = null; }
+      var seasonFresh = Boolean(seasonRecord && seasonRecord.savedAt && Date.now() - seasonRecord.savedAt < 10 * 60 * 1000 && seasonRecord.payload && seasonRecord.payload.league === league && Array.isArray(seasonRecord.payload.matches));
+      var seasonController = !seasonFresh && typeof AbortController !== "undefined" ? new AbortController() : null;
+      window.__XYZ_FOOTBALL_SEASON_ABORT_CONTROLLER__ = seasonController;
+      window.__XYZ_FOOTBALL_SEASON_REQUEST__ = {
+        league:league,
+        fromCache:seasonFresh,
+        promise:seasonFresh ? Promise.resolve(seasonRecord.payload) : requestJSON("/api/football/season?league=" + encodeURIComponent(league), seasonController)
+      };
     }
 
     var parts = location.pathname.split("/").filter(Boolean);

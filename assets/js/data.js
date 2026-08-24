@@ -127,6 +127,8 @@ if(typeof window!=='undefined') window.ensureXYZSupabaseClient=ensureXYZSupabase
 
 let authStateTimer = null;
 let authStateUnsubscribe = null;
+let accountContextRequest = null;
+let accountContextSequence = 0;
 
 /* ===================== SABİTLER ===================== */
 const TEAMS = ['Beşiktaş','Diğer','Fenerbahçe','Galatasaray','Trabzonspor'];
@@ -648,6 +650,8 @@ let serverLeaderboardMode = 'unknown';
 let legacyLeaderboardRequest = null;
 let footballDataLoadSequence = 0;
 let seasonFixturesReady = new Set();
+const providerSeasonRequests = new Map();
+let footballCriticalRequest = null;
 let AUTH_SESSION_CACHE = null;
 let AUTH_SESSION_READY = false;
 let AUTH_CONTEXT_READY = false;
@@ -679,6 +683,41 @@ function mergeProfileWithSession(profile, sessionUser){
   const baseProfile = profile || {};
   return { ...baseProfile, ...toSafeUserObject(sessionUser), id: sessionUser.id || baseProfile.id };
 }
+async function loadAccountContext(){
+  if(accountContextRequest) return accountContextRequest;
+  const sequence=accountContextSequence;
+  const request=(async()=>{
+    await ensureXYZSupabaseClient();
+    const session=await getCachedAuthSession();
+    if(sequence!==accountContextSequence) return false;
+    let profile=null;
+    if(session?.user){
+      const rows=await moduleQuery(sb.from('profiles').select('*').eq('id',session.user.id),'own_profile');
+      if(sequence!==accountContextSequence) return false;
+      profile=rows[0]||null;
+      if(!profile){
+        try{ profile=await ensureOwnProfile(session.user); }
+        catch(error){ console.error('[XYZSkor veri hatasÄ±] eksik profil oluÅŸturulamadÄ±',error); }
+      }
+      if(profile?.id) PROFILES[profile.id]=profile;
+      currentUser=mergeProfileWithSession(profile,session.user);
+    }else currentUser=null;
+    AUTH_CONTEXT_READY=true;
+    if(typeof window!=='undefined'&&typeof CustomEvent!=='undefined'){
+      window.dispatchEvent(new CustomEvent('xyz:auth-context-ready',{detail:{userId:currentUser?.id||null}}));
+    }
+    return true;
+  })().finally(()=>{ if(accountContextRequest===request) accountContextRequest=null; });
+  accountContextRequest=request;
+  return request;
+}
+function refreshAccountContext(){
+  accountContextSequence+=1;
+  accountContextRequest=null;
+  AUTH_SESSION_READY=false;
+  AUTH_CONTEXT_READY=false;
+  return loadAccountContext();
+}
 function refreshAuthState(){
   if(authStateTimer){
     clearTimeout(authStateTimer);
@@ -686,8 +725,7 @@ function refreshAuthState(){
   authStateTimer = setTimeout(async () => {
     authStateTimer = null;
     try{
-      await loadAllData();
-      if(typeof renderAll === 'function') renderAll();
+      await loadAccountContext();
     }catch(error){
       console.error('[XYZSkor] auth değişim sonrası oturum senkronizasyonu başarısız:', error);
     }
@@ -700,6 +738,8 @@ function bindAuthStateSync(){
       AUTH_SESSION_CACHE=_session||null;
       AUTH_SESSION_READY=true;
       AUTH_CONTEXT_READY=false;
+      accountContextSequence+=1;
+      accountContextRequest=null;
       if(_event === 'SIGNED_OUT'){
         currentUser = null;
         if(typeof renderAll === 'function') renderAll();
@@ -829,31 +869,61 @@ async function ensureSeasonFixtures(){
   return true;
 }
 
-async function fetchProviderSeasonBundle(leagueKey){
+async function fetchProviderSeasonBundleOnce(leagueKey, options={}){
   if(!leagueKey || leagueKey==='all') return null;
   const cacheKey = `xyzskor:provider-season:${leagueKey}`;
-  try{
-    const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
-    if(cached && cached.savedAt && Date.now()-cached.savedAt < PROVIDER_SEASON_CACHE_MS) return cached.payload;
-  }catch(_error){}
   try{
     const early=typeof window!=='undefined' ? window.__XYZ_FOOTBALL_SEASON_REQUEST__ : null;
     let payload=null;
     if(early?.league===leagueKey&&early.promise){
+      const earlyController=window.__XYZ_FOOTBALL_SEASON_ABORT_CONTROLLER__;
+      if(options.signal?.aborted) earlyController?.abort?.();
+      else options.signal?.addEventListener?.('abort',()=>earlyController?.abort?.(),{once:true});
       payload=await early.promise;
-      window.__XYZ_FOOTBALL_SEASON_REQUEST__=null;
-    }else{
-      const response = await fetch(`${PROVIDER_LIVE_FALLBACK}/season?league=${encodeURIComponent(leagueKey)}`,{headers:{Accept:'application/json'},cache:'no-store'});
-      payload = await response.json().catch(()=>null);
-      if(!response.ok) return null;
+      if(window.__XYZ_FOOTBALL_SEASON_REQUEST__===early) window.__XYZ_FOOTBALL_SEASON_REQUEST__=null;
+      if(window.__XYZ_FOOTBALL_SEASON_ABORT_CONTROLLER__===earlyController) window.__XYZ_FOOTBALL_SEASON_ABORT_CONTROLLER__=null;
+      if(options.signal?.aborted) throw new DOMException('Aborted','AbortError');
+      if(payload?.league===leagueKey&&Array.isArray(payload.matches)){
+        try{ sessionStorage.setItem(cacheKey,JSON.stringify({savedAt:Date.now(),payload})); }catch(_error){}
+        return payload;
+      }
+      // initial-route bu gorunur scope'un tek HTTP istegidir. 503/gecersiz
+      // yanit sonrasi ayni sayfa acilisinda ikinci bir browser istegi baslatma.
+      return null;
     }
+    try{
+      const cached=JSON.parse(sessionStorage.getItem(cacheKey)||'null');
+      if(cached&&cached.savedAt&&Date.now()-cached.savedAt<PROVIDER_SEASON_CACHE_MS&&cached.payload?.league===leagueKey&&Array.isArray(cached.payload.matches)) return cached.payload;
+    }catch(_error){}
+    const requestURL=`${PROVIDER_LIVE_FALLBACK}/season?league=${encodeURIComponent(leagueKey)}`;
+    const response=await fetch(requestURL,{headers:{Accept:'application/json'},cache:'no-store',signal:options.signal});
+    payload=await response.json().catch(()=>null);
+    if(options.signal?.aborted) throw new DOMException('Aborted','AbortError');
+    // Retry-After tarayicida uygulanmaz. Edge/provider cache bir sonraki gorunur
+    // talepte yeniden denenir; mevcut scope her durumda en fazla bir HTTP yapar.
+    if(!response.ok) return null;
     if(!payload || payload.league!==leagueKey || !Array.isArray(payload.matches)) return null;
     try{ sessionStorage.setItem(cacheKey, JSON.stringify({savedAt:Date.now(),payload})); }catch(_error){}
     return payload;
   }catch(error){
+    if(error?.name==='AbortError') return null;
     DATA_ERRORS.provider = error && error.message ? error.message : 'Sportmonks sağlayıcı yedeği kullanılamıyor.';
     return null;
   }
+}
+
+function fetchProviderSeasonBundle(leagueKey, options={}){
+  if(!leagueKey || leagueKey==='all') return Promise.resolve(null);
+  const existing=providerSeasonRequests.get(leagueKey);
+  if(existing&&!existing.signal?.aborted) return existing.promise;
+  if(existing) providerSeasonRequests.delete(leagueKey);
+  const entry={promise:null,signal:options.signal||null};
+  const request=fetchProviderSeasonBundleOnce(leagueKey,options).finally(()=>{
+    if(providerSeasonRequests.get(leagueKey)===entry) providerSeasonRequests.delete(leagueKey);
+  });
+  entry.promise=request;
+  providerSeasonRequests.set(leagueKey,entry);
+  return request;
 }
 
 const FOOTBALL_HOME_LEAGUES=['super-lig','premier-league','la-liga','bundesliga','serie-a'];
@@ -898,69 +968,110 @@ function cacheFootballHomePayload(payload){
   try{ if(validFootballHomePayload(payload)) localStorage.setItem(FOOTBALL_HOME_CACHE_KEY,JSON.stringify({savedAt:Date.now(),payload})); }catch(_error){}
   return payload;
 }
-async function fetchFootballHomeNetwork(){
-  if(footballHomeNetworkRequest) return footballHomeNetworkRequest;
-  footballHomeNetworkRequest=(async()=>{
+async function fetchFootballHomeNetwork(options={}){
+  if(footballHomeNetworkRequest&&!footballHomeNetworkRequest.__scopeSignal?.aborted) return footballHomeNetworkRequest;
+  if(footballHomeNetworkRequest?.__scopeSignal?.aborted) footballHomeNetworkRequest=null;
+  const request=(async()=>{
     try{
       const early=typeof window!=='undefined' ? window.__XYZ_FOOTBALL_HOME_REQUEST__ : null;
       let payload=null,responseOk=false;
       if(early){
+        const earlyController=window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__;
+        if(options.signal?.aborted) earlyController?.abort?.();
+        else options.signal?.addEventListener?.('abort',()=>earlyController?.abort?.(),{once:true});
         payload=await early;
         window.__XYZ_FOOTBALL_HOME_REQUEST__=null;
+        if(window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__===earlyController) window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__=null;
+        if(options.signal?.aborted) throw new DOMException('Aborted','AbortError');
         responseOk=Boolean(payload);
-      }else{
-        const response=await fetch('/api/football/home',{headers:{Accept:'application/json'},cache:'no-store'});
+        if(!responseOk) return null;
+      }
+      if(!responseOk){
+        const response=await fetch('/api/football/home',{headers:{Accept:'application/json'},cache:'no-store',signal:options.signal});
         payload=await response.json().catch(()=>null);
+        if(options.signal?.aborted) throw new DOMException('Aborted','AbortError');
         responseOk=response.ok;
       }
       if(responseOk&&validFootballHomePayload(payload)) return cacheFootballHomePayload(payload);
     }catch(_error){}
-    // Eski worker surumune kademeli gecis ve lokal QA icin guvenli uyumluluk
-    // yolu. Yeni uretim worker'inda normal akista yalniz tek /home istegi vardir.
-    const settled=await Promise.allSettled(FOOTBALL_HOME_LEAGUES.map(key=>fetchProviderSeasonBundle(key)));
-    const bundles=settled.map(result=>result.status==='fulfilled'?result.value:null);
-    return cacheFootballHomePayload(compactFootballHomeBundle(bundles));
-  })().finally(()=>{ footballHomeNetworkRequest=null; });
-  return footballHomeNetworkRequest;
+    // Ana futbol vitrini tek bir sunucu kontratidir. Bu uc kullanilamiyorsa
+    // istemci bes ligi ayri ayri sorgulayarak kotayi katlamaz.
+    return null;
+  })().finally(()=>{ if(footballHomeNetworkRequest===request) footballHomeNetworkRequest=null; });
+  request.__scopeSignal=options.signal||null;
+  footballHomeNetworkRequest=request;
+  return request;
 }
-async function fetchFootballHomeBundle(){
+async function fetchFootballHomeBundle(options={}){
   let cached=null;
   try{ cached=JSON.parse(localStorage.getItem(FOOTBALL_HOME_CACHE_KEY)||'null'); }catch(_error){}
   if(cached?.savedAt&&validFootballHomePayload(cached.payload)){
-    if(Date.now()-cached.savedAt<FOOTBALL_HOME_CACHE_MS) return cached.payload;
+    if(Date.now()-cached.savedAt<FOOTBALL_HOME_CACHE_MS){
+      window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__?.abort?.();
+      window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__=null;
+      window.__XYZ_FOOTBALL_HOME_REQUEST__=null;
+      return cached.payload;
+    }
     // Stale-while-revalidate: son dogrulanmis vitrin aninda boyanir; yeni tek
     // endpoint cevabi geldiginde UI kontrollu bir event ile tazelenir.
-    fetchFootballHomeNetwork().then(payload=>{
-      if(typeof window!=='undefined'&&typeof CustomEvent!=='undefined'&&validFootballHomePayload(payload)) window.dispatchEvent(new CustomEvent('xyz:football-home-refreshed',{detail:{payload}}));
+    const refreshRequest=fetchFootballHomeNetwork(options);
+    if(typeof options.onBackgroundRequest==='function') options.onBackgroundRequest(refreshRequest);
+    refreshRequest.then(payload=>{
+      const stillActive=!options.signal?.aborted&&(typeof options.isActive!=='function'||options.isActive());
+      if(stillActive&&typeof window!=='undefined'&&typeof CustomEvent!=='undefined'&&validFootballHomePayload(payload)) window.dispatchEvent(new CustomEvent('xyz:football-home-refreshed',{detail:{payload}}));
     }).catch(()=>{});
     return cached.payload;
   }
-  return fetchFootballHomeNetwork();
+  return fetchFootballHomeNetwork(options);
 }
 
 let PREDICT_CHALLENGE_MATCHES = [];
 let predictChallengeLoading = null;
 let predictChallengeReady = false;
 let predictChallengeFailures = [];
+let predictChallengeScope = null;
+let predictChallengeAbortController = null;
 async function loadPredictChallengeSelection(){
-  if(predictChallengeLoading) return predictChallengeLoading;
-  predictChallengeLoading=(async()=>{
-    const leagues=['super-lig','premier-league','la-liga'];
-    const bundles=await Promise.all(leagues.map(key=>fetchProviderSeasonBundle(key)));
-    predictChallengeFailures=leagues.filter((key,index)=>!bundles[index]);
-    const now=Date.now();
-    PREDICT_CHALLENGE_MATCHES=bundles.flatMap((bundle,index)=>{
-      const key=leagues[index];
-      return (bundle?.matches||[]).filter(match=>!footballStatusIsUnavailable(match)&&!footballStatusIsFinished(match)&&!footballStatusIsLive(match)).filter(match=>Date.parse(match.kickoff)>now+15*60000).sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff)).slice(0,2).map(match=>({...match,hafta:activeWeek,challengeLeague:key}));
+  const requestedLeague=activeFootballLeague==='all'?'super-lig':footballLeagueRequestKey();
+  if(predictChallengeLoading&&predictChallengeScope===requestedLeague) return predictChallengeLoading;
+  if(predictChallengeAbortController) predictChallengeAbortController.abort();
+  predictChallengeAbortController=typeof AbortController!=='undefined'?new AbortController():null;
+  const controller=predictChallengeAbortController;
+  predictChallengeScope=requestedLeague;
+  const request=(async()=>{
+    const bundle=await fetchProviderSeasonBundle(requestedLeague,{
+      signal:controller?.signal,
+      isActive:()=>predictChallengeScope===requestedLeague&&(typeof document==='undefined'||document.hidden!==true)
     });
+    if(controller?.signal.aborted||predictChallengeScope!==requestedLeague) return PREDICT_CHALLENGE_MATCHES;
+    predictChallengeFailures=bundle?[]:[requestedLeague];
+    const now=Date.now();
+    PREDICT_CHALLENGE_MATCHES=(bundle?.matches||[])
+      .filter(match=>!footballStatusIsUnavailable(match)&&!footballStatusIsFinished(match)&&!footballStatusIsLive(match))
+      .filter(match=>Date.parse(match.kickoff)>now+15*60000)
+      .sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff))
+      .slice(0,6)
+      .map(match=>({...match,hafta:activeWeek,challengeLeague:requestedLeague}));
     PREDICT_CHALLENGE_MATCHES.forEach(match=>{ if(match?.ev&&safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo; if(match?.konuk&&safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo; });
     predictChallengeReady=true;
     if(typeof renderProgress==='function') renderProgress();
     if(typeof renderLeagueMatches==='function') renderLeagueMatches();
     if(typeof renderWeeklyChallenge==='function') renderWeeklyChallenge();
     return PREDICT_CHALLENGE_MATCHES;
-  })().finally(()=>{ predictChallengeLoading=null; });
-  return predictChallengeLoading;
+  })().finally(()=>{
+    if(predictChallengeLoading===request){
+      predictChallengeLoading=null;
+      predictChallengeAbortController=null;
+    }
+  });
+  predictChallengeLoading=request;
+  return request;
+}
+function abortPredictChallengeSelection(){
+  if(predictChallengeAbortController) predictChallengeAbortController.abort();
+  predictChallengeAbortController=null;
+  predictChallengeLoading=null;
+  predictChallengeScope=null;
 }
 
 function selectCurrentWeek(matches){
@@ -1002,6 +1113,158 @@ function cacheProfiles(rows){
   PROFILES = {};
   rows.forEach(p => PROFILES[p.id] = p);
 }
+
+// Predict, futbol ana sayfasinin ortak veri zincirini kullanmaz. Yalniz gorunur
+// Predict urunu icin odul metinleri ile oturum sahibinin kendi tahmin ve bu
+// tahminlere ait sonuc satirlari hydrate edilir. Bu akisin ayri scope/sequence
+// tutmasi, auth hazir olmadan baslayan /predict acilisinda once "misafir" sonra
+// "uye" cevabinin birbirini ezmesini de engeller.
+let predictOwnedContextRequest = null;
+let predictOwnedContextController = null;
+let predictOwnedContextSequence = 0;
+let predictOwnedContextAppliedScope = null;
+let predictOwnedContextObservedAuthScope = null;
+let predictOwnedPredictionScope = null;
+let predictOwnedContextLifecycleBound = false;
+
+function predictOwnedContextScope(){ return getCurrentUser()?.id || 'guest'; }
+function predictProductDemandActive(){
+  if(typeof document==='undefined') return true;
+  return document.hidden!==true && document.body?.classList?.contains('predict-product-open');
+}
+function predictOwnedQueryWithSignal(query,signal){
+  return signal && query && typeof query.abortSignal==='function' ? query.abortSignal(signal) : query;
+}
+async function predictOwnedModuleQuery(query,label,signal){
+  try{
+    const {data,error}=await predictOwnedQueryWithSignal(query,signal);
+    if(error) throw error;
+    return {ok:true,rows:data||[]};
+  }catch(error){
+    if(signal?.aborted || error?.name==='AbortError') return {ok:false,aborted:true,rows:[]};
+    DATA_ERRORS[label]=error&&(error.message||error.code)?(error.message||error.code):'bilinmeyen hata';
+    console.warn('[XYZSkor Predict verisi]',label,error);
+    return {ok:false,aborted:false,rows:[]};
+  }
+}
+function applyPredictRewards(rows){
+  REWARDS={};
+  TEAMS.forEach(team=>{ REWARDS[team]=[{sira:1,aciklama:'—'},{sira:2,aciklama:'—'},{sira:3,aciklama:'—'}]; });
+  (rows||[]).forEach(row=>{
+    const rank=Number(row?.sira);
+    if(REWARDS[row?.team]&&Number.isInteger(rank)&&rank>=1&&rank<=3) REWARDS[row.team][rank-1]={sira:rank,aciklama:row.aciklama||'—'};
+  });
+}
+function renderPredictOwnedContext(){
+  if(!predictProductDemandActive()) return;
+  if(typeof refreshVisibleAccountViews==='function') refreshVisibleAccountViews();
+  else{
+    if(typeof renderNav==='function') renderNav();
+    if(typeof renderProgress==='function') renderProgress();
+    if(typeof renderRewards==='function') renderRewards();
+    if(typeof renderProfile==='function'&&getCurrentUser()?.id) renderProfile();
+  }
+  if(typeof renderLeagueMatches==='function') renderLeagueMatches();
+  if(typeof renderTeamBanner==='function') renderTeamBanner();
+}
+function predictOwnedContextIsCurrent(scope,sequence,signal){
+  return !signal?.aborted&&sequence===predictOwnedContextSequence&&scope===predictOwnedContextScope()&&predictProductDemandActive();
+}
+function abortPredictOwnedContext(){
+  predictOwnedContextSequence+=1;
+  predictOwnedContextController?.abort?.();
+  predictOwnedContextController=null;
+  predictOwnedContextRequest=null;
+}
+function bindPredictOwnedContextLifecycle(){
+  if(predictOwnedContextLifecycleBound||typeof document==='undefined') return;
+  predictOwnedContextLifecycleBound=true;
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden===true) abortPredictOwnedContext();
+    else if(predictProductDemandActive()) loadPredictOwnedContext().catch(()=>{});
+  });
+}
+async function loadPredictOwnedContext(options={}){
+  bindPredictOwnedContextLifecycle();
+  if(!predictProductDemandActive()) return false;
+  if(!AUTH_CONTEXT_READY) await loadAccountContext();
+  if(!predictProductDemandActive()) return false;
+
+  const scope=predictOwnedContextScope();
+  if(predictOwnedPredictionScope!==scope){
+    // Bir hesabin RLS ile okunan tahminleri baska hesabin render state'inde bir
+    // an bile kalmamali. Kamuya acik sonuc satirlari ise guvenle korunabilir.
+    cachePredictions([]);
+    predictOwnedPredictionScope=scope;
+  }
+  if(!options.force&&predictOwnedContextAppliedScope===scope){
+    renderPredictOwnedContext();
+    return true;
+  }
+  if(predictOwnedContextRequest?.scope===scope) return predictOwnedContextRequest.promise;
+
+  abortPredictOwnedContext();
+  const sequence=++predictOwnedContextSequence;
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  const signal=controller?.signal;
+  predictOwnedContextController=controller;
+  const request=(async()=>{
+    await ensureXYZSupabaseClient();
+    if(!predictOwnedContextIsCurrent(scope,sequence,signal)) return false;
+    const user=getCurrentUser();
+    const rewardsQuery=sb.from('rewards').select('team,sira,aciklama,updated_at').order('team').order('sira');
+    const predictionsQuery=user?.id
+      ? sb.from('predictions').select('match_id,user_id,pick,score_home,score_away,submitted_at').eq('user_id',user.id).order('submitted_at',{ascending:false}).limit(200)
+      : Promise.resolve({data:[],error:null});
+    const [rewardResult,predictionResult]=await Promise.all([
+      predictOwnedModuleQuery(rewardsQuery,'predict_rewards',signal),
+      predictOwnedModuleQuery(predictionsQuery,'own_predictions',signal),
+    ]);
+    if(!predictOwnedContextIsCurrent(scope,sequence,signal)) return false;
+
+    const predictionIds=[...new Set(predictionResult.rows.map(row=>String(row?.match_id||'')).filter(Boolean))];
+    const resultResult=predictionResult.ok&&predictionIds.length
+      ? await predictOwnedModuleQuery(sb.from('results').select('match_id,home,away,scored_at').in('match_id',predictionIds),'own_prediction_results',signal)
+      : {ok:predictionResult.ok,rows:[]};
+    if(!predictOwnedContextIsCurrent(scope,sequence,signal)) return false;
+
+    if(rewardResult.ok) applyPredictRewards(rewardResult.rows);
+    if(predictionResult.ok) cachePredictions(predictionResult.rows);
+    if(resultResult.ok){
+      resultResult.rows.forEach(row=>{
+        if(!row?.match_id) return;
+        ALL_RESULTS[row.match_id]={home:Number(row.home),away:Number(row.away),scoredAt:new Date(row.scored_at||Date.now()).getTime()};
+      });
+    }
+    const complete=rewardResult.ok&&predictionResult.ok&&resultResult.ok;
+    predictOwnedContextAppliedScope=complete?scope:null;
+    renderPredictOwnedContext();
+    return complete;
+  })().finally(()=>{
+    if(predictOwnedContextRequest?.promise===request) predictOwnedContextRequest=null;
+    if(predictOwnedContextController===controller) predictOwnedContextController=null;
+  });
+  predictOwnedContextRequest={scope,promise:request};
+  return request;
+}
+function handlePredictOwnedAuthContextReady(event){
+  const nextScope=event?.detail?.userId||'guest';
+  const changed=nextScope!==predictOwnedContextObservedAuthScope;
+  predictOwnedContextObservedAuthScope=nextScope;
+  if(changed){
+    abortPredictOwnedContext();
+    predictOwnedContextAppliedScope=null;
+    if(predictOwnedPredictionScope!==nextScope){
+      cachePredictions([]);
+      predictOwnedPredictionScope=nextScope;
+    }
+  }
+  if(!predictProductDemandActive()) return;
+  if(changed) loadPredictOwnedContext({force:true}).catch(()=>{});
+  else renderPredictOwnedContext();
+}
+if(typeof window!=='undefined'&&typeof window.addEventListener==='function') window.addEventListener('xyz:auth-context-ready',handlePredictOwnedAuthContextReady);
+
 function leaderboardCacheKey(team, hafta, period){ return `${team}|${hafta}|${period}`; }
 async function fetchServerLeaderboard(team, hafta, period){
   if(!SUPABASE_READY) await ensureXYZSupabaseClient();
@@ -1106,16 +1369,49 @@ function applyFootballCriticalBundle(providerBundle,requestedLeague){
   return true;
 }
 async function loadFootballCriticalData(){
-  const loadSequence=++footballDataLoadSequence;
   const requestedLeague=footballLeagueRequestKey();
+  if(footballCriticalRequest?.scope===requestedLeague&&!footballCriticalRequest.controller?.signal?.aborted) return footballCriticalRequest.promise;
+  if(footballCriticalRequest?.controller) footballCriticalRequest.controller.abort();
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  const loadSequence=++footballDataLoadSequence;
+  const backgroundRequests=[];
   DATA_ERRORS={};
-  const providerBundle=requestedLeague==='all' ? await fetchFootballHomeBundle() : await fetchProviderSeasonBundle(requestedLeague);
-  if(loadSequence!==footballDataLoadSequence || requestedLeague!==footballLeagueRequestKey()) return false;
-  const applied=applyFootballCriticalBundle(providerBundle,requestedLeague);
-  if(applied&&typeof document!=='undefined'&&document.body?.dataset.footballLeagueLoading===requestedLeague){
-    delete document.body.dataset.footballLeagueLoading;
+  const entry={scope:requestedLeague,controller,promise:null,ownerPromise:null};
+  const promise=(async()=>{
+    const providerBundle=requestedLeague==='all'
+      ? await fetchFootballHomeBundle({signal:controller?.signal,isActive:()=>footballLeagueRequestKey()==='all'&&(typeof document==='undefined'||document.hidden!==true),onBackgroundRequest:request=>backgroundRequests.push(request)})
+      : await fetchProviderSeasonBundle(requestedLeague,{signal:controller?.signal,isActive:()=>footballLeagueRequestKey()===requestedLeague&&(typeof document==='undefined'||document.hidden!==true)});
+    if(controller?.signal.aborted||loadSequence!==footballDataLoadSequence||requestedLeague!==footballLeagueRequestKey()) return false;
+    const applied=applyFootballCriticalBundle(providerBundle,requestedLeague);
+    if(applied&&typeof document!=='undefined'&&document.body?.dataset.footballLeagueLoading===requestedLeague){
+      delete document.body.dataset.footballLeagueLoading;
+    }
+    return applied;
+  })();
+  entry.promise=promise;
+  // Stale cache ilk boyamayi hemen tamamlayabilir; fakat arka plan SWR isteginin
+  // abort sahibi, o ag promise'i gercekten bitene kadar kaybolmamalidir.
+  entry.ownerPromise=promise.then(async result=>{
+    if(backgroundRequests.length) await Promise.allSettled(backgroundRequests);
+    return result;
+  }).finally(()=>{
+    if(footballCriticalRequest===entry) footballCriticalRequest=null;
+  });
+  entry.ownerPromise.catch(()=>{});
+  footballCriticalRequest=entry;
+  return promise;
+}
+function abortFootballCriticalData(){
+  footballDataLoadSequence+=1;
+  footballCriticalRequest?.controller?.abort?.();
+  if(typeof window!=='undefined'){
+    window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__?.abort?.();
+    window.__XYZ_FOOTBALL_SEASON_ABORT_CONTROLLER__?.abort?.();
+    window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__=null;
+    window.__XYZ_FOOTBALL_SEASON_ABORT_CONTROLLER__=null;
+    window.__XYZ_FOOTBALL_HOME_REQUEST__=null;
+    window.__XYZ_FOOTBALL_SEASON_REQUEST__=null;
   }
-  return applied;
 }
 async function loadAllData(){
   const loadSequence=++footballDataLoadSequence;

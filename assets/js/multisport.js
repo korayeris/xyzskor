@@ -6,6 +6,10 @@
   };
 
   const feedPromises = new Map();
+  const feedControllers = new Map();
+  const sharedPayloads = window.__XYZ_MULTISPORT_PAYLOADS__ instanceof Map
+    ? window.__XYZ_MULTISPORT_PAYLOADS__
+    : (window.__XYZ_MULTISPORT_PAYLOADS__ = new Map());
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
@@ -53,6 +57,9 @@
   }
 
   function closeHub(){
+    hubRequestEpoch += 1;
+    feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
+    feedControllers.clear();
     if(routeState()) { location.assign('/'); return; }
     document.body.classList.remove('multisport-open');
     const hub = document.getElementById('multiSportHub');
@@ -241,8 +248,11 @@
 
   async function load(sport){
     const requestedSport=sport || activeSport;
+    if(sharedPayloads.has(requestedSport)) return sharedPayloads.get(requestedSport);
     if(!feedPromises.has(requestedSport)){
-      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v10`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' } })
+      const controller=typeof AbortController!=='undefined'?new AbortController():null;
+      if(controller) feedControllers.set(requestedSport,controller);
+      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v10`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' }, signal:controller?.signal })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
           if(!response.ok) throw new Error(payload.error || 'sports_unavailable');
@@ -250,8 +260,15 @@
           if(branchKeys.length!==1 || branchKeys[0]!==requestedSport) throw new Error('sports_branch_mismatch');
           payload.sports[requestedSport]=(Array.isArray(payload.sports[requestedSport])?payload.sports[requestedSport]:[])
             .filter((item)=>!item?.sport || item.sport===requestedSport);
+          sharedPayloads.set(requestedSport,payload);
+          if(typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:multisport-payload',{detail:{sport:requestedSport,payload}}));
           return payload;
-        }).catch((error) => { feedPromises.delete(requestedSport); throw error; });
+        }).catch((error) => {
+          if(feedPromises.get(requestedSport)===request) feedPromises.delete(requestedSport);
+          throw error;
+        }).finally(()=>{
+          if(feedControllers.get(requestedSport)===controller) feedControllers.delete(requestedSport);
+        });
       feedPromises.set(requestedSport,request);
     }
     return feedPromises.get(requestedSport);
@@ -268,6 +285,12 @@
     const requestedSport = activeSport;
     const requestedView = activeView;
     const requestEpoch = ++hubRequestEpoch;
+    feedControllers.forEach((controller,scope)=>{
+      if(scope===requestedSport) return;
+      controller.abort();
+      feedControllers.delete(scope);
+      feedPromises.delete(scope);
+    });
     if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
     document.body.classList.add('multisport-open');
     updateBranchTicker([]);

@@ -14,26 +14,9 @@
   };
   const active = routeMap[location.pathname.split("/").filter(Boolean)[0]] || "football";
 
-  async function refreshContextTicker() {
-    if (active !== "mma") return;
-    const ticker = document.getElementById("liveTicker");
-    if (!ticker) return;
-    try {
-      const payload = await (await fetch("/api/ufc/events/upcoming", { cache: "no-store" })).json();
-      const raw = payload?.data?.events || payload?.data || payload?.events || [];
-      const events = Array.isArray(raw) ? raw : (Array.isArray(raw?.items) ? raw.items : []);
-      const event = events[0];
-      const name = event?.name || event?.title || event?.eventName || "UFC programi bekleniyor";
-      const date = event?.date || event?.startDate || event?.scheduledAt || "";
-      ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">YAKLASAN DOVUS</span><span class="ticker-match">${name}</span><span class="ticker-time mono">${date}</span>`;
-    } catch (_) {
-      ticker.innerHTML = '<span class="ticker-dot"></span><span class="ticker-label">YAKLASAN DOVUS</span><span class="ticker-match">Dovus programi yenileniyor</span>';
-    }
-  }
-
-  async function refreshMetrics() {
+  function renderMetrics(payload, sport) {
     const hub = document.getElementById("multiSportHub");
-    if (!hub || !["basketball", "volleyball"].includes(active)) return;
+    if (!hub || !["basketball", "volleyball"].includes(sport)) return;
     let metrics = document.getElementById("multiSportMetrics");
     if (!metrics) {
       metrics = document.createElement("section");
@@ -41,16 +24,19 @@
       metrics.className = "multisport-metrics";
       hub.querySelector(".multisport-switcher")?.before(metrics);
     }
-    try {
-      const payload = await (await fetch(`/api/sports/today?sport=${encodeURIComponent(active)}&client=v10`, { cache: "no-store" })).json();
-      const events = (payload?.sports?.[active] || []).filter((item) => !item?.sport || item.sport === active);
-      const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
-      const ended = events.filter((item) => /finished|after|ended|ft/i.test(item.status || "")).length;
-      const leagues = new Set(events.map((item) => item.league || item.category).filter(Boolean)).size;
-      metrics.innerHTML = `<span><b>${events.length}</b><small>Gunluk etkinlik</small></span><span class="is-live"><b>${live}</b><small>Canli</small></span><span><b>${ended}</b><small>Tamamlanan</small></span><span><b>${leagues}</b><small>Lig / organizasyon</small></span>`;
-    } catch (_) {
-      metrics.innerHTML = "<span><b>!</b><small>Canli veri yenileniyor</small></span>";
-    }
+    const events = (payload?.sports?.[sport] || []).filter((item) => !item?.sport || item.sport === sport);
+    const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
+    const ended = events.filter((item) => /finished|after|ended|ft/i.test(item.status || "")).length;
+    const leagues = new Set(events.map((item) => item.league || item.category).filter(Boolean)).size;
+    metrics.innerHTML = `<span><b>${events.length}</b><small>Gunluk etkinlik</small></span><span class="is-live"><b>${live}</b><small>Canli</small></span><span><b>${ended}</b><small>Tamamlanan</small></span><span><b>${leagues}</b><small>Lig / organizasyon</small></span>`;
+  }
+
+  function refreshMetrics() {
+    const sport=document.getElementById("multiSportHub")?.dataset?.sport || active;
+    if (!["basketball", "volleyball"].includes(sport)) return;
+    const payloads=window.__XYZ_MULTISPORT_PAYLOADS__;
+    const payload=payloads instanceof Map ? payloads.get(sport) : null;
+    if(payload) renderMetrics(payload,sport);
   }
 
   function mount() {
@@ -75,9 +61,14 @@
       if (existing) existing.click();
       else location.assign("/predict/");
     });
-    refreshContextTicker();
     if (active !== "football" && active !== "motorsports") setTimeout(refreshMetrics);
   }
+
+  window.addEventListener("xyz:multisport-payload", (event) => {
+    const sport=event?.detail?.sport;
+    const current=document.getElementById("multiSportHub")?.dataset?.sport || active;
+    if(sport===current) renderMetrics(event.detail.payload,sport);
+  });
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, { once: true });
   else mount();
