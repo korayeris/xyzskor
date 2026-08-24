@@ -144,7 +144,9 @@ const LIVE_FEED_CONFIG = {
   seasonScope: 'selected-leagues-season',
   refreshMs: 30000
 };
-const PROVIDER_SEASON_CACHE_MS = 120000;
+// Canlı skor ayrı endpointten gelir. Sezon fikstürü/puan tablosunu her lig
+// geçişinde yeniden indirmek yerine aynı sekmede on dakika paylaşırız.
+const PROVIDER_SEASON_CACHE_MS = 10 * 60 * 1000;
 const PROVIDER_LIVE_FALLBACK = '/api/football';
 const SELECTED_COMPETITIONS = [
   { key:'super-lig', label:'Süper Lig', short:'Süper Lig', sportmonksId:'600' },
@@ -574,7 +576,10 @@ let activeFootballLeague = (()=>{
   return SELECTED_COMPETITIONS.some(item=>item.key===routed) ? routed : 'super-lig';
 })();
 let SERVER_LEADERBOARDS = new Map();
+let SERVER_LEADERBOARD_REQUESTS = new Map();
 let serverLeaderboardMode = 'unknown';
+let legacyLeaderboardRequest = null;
+let footballDataLoadSequence = 0;
 let seasonFixturesReady = new Set();
 
 function toSafeUserObject(authUser){
@@ -769,27 +774,31 @@ function leaderboardCacheKey(team, hafta, period){ return `${team}|${hafta}|${pe
 async function fetchServerLeaderboard(team, hafta, period){
   const key = leaderboardCacheKey(team, hafta, period);
   if(SERVER_LEADERBOARDS.has(key)) return SERVER_LEADERBOARDS.get(key);
-  const { data, error } = await sb.rpc('get_leaderboard', {
-    p_week: hafta,
-    p_team: team==='Genel' ? null : team,
-    p_period: period,
-    p_limit: 100
-  });
-  if(error) throw error;
-  const rows = (data || []).map(row=>({
-    uid:row.user_id, username:row.username, team:row.team,
-    points:Number(row.points || 0), exact:Number(row.exact_scores || 0), correct:Number(row.correct_results || 0),
-    completedAt:row.completed_at ? new Date(row.completed_at).getTime() : 0,
-    position:Number(row.position || 0)
-  }));
-  SERVER_LEADERBOARDS.set(key, rows);
-  return rows;
+  if(SERVER_LEADERBOARD_REQUESTS.has(key)) return SERVER_LEADERBOARD_REQUESTS.get(key);
+  const request=(async()=>{
+    const { data, error } = await sb.rpc('get_leaderboard', {
+      p_week: hafta,
+      p_team: team==='Genel' ? null : team,
+      p_period: period,
+      p_limit: 100
+    });
+    if(error) throw error;
+    const rows = (data || []).map(row=>({
+      uid:row.user_id, username:row.username, team:row.team,
+      points:Number(row.points || 0), exact:Number(row.exact_scores || 0), correct:Number(row.correct_results || 0),
+      completedAt:row.completed_at ? new Date(row.completed_at).getTime() : 0,
+      position:Number(row.position || 0)
+    }));
+    SERVER_LEADERBOARDS.set(key, rows);
+    return rows;
+  })().finally(()=>SERVER_LEADERBOARD_REQUESTS.delete(key));
+  SERVER_LEADERBOARD_REQUESTS.set(key,request);
+  return request;
 }
-async function primeServerLeaderboards(hafta){
+async function primeServerLeaderboards(hafta, requestedTeams=['Genel']){
   if(serverLeaderboardMode==='legacy') return false;
   try{
-    if(serverLeaderboardMode==='unknown') await fetchServerLeaderboard('Genel', hafta, 'week');
-    const scopes = ['Genel', ...TEAMS];
+    const scopes = [...new Set(['Genel', ...(requestedTeams||[])].filter(Boolean))];
     await Promise.all(scopes.flatMap(team=>[
       fetchServerLeaderboard(team, hafta, 'week'),
       fetchServerLeaderboard(team, hafta, 'season')
@@ -804,6 +813,20 @@ async function primeServerLeaderboards(hafta){
     console.warn('[XYZSkor liderlik]', initialProbe ? 'Sunucu RPC bulunamadı; geçici eski veri akışı kullanılıyor.' : 'Sunucu sıralaması yenilenemedi; son başarılı veri korunuyor.', error);
     return false;
   }
+}
+
+async function loadLegacyLeaderboardData(){
+  if(legacyLeaderboardRequest) return legacyLeaderboardRequest;
+  legacyLeaderboardRequest=Promise.all([
+    moduleQuery(sb.from('profiles').select('*'), 'profiles_legacy'),
+    moduleQuery(sb.from('predictions').select('*'), 'predictions_legacy')
+  ]).then(([legacyProfiles,legacyPredictions])=>{
+    cacheProfiles(legacyProfiles);
+    cachePredictions(legacyPredictions);
+    if(currentUser && !PROFILES[currentUser.id]) PROFILES[currentUser.id]=currentUser;
+    return true;
+  }).catch(()=>false).finally(()=>{ legacyLeaderboardRequest=null; });
+  return legacyLeaderboardRequest;
 }
 let COMMON_DATA_CACHE = null;
 const COMMON_DATA_CACHE_MS = 5 * 60 * 1000;
@@ -821,8 +844,13 @@ function loadCommonData(){
   return promise;
 }
 async function loadAllData(){
+  const loadSequence=++footballDataLoadSequence;
+  const requestedLeague=footballLeagueRequestKey();
   DATA_ERRORS = {};
   const scopedSuperLig = isStrictSuperLigScope();
+  // Lig paketi auth ve ortak Supabase tablolarından bağımsızdır. Bu istekleri
+  // seri bekletmek lig geçişine doğrudan 1-2 saniye ekliyordu.
+  const providerBundlePromise=fetchProviderSeasonBundle(requestedLeague);
   let session = null;
   try{
     const authRes = await sb.auth.getSession();
@@ -831,13 +859,14 @@ async function loadAllData(){
   await ensureSeasonFixtures();
   const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
   const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});
-  const [commonData, ownProfiles, ownPredictions] = await Promise.all([
+  const [commonData, ownProfiles, ownPredictions, providerBundle] = await Promise.all([
     loadCommonData(),
     moduleQuery(ownProfileQuery, 'own_profile'),
-    moduleQuery(ownPredictionsQuery, 'own_predictions')
+    moduleQuery(ownPredictionsQuery, 'own_predictions'),
+    providerBundlePromise
   ]);
+  if(loadSequence!==footballDataLoadSequence || requestedLeague!==footballLeagueRequestKey()) return false;
   const [matches, analysisRows, results, rewards, standings, stories] = commonData;
-  const providerBundle = await fetchProviderSeasonBundle(activeFootballLeague);
   const providerMatches = providerBundle?.matches?.length ? providerBundle.matches : [];
   const providerStandings = providerBundle?.standings?.length ? providerBundle.standings : [];
   const providerResults = providerBundle?.results?.length ? providerBundle.results : [];
@@ -874,16 +903,9 @@ async function loadAllData(){
     }
     currentUser = mergeProfileWithSession(profile, session.user);
   } else currentUser = null;
-  const serverReady = await primeServerLeaderboards(activeWeek);
-  if(!serverReady){
-    const [legacyProfiles, legacyPredictions] = await Promise.all([
-      moduleQuery(sb.from('profiles').select('*'), 'profiles_legacy'),
-      moduleQuery(sb.from('predictions').select('*'), 'predictions_legacy')
-    ]);
-    cacheProfiles(legacyProfiles);
-    cachePredictions(legacyPredictions);
-    if(currentUser && !PROFILES[currentUser.id]) PROFILES[currentUser.id] = currentUser;
-  }
+  // Liderlik verisi futbol sayfasının kritik yolu değildir. Predict/Sıralama
+  // görünümü açıldığında yalnız gerekli kapsamlar lazy olarak yüklenir.
+  return true;
 }
 
 /* ===================== AUTH ===================== */

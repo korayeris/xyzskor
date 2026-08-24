@@ -121,7 +121,10 @@ assert.match(liveFunction, /sportmonksAdapter/, 'Sportmonks geçiş adaptörü b
 assert.match(liveFunction, /FOOTBALL_DATA_PROVIDER/, 'Sağlayıcı ortam ayarıyla seçilebilmeli.');
 assert.match(liveFunction, /LIVE_CACHE_LIVE_SECONDS/, 'Canlı maç cache süresi ayrı ayarlanmalı.');
 assert.match(liveFunction, /ttlForResult/, 'Cache süresi maç durumuna göre hesaplanmalı.');
-assert.match(functionSource('loadAllData'), /primeServerLeaderboards/, 'Liderlik verisi önce sunucu tarafı RPC’den alınmalı.');
+assert.doesNotMatch(functionSource('loadAllData'), /primeServerLeaderboards|profiles_legacy|predictions_legacy/, 'Futbol kritik yolu liderlik ve toplu kullanıcı verisini beklememeli.');
+assert.match(liveFunctionSource('loadVisibleLeaderboards'), /primeServerLeaderboards/, 'Liderlik RPC verisi yalnız görünür Predict alanında yüklenmeli.');
+assert.match(functionSource('primeServerLeaderboards'), /requestedTeams/, 'Liderlik yalnız istenen takım kapsamlarını sorgulamalı.');
+assert.match(functionSource('fetchServerLeaderboard'), /SERVER_LEADERBOARD_REQUESTS\.has\(key\)/, 'Eşzamanlı aynı liderlik sorguları tek promise üzerinde birleşmeli.');
 assert.match(functionSource('fetchServerLeaderboard'), /get_leaderboard/, 'Sunucu tarafı liderlik RPC bağlantısı bulunmalı.');
 assert.match(coreMigration, /create table if not exists public\.predictions/i, 'Tahmin tablosunun yeniden kurulabilir şeması bulunmalı.');
 assert.match(coreMigration, /predictions_integrity_before_write/i, 'Tahmin kilidi veritabanında uygulanmalı.');
@@ -512,6 +515,10 @@ assert.match(dataSource, /FOOTBALL_COVERAGE_CACHE_MS\s*=\s*60\s*\*\s*60\s*\*\s*1
 assert.match(dataSource, /fetch\(['"]\/api\/football\/coverage['"]/, 'Coverage endpointi frontend tarafindan cagrilmali.');
 assert.match(dataSource, /catch\(_error\)[\s\S]*?return null/, 'Coverage hatasi fail-open davranmali.');
 assert.match(liveFunctionSource('loadFootballLeagueSelection'), /footballCoverageUnavailable\(requestedLeague\)/, 'Tum lig secimleri kapsam disi durumu kontrol etmeli.');
+assert.match(liveFunctionSource('loadFootballLeagueSelection'), /Promise\.all\(\[coveragePromise,dataPromise\]\)/, 'Coverage ve lig verisi seri degil paralel yuklenmeli.');
+assert.match(liveFunctionSource('loadFootballLeagueSelection'), /renderFootballLeagueScope/, 'Lig gecisi Predict ve profil DOM alanlarini yeniden cizmemeli.');
+assert.match(liveFunctionSource('renderFootballHome'), /scheduleFootballLazyModule\('club-social'[\s\S]*scheduleFootballLazyModule\('youtube'[\s\S]*scheduleFootballLazyModule\('instagram'/, 'Sosyal ve medya APIleri yalniz ilgili bolum gorunume yaklasinca yuklenmeli.');
+assert.doesNotMatch(liveFunctionSource('renderFootballHome'), /renderFootballDataViews/, 'Ana sayfa gizli mac, gundem, kulup, transfer ve tablo gorunumlerinin tamamini kurmamali.');
 assert.match(liveFunctionSource('renderFootballLeaguePickerInto'), /is-unavailable/, 'Lig secici kapsam disi ligi tiklamadan once isaretlemeli.');
 assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.');
 assert.match(liveFunctionSource('applyParsedLocation'), /loadFootballLeagueSelection\(parsed\.league\)/, 'Dogrudan rota ve popstate coverage-aware lig yukleyicisini kullanmali.');

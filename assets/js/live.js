@@ -139,18 +139,25 @@ function goToWeek(w, updateUrl){
   activeWeek = w;
   if(updateUrl !== false) updateHash('week/'+w);
   renderAll();
-  if(serverLeaderboardMode==='server'){
-    primeServerLeaderboards(w).then(ready=>{
-      if(!ready || activeWeek!==w) return;
-      renderProgress();
-      renderLeaderTable();
-      renderTeamBanner();
-    });
-  }
+  if(document.getElementById('page-league')?.classList.contains('active')) loadVisibleLeaderboards();
 }
 function prevWeek(){ goToWeek(activeWeek-1); }
 function nextWeek(){ goToWeek(activeWeek+1); }
 function onWeekPickerChange(sel){ goToWeek(parseInt(sel.value,10)); }
+let visibleLeaderboardLoadToken=0;
+async function loadVisibleLeaderboards(){
+  const token=++visibleLeaderboardLoadToken;
+  const requestedWeek=activeWeek;
+  const userTeam=typeof getCurrentUser==='function' ? getCurrentUser()?.team : null;
+  const scopes=['Genel', typeof activeTab==='string' ? activeTab : null, userTeam].filter(Boolean);
+  const serverReady=await primeServerLeaderboards(requestedWeek,scopes);
+  if(!serverReady) await loadLegacyLeaderboardData();
+  if(token!==visibleLeaderboardLoadToken || activeWeek!==requestedWeek) return false;
+  if(typeof renderProgress==='function') renderProgress();
+  if(typeof renderLeaderTable==='function') renderLeaderTable();
+  if(typeof renderTeamBanner==='function') renderTeamBanner();
+  return true;
+}
 async function loadFootballLeagueSelection(leagueKey){
   const requestedLeague=SELECTED_COMPETITIONS.some(item=>item.key===leagueKey) ? leagueKey : 'super-lig';
   if(typeof document!=='undefined' && document.body) document.body.dataset.footballLeagueLoading=requestedLeague;
@@ -160,21 +167,25 @@ async function loadFootballLeagueSelection(leagueKey){
   DATA_ERRORS={};
   // Yeni lig yaniti gelene kadar mevcut DOM korunur. Onceki akis tum veriyi
   // sifirlayip bos ekran render ettigi icin ag gecikmesini kullaniciya yansitiyordu.
-  await loadFootballCoverage();
-  if(activeFootballLeague!==requestedLeague) return false;
-  if(footballCoverageUnavailable(requestedLeague)){
-    DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
-    if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
-    if(typeof renderAll==='function') renderAll();
-    return false;
-  }
+  if(typeof renderTicker==='function') renderTicker();
+  // Coverage yardımcı kontrolü ile gerçek lig verisi birbirinden bağımsızdır.
+  // İkisini seri bekletmek yerine aynı anda başlatırız.
   try{
-    await loadAllData();
+    const coveragePromise=loadFootballCoverage();
+    const dataPromise=loadAllData();
+    await Promise.all([coveragePromise,dataPromise]);
     if(activeFootballLeague!==requestedLeague) return false;
+    if(footballCoverageUnavailable(requestedLeague) && !MATCHES.length){
+      DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
+      if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
+      if(typeof renderAll==='function') renderAll();
+      return false;
+    }
     const weeks=getAvailableWeeks();
     if(weeks.length && !weeks.includes(activeWeek)) activeWeek=weeks[0];
     if(typeof document!=='undefined' && document.body?.dataset.footballLeagueLoading===requestedLeague) delete document.body.dataset.footballLeagueLoading;
-    if(typeof renderAll==='function') renderAll();
+    if(typeof renderFootballLeagueScope==='function') renderFootballLeagueScope();
+    else if(typeof renderAll==='function') renderAll();
     if(typeof loadLiveFeed==='function') loadLiveFeed(false);
     return true;
   }catch(error){
@@ -593,6 +604,7 @@ function switchMainTab(name, updateUrl){
   if(product==='predict'){
     if(!MATCHES.length && typeof loadFootballLeagueSelection==='function') loadFootballLeagueSelection(activeFootballLeague||'super-lig');
     if(typeof loadPredictChallengeSelection==='function') loadPredictChallengeSelection();
+    loadVisibleLeaderboards();
     if(updateUrl !== false) window.scrollTo({top:0,behavior:'smooth'});
   }
   if(updateUrl !== false) updatePath(buildProductPath(name));
@@ -617,6 +629,7 @@ function switchLeagueSection(name, updateUrl){
     const btn = document.getElementById('lst-'+n); if(btn) btn.classList.toggle('active', n===name);
   });
   updateMobileNavActive();
+  if(name==='leader') loadVisibleLeaderboards();
   if(updateUrl!==false) updatePath(buildProductPath('predict'));
 }
 

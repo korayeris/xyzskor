@@ -72,13 +72,13 @@ assert.equal(failedCalls, 1, '5xx sonrası renderlar backoff süresinde endpoint
 let dataLoads=0, renders=0;
 const selectionContext={fetch:async()=>({ok:true,json:async()=>({selected:[{league:'la-liga',available:false}]})}),Map,Date,Error,console,
   SELECTED_COMPETITIONS:[{key:'super-lig'},{key:'la-liga'}],activeFootballLeague:'super-lig',activeFootballTeam:'Tümü',MATCHES:[1],STANDINGS:[1],ALL_RESULTS:{x:1},WEEKLY_STORIES:{x:1},DATA_ERRORS:{},activeWeek:1,
-  competitionLabelBySlug:key=>key,renderAll:()=>{renders+=1;},loadAllData:async()=>{dataLoads+=1;},getAvailableWeeks:()=>[],loadLiveFeed:()=>{}};
+  competitionLabelBySlug:key=>key,renderAll:()=>{renders+=1;},loadAllData:async()=>{dataLoads+=1;selectionContext.MATCHES=[];},getAvailableWeeks:()=>[],loadLiveFeed:()=>{}};
 vm.createContext(selectionContext);
 vm.runInContext(`${dataSource.slice(start,end)}\n${functionSource(liveSource,'loadFootballLeagueSelection')}\nthis.run=loadFootballLeagueSelection;`,selectionContext);
 assert.equal(await selectionContext.run('la-liga'),false,'Kapsam dışı seçim veri yüklememeli.');
-assert.equal(dataLoads,0,'Kapsam dışı seçim loadAllData çağırmamalı.');
+assert.equal(dataLoads,1,'Coverage kontrolü lig verisini seri olarak bloke etmemeli; iki istek paralel başlamalı.');
 assert.match(selectionContext.DATA_ERRORS.coverage,/aboneliğinde yer almıyor/,'Kapsam dışı seçim açıklayıcı mesaj üretmeli.');
-assert.ok(renders>=2,'Kapsam dışı seçim temiz ve açıklayıcı durumları render etmeli.');
+assert.ok(renders>=1,'Kapsam dışı seçim temiz ve açıklayıcı durumu render etmeli.');
 
 let routedLeague=null;
 const routeContext={activeFootballLeague:'super-lig',mcMatchId:null,closeMatchCenter:()=>{},loadFootballLeagueSelection:key=>{routedLeague=key;},switchMainTab:()=>{},setTransferCenterTab:()=>{},openFootballSection:()=>{}};

@@ -79,6 +79,19 @@ snapshot'ın sunulması. `scripts/check.mjs` ayrıca üretim Worker'ında
 başarısız yapar. Lig izolasyonu ve sahte boş başarı yasağı da canlı mimari ve
 hardening paketlerinde ayrı regresyon testleridir.
 
+### Sayfa kapsamlı hızlı yükleme
+
+Lig değişimi bütün uygulamanın yeniden yüklenmesi değildir. Coverage kontrolü
+ve seçili lig sezon paketi paralel başlar; geç gelen eski lig cevabı artan istek
+sırası ile yeni ekranın üzerine yazamaz. Futbol ekranı Predict liderlik,
+profiller ve bütün kullanıcı tahminlerini beklemez. Liderlik RPC'leri yalnız
+Predict/Sıralama görünür olduğunda `Genel`, seçili takım ve oturum sahibinin
+takımı için çağrılır; aynı kapsamın eşzamanlı istekleri tek promise üzerinde
+birleştirilir. X, YouTube ve Instagram modülleri de ilgili bölüm ekrana 600 px
+yaklaştığında yüklenir. Lig sezon paketi aynı tarayıcı sekmesinde 10 dakika
+paylaşılır; canlı skor doğruluğu ayrı canlı endpoint ve maç snapshot'larıyla
+korunur.
+
 [Claude için canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
 
 XYZSKOR; koyu, teknik ve mobil uyumlu bir yayın deneyiminde canlı futbol

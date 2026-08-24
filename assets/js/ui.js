@@ -1677,7 +1677,31 @@ async function renderInstagramFeed(){
   }
 }
 
-function renderFootballHome(){ renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderClubSocial(); renderEditorialNews(); renderYouTubeMedia(); renderInstagramFeed(); renderFootballDataViews(); startTransferCountdown(); }
+const footballLazyModuleObservers=new Map();
+function scheduleFootballLazyModule(key,targetId,loader){
+  const target=document.getElementById(targetId); if(!target) return;
+  const signature=`${key}:${activeFootballLeague}`;
+  if(target.dataset.lazySignature===signature) return;
+  target.dataset.lazySignature=signature;
+  footballLazyModuleObservers.get(key)?.disconnect();
+  const run=()=>{ if(target.dataset.lazySignature===signature) loader(); };
+  if(typeof IntersectionObserver!=='function'){
+    setTimeout(run,0);
+    return;
+  }
+  const observer=new IntersectionObserver(entries=>{
+    if(!entries.some(entry=>entry.isIntersecting)) return;
+    observer.disconnect(); footballLazyModuleObservers.delete(key); run();
+  },{rootMargin:'600px 0px'});
+  footballLazyModuleObservers.set(key,observer);
+  observer.observe(target);
+}
+function renderFootballHome(){
+  renderPortalSponsor(); renderMatchesLeagueFilters(); updateLeagueScopedCopy(); renderFootballTeamStrip(); renderFootballQuickMatches(); renderFootballFeatured(); renderFootballNews(); renderFootballTransfers(); renderFootballSeasonHonors(); renderFootballStandingsCompact(); renderEditorialNews(); startTransferCountdown();
+  scheduleFootballLazyModule('club-social','clubSocialSection',renderClubSocial);
+  scheduleFootballLazyModule('youtube','broadcastDesk',renderYouTubeMedia);
+  scheduleFootballLazyModule('instagram','instagramDesk',renderInstagramFeed);
+}
 function scrollToLiveCenter(){ const target=document.getElementById('page-live'); if(target) target.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderStory(){
   renderWeekSelector();
@@ -1697,6 +1721,18 @@ function renderStory(){
   renderAsideNextMatch();
   renderAsideStandings();
   renderPrevWeekSummary();
+}
+function renderFootballLeagueScope(){
+  applyFootballLeagueTheme();
+  renderTicker();
+  if(activeFootballSection==='home') renderStory();
+  else{
+    renderMatchesLeagueFilters();
+    updateLeagueScopedCopy();
+    openFootballSection(activeFootballSection,null,false);
+  }
+  updateMobileNavActive();
+  if(document.getElementById('page-story')?.classList.contains('active')) startLiveFeed();
 }
 function renderPrevWeekSummary(){
   const el = document.getElementById('prevWeekSection'); if(!el) return;
@@ -2007,7 +2043,7 @@ function renderLeaderTabs(){
   document.getElementById('leaderTabs').innerHTML = tabs.map(t=>`<div class="tab ${t===activeTab?'active':''}" role="button" tabindex="0" onclick="setTab('${t}')">${t}</div>`).join('');
   renderLeaderTable();
 }
-function setTab(t){ activeTab = t; renderLeaderTabs(); }
+function setTab(t){ activeTab = t; renderLeaderTabs(); if(typeof loadVisibleLeaderboards==='function') loadVisibleLeaderboards(); }
 function medalSVG(rank){
   const colors = {1:'#D9A94E',2:'#B9C2C8',3:'#B5763F'};
   if(!colors[rank]) return '';
