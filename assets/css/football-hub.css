@@ -397,6 +397,42 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .scoreboard-mini-row:nth-child(even) { background:rgba(255,255,255,.018); }
 .scoreboard-filter-empty { border-radius:11px; background:#14191e; }
 
+/* v314 league surface: a single editorial canvas instead of stacked cards. */
+.football-scoreboard-home,
+.football-league-overview { animation:xyzSurfaceIn .2s ease-out both; }
+@keyframes xyzSurfaceIn { from { opacity:.35; transform:translateY(5px); } to { opacity:1; transform:none; } }
+.football-league-overview { margin-top:24px; }
+.league-overview-hero { padding:14px 0 24px; border:0; border-radius:0; background:transparent; }
+.league-overview-logo { width:58px; height:58px; border:0; border-radius:50%; background:#171c21; }
+.league-overview-logo img { width:42px; height:42px; }
+.league-overview-switch { gap:4px; }
+.league-overview-switch button { border:0; border-radius:999px; background:transparent; transition:background-color .18s ease,color .18s ease,transform .18s ease; }
+.league-overview-switch button:hover { border-color:transparent; background:#1b2228; transform:translateY(-1px); }
+.league-overview-switch button.active { border-color:transparent; background:color-mix(in srgb,var(--league-accent,#f05d74) 24%,#171c21); }
+.league-overview-tabs { gap:18px; padding:0; border:0; border-bottom:1px solid #242c32; border-radius:0; background:transparent; }
+.league-overview-tabs button { padding-inline:2px; }
+.league-overview-tabs button::after { right:0; left:0; }
+.league-overview-layout { gap:28px; margin-top:24px; }
+.league-overview-panel { overflow:visible; border:0; border-radius:0; background:transparent; }
+.league-overview-panel > header { min-height:62px; padding:10px 0 12px; border-bottom:1px solid #293138; }
+.league-overview-panel > header button { padding-right:0; }
+.league-overview-table-scroll { border-bottom:1px solid #293138; background:transparent; }
+.league-overview-table thead { background:#11161a; }
+.league-overview-table th,
+.league-overview-table td { border-color:#222a30; }
+.league-overview-source { padding-inline:0; border-bottom:1px solid #293138; background:transparent; }
+.league-overview-fixture-group h3 { padding-inline:0; border-bottom:1px solid #242c32; background:transparent; }
+.league-overview-fixture { padding-inline:0; border-top:0; border-bottom:1px solid #222a30; }
+.league-overview-fixture:hover { background:rgba(255,255,255,.025); }
+.league-overview-metrics { gap:0; margin:26px 0; border-block:1px solid #293138; }
+.league-overview-metrics article { padding:18px 16px; border:0; border-left:1px solid #293138; border-radius:0; background:transparent; }
+.league-overview-metrics article:first-child { border-left:0; padding-left:0; }
+.league-overview-metrics article:last-child { padding-right:0; }
+.league-overview-lower { gap:28px; }
+.league-overview-stories article { border-color:#293138; background:transparent; }
+.league-overview-stories article:nth-child(odd) { padding-left:0; }
+.league-overview-transfer-list article { padding-inline:0; border-color:#293138; }
+
 .sport-branch-nav-compact { border:0 !important; background:#0d1115 !important; }
 .sport-branch-nav-compact .sport-branch-button { border:0 !important; border-radius:999px !important; background:transparent !important; transition:background-color .18s ease,color .18s ease,transform .18s ease; }
 .sport-branch-nav-compact .sport-branch-button:hover,
@@ -418,6 +454,8 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
 .agenda-match.is-result:focus-visible { background:#403421 !important; }
 
 @media (prefers-reduced-motion:reduce) {
+  .football-scoreboard-home,
+  .football-league-overview,
   .scoreboard-match-row,
   .scoreboard-predict,
   .scoreboard-leagues nav button,
@@ -448,9 +486,13 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .scoreboard-pick-choice small { max-width:70px; }
   .scoreboard-match-main { padding-left:12px; }
   .league-overview-hero { padding-inline:0; }
+  .league-overview-switch { width:100%; }
+  .league-overview-tabs { gap:12px; }
   .league-overview-layout,
   .league-overview-lower { gap:14px; }
-  .league-overview-panel { border-radius:12px; }
+  .league-overview-panel { border-radius:0; }
   .league-overview-metrics { gap:7px; }
+  .league-overview-metrics article { border-left:0; border-top:1px solid #293138; }
+  .league-overview-metrics article:first-child { border-top:0; }
   .sport-branch-nav-compact .sport-branch-button { min-width:44px !important; }
 }

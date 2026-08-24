@@ -287,6 +287,7 @@ async function main() {
           visibleTextLength: (document.body.innerText || '').trim().length,
           skeletons: [...document.querySelectorAll('.skeleton')].filter((el)=>el.offsetWidth||el.offsetHeight).length,
           visibleLegacyLiveCenter: (()=>{ const el=document.getElementById('page-live'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
+          visibleLeagueOverviewTablists: [...document.querySelectorAll('#footballLeagueOverview > .league-overview-tabs')].filter((el)=>el.offsetWidth||el.offsetHeight).length,
           tickerText: document.getElementById('liveTicker')?.innerText?.trim() || '',
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
           multisportMetricsText: document.getElementById('multiSportMetrics')?.innerText || '',
@@ -351,6 +352,7 @@ async function main() {
         ok(requestedApiPaths.filter((path)=>path==='/api/football/coverage').length===0, `${tag}: lig acilisi otomatik coverage istemiyor`, requestedApiPaths.join(' | '));
         ok(requestedApiPaths.filter((path)=>path==='/api/health').length===0, `${tag}: gorunur lig verisi disinda health istegi yok`, requestedApiPaths.join(' | '));
         ok(!metrics.visibleLegacyLiveCenter, `${tag}: lig genel bakisinda ikinci canli merkez yok`);
+        ok(metrics.visibleLeagueOverviewTablists===1, `${tag}: lig genel bakisinda tek bolum sekmesi var`, `gorunen sekme=${metrics.visibleLeagueOverviewTablists}`);
         ok(!/Fikstür yükleniyor/i.test(metrics.tickerText), `${tag}: veri geldikten sonra yukleniyor mesaji kalmiyor`, metrics.tickerText);
       }
       if(route.name === 'basketbol'){

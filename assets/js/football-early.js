@@ -354,6 +354,7 @@
     };
     setTimeout(function () {
       if (!stillEarly()) return;
+      root.querySelectorAll(":scope > .league-overview-tabs").forEach(function (tab) { tab.remove(); });
       root.append(tabs);
       setTimeout(function () {
         if (!stillEarly()) return;

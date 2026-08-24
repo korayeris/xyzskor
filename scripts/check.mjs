@@ -10,8 +10,8 @@ const appCss = [
 ].join('\n');
 const footballHubCss = await readFile(new URL('../assets/css/football-hub.css', import.meta.url), 'utf8');
 const footballControlsCss = await readFile(new URL('../assets/css/football-controls-v236.css', import.meta.url), 'utf8');
-assert.match(documentHtmlRaw, /football-hub\.css\?v=313/, 'The route-scoped football stylesheet must use the v313 cache key.');
-assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=313/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
+assert.match(documentHtmlRaw, /football-hub\.css\?v=314/, 'The route-scoped football stylesheet must use the v314 cache key.');
+assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=314/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
 assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
 assert.match(footballHubCss, /route-scoped football home and league overview[\s\S]*\.scoreboard-shell[\s\S]*\.league-overview-layout/i, 'Canonical football routes need their independent stylesheet.');
 const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'football-early.js', 'style-loader.js'];
@@ -20,7 +20,7 @@ const dataSource = scriptSources[0];
 const appSource = scriptSources.join('\n');
 const appBootSource = await readFile(new URL('../assets/js/app-boot.js', import.meta.url), 'utf8');
 const uiExtrasSource = await readFile(new URL('../assets/js/ui-extras.js', import.meta.url), 'utf8');
-assert.match(documentHtmlRaw, /ui\.js\?v=313[\s\S]*id="xyzUiExtrasTemplate"[\s\S]*ui-extras\.js\?v=313[\s\S]*app-boot\.js\?v=313/, 'Core UI, inert extras and mandatory boot must keep their load order.');
+assert.match(documentHtmlRaw, /ui\.js\?v=314[\s\S]*id="xyzUiExtrasTemplate"[\s\S]*ui-extras\.js\?v=314[\s\S]*app-boot\.js\?v=314/, 'Core UI, inert extras and mandatory boot must keep their load order.');
 assert.match(appBootSource, /productionCoreChunks[\s\S]*primeChunkDownloads\(productionCoreChunks[\s\S]*loadSequence\(productionCoreChunks\.slice\(0, 2\), true\)[\s\S]*fragmentsPrepared[\s\S]*then\(hydrateCanonicalFragments\)[\s\S]*loadSequence\(productionCoreChunks\.slice\(2\), true\)/, 'The mandatory bootstrap must warm downloads, then hydrate required DOM between dependency stages.');
 assert.match(appBootSource, /var appBootPromise = ensureProductionRuntime\(\)[\s\S]*\.then\(nextTask\)[\s\S]*\.then\(start\)/, 'The complete application boot must start in its own task after the production runtime.');
 assert.match(appBootSource, /canonicalFragmentSpecs[\s\S]*hydrateCanonicalFragments[\s\S]*__XYZ_CANONICAL_FRAGMENTS_READY__[\s\S]*__XYZ_APP_BOOT_READY__/, 'Canonical late DOM and the complete application boot need observable readiness contracts.');
@@ -286,10 +286,10 @@ assert.match(workerSource, /Number\(row\?\.type_id\) === 11/, 'Yalnız resmî ba
 assert.match(html, /id="clubProfilePanel"/, 'Kulüpler alanında ayrıntılı kulüp merkezi bulunmalı.');
 assert.match(functionSource('loadClubProfile'), /fetch\(`\/api\/football\/club/, 'Kulüp merkezi aynı alan adlı sunucu adaptörünü kullanmalı.');
 for (const releaseAsset of ['style-loader.js', 'initial-route.js', 'football-early.js', 'data.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'multisport.js', 'sport-branches.js', 'motorsports.js']) {
-  assert.match(documentHtmlRaw, new RegExp(`${releaseAsset.replace('.', '\\.')}\\?v=313`), `${releaseAsset} v313 immutable tarayıcı önbelleğini kırmalı.`);
+  assert.match(documentHtmlRaw, new RegExp(`${releaseAsset.replace('.', '\\.')}\\?v=314`), `${releaseAsset} v314 immutable tarayıcı önbelleğini kırmalı.`);
 }
-assert.match(documentHtmlRaw, /app\.css\?v=313/, 'v313 uygulama stili immutable tarayıcı önbelleğini kırmalı.');
-assert.match(documentHtmlRaw, /app-late\.css\?v=313/, 'v313 gecikmeli uygulama stili immutable tarayıcı önbelleğini kırmalı.');
+assert.match(documentHtmlRaw, /app\.css\?v=314/, 'v314 uygulama stili immutable tarayıcı önbelleğini kırmalı.');
+assert.match(documentHtmlRaw, /app-late\.css\?v=314/, 'v314 gecikmeli uygulama stili immutable tarayıcı önbelleğini kırmalı.');
 assert.match(functionSource('clubLineupHTML'), /İsim uydurulmuyor/, 'Sağlayıcı verisi yokken oyuncu ismi uydurulmamalı.');
 assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Stadyum kartı yol tarifi bağlantısı üretmeli.');
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');

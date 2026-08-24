@@ -647,11 +647,18 @@ Sunucu tarafında bu istekler kullanıcı başına sağlayıcı çağrısına d�
 Bu sözleşmeyi `npm run qa:demand-scope`, `npm run qa:live-architecture`,
 `npm run qa:live-quota` ve `npm run qa:hardening` korur.
 
-v313'te yayınlanan first-party istemci dosyaları (`app.css`, `app-late.css`,
+v314'te lig genel görünümü, FotMob/Sofascore bilgi hiyerarşisinden yalnızca
+akış prensibini alır: başlık, sekmeler, tablo, fikstür ve alt metrikler tek
+kesintisiz yüzeyde ilerler; referansların marka, bileşen ve görsel düzeni
+kopyalanmaz. Predict 1/X/2 seçenekleri maç satırlarının altında korunur. Bu
+değişiklik yalnız sunum katmanındadır; v313 demand-scope, cache, canlı skor ve
+provider single-flight sözleşmeleri aynen kalır.
+
+v314'te yayınlanan first-party istemci dosyaları (`app.css`, `app-late.css`,
 `football-hub.css`, `style-loader.js`, `initial-route.js`, `football-early.js`,
 `data.js`, `live.js`, `match-center.js`, `matchday-live.js`, `predict-game.js`,
 `ui.js`, `app-boot.js`, `ui-extras.js`, `chat.js`, `multisport.js`,
-`sport-branches.js`, `motorsports.js`) aynı `?v=313` cache-busting
+`sport-branches.js`, `motorsports.js`) aynı `?v=314` cache-busting
 sürümünü taşır. Production build ayrıca içerik hash'i üreterek bu manuel
 sürümün üzerinde ikinci bir immutable-cache güvenlik katmanı uygular.
 

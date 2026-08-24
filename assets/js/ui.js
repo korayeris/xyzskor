@@ -1999,6 +1999,8 @@ function leagueOverviewLowerHTML(){
   return `<section class="league-overview-panel"><header><div><small>LİG GÜNDEMİ</small><h2>Öne çıkanlar</h2></div><button type="button" onclick="openFootballSection('news')">Tüm haberler →</button></header><div class="league-overview-stories">${stories.length?stories.map(story=>`<article><span>${escapeHTML(story.label||'Gündem')}</span><h3>${escapeHTML(story.title)}</h3><p>${escapeHTML(story.text||'')}</p></article>`).join(''):footballEmpty('Gündem hazırlanıyor','Bu lig için doğrulanmış yeni kayıt geldiğinde burada görünecek.')}</div></section><aside class="league-overview-panel"><header><div><small>TRANSFER MERKEZİ</small><h2>Son işlemler</h2></div><button type="button" onclick="openFootballSection('transfers')">Tüm transferler →</button></header><div class="league-overview-transfer-list">${transfers.length?transfers.map(item=>`<article><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</span><b>${escapeHTML(item.fee||item.status||'')}</b></article>`).join(''):footballEmpty('Transfer kaydı bekleniyor','Sportmonks bu lig için doğrulanmış kayıt yayınladığında alan dolar.')}</div></aside>`;
 }
 function bindLeagueOverviewDOM(root,leagueKey){
+  const tablists=[...root.querySelectorAll(':scope > .league-overview-tabs')];
+  tablists.slice(0,-1).forEach(tab=>tab.remove());
   root.querySelectorAll('[data-league-switch]').forEach(button=>{
     const target=button.dataset.leagueSwitch;
     const active=target===leagueKey;
