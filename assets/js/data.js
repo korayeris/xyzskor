@@ -706,6 +706,34 @@ async function fetchProviderSeasonBundle(leagueKey){
   }
 }
 
+const FOOTBALL_HOME_LEAGUES=['super-lig','premier-league','la-liga','bundesliga','serie-a'];
+const FOOTBALL_HOME_CACHE_KEY='xyzskor:football-home:v1';
+const FOOTBALL_HOME_CACHE_MS=10*60*1000;
+function compactFootballHomeBundle(bundles){
+  const now=Date.now();
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const matches=[];
+  bundles.forEach((bundle,index)=>{
+    const league=FOOTBALL_HOME_LEAGUES[index];
+    const rows=(bundle?.matches||[]).map(match=>({...match,league_key:league})).sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff));
+    const todays=rows.filter(match=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(match.kickoff))===today);
+    const upcoming=rows.filter(match=>Date.parse(match.kickoff)>=now).slice(0,3);
+    const recent=rows.filter(match=>Date.parse(match.kickoff)<now).slice(-2);
+    matches.push(...(todays.length ? todays : (upcoming.length ? upcoming : recent)));
+  });
+  return {league:'all',matches,standings:[],results:bundles.flatMap(bundle=>bundle?.results||[]),updatedAt:new Date().toISOString(),source:'Sportmonks · beş lig paralel'};
+}
+async function fetchFootballHomeBundle(){
+  try{
+    const cached=JSON.parse(localStorage.getItem(FOOTBALL_HOME_CACHE_KEY)||'null');
+    if(cached?.savedAt && cached?.payload?.matches?.length && Date.now()-cached.savedAt<FOOTBALL_HOME_CACHE_MS) return cached.payload;
+  }catch(_error){}
+  const bundles=await Promise.all(FOOTBALL_HOME_LEAGUES.map(key=>fetchProviderSeasonBundle(key)));
+  const payload=compactFootballHomeBundle(bundles);
+  try{ if(payload.matches.length) localStorage.setItem(FOOTBALL_HOME_CACHE_KEY,JSON.stringify({savedAt:Date.now(),payload})); }catch(_error){}
+  return payload;
+}
+
 let PREDICT_CHALLENGE_MATCHES = [];
 let predictChallengeLoading = null;
 let predictChallengeReady = false;
@@ -850,7 +878,8 @@ async function loadAllData(){
   const scopedSuperLig = isStrictSuperLigScope();
   // Lig paketi auth ve ortak Supabase tablolarından bağımsızdır. Bu istekleri
   // seri bekletmek lig geçişine doğrudan 1-2 saniye ekliyordu.
-  const providerBundlePromise=fetchProviderSeasonBundle(requestedLeague);
+  const providerBundlePromise=requestedLeague==='all' ? fetchFootballHomeBundle() : fetchProviderSeasonBundle(requestedLeague);
+  const commonDataPromise=loadCommonData();
   let session = null;
   try{
     const authRes = await sb.auth.getSession();
@@ -860,7 +889,7 @@ async function loadAllData(){
   const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
   const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});
   const [commonData, ownProfiles, ownPredictions, providerBundle] = await Promise.all([
-    loadCommonData(),
+    commonDataPromise,
     moduleQuery(ownProfileQuery, 'own_profile'),
     moduleQuery(ownPredictionsQuery, 'own_predictions'),
     providerBundlePromise

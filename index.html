@@ -19,14 +19,14 @@
 <link rel="preconnect" href="https://swhwmqbamzczztpfxctg.supabase.co">
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="preload" href="/assets/css/app.css?v=259" as="style">
-<link rel="stylesheet" href="/assets/css/app.css?v=259">
+<link rel="preload" href="/assets/css/app.css?v=308" as="style">
+<link rel="stylesheet" href="/assets/css/app.css?v=308">
 <link rel="stylesheet" href="/assets/css/football-controls-v236.css?v=240">
 <script defer src="/assets/js/compliance.js?v=240"></script>
 
 </head>
 <body>
-<script src="/assets/js/initial-route.js?v=240"></script>
+<script src="/assets/js/initial-route.js?v=308"></script>
 
 <nav class="global-header" aria-label="Ana navigasyon">
   <a class="brand-lockup" href="/?view=home" aria-label="XYZSKOR ana sayfa">
@@ -119,6 +119,13 @@
 <!-- ===================== TAB 1: HAFTANIN HİKAYESİ ===================== -->
 <div class="tabpage active" id="page-story">
   <div id="footballOverviewView">
+  <section id="footballScoreboardHome" class="football-scoreboard-home" aria-label="Tüm liglerden futbol maçları">
+    <div class="scoreboard-shell scoreboard-first-paint">
+      <aside class="scoreboard-leagues"><div class="scoreboard-kicker">FUTBOL</div><h1>Ligler</h1><p>Lig seçimi ve maç programı hazırlanıyor.</p></aside>
+      <main class="scoreboard-fixtures"><header><div><span class="scoreboard-live-dot"></span> Bugün ve yaklaşan maçlar</div></header><div class="scoreboard-loading-lines"><span></span><span></span><span></span><span></span></div></main>
+      <aside class="scoreboard-feature"><div class="scoreboard-kicker">PREDICT</div><h2>Maçını seç,<br>tahminini yap.</h2><p>Canlı ve yaklaşan karşılaşmalar yükleniyor.</p></aside>
+    </div>
+  </section>
   <div id="weekSelector" class="week-selector-bar"></div>
   <div class="data-status-line" id="dataStatusLine"></div>
   <section class="portal-league-strip" aria-labelledby="portalLeagueStripTitle">
@@ -591,13 +598,13 @@
      basarisiz olursa data.js yedek istemciye duser ve site futbol icerigiyle
      calismaya devam eder (bkz. createSupabaseFallbackClient). -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.dataset.failed='1';var f=document.createElement('script');f.defer=true;f.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';document.head.appendChild(f);"></script>
-<script defer src="/assets/js/data.js?v=307"></script>
+<script defer src="/assets/js/data.js?v=308"></script>
 <script defer src="/assets/js/analytics.js?v=240"></script>
-<script defer src="/assets/js/live.js?v=307"></script>
+<script defer src="/assets/js/live.js?v=308"></script>
 <script defer src="/assets/js/match-center.js?v=240"></script>
 <script defer src="/assets/js/matchday-live.js?v=305"></script>
 <script defer src="/assets/js/predict-game.js?v=240"></script>
-<script defer src="/assets/js/ui.js?v=307"></script>
+<script defer src="/assets/js/ui.js?v=308"></script>
 
 <!-- ===================== GÜNDEM SOHBETİ ===================== -->
 <button class="chat-launcher" id="chatLauncher" type="button" aria-controls="chatPanel" aria-expanded="false">
