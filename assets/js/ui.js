@@ -1827,7 +1827,11 @@ function footballHomeMatchRow(match){
       <strong class="scoreboard-score">${escapeHTML(state.score||'—')}</strong>
       <span class="scoreboard-team away">${crestHTML(match.konuk)}${escapeHTML(match.konuk)}</span>
     </button>
-    ${canPredict?`<button class="scoreboard-predict" type="button" onclick="openFootballPredict('${escapeHTML(String(match.id))}')">Predict</button>`:`<button class="scoreboard-predict is-detail" type="button" onclick="openMatchCenter('${escapeHTML(String(match.id))}')">Detay</button>`}
+    ${canPredict?`<div class="scoreboard-predict" aria-label="${escapeHTML(match.ev)} ${escapeHTML(match.konuk)} maç sonucu tahmini">
+      <button class="scoreboard-pick-choice" type="button" data-scoreboard-pick="1" onclick="openFootballPredict('${escapeHTML(String(match.id))}','1')" aria-label="${escapeHTML(match.ev)} kazanır">${crestHTML(match.ev,'xs')}<span><b>1</b><small>${escapeHTML(match.ev)}</small></span></button>
+      <button class="scoreboard-pick-choice is-draw" type="button" data-scoreboard-pick="X" onclick="openFootballPredict('${escapeHTML(String(match.id))}','X')" aria-label="Beraberlik"><i>X</i><span><b>X</b><small>Beraberlik</small></span></button>
+      <button class="scoreboard-pick-choice" type="button" data-scoreboard-pick="2" onclick="openFootballPredict('${escapeHTML(String(match.id))}','2')" aria-label="${escapeHTML(match.konuk)} kazanır">${crestHTML(match.konuk,'xs')}<span><b>2</b><small>${escapeHTML(match.konuk)}</small></span></button>
+    </div>`:`<button class="scoreboard-predict is-detail" type="button" onclick="openMatchCenter('${escapeHTML(String(match.id))}')">Detay</button>`}
   </article>`;
 }
 function filterFootballHomeMatches(filter,button){
@@ -1916,7 +1920,8 @@ function syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableL
 function renderFootballScoreboardHome(){
   const root=document.getElementById('footballScoreboardHome'); if(!root) return;
   const focusedFixture=document.activeElement?.closest?.('[data-home-fixture]')?.dataset?.homeFixture||null;
-  const focusedAction=document.activeElement?.classList?.contains('scoreboard-predict')?'predict':'main';
+  const focusedPick=document.activeElement?.dataset?.scoreboardPick||'';
+  const focusedAction=document.activeElement?.closest?.('.scoreboard-predict')?'predict':'main';
   setFootballOverviewChromeHidden(true);
   document.body.classList.remove('football-league-overview-mode');
   document.body.classList.add('football-aggregate-home'); root.hidden=false;
@@ -1943,7 +1948,7 @@ function renderFootballScoreboardHome(){
   filterFootballHomeMatches(activeFootballHomeFilter);
   if(focusedFixture){
     const row=root.querySelector(`[data-home-fixture="${typeof CSS!=='undefined'&&CSS.escape?CSS.escape(focusedFixture):focusedFixture.replace(/["\\]/g,'\\$&')}"]`);
-    const target=focusedAction==='predict'?row?.querySelector('.scoreboard-predict'):row?.querySelector('.scoreboard-match-main');
+    const target=focusedAction==='predict'?(row?.querySelector(`[data-scoreboard-pick="${focusedPick}"]`)||row?.querySelector('.scoreboard-predict button,.scoreboard-predict.is-detail')):row?.querySelector('.scoreboard-match-main');
     if(target) target.focus({preventScroll:true});
   }
 }

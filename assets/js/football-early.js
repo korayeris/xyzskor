@@ -144,8 +144,21 @@
         var center = node("a", "scoreboard-match-main");
         center.href = "/?fixture=" + encodeURIComponent(String(match.id || ""));
         center.append(node("span", "scoreboard-time", matchState.label), node("span", "scoreboard-team home", match.ev || "Ev sahibi"), node("strong", "scoreboard-score", matchState.score), node("span", "scoreboard-team away", match.konuk || "Deplasman"));
-        var action = node("a", "scoreboard-predict " + (matchState.key === "upcoming" ? "" : "is-detail"), matchState.key === "upcoming" ? "Predict" : "Detay");
-        action.href = "/?fixture=" + encodeURIComponent(String(match.id || ""));
+        var action;
+        if (matchState.key === "upcoming") {
+          action = node("div", "scoreboard-predict");
+          action.setAttribute("aria-label", (match.ev || "Ev sahibi") + " " + (match.konuk || "Deplasman") + " maç sonucu tahmini");
+          [["1",match.ev || "Ev sahibi"],["X","Beraberlik"],["2",match.konuk || "Deplasman"]].forEach(function (pick) {
+            var choice = node("a", "scoreboard-pick-choice" + (pick[0] === "X" ? " is-draw" : ""));
+            choice.href = "/?fixture=" + encodeURIComponent(String(match.id || "")) + "&pick=" + pick[0];
+            choice.dataset.scoreboardPick = pick[0];
+            choice.append(node("i", "", pick[0]), node("span", "", pick[1]));
+            action.append(choice);
+          });
+        } else {
+          action = node("a", "scoreboard-predict is-detail", "Detay");
+          action.href = "/?fixture=" + encodeURIComponent(String(match.id || ""));
+        }
         row.append(center, action);
         group.append(row);
       });

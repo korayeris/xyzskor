@@ -362,7 +362,7 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .scoreboard-league-head h2 { font-size:13px; letter-spacing:.01em; }
 .scoreboard-league-head button,
 .scoreboard-league-head .scoreboard-early-action { color:#72dcb9; }
-.scoreboard-match-row { position:relative; grid-template-columns:minmax(0,1fr) 82px; min-height:62px; margin:5px 0; overflow:hidden; border:0; border-radius:11px; background:#14191e; transition:background-color .18s ease,transform .18s ease,opacity .18s ease; }
+.scoreboard-match-row { position:relative; display:block; min-height:62px; margin:5px 0; overflow:hidden; border:0; border-radius:11px; background:#14191e; transition:background-color .18s ease,transform .18s ease,opacity .18s ease; }
 .scoreboard-match-row::before { position:absolute; top:50%; left:8px; width:4px; height:4px; border-radius:50%; background:#5e6972; content:""; transform:translateY(-50%); }
 .scoreboard-match-row:hover { background:#1a2026; transform:translateY(-1px); }
 .scoreboard-match-row.live,
@@ -376,10 +376,16 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .scoreboard-match-row.finished.home-win { background:linear-gradient(90deg,rgba(39,190,132,.11),#17191c 43%,rgba(224,71,83,.08)); }
 .scoreboard-match-row.finished.away-win { background:linear-gradient(90deg,rgba(224,71,83,.08),#17191c 57%,rgba(39,190,132,.11)); }
 .scoreboard-match-row.finished.is-draw { background:#191d20; }
-.scoreboard-match-main { padding-left:18px; }
-.scoreboard-predict { min-width:68px; border:0; border-radius:999px; background:#22283a; color:#cbd2ff; transition:background-color .18s ease,color .18s ease,transform .18s ease; }
-.scoreboard-predict:hover { background:#596cff; transform:translateY(-1px); }
-.scoreboard-predict.is-detail { border:0; background:#20262b; }
+.scoreboard-match-main { width:100%; padding-left:18px; }
+.scoreboard-predict { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0; padding:0 12px 10px 18px; border:0; background:transparent; }
+.scoreboard-pick-choice { display:flex; min-width:0; min-height:48px; align-items:center; justify-content:center; gap:7px; padding:6px 9px; border:0; border-radius:10px; background:#20262e; color:#fff; text-decoration:none; cursor:pointer; transition:background-color .18s ease,transform .18s ease; }
+.scoreboard-pick-choice:hover { background:#343d5c; transform:translateY(-1px); }
+.scoreboard-pick-choice .shield { width:26px; height:26px; }
+.scoreboard-pick-choice > i { display:grid; width:26px; height:26px; place-items:center; border-radius:50%; background:#303745; color:#d9defe; font:900 11px/1 var(--mono); font-style:normal; }
+.scoreboard-pick-choice > span { display:grid; min-width:0; text-align:left; }
+.scoreboard-pick-choice b { font:900 10px/1 var(--mono); }
+.scoreboard-pick-choice small { overflow:hidden; margin-top:3px; color:#9faab4; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.scoreboard-predict.is-detail { display:flex; width:calc(100% - 30px); min-height:44px; align-items:center; justify-content:center; margin:0 12px 10px 18px; padding:8px; border:0; border-radius:10px; background:#20262b; color:#aab5bd; }
 .scoreboard-feature { padding:20px; border-radius:18px; background:linear-gradient(155deg,#181d23,#12161a 62%,rgba(239,95,116,.08)); }
 .scoreboard-feature-score { margin:22px 0; padding:8px 0; border:0; }
 .scoreboard-picks button { border:0; border-radius:999px; background:#242a36; transition:background-color .18s ease,transform .18s ease; }
@@ -435,8 +441,11 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .scoreboard-leagues nav a { padding-inline:10px; }
   .scoreboard-fixtures > header { padding-inline:2px; }
   .scoreboard-match-row { margin:4px 0; border-radius:9px; }
-  .scoreboard-match-row { grid-template-columns:minmax(0,1fr) 62px; }
-  .scoreboard-predict { min-width:56px; }
+  .scoreboard-predict { gap:4px; padding:0 6px 8px 12px; }
+  .scoreboard-pick-choice { min-height:46px; gap:4px; padding:5px 4px; }
+  .scoreboard-pick-choice .shield,
+  .scoreboard-pick-choice > i { width:23px; height:23px; }
+  .scoreboard-pick-choice small { max-width:70px; }
   .scoreboard-match-main { padding-left:12px; }
   .league-overview-hero { padding-inline:0; }
   .league-overview-layout,
