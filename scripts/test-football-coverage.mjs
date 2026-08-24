@@ -69,17 +69,18 @@ assert.equal(failedCalls, 1);
 assert.equal(await failOpen.loadFootballCoverage(), null, 'Kısa hata backoff süresinde fail-open sürmeli.');
 assert.equal(failedCalls, 1, '5xx sonrası renderlar backoff süresinde endpointi tekrar çağırmamalı.');
 
-let dataLoads=0, renders=0;
-const selectionContext={fetch:async()=>({ok:true,json:async()=>({selected:[{league:'la-liga',available:false}]})}),Map,Date,Error,console,
+let dataLoads=0, renders=0, selectionCoverageCalls=0;
+const selectionContext={fetch:async()=>{selectionCoverageCalls+=1;return {ok:true,json:async()=>({selected:[{league:'la-liga',available:false}]})};},Map,Date,Error,console,
   SELECTED_COMPETITIONS:[{key:'super-lig'},{key:'la-liga'}],activeFootballLeague:'super-lig',activeFootballTeam:'Tümü',MATCHES:[1],STANDINGS:[1],ALL_RESULTS:{x:1},WEEKLY_STORIES:{x:1},DATA_ERRORS:{},activeWeek:1,
   competitionLabelBySlug:key=>key,renderAll:()=>{renders+=1;},loadAllData:async()=>{dataLoads+=1;selectionContext.MATCHES=[];},getAvailableWeeks:()=>[],loadLiveFeed:()=>{}};
 vm.createContext(selectionContext);
 vm.runInContext(`${dataSource.slice(start,end)}\n${functionSource(liveSource,'loadFootballLeagueSelection')}\nthis.run=loadFootballLeagueSelection;`,selectionContext);
 assert.equal(await selectionContext.run('la-liga'),true,'Lig verisi kapsam yardımcı kontrolünü beklemeden çizilmeli.');
-assert.equal(dataLoads,1,'Coverage kontrolü lig verisini seri olarak bloke etmemeli; iki istek paralel başlamalı.');
+assert.equal(dataLoads,1,'Lig seçimi yalnız görünen ligin veri yüklemesini başlatmalı.');
 await new Promise(resolve=>setTimeout(resolve,0));
-assert.match(selectionContext.DATA_ERRORS.coverage,/aboneliğinde yer almıyor/,'Kapsam dışı seçim açıklayıcı mesaj üretmeli.');
-assert.ok(renders>=1,'Kapsam dışı seçim temiz ve açıklayıcı durumu render etmeli.');
+assert.equal(selectionCoverageCalls,0,'Lig seçimi otomatik /coverage isteği üretmemeli.');
+assert.equal(selectionContext.DATA_ERRORS.coverage,undefined,'Otomatik coverage olmadığında eski kapsam mesajı uydurulmamalı.');
+assert.ok(renders>=1,'Lig seçimi yeni kapsamı render etmeli.');
 
 let routedLeague=null;
 const routeContext={activeFootballLeague:'super-lig',mcMatchId:null,closeMatchCenter:()=>{},loadFootballLeagueSelection:key=>{routedLeague=key;},switchMainTab:()=>{},setTransferCenterTab:()=>{},openFootballSection:()=>{}};
