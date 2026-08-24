@@ -8,6 +8,7 @@ Thumbs.db
 .openai/*.tar
 .openai/*.zip
 .openai/package-*/
+.openai/sites-package-stage-*/
 .idea/
 .vscode/
 dist/

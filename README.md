@@ -1,8 +1,8 @@
 # XYZSKOR
 
-## Canlı skor mimarisi (2026-08-23 durumu)
+## Canlı skor mimarisi (2026-08-24 durumu)
 
-`docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md` promptu uygulandı: merkezi
+`docs/LIVE-SCORE-HANDOFF-2026-08-22.md` uygulama rehberi doğrultusunda merkezi
 ingest, kalıcı snapshot, single-flight kilit, circuit breaker, ayrıştırılmış
 API sözleşmeleri ve şema-güvenli sonuç kesinleştirmesi artık kodda mevcut ve
 gerçek testlerle doğrulandı (bkz. [Test ve build sonuçları](#test-ve-build-sonuçları)).
@@ -92,7 +92,7 @@ yaklaştığında yüklenir. Lig sezon paketi aynı tarayıcı sekmesinde 10 dak
 paylaşılır; canlı skor doğruluğu ayrı canlı endpoint ve maç snapshot'larıyla
 korunur.
 
-[Claude için canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
+[Canlı skor uygulama ve operasyon rehberi](docs/LIVE-SCORE-HANDOFF-2026-08-22.md)
 
 XYZSKOR; koyu, teknik ve mobil uyumlu bir yayın deneyiminde canlı futbol
 skorları, ücretsiz tahmin yarışması ve doğrulanmış sağlayıcı kapsamındaki çoklu
@@ -145,10 +145,17 @@ XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun ist
 | Yol | Açıklama |
 | --- | --- |
 | `index.html` | Ana erişilebilir HTML kabuğu |
-| `assets/css/app.css` | Tasarım sistemi ve responsive düzen |
+| `assets/css/app.css` | Ortak tasarım temelleri ve çekirdek responsive düzen |
+| `assets/css/football-hub.css` | Kanonik futbol kökü ve beş tek-lig genel bakışı için rota kapsamlı stil katmanı |
+| `assets/css/app-late.css` | Fixture, lig alt rotaları, eski modüller ve sohbet için isteğe bağlı geç stil katmanı |
+| `assets/js/style-loader.js` | Kanonik rota tespiti, futbol stil hazır bariyeri ve tekilleştirilmiş geç CSS yükleyicisi |
+| `assets/js/initial-route.js` | HTML gövdesinin başında rota sınıflarını kurar ve ilk home/season isteğini başlatır |
+| `assets/js/football-early.js` | Kök futbol cache/ağ cevabını güvenli DOM API'leriyle erken çizen aggregate renderer |
 | `assets/js/data.js` | Veri, Supabase ve sağlayıcı adaptörleri |
 | `assets/js/live.js` | Canlı skor ve navigasyon akışı |
-| `assets/js/ui.js` | Futbol ve ana arayüz render zinciri |
+| `assets/js/ui.js` | Futbolun çekirdek render ve veri devralma zinciri |
+| `assets/js/app-boot.js` | Zorunlu uygulama boot'u ve isteğe bağlı UI eklentilerinin yükleme sınırı |
+| `assets/js/ui-extras.js` | Lig alt ekranları ve yan araçlar için kanonik ilk boyamadan ayrılmış eklentiler |
 | `assets/js/multisport.js` | Çoklu spor branşları |
 | `assets/js/motorsports.js` | Motor sporları sayfaları |
 | `assets/js/ufc-hub.js` | UFC merkezi |
@@ -325,7 +332,7 @@ Galatasaray - Çorum FK örneğinde sistem Sportmonks fikstür kimliği üzerind
 1. API sağlayıcısının lisanslı `image_path`/medya alanları
 2. Kulüp, lig ve organizasyonların izinli resmî embed içerikleri
 3. Projeye ait veya açık lisanslı görseller
-4. Yapay zekâ ile üretilmiş, marka ve gerçek kişi taklidi içermeyen arka planlar
+4. Marka ve gerçek kişi taklidi içermeyen, kullanım hakkı doğrulanmış özgün arka planlar
 5. Görsel yoksa estetik, branşa özel tipografik placeholder
 
 Sportradar Images veya benzeri ücretli medya paketleri ayrı lisans gerektirir. Lisans doğrulanmadan görsel indirilemez, yeniden dağıtılamaz veya “aktif” gösterilemez.
@@ -354,41 +361,40 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 ## Test ve build sonuçları
 
-2026-08-23 tüm maçlar için canlı skor mimarisi teslimatında çalıştırılan gerçek sonuçlar:
+2026-08-24 canlı skor ve futbol bilgi mimarisi release doğrulamasında kaydedilen sonuçlar:
 
 | Komut | Sonuç |
 | --- | --- |
 | `npm run check` | ✅ Geçti |
 | `npm run qa:api` | ✅ 155/155 |
-| `npm run qa:hardening` | ✅ 31/31 |
+| `npm run qa:hardening` | ✅ 37/37 |
 | `npm run qa:matchday` | ✅ Geçti |
+| `npm run qa:supabase-lazy` | ✅ Geçti |
 | `npm run qa:matchday:snapshots` | ✅ 4/4 genel maç senaryosu |
 | `npm run qa:live-details` | ✅ Geçti |
 | `npm run qa:football-predictions` | ✅ Geçti (schema-safe finalize için güncellendi) |
+| `npm run qa:football-ia` | ✅ Geçti |
+| `npm run qa:league-contract` | ✅ Beş lig anahtarı/ID'si, Edge Function, sohbet allowlist'i ve ileri/geri migration sözleşmesi geçti |
 | `npm run qa:live-architecture` | ✅ 26/26 |
-| `npm run qa:responsive` (withdata) | ✅ 235/235 |
-| `npm run qa:responsive:nodata` | ⚠️ 15 hata — **ortam kısıtı**, temel (değişiklik öncesi) koda karşı doğrulandı, aynı 15 hata orada da var (basketbol/voleybol sağlayıcı anahtarı bu ortamda yok) |
-| `npm run qa:visual`, `qa:chat`, `qa:instagram`, `qa:match-center`, `qa:perf` | ✅ Temel koda karşı doğrulandı, sonuçlar aynı (bu ortamda ağ/secret kısıtları nedeniyle bazı beklenen hata durumları var, hiçbiri bu teslimatla ilgili regresyon değil) |
+| `npm run qa:responsive` (withdata) | ✅ 60 sayfa senaryosu, 796/796 kontrol |
+| `npm run qa:responsive:nodata` | ✅ 60 sayfa senaryosu, 525/525 kontrol |
+| `npm run qa:dist` | ✅ 32/32; kanonik kök, tek-lig, Predict, hesap/sohbet ve açık fixture senaryoları iki ardışık koşuda geçti |
+| `npm run qa:perf` | ✅ Release kapısı geçti; ham sonuç `reports/performance/release-performance-report.json` içinde |
 | `npm run qa:predict-security` | ✅ Geçti |
-| `npm run qa:db` | ⏭️ Atlandı — bu ortamda PostgreSQL yerel kurulum imkânı yok. Bunun yerine migration döngüsü (apply → idempotent re-apply → rollback → re-apply) **gerçek production Supabase projesinde** Supabase MCP ile doğrulandı |
+| `npm run qa:db` | ⏭️ Bu istemci/performance release turunda yeniden çalıştırılmadı; production şema uygulama durumu bu tabloyla doğrulanmış sayılmaz |
 | `npm run build` | ✅ Geçti (dist/ üretildi) |
 | `npm run check:legal` | ❌ Beklenen şekilde başarısız — kuruluş öncesi hukuki placeholder'lar dolu değil. Bu, bu teslimatla **ilgisiz, önceden var olan** bir yayın engelidir |
 
 ## Bilinen riskler ve doğrulanamayan maddeler
 
-- **Production Supabase şeması eksik migration'lar içeriyor.** Denetim
-  sırasında `matches.challenge_week`/`challenge_league` kolonlarının ve
-  `settle_prediction_challenge_match` RPC'sinin production projesinde
-  (`swhwmqbamzczztpfxctg`) **uygulanmadığı** tespit edildi — bu dal
-  (`integration/latest-zip-2026-08-17`) içindeki migration dosyaları var ama
-  hiç `apply_migration` ile çalıştırılmamış. Bu, ödül/challenge
-  kesinleştirmesinin sessizce hiç çalışmadığı anlamına geliyordu (her cron
-  turu "column does not exist" ile patlıyor ve yutuluyordu). Bu teslimat bunu
-  şema-güvenli bir sonuç kesinleştirme yoluyla (yalnızca doğrulanmış
-  `results`/`matches` kolonları) çözdü, ancak ödül/challenge migration
-  backlog'unun kendisini **kapsam dışı bıraktı** (riskli, büyük ve bu canlı
-  skor görevinden bağımsız). Emre'nin bu backlog'u ayrı bir görev olarak
-  planlaması önerilir.
+- **Production Supabase migration durumu bu release turunda yeniden
+  sorgulanmadı.** Önceki denetim, `matches.challenge_week`/
+  `challenge_league` kolonları ile `settle_prediction_challenge_match`
+  RPC'sinin hedef projede eksik olabileceğini bildirmişti. İstemci tarafı
+  yalnız doğrulanmış `results`/`matches` kolonlarını kullanan şema-güvenli
+  sonuç yolunu korur; ancak challenge backlog'u ve bu release'teki yeni sohbet
+  odası migration'ı production'a alınmadan önce hedef şema üzerinde ayrıca
+  doğrulanmalıdır.
 - **Gerçek in-play fixture üzerinde uçtan uca doğrulama yapılamadı.**
   Geliştirme sırasında canlı bir Süper Lig/Premier League/La Liga/Bundesliga/
   Serie A maçı yoktu. Mimarinin durum makinesi (`no_live_matches` →
@@ -407,10 +413,11 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
   enjeksiyonu için `sinon`/`vitest` gibi bir bağımlılık eklenmedi — bu kasıtlı
   bir minimal-bağımlılık kararıdır, `package.json`'a yeni devDependency
   eklemeden önce onay gerekir).
-- **`npm run qa:db` bu sandbox'ta hiç çalışmadı** (yerel PostgreSQL/apt erişimi
-  yok). Migration doğrulaması bunun yerine gerçek production Supabase'inde
-  Supabase MCP ile yapıldı (apply → idempotent re-apply → rollback →
-  re-apply, artı `try_acquire_sync_lock` için gerçek eşzamanlı kilit testi).
+- **`npm run qa:db` bu son istemci/performance release turunda yeniden
+  çalıştırılmadı.** Şema değişikliği production'a alınmadan önce migration
+  apply → rollback → re-apply, RLS ve paralel transaction kontrolleri hedef
+  PostgreSQL/Supabase ortamında yeniden çalıştırılmalı ve ayrı kanıt kaydı
+  tutulmalıdır.
 
 ## Git ve yayın
 
@@ -418,7 +425,7 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 - `/` tek bir lige değil, Süper Lig, Premier League, La Liga, Bundesliga ve Serie A maç merkezine açılır.
 - Beş lig isteği birbirini beklemez; aynı anda başlatılır. Ekran ilk HTML boyamasında hazır bir maç merkezi kabuğu gösterir.
-- Başarılı toplu sonuç 10 dakika tarayıcı önbelleğinde tutulur. Aynı kullanıcı sayfayı yenilediğinde maçlar ağ yanıtını beklemeden çizilir; arka uç yalnız önbellek süresi dolduğunda yenilenir.
+- Başarılı toplu sonuç 10 dakika tarayıcı önbelleğinde tutulur. Aynı kullanıcı sayfayı yenilediğinde maçlar ağ yanıtını beklemeden önbellekten çizilir; doğruluğu korumak için tek bir arka plan `/api/football/home` isteği de hemen başlatılır ve gelen doğrulanmış cevap ekranı kontrollü biçimde yeniler.
 - Lig seçimi `/super-lig`, `/premier-league`, `/la-liga`, `/bundesliga` veya `/serie-a` rotasına gider ve yalnız seçilen ligin sezon verisini kullanır.
 - Oturum bilgisi sekme ömründe bir kez okunur; lig geçişi kapsam kontrolünü beklemez. Kapsam denetimi arka planda çalışırken önbellekteki doğrulanmış lig paketi hemen çizilir.
 - Ana vitrindeki her karşılaşma maç merkezine bağlıdır; `Predict` ve `1 / X / 2` girişleri aynı doğrulanmış fixture kimliğini taşır.
@@ -426,10 +433,211 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 - Sağlayıcının Türkçe veya İngilizce durum değerleri (`canlı/live`, `devre_arasi/halftime`, `bitti/finished`, iptal ve erteleme varyantları) tek istemci sözleşmesine normalize edilir. Şerit, maç listesi, ana vitrin ve maç merkezi aynı durumu kullanır.
 - Tüm ligler ekranında alt bölüme gidildiğinde rota `/all/...` olarak korunur; yenileme sonrasında kapsamın sessizce Süper Lig'e dönmesi engellenir.
 
+### İki katmanlı profesyonel futbol bilgi mimarisi (v311)
+
+Futbol ürünü iki ayrı ekran sözleşmesine ayrılmıştır:
+
+| Rota | Sorumluluk | Veri kapsamı |
+| --- | --- | --- |
+| `/` | Beş liglik futbol maç merkezi | Süper Lig, Premier League, La Liga, Bundesliga ve Serie A |
+| `/<lig>` | Seçili ligin genel bakışı | Yalnız URL'deki lig |
+| `/<lig>/matches` | Seçili ligin tam fikstürü | Yalnız URL'deki lig |
+| `/<lig>/standings` | Seçili ligin tam puan durumu | Yalnız URL'deki lig |
+| `/<lig>/clubs` | Seçili ligin kulüp merkezi | Yalnız URL'deki lig |
+| `/<lig>/transfers` | Seçili ligin transfer merkezi | Yalnız URL'deki lig |
+| `/<lig>/news` | Seçili ligin kaynaklı gündemi | Yalnız URL'deki lig |
+
+Ana futbol sayfası artık tek kanonik lig seçici, liglere göre gruplanmış maçlar,
+`Canlı / Biten / Yaklaşan` filtreleri, fixture kimliğine bağlı Predict düğmeleri,
+öne çıkan maç ve kompakt puan durumu taşır. Tek-lig maç vitrini ve eski lig
+komutu kökte çalıştırılmaz. Bu nedenle `/` açılışında beş sezon isteğine ek
+olarak örtük bir altıncı Süper Lig isteği üretilmez.
+
+Tek-lig genel bakışı; lig kimliği ve sezon etiketi, beş lig arasında geçiş,
+genel bakış/puan durumu/maçlar/takımlar/transferler/haberler sekmeleri, tam
+puan tablosu, canlı-yaklaşan-sonuç fikstür grupları, lider/hücum/savunma/form
+metrikleri, kaynaklı gündem ve transfer özetini aynı lig anahtarından üretir.
+Aggregate vitrin ve eski sosyal/video ana sayfa modülleri bu ekranda render
+edilmez. Provider tablosu yoksa sonuçlardan hesaplanan tablo; yalnız Süper Lig
+için son çare olarak açık `2024–25 ARŞİV` etiketi taşıyan tarihî tablo gösterilir.
+
+Performans ve hata sınırları:
+
+- Futbolun ilk boyaması yalnız kritik Sportmonks lig paketini bekler; hesap,
+  ödül ve ortak Supabase tabloları arka planda hydrate edilir.
+- Beş lig sağlayıcı isteği Worker içinde `Promise.allSettled` ile aynı anda
+  başlar. Tarayıcı yalnız tek kompakt home cevabı indirir; bir lig hata
+  verdiğinde diğer dört lig kullanılabilir kalır ve hatalı lig kendi durumunu
+  açıkça gösterir.
+- Kök cache yalnız gösterilen maçların sonuçlarını ve her ligin ilk beş tablo
+  satırını saklar; bütün sezon sonuçları tarayıcı depolamasına kopyalanmaz.
+- Bir ligde İstanbul gününe ait maç varsa günün tamamı gösterilir; yoksa en
+  fazla üç doğrulanmış yaklaşan maç, o da yoksa yalnız doğrulanmış son iki
+  tamamlanmış maç gösterilir. Geçmiş saatli ama durumu/sonucu olmayan kayıt,
+  iptal ve ertelenmiş fikstür “yaklaşan” sayılmaz.
+- Bugün dışındaki fikstürlerde tarih ve saat birlikte görünür. `0-0` sonucu
+  falsy değer kabul edilip kaybolmaz.
+- `Predict` hızlı seçimi `/?fixture=<id>&pick=1|X|2` rotasına aynı fixture ve
+  seçimle taşınır; maç merkezi seçimi görsel olarak hazırlar.
+
+### Edge toplama, SWR ve canlı akış performansı (v312)
+
+v312, iki katmanlı bilgi mimarisinin ağ ve ilk boyama sözleşmesini
+kesinleştirir:
+
+- Tarayıcı beş ayrı tam sezon cevabı indirmez. Kök futbol ekranı yalnızca
+  `GET /api/football/home` isteği yapar; Worker Süper Lig, Premier League,
+  La Liga, Bundesliga ve Serie A paketlerini edge katmanında paralel
+  `Promise.allSettled` ile toplar. Bir lig hatası diğer dört ligi düşürmez.
+  Cevap yalnız gösterilecek maçları, ilişkili sonuçları ve her ligin ilk beş
+  puan durumu satırını taşır.
+- Home cevabı edge üzerinde kısa süreli taze cache ve
+  `stale-while-revalidate` ile korunur. Tarayıcıdaki `v3` kompakt cache 10
+  dakika tazeyse doğrudan kullanılır; süresi dolmuş son doğrulanmış veri de
+  ilk boyamayı bekletmeden gösterilir ve tek `/api/football/home` isteğiyle
+  arka planda yenilenir. Başarılı revalidate cevabı kontrollü
+  `xyz:football-home-refreshed` olayıyla ekrana uygulanır.
+- Eşzamanlı home yenilemeleri `footballHomeNetworkRequest` üzerinde tek
+  promise'e birleştirilir. Canlı akış da lig kapsamını izler; aynı kapsamda
+  devam eden istek varken ikinci istek başlatılmaz. Lig gerçekten değişirse
+  eski kapsamın isteği iptal edilir. Kanonik production ekranı görünmeyen eski
+  sağlayıcı panelini taşımadığı için kritik yolda ayrıca `/api/health` çağrısı
+  yapmaz; sağlık kontrolü yalnız bu panelin gerçekten bulunduğu operasyon
+  yüzeylerinde en fazla dakikada bir çalışır.
+- Worker canlı maç sırasında `nextRefreshInSeconds: 6` döndürür; istemci alt
+  sınırı 5 saniyedir. Böylece skorlar normal koşullarda 5–6 saniyelik ritimde
+  sayfa yenilenmeden birleşir. Devre arası ve canlı maç olmayan dönemlerde
+  daha uzun sunucu aralığı kullanılarak kota korunur.
+- Bir fikstür canlı listeden çıktığında doğrudan bitmiş sayılmaz. Kayıt önce
+  `livePendingVerification` durumuna alınır, ardından
+  `GET /api/football/fixture?id=<fixtureId>` ile sonuç ve durum doğrulanır.
+  Aynı fikstür için eşzamanlı çıkış kontrolleri tekilleştirilir; doğrulama
+  gelmeden skor silinmez veya uydurma sonuç üretilmez.
+- `?fixture=<id>` bulunmayan `/`, `/all`, `/<lig>` ve lig alt rotalarında eski
+  matchday resolver hiç kurulmaz: `#matchdayCommand` görünmez kalır, resolver
+  kaynaklı ek season/matchday isteği ve polling/lig-değişim listener'ı
+  üretilmez. Tek-lig genel bakışının kendi season isteği bu guard'dan
+  bağımsızdır. Matchday yalnız açık bir fixture ayrıntı URL'sinde çalışır.
+- İlk HTML; kök maç merkezi ve tek-lig genel bakışı için görünür bir first-paint
+  kabuğu taşır. Sınırlı `#xyzCriticalCss` bloğu 9 KB altında tutulur; web
+  fontları ile haricî stil katmanları render'ı bloke etmeden yüklenir ve tüm
+  stilleri senkron açan `noscript` yedeği korunur. Bu sözleşme cache'li/son
+  doğrulanmış verinin bir saniyenin altında görünmesini hedefler; yeni cihazdaki
+  soğuk sağlayıcı cevabının ağ süresi ayrı ölçülür.
+- `app.css` ortak ama kritik olmayan stil katmanıdır. `football-hub.css`, yalnız kanonik `/`, `/all`
+  ve beş `/<lig>` genel bakışının navigasyon, maç merkezi, tablo, fikstür,
+  durum ve responsive geometrisini sahiplenir. Futbol katmanı preload edilir;
+  büyük ortak katman `media="print"` geçişiyle asenkron uygulanır. Rota
+  kapsamlı futbol katmanı ortak/controls katmanından sonra geldiği için son
+  sözü söyler.
+- `app-late.css` ilk HTML'de bir `<template>` içinde inert tutulur; kanonik
+  futbol ilk açılışında indirilmez. `style-loader.js`, aynı dosyayı isteyen
+  bütün çağrıları tek promise'te birleştirir ve dosyayı controls ile
+  `football-hub.css` öncesine yerleştirerek cascade sırasını korur. Fixture,
+  lig alt rotası veya başka kanonik olmayan yüzey doğrudan açılırsa bu katman
+  otomatik yüklenir.
+- `style-loader.js` ayrıca `window.__XYZ_FOOTBALL_HUB_READY__` bariyerini
+  kurar. `football-hub.css` yüklenince bariyer çözülür; stil hatasında da kritik
+  kabuk korunarak boot kilitlenmez. `football-early.js` boyama yapmadan önce bu
+  bariyeri beklediği için dolu aggregate DOM'u stilsiz gösterilmez.
+- `initial-route.js`, görünür HTML'den önce kanonik rota sınıflarını ve lig
+  dataset'ini kurar. Fixture yoksa kökte tek `/api/football/home`, tek-lig
+  genel bakışında yalnız URL'deki lige ait tek `/api/football/season` isteğini
+  başlatır. `data.js`/`ui.js` aynı global promise'i devralır; ilk isteği tekrar
+  etmez.
+- Production build, hesap/auth, haber/maç merkezi, mobil navigasyon, sohbet ve
+  açık fixture DOM'unu sürümlü same-origin fragmentlere ayırır. Zorunlu
+  fragmentler uygulama chunk'larından önce eklenir; mobil/sohbet gibi ikincil
+  bir fragment geçici olarak alınamazsa ana futbol boot'u durmaz. Açık fixture
+  yoksa matchday fragmenti hiç istenmez.
+- `football-early.js` yalnız aggregate kökte çalışır. Doğrulanmış `v3` cache'i
+  veya home cevabını `textContent` tabanlı güvenli DOM düğümleriyle çizer;
+  başlık, lig rayı, her lig grubu ve öne çıkan kartı ayrı macrotasklarda
+  ekleyerek uzun ana-thread görevini sınırlar. Erken renderer ile tam UI
+  arasındaki hazır olayı ve 1,5 saniyelik sınırlı fallback, hızlı yerel yükte
+  iki renderer'ın birbirinin DOM'unu yarıda kesmesini önler. Tek-lig genel
+  bakışını ana `ui.js` kendi season paketiyle render eder.
+- `ui.js` çekirdek renderer'dır; `app-boot.js` zorunlu `boot()` sahipliğini
+  taşır. Kanonik futbol rotaları `ui-extras.js` beklemeden bir sonraki
+  macrotask'te başlar. Fixture ve kanonik olmayan rotalarda
+  `app-boot.js`, inert `#xyzUiExtrasTemplate` içindeki scripti bir kez yükler,
+  ardından boot'u çalıştırır. `ui-extras.js` hiçbir zaman uygulamayı kendi
+  başına başlatmaz.
+- Kanonik ekrandan maçlar/puan durumu/takımlar/transferler/haberler gibi eski
+  alt yüzeylere geçiş hem `ensureXYZLegacyStyles()` hem
+  `ensureXYZUiExtras()` çağrısını tetikler. Sohbet scripti listener'ını defer
+  yükler; fakat panelin CSS'i ve Supabase oda/mesaj aboneliği ilk açma eylemine
+  kadar bekler. Sohbet düğmesi paneli göstermeden önce geç stil promise'ini
+  tamamlar.
+- Üretim build'i üzerinde 390×844, 4× CPU yavaşlatma ve Fast 3G profiliyle üç
+  bağımsız soğuk çalıştırma release kapısıdır. Son ölçümde medyan FCP **552 ms**,
+  dolu beş-lig vitrini **1.374 sn**, Premier League geçişi **414 ms**, doğrudan
+  Süper Lig kabuğu **641 ms**, dolu Süper Lig görünümü **1.456 sn** ve en uzun
+  görev **185 ms** ölçüldü; yinelenen API isteği, lig kapsam ihlali, console ve
+  page error sayıları sıfırdı. Ham kanıt
+  `reports/performance/release-performance-report.json` dosyasına yazılır.
+
+v312'de değişen first-party istemci dosyaları (`app.css`, `app-late.css`,
+`football-hub.css`, `style-loader.js`, `initial-route.js`, `football-early.js`,
+`data.js`, `live.js`, `match-center.js`, `matchday-live.js`, `predict-game.js`,
+`ui.js`, `app-boot.js`, `ui-extras.js`, `chat.js`, `multisport.js`) aynı
+`?v=312` cache-busting
+sürümünü taşır. Production build ayrıca içerik hash'i üreterek bu manuel
+sürümün üzerinde ikinci bir immutable-cache güvenlik katmanı uygular.
+
+Kanonik ilk-açılış API sözleşmesi:
+
+| Yüzey | Tam olarak izin verilen futbol istekleri | Yasaklanan tekrarlar |
+| --- | --- | --- |
+| `/`, `/all` (`fixture` yok) | `/api/football/home ×1`, `/api/football/live?league=all ×1` | `season=0`, `matchday=0`, `health=0`, ikinci home/live yok |
+| `/super-lig` | `/api/football/season?league=super-lig ×1`, `/api/football/live?league=super-lig ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/premier-league` | `/api/football/season?league=premier-league ×1`, `/api/football/live?league=premier-league ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/la-liga` | `/api/football/season?league=la-liga ×1`, `/api/football/live?league=la-liga ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/bundesliga` | `/api/football/season?league=bundesliga ×1`, `/api/football/live?league=bundesliga ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+| `/serie-a` | `/api/football/season?league=serie-a ×1`, `/api/football/live?league=serie-a ×1` | `home=0`, `matchday=0`, `health=0`, başka lig season/live yok |
+
+`/index.html` kökün, `/all` ise aggregate kapsamın uyumluluk takma adıdır.
+`?fixture=<id>` açıkça verilmedikçe matchday zinciri kurulmaz. Lig genel
+bakışındaki tablo, maç grupları, form/metrikler, gündem ve transfer özeti aynı
+URL lig anahtarından üretilir; başka ligin season/live verisi DOM'a eklenmez.
+
+Regresyon komutları:
+
+```powershell
+npm run check
+npm run qa:supabase-lazy
+npm run qa:football-ia
+npm run qa:league-contract
+npm run qa:matchday
+npm run qa:live-architecture
+npm run qa:hardening
+npm run qa:dist
+npm run qa:responsive
+npm run qa:perf
+npm run build
+```
+
+`qa:football-ia`; beş lig sırasını, compact bundle durum semantiğini, 0-0
+sonucunu, Predict rota aktarımını, aggregate/tek-lig render ayrımını ve kökte
+tek home isteğini doğrular. `qa:matchday` ise fixture parametresi bulunmayan
+tüm futbol rotalarında sıfır matchday isteği/listener sözleşmesini korur.
+
+`npm run check`; kritik CSS'in 9 KB sınırını, `football-hub.css` kapsamını,
+`app-late.css` template'inin inert kalmasını, `ui.js → ui-extras.js template →
+app-boot.js` sırasını, zorunlu boot sahipliğini ve bütün v312 cache anahtarlarını
+statik olarak denetler. `qa:responsive` withdata modu; 320, 375, 390, 768 ve
+1440 genişliklerinde kök ile beş lig genel bakışını ayrı ayrı açar. Her koşuda
+`requestedApiPaths` listesini rapora yazar; yukarıdaki kesin istek adetlerini,
+sıfır page/console error'ı, yatay taşma olmamasını ve istisnaları açıkça
+etiketlenmiş gerçek `44×44` dokunma hedeflerini release kapısı yapar.
+`qa:perf`, 390×844/Fast 3G/4× CPU profilinde kök dolumunu ve Premier League
+geçişini ölçer; API tekrarlarını, lig kapsam ihlalini, uzun görevleri ve hata
+sayılarını ham raporla birlikte doğrular.
+
 Kaynak dalı: `integration/latest-zip-2026-08-17`
 
 ```powershell
-git add .
+git add README.md .gitignore index.html package.json assets docs scripts supabase worker reports/performance/release-performance-report.json
 git commit -m "Açıklayıcı değişiklik mesajı"
 git push origin integration/latest-zip-2026-08-17
 ```
@@ -439,7 +647,7 @@ Production dağıtımı `.openai/hosting.json` içindeki mevcut Sites projesine 
 ## Dokümantasyon
 
 - [API planı](docs/API-PLANI.md)
-- [Claude için canlı skor uygulama promptu](docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md)
+- [Canlı skor uygulama ve operasyon rehberi](docs/LIVE-SCORE-HANDOFF-2026-08-22.md)
 - [Veri sağlayıcı mimarisi](docs/data-provider-architecture.md)
 - [API envanteri ve satın alım notu](docs/api-envanteri-ve-satin-alim-notu-2026-08-04.md)
 - [Profesyonel devir teslim](docs/professional-handoff-2026-08-03.md)

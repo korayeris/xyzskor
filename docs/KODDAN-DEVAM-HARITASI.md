@@ -40,7 +40,7 @@ Tarayıcı hiçbir sağlayıcı tokenını görmez. Sportmonks, X ve YouTube ça
 | `/api/media/youtube` | YouTube | Yayın masası video akışı |
 | `/api/health` | Worker | Sağlayıcıların yapılandırma durumu |
 
-Desteklenen lig anahtarları: `super-lig`, `champions-league`, `europa-league`, `la-liga`, `premier-league`. Her istek kendi lig listesini kullanır; başka ligden Süper Lig verisiyle doldurma yapılmaz.
+Desteklenen lig anahtarları: `super-lig`, `premier-league`, `la-liga`, `bundesliga`, `serie-a`. Sağlayıcı ID sırası `600,8,564,82,384` olarak sabittir. Her istek kendi lig listesini kullanır; başka ligden Süper Lig verisiyle doldurma yapılmaz.
 
 ## X bağlantılarının yeri
 

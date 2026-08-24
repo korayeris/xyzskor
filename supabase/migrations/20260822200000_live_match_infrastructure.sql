@@ -1,5 +1,5 @@
 -- Canlı skor mimarisi: kalıcı snapshot, event, senkron kilidi ve gözlemlenebilirlik.
--- Bkz. docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md #1.
+-- Bkz. docs/LIVE-SCORE-HANDOFF-2026-08-22.md #1.
 --
 -- Bu migration idempotenttir (create table/index if not exists, on conflict do
 -- nothing) ve supabase/migrations/rollback/20260822200000_live_match_infrastructure_down.sql
