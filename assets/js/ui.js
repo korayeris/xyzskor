@@ -2012,6 +2012,8 @@ function bindLeagueOverviewDOM(root,leagueKey){
   });
 }
 function syncEarlyLeagueOverview(root,{leagueKey,label,country,seasonLabel,logo,initialRows,initialMatches}){
+  const duplicateTabs=[...root.querySelectorAll(':scope > .league-overview-tabs')];
+  duplicateTabs.slice(1).forEach(tab=>tab.remove());
   const identity=root.querySelector('.league-overview-identity');
   const tablePanel=root.querySelector('.league-table-panel');
   const fixtureBody=root.querySelector('.league-overview-fixtures-body');
@@ -2115,10 +2117,12 @@ function renderFootballLeagueOverview(){
   if(reusedEarly) hydrateRemaining();
   else deferOverviewTask(()=>{
     if(!stillCurrent()) return;
+    root.querySelectorAll(':scope > .league-overview-tabs').forEach(tab=>tab.remove());
     root.insertAdjacentHTML('beforeend',`<nav class="league-overview-tabs" aria-label="${escapeHTML(label)} bölümleri"><button class="active" type="button" aria-current="page" data-football-section="home">Genel bakış</button><button type="button" data-football-section="standings">Puan durumu</button><button type="button" data-football-section="matches">Maçlar</button><button type="button" data-football-section="clubs">Takımlar</button><button type="button" data-football-section="transfers">Transferler</button><button type="button" data-football-section="news">Haberler</button></nav>`);
     bindLeagueOverviewDOM(root,leagueKey);
     deferOverviewTask(()=>{
       if(!stillCurrent()) return;
+      root.querySelectorAll(':scope > .league-overview-layout, :scope > .league-overview-metrics, :scope > .league-overview-lower').forEach(section=>section.remove());
       root.insertAdjacentHTML('beforeend',`<div class="league-overview-layout"><section class="league-overview-panel league-table-panel"><header><div><small>GÜNCEL SEZON</small><h2>Puan durumu</h2></div><button type="button" data-football-section="standings">Tam tablo →</button></header></section><aside class="league-overview-panel league-fixtures-panel"><header><div><small>MAÇ AKIŞI</small><h2>Sonuçlar ve fikstür</h2></div><button type="button" data-football-section="matches">Tüm maçlar →</button></header><div class="league-overview-fixtures-body"></div></aside></div><section class="league-overview-metrics"></section><div class="league-overview-lower"></div>`);
       bindLeagueOverviewDOM(root,leagueKey);
       deferOverviewTask(()=>{
