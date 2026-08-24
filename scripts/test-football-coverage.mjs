@@ -75,8 +75,9 @@ const selectionContext={fetch:async()=>({ok:true,json:async()=>({selected:[{leag
   competitionLabelBySlug:key=>key,renderAll:()=>{renders+=1;},loadAllData:async()=>{dataLoads+=1;selectionContext.MATCHES=[];},getAvailableWeeks:()=>[],loadLiveFeed:()=>{}};
 vm.createContext(selectionContext);
 vm.runInContext(`${dataSource.slice(start,end)}\n${functionSource(liveSource,'loadFootballLeagueSelection')}\nthis.run=loadFootballLeagueSelection;`,selectionContext);
-assert.equal(await selectionContext.run('la-liga'),false,'Kapsam dışı seçim veri yüklememeli.');
+assert.equal(await selectionContext.run('la-liga'),true,'Lig verisi kapsam yardımcı kontrolünü beklemeden çizilmeli.');
 assert.equal(dataLoads,1,'Coverage kontrolü lig verisini seri olarak bloke etmemeli; iki istek paralel başlamalı.');
+await new Promise(resolve=>setTimeout(resolve,0));
 assert.match(selectionContext.DATA_ERRORS.coverage,/aboneliğinde yer almıyor/,'Kapsam dışı seçim açıklayıcı mesaj üretmeli.');
 assert.ok(renders>=1,'Kapsam dışı seçim temiz ve açıklayıcı durumu render etmeli.');
 

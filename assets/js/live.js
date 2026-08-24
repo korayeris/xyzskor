@@ -171,9 +171,9 @@ async function loadFootballLeagueSelection(leagueKey){
   // Coverage yardımcı kontrolü ile gerçek lig verisi birbirinden bağımsızdır.
   // İkisini seri bekletmek yerine aynı anda başlatırız.
   try{
-    const coveragePromise=loadFootballCoverage();
+    const coveragePromise=loadFootballCoverage().catch(()=>null);
     const dataPromise=loadAllData();
-    await Promise.all([coveragePromise,dataPromise]);
+    await dataPromise;
     if(activeFootballLeague!==requestedLeague) return false;
     if(footballCoverageUnavailable(requestedLeague) && !MATCHES.length){
       DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
@@ -187,6 +187,13 @@ async function loadFootballLeagueSelection(leagueKey){
     if(typeof renderFootballLeagueScope==='function') renderFootballLeagueScope();
     else if(typeof renderAll==='function') renderAll();
     if(typeof loadLiveFeed==='function') loadLiveFeed(false);
+    coveragePromise.then(()=>{
+      if(activeFootballLeague!==requestedLeague || MATCHES.length) return;
+      if(footballCoverageUnavailable(requestedLeague)){
+        DATA_ERRORS.coverage=footballCoverageMessage(requestedLeague);
+        if(typeof renderAll==='function') renderAll();
+      }
+    });
     return true;
   }catch(error){
     if(activeFootballLeague!==requestedLeague) return false;

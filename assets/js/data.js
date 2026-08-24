@@ -581,6 +581,21 @@ let serverLeaderboardMode = 'unknown';
 let legacyLeaderboardRequest = null;
 let footballDataLoadSequence = 0;
 let seasonFixturesReady = new Set();
+let AUTH_SESSION_CACHE = null;
+let AUTH_SESSION_READY = false;
+
+async function getCachedAuthSession(){
+  if(AUTH_SESSION_READY) return AUTH_SESSION_CACHE;
+  try{
+    const authRes=await sb.auth.getSession();
+    AUTH_SESSION_CACHE=authRes&&authRes.data?authRes.data.session:null;
+  }catch(error){
+    console.error('[XYZSkor veri hatası] auth.getSession',error);
+    AUTH_SESSION_CACHE=null;
+  }
+  AUTH_SESSION_READY=true;
+  return AUTH_SESSION_CACHE;
+}
 
 function toSafeUserObject(authUser){
   if(!authUser) return null;
@@ -613,6 +628,8 @@ function bindAuthStateSync(){
   if(!SUPABASE_READY || typeof sb?.auth?.onAuthStateChange !== 'function' || authStateUnsubscribe) return;
   try{
     const { data } = sb.auth.onAuthStateChange((_event, _session) => {
+      AUTH_SESSION_CACHE=_session||null;
+      AUTH_SESSION_READY=true;
       if(_event === 'SIGNED_OUT'){
         currentUser = null;
         if(typeof renderAll === 'function') renderAll();
@@ -880,11 +897,7 @@ async function loadAllData(){
   // seri bekletmek lig geçişine doğrudan 1-2 saniye ekliyordu.
   const providerBundlePromise=requestedLeague==='all' ? fetchFootballHomeBundle() : fetchProviderSeasonBundle(requestedLeague);
   const commonDataPromise=loadCommonData();
-  let session = null;
-  try{
-    const authRes = await sb.auth.getSession();
-    session = authRes && authRes.data ? authRes.data.session : null;
-  }catch(e){ console.error('[XYZSkor veri hatası] auth.getSession', e); }
+  const session = await getCachedAuthSession();
   await ensureSeasonFixtures();
   const ownProfileQuery = session ? sb.from('profiles').select('*').eq('id', session.user.id) : Promise.resolve({data:[],error:null});
   const ownPredictionsQuery = session ? sb.from('predictions').select('*').eq('user_id', session.user.id) : Promise.resolve({data:[],error:null});

@@ -519,7 +519,7 @@ assert.match(dataSource, /FOOTBALL_COVERAGE_CACHE_MS\s*=\s*60\s*\*\s*60\s*\*\s*1
 assert.match(dataSource, /fetch\(['"]\/api\/football\/coverage['"]/, 'Coverage endpointi frontend tarafindan cagrilmali.');
 assert.match(dataSource, /catch\(_error\)[\s\S]*?return null/, 'Coverage hatasi fail-open davranmali.');
 assert.match(liveFunctionSource('loadFootballLeagueSelection'), /footballCoverageUnavailable\(requestedLeague\)/, 'Tum lig secimleri kapsam disi durumu kontrol etmeli.');
-assert.match(liveFunctionSource('loadFootballLeagueSelection'), /Promise\.all\(\[coveragePromise,dataPromise\]\)/, 'Coverage ve lig verisi seri degil paralel yuklenmeli.');
+assert.match(liveFunctionSource('loadFootballLeagueSelection'), /coveragePromise=loadFootballCoverage[\s\S]*dataPromise=loadAllData[\s\S]*await dataPromise[\s\S]*coveragePromise\.then/, 'Coverage lig verisiyle paralel başlamalı ama ilk çizimi bloke etmemeli.');
 assert.match(liveFunctionSource('loadFootballLeagueSelection'), /renderFootballLeagueScope/, 'Lig gecisi Predict ve profil DOM alanlarini yeniden cizmemeli.');
 assert.match(liveFunctionSource('renderFootballHome'), /scheduleFootballLazyModule\('club-social'[\s\S]*scheduleFootballLazyModule\('youtube'[\s\S]*scheduleFootballLazyModule\('instagram'/, 'Sosyal ve medya APIleri yalniz ilgili bolum gorunume yaklasinca yuklenmeli.');
 assert.doesNotMatch(liveFunctionSource('renderFootballHome'), /renderFootballDataViews/, 'Ana sayfa gizli mac, gundem, kulup, transfer ve tablo gorunumlerinin tamamini kurmamali.');
