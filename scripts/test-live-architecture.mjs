@@ -1,5 +1,5 @@
 // XYZSKOR canlı skor mimarisi regresyonları (2026-08-22).
-// docs/CLAUDE-LIVE-SCORE-HANDOFF-2026-08-22.md "Zorunlu otomatik testler"
+// docs/LIVE-SCORE-HANDOFF-2026-08-22.md "Zorunlu otomatik testler"
 // listesinden, gerçek ağa çıkmadan (Sportmonks + Supabase REST mock'lanarak)
 // doğrulanabilen senaryoları kapsar:
 //   1) Kalıcı snapshot yokken upstream hatası -> açık hata (sahte 200 yok).

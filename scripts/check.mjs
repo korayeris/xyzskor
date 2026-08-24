@@ -4,13 +4,33 @@ import vm from 'node:vm';
 
 const documentHtmlRaw = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const documentHtml = documentHtmlRaw.replace(/\?v=\d+(?=["'])/g, '');
-const appCss = await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8');
+const appCss = [
+  await readFile(new URL('../assets/css/app.css', import.meta.url), 'utf8'),
+  await readFile(new URL('../assets/css/app-late.css', import.meta.url), 'utf8'),
+].join('\n');
+const footballHubCss = await readFile(new URL('../assets/css/football-hub.css', import.meta.url), 'utf8');
 const footballControlsCss = await readFile(new URL('../assets/css/football-controls-v236.css', import.meta.url), 'utf8');
-const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'chat.js'];
+assert.match(documentHtmlRaw, /football-hub\.css\?v=312/, 'The route-scoped football stylesheet must use the v312 cache key.');
+assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=312/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
+assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
+assert.match(footballHubCss, /route-scoped football home and league overview[\s\S]*\.scoreboard-shell[\s\S]*\.league-overview-layout/i, 'Canonical football routes need their independent stylesheet.');
+const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'football-early.js', 'style-loader.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
 const dataSource = scriptSources[0];
 const appSource = scriptSources.join('\n');
-const html = [documentHtml, appCss, appSource].join('\n');
+const appBootSource = await readFile(new URL('../assets/js/app-boot.js', import.meta.url), 'utf8');
+const uiExtrasSource = await readFile(new URL('../assets/js/ui-extras.js', import.meta.url), 'utf8');
+assert.match(documentHtmlRaw, /ui\.js\?v=312[\s\S]*id="xyzUiExtrasTemplate"[\s\S]*ui-extras\.js\?v=312[\s\S]*app-boot\.js\?v=312/, 'Core UI, inert extras and mandatory boot must keep their load order.');
+assert.match(appBootSource, /productionCoreChunks[\s\S]*primeChunkDownloads\(productionCoreChunks[\s\S]*loadSequence\(productionCoreChunks\.slice\(0, 2\), true\)[\s\S]*fragmentsPrepared[\s\S]*then\(hydrateCanonicalFragments\)[\s\S]*loadSequence\(productionCoreChunks\.slice\(2\), true\)/, 'The mandatory bootstrap must warm downloads, then hydrate required DOM between dependency stages.');
+assert.match(appBootSource, /var appBootPromise = ensureProductionRuntime\(\)[\s\S]*\.then\(nextTask\)[\s\S]*\.then\(start\)/, 'The complete application boot must start in its own task after the production runtime.');
+assert.match(appBootSource, /canonicalFragmentSpecs[\s\S]*hydrateCanonicalFragments[\s\S]*__XYZ_CANONICAL_FRAGMENTS_READY__[\s\S]*__XYZ_APP_BOOT_READY__/, 'Canonical late DOM and the complete application boot need observable readiness contracts.');
+assert.match(appBootSource, /if \(spec\[3\]\) throw error;[\s\S]*Ikincil UI parcasi devre disi/, 'Optional canonical fragments must not block the required football boot.');
+assert.match(appBootSource, /football-league-overview-mode[\s\S]*footballLeagueOverview[\s\S]*footballScoreboardHome/, 'Fatal canonical boot errors must render in the visible route surface.');
+assert.doesNotMatch(uiExtrasSource, /\bboot\s*\(/, 'Optional UI extras must not own the application boot contract.');
+assert.match(dataSource, /SUPABASE_CLIENT_SOURCES[\s\S]*ensureXYZSupabaseClient[\s\S]*window\.ensureXYZSupabaseClient/, 'Hesap istemcisi kritik futbol zinciri dışında primary/fallback kaynaklarla lazy yüklenmeli.');
+assert.match(footballHubCss, /\.sport-branch-nav-compact[\s\S]*\.chat-launcher[\s\S]*\.mini-goal-game\s*\{\s*display:none[\s\S]*\.agenda-match/i, 'Canonical football CSS must own navigation, ticker and safe widget geometry without app-late.css.');
+assert.match(footballHubCss, /body\s*>\s*\.account-overlay[\s\S]*body\s*>\s*\.mc-overlay[\s\S]*z-index\s*:\s*300\s*!important/i, 'Canonical overlays must stay above the sticky football header before legacy styles load.');
+const html = [documentHtml, footballHubCss, appCss, appSource].join('\n');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
 const coreMigration = await readFile(new URL('../supabase/migrations/20260802180000_platform_core.sql', import.meta.url), 'utf8');
 const leaderboardMigration = await readFile(new URL('../supabase/migrations/20260802181000_server_leaderboard.sql', import.meta.url), 'utf8');
@@ -39,7 +59,14 @@ assert.match(legalCss, /--legal-bg:#171521/, 'Yasal merkez ana portalın gece re
 assert.match(legalCss, /--legal-gold:#c93642/, 'Yasal merkez ana portalın kırmızı vurgu rengini kullanmalı.');
 assert.match(legalScript, /legal-brand-mark/, 'Yasal merkez ana sayfadaki marka kilidini kullanmalı.');
 assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
-assert.doesNotMatch(documentHtml, /<style>[\s\S]*<\/style>/i, 'Uygulama CSS’i index.html içine geri taşınmamalı.');
+assert.match(buildScript, /ui-stage\.js[\s\S]*ui-runtime\.js[\s\S]*stageIndex[\s\S]*runtimeIndex/, 'Production UI üç güvenli top-level chunk olarak üretilmeli.');
+assert.match(appBootSource, /var stageChunk = \["xyzUiStageTemplate"[\s\S]*var runtimeChunk = \["xyzUiRuntimeTemplate"[\s\S]*\.then\(nextTask\)[\s\S]*stageChunk\.concat\(true\)[\s\S]*\.then\(nextTask\)[\s\S]*runtimeChunk\.concat\(true\)/, 'Preload edilen UI stage ve runtime chunkları ayrı macrotasklarda sırayla çalışmalı.');
+assert.match(buildScript, /productionCoreTemplates[\s\S]*moveDeferredScriptToTemplate[\s\S]*xyzUiCoreTemplate/, 'Production core scripts must become inert templates instead of an adjacent defer chain.');
+assert.match(buildScript, /canonicalFragments[\s\S]*removeMarkedBlock[\s\S]*assets", "fragments[\s\S]*Object\.entries\(canonicalFragments\)/, 'Canonical late DOM must be extracted with explicit markers and emitted as versioned same-origin fragments.');
+const criticalCssBlock = documentHtml.match(/<style id="xyzCriticalCss">([\s\S]*?)<\/style>/i);
+assert.ok(criticalCssBlock, 'İlk boyama için sınırlı kritik CSS bulunmalı.');
+assert.ok(criticalCssBlock[1].length < 9000, 'Kritik CSS 9 KB sınırını aşmamalı; geri kalan stil asenkron dosyada kalmalı.');
+assert.doesNotMatch(documentHtml.replace(criticalCssBlock[0], ''), /<style[\s>][\s\S]*<\/style>/i, 'Kritik blok dışında uygulama CSS’i index.html içine taşınmamalı.');
 assert.doesNotMatch(documentHtml, /<script>\s*[\s\S]+?<\/script>/i, 'Uygulama JavaScript’i index.html içine geri taşınmamalı.');
 for (const file of scriptFiles) assert.match(documentHtml, new RegExp(`assets/js/${file.replace('.', '\\.')}"`), `${file} sayfaya bağlanmalı.`);
 scriptSources.forEach((source, index) => new vm.Script(source, { filename: `assets/js/${scriptFiles[index]}` }));
@@ -201,8 +228,12 @@ assert.doesNotMatch(html, /id="preseasonSocialSection"/i, 'Hazırlık maçı sos
 assert.doesNotMatch(html, /Güvenli Beta/i, 'Güvenli Beta bandı görünür sayfadan kaldırılmış kalmalı.');
 assert.match(appCss, /\.transfer-signal-stream\{[^}]*grid-auto-flow:row[^}]*overflow-y:auto/, 'X sinyal kaynakları okunaklı dikey akış kullanmalı.');
 assert.match(functionSource('boot'), /parseAppLocation[\s\S]*activeFootballLeague[\s\S]*await loadAllData\(\)/, 'Doğrudan lig URL’si veri yüklenmeden önce seçilmeli.');
+assert.match(functionSource('loadAllData'), /providerBundlePromise[\s\S]*supabaseClientPromise=ensureXYZSupabaseClient\(\)[\s\S]*Promise\.all\(\[ensureSeasonFixtures\(\),supabaseClientPromise\]\)/, 'Hesap istemcisi arka plan hidrasyonunda sağlayıcı isteğiyle paralel başlamalı.');
+assert.match(functionSource('getCachedAuthSession'), /await ensureXYZSupabaseClient\(\)[\s\S]*sb\.auth\.getSession/, 'Oturum okuması gerçek hesap istemcisini lazy olarak hazırlamalı.');
+assert.match(functionSource('registerUser'), /await ensureXYZSupabaseClient\(\)[\s\S]*sb\.auth\.signUp/, 'Üyelik gönderimi gerçek hesap istemcisini yüklemeden başlamamalı.');
 assert.match(liveFunctionSource('parseAppLocation'), /league:'all'[\s\S]*section:'home'/, 'Kök futbol rotası tüm ligler maç merkezine açılmalı.');
-assert.match(functionSource('fetchFootballHomeBundle'), /Promise\.all\(FOOTBALL_HOME_LEAGUES\.map/, 'Futbol ana sayfası beş lig isteğini paralel başlatmalı.');
+assert.match(dataSource, /async function fetchFootballHomeNetwork\(\)[\s\S]*fetch\('\/api\/football\/home'/, 'Futbol ana sayfası tarayıcıdan tek kompakt ve cacheli home endpointini kullanmalı.');
+assert.match(workerSource, /handleFootballHome[\s\S]*Promise\.allSettled\(FOOTBALL_HOME_LEAGUES\.map/, 'Beş lig paralelliği ve lig bazlı hata sınırı edge katmanında merkezileşmeli.');
 assert.match(functionSource('renderFootballScoreboardHome'), /scoreboard-league-group[\s\S]*scoreboard-picks/, 'Futbol ana sayfası lig grupları ve 1-X-2 girişlerini göstermeli.');
 assert.match(functionSource('footballHomeMatchRow'), /scoreboard-predict/, 'Her ana sayfa maçı Predict düğmesi taşımalı.');
 assert.match(functionSource('normalizeClientFootballStatus'), /startsWith\('canl'\)[\s\S]*live[\s\S]*halftime[\s\S]*finished[\s\S]*cancelled[\s\S]*postponed/, 'Sağlayıcı maç durumları tek istemci sözleşmesine normalize edilmeli.');
@@ -252,7 +283,11 @@ assert.match(workerSource, /lineups\.player/, 'Son resmî ilk 11 oyuncu ilişkis
 assert.match(workerSource, /Number\(row\?\.type_id\) === 11/, 'Yalnız resmî başlangıç oyuncuları ilk 11 olarak kullanılmalı.');
 assert.match(html, /id="clubProfilePanel"/, 'Kulüpler alanında ayrıntılı kulüp merkezi bulunmalı.');
 assert.match(functionSource('loadClubProfile'), /fetch\(`\/api\/football\/club/, 'Kulüp merkezi aynı alan adlı sunucu adaptörünü kullanmalı.');
-assert.match(documentHtmlRaw, /matchday-live\.js\?v=305/, 'Maç merkezi istemci değişiklikleri immutable tarayıcı önbelleğini kırmalı.');
+for (const releaseAsset of ['style-loader.js', 'initial-route.js', 'football-early.js', 'data.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'multisport.js']) {
+  assert.match(documentHtmlRaw, new RegExp(`${releaseAsset.replace('.', '\\.')}\\?v=312`), `${releaseAsset} v312 immutable tarayıcı önbelleğini kırmalı.`);
+}
+assert.match(documentHtmlRaw, /app\.css\?v=312/, 'v312 uygulama stili immutable tarayıcı önbelleğini kırmalı.');
+assert.match(documentHtmlRaw, /app-late\.css\?v=312/, 'v312 gecikmeli uygulama stili immutable tarayıcı önbelleğini kırmalı.');
 assert.match(functionSource('clubLineupHTML'), /İsim uydurulmuyor/, 'Sağlayıcı verisi yokken oyuncu ismi uydurulmamalı.');
 assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Stadyum kartı yol tarifi bağlantısı üretmeli.');
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
@@ -494,7 +529,7 @@ assert.doesNotMatch(matchdayLiveSource, /DEFAULT_FIXTURE_ID|2026-08-14|19746648|
 assert.doesNotMatch(workerSource, /verifiedMatchdayRecoveryArchive|19746639/, 'Maç ayrıntısı fallbacki tek bir fixture kimliğine sabitlenmemeli.');
 assert.match(workerSource, /persistSeasonFixtures[\s\S]*readDueProviderFixtures[\s\S]*warmDueMatchdays/, 'Tüm maçlar sezon havuzundan kalıcı matchday hazırlığına bağlanmalı.');
 assert.match(workerSource, /matchdaySnapshotIsFresh[\s\S]*acquireSyncLock\(env, scopeKey, 25\)[\s\S]*persistMatchdaySnapshot/, 'Matchday sağlayıcı çağrısı tazelik, single-flight ve kalıcı snapshot ile korunmalı.');
-assert.match(matchdayLiveSource, /\/api\/football\/season\?league=\$\{encodeURIComponent\(activeMatchdayLeague\)\}/, 'Parametre yokken fixture secili lig sezon verisinden cozulmeli.');
+assert.match(matchdayLiveSource, /if \(!requestedFixture\)[\s\S]*command\.hidden = true[\s\S]*command\.style\.display = "none"[\s\S]*return;/, 'Fixture parametresi yokken matchday tum futbol rotalarinda sifir istekle gizlenmeli.');
 assert.match(matchdayLiveSource, /toLocaleUpperCase\("tr-TR"\)/, 'Takim kisaltmalari Turkce buyuk harf kuraliyla uretilmeli.');
 assert.match(documentHtml, /LİGİN SIRADAKİ MAÇI[\s\S]*<h2 id="matchdayTitle"><\/h2><p>Seçili ligin maç, gündem ve puan durumu akışı<\/p>/, 'Kaynak HTML seçili lige bağlı nötr maç akışı placeholderı içermeli.');
 // Lisanssiz gorsel hotlink regresyonu. Kaynak agacinin tamaminda yasakli
@@ -522,9 +557,10 @@ assert.match(dataSource, /FOOTBALL_COVERAGE_CACHE_MS\s*=\s*60\s*\*\s*60\s*\*\s*1
 assert.match(dataSource, /fetch\(['"]\/api\/football\/coverage['"]/, 'Coverage endpointi frontend tarafindan cagrilmali.');
 assert.match(dataSource, /catch\(_error\)[\s\S]*?return null/, 'Coverage hatasi fail-open davranmali.');
 assert.match(liveFunctionSource('loadFootballLeagueSelection'), /footballCoverageUnavailable\(requestedLeague\)/, 'Tum lig secimleri kapsam disi durumu kontrol etmeli.');
-assert.match(liveFunctionSource('loadFootballLeagueSelection'), /coveragePromise=loadFootballCoverage[\s\S]*dataPromise=loadAllData[\s\S]*await dataPromise[\s\S]*coveragePromise\.then/, 'Coverage lig verisiyle paralel başlamalı ama ilk çizimi bloke etmemeli.');
+assert.match(liveFunctionSource('loadFootballLeagueSelection'), /coveragePromise=loadFootballCoverage[\s\S]*dataPromise=typeof loadFootballCriticalData[\s\S]*await dataPromise[\s\S]*coveragePromise\.then/, 'Coverage kritik lig verisiyle paralel başlamalı ama ilk çizimi bloke etmemeli.');
 assert.match(liveFunctionSource('loadFootballLeagueSelection'), /renderFootballLeagueScope/, 'Lig gecisi Predict ve profil DOM alanlarini yeniden cizmemeli.');
-assert.match(liveFunctionSource('renderFootballHome'), /scheduleFootballLazyModule\('club-social'[\s\S]*scheduleFootballLazyModule\('youtube'[\s\S]*scheduleFootballLazyModule\('instagram'/, 'Sosyal ve medya APIleri yalniz ilgili bolum gorunume yaklasinca yuklenmeli.');
+assert.match(liveFunctionSource('renderFootballHome'), /renderFootballScoreboardHome[\s\S]*renderFootballLeagueOverview/, 'Futbol ana rotasi aggregate skor merkezi ile tek-lig genel bakisini kesin ayirmali.');
+assert.doesNotMatch(liveFunctionSource('renderFootballHome'), /loadXClubPosts|renderYouTubeMedia|renderInstagramFeed/, 'Sosyal ve medya APIleri futbol ana rotasinin kritik yolunda baslatilmamali.');
 assert.doesNotMatch(liveFunctionSource('renderFootballHome'), /renderFootballDataViews/, 'Ana sayfa gizli mac, gundem, kulup, transfer ve tablo gorunumlerinin tamamini kurmamali.');
 assert.match(liveFunctionSource('renderFootballLeaguePickerInto'), /is-unavailable/, 'Lig secici kapsam disi ligi tiklamadan once isaretlemeli.');
 assert.match(appCss, /v173/, 'Coverage secici durumu icin CSS katmani bulunmali.');
@@ -656,4 +692,5 @@ assert.ok(
   );
 }
 
+await import('./test-five-league-contract.mjs');
 console.log('XYZSkor kontrolü başarılı.');

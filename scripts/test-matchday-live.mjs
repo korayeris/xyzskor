@@ -4,14 +4,14 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 
-async function runScenario({ search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {} }) {
+async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {} }) {
   const requests = [];
   const listeners = new Map();
   const timers = [];
   let seasonRequest = 0;
   const elements = new Map();
   const element = (id) => {
-    if (!elements.has(id)) elements.set(id, { id, hidden:false, textContent:'', innerHTML:'', classList:{ toggle() {} }, nextElementSibling:null, appendChild() {}, addEventListener() {} });
+    if (!elements.has(id)) elements.set(id, { id, hidden:false, textContent:'', innerHTML:'', style:{}, classList:{ toggle() {} }, nextElementSibling:null, appendChild() {}, addEventListener() {} });
     return elements.get(id);
   };
   const title = element('matchdayTitle');
@@ -20,7 +20,7 @@ async function runScenario({ search = '', matches = [], seasonResponses = null, 
   const context = {
     URL, URLSearchParams, Intl, Map, Array, String, Number, Boolean, RegExp, Math, Promise,
     Date,
-    location:{ search, origin:'https://xyzskor.test', assign() {} },
+    location:{ pathname, search, origin:'https://xyzskor.test', assign() {} },
     document:{
       body:{ classList:{ toggle() {} } }, hidden:false, readyState:'complete',
       getElementById:element,
@@ -52,22 +52,18 @@ const completed = { id:'sportmonks:10001', ev:'Eski Ev', konuk:'Eski Konuk', kic
 const upcoming = { id:'sportmonks:10002', ev:'Yakın Ev', konuk:'Yakın Konuk', kickoff:iso(7200000), status:null };
 const live = { id:'sportmonks:10003', ev:'İstanbul Başakşehir', konuk:'Çaykur Rizespor', kickoff:iso(-1800000), status:'canlı' };
 
-const liveRun = await runScenario({ matches:[completed, upcoming, live], detailFixture:{ ...live, minute:32, score:{home:1, away:0} } });
-assert.equal(liveRun.requests[0], '/api/football/season?league=super-lig', 'Parametre yokken sezon fikstürü çözülmeli.');
-assert.match(liveRun.requests[1], /fixture=10003$/, 'Canlı maç ilk sırada seçilmeli.');
-assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, />İB<.*>ÇR</s, 'Türkçe takım kısaltmaları isimlerden türetilmeli.');
-assert.match(liveRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-overview-card[\s\S]*data-fixture-id="10003"[\s\S]*Tahminini yap/, 'Futbol anasayfası tamamı tıklanabilir kompakt maç vitrini göstermeli.');
-assert.doesNotMatch(liveRun.elements.get('matchdayLiveRoot').innerHTML, /Maç merkezini aç|detaylar ve istatistikler/, 'Ana maç kartında ayrıca detay düğmesi bulunmamalı.');
-assert.doesNotMatch(liveRun.elements.get('matchdayLiveRoot').innerHTML, /id="matchdayLineups"/, 'Kadro ve saha dizilişi anasayfa lig akışını aşağı itmemeli.');
-
-const futureRun = await runScenario({ matches:[completed, { ...live, kickoff:iso(-18000000) }, upcoming], detailFixture:{ ...upcoming, score:{} } });
-assert.match(futureRun.requests[1], /fixture=10002$/, 'Bayat canlı durum yerine en yakın gelecek maç seçilmeli.');
-assert.doesNotMatch(futureRun.elements.get('matchdayLiveRoot').innerHTML, /CANLI/, 'Gelecek maç canlı olarak etiketlenmemeli.');
-
-const completedRun = await runScenario({ matches:[completed], detailFixture:{ ...completed, score:{home:1, away:0} } });
-assert.match(completedRun.requests[1], /fixture=10001$/, 'Gelecek maç yoksa son tamamlanan maç seçilmeli.');
+for (const pathname of ['/', '/all', '/super-lig', '/premier-league', '/la-liga', '/bundesliga', '/serie-a']) {
+  const homeRun = await runScenario({ pathname, matches:[completed, upcoming, live] });
+  assert.equal(homeRun.requests.length, 0, `${pathname} without a fixture must not issue season/matchday requests.`);
+  assert.equal(homeRun.elements.get('matchdayCommand').hidden, true, `${pathname} without a fixture must hide the matchday command.`);
+  homeRun.elements.get('matchdayCommand').hidden = false;
+  assert.equal(homeRun.elements.get('matchdayCommand').style.display, 'none', `${pathname} must remain visually hidden if another UI layer clears the hidden property.`);
+  assert.equal(homeRun.listeners.has('window:xyz:football-league-change'), false, `${pathname} without a fixture must not install the matchday league listener.`);
+  assert.equal(homeRun.listeners.has('visibilitychange'), false, `${pathname} without a fixture must not install polling lifecycle listeners.`);
+}
 
 const detailedRun = await runScenario({
+  pathname:'/',
   search:'?fixture=10001',
   detailFixture:{ id:'sportmonks:10001', ev:'Ev', konuk:'Konuk', status:'bitti', home_logo:'https://cdn.sportmonks.com/home.png', away_logo:'https://cdn.sportmonks.com/away.png', score:{home:2,away:2} },
   detailDetails:{
@@ -78,6 +74,9 @@ const detailedRun = await runScenario({
     predictions:[{ type_id:237, predictions:{home:41.53,draw:24.07,away:34.36} }]
   }
 });
+assert.equal(detailedRun.requests.length, 1, 'Explicit root fixture must make exactly one initial matchday request.');
+assert.match(detailedRun.requests[0], /\/api\/football\/matchday\?fixture=10001$/, 'Explicit root fixture must request its own detail payload directly.');
+assert.equal(detailedRun.elements.get('matchdayCommand').hidden, false, 'Explicit root fixture must keep the matchday command available.');
 assert.equal(detailedRun.elements.get('matchdayIntro').textContent, 'Maç tamamlandı · Sportmonks tarafından doğrulanan maç verisi', 'Tarihi eksik biten maç program bekleniyor dememeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-jump[\s\S]*Olaylar <b>1<\/b>[\s\S]*İstatistikler <b>2<\/b>/, 'Fixture ayrıntıları sayılı hızlı gezinme sunmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /href="\/\?fixture=10001#matchdayLineups" data-matchday-section="matchdayLineups"/, 'Kadro bağlantısı fixture kimliğini korumalı; kök base URL yüzünden maçtan çıkmamalı.');
@@ -87,9 +86,12 @@ assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /Yanlış d
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /BEKLENEN GOL[\s\S]*41,5%/, 'xG ve maç sonucu olasılığı görselleştirilmeli.');
 
 const staleLiveRun = await runScenario({ search:'?fixture=10003', detailFixture:{ ...live, kickoff:iso(-18000000), minute:90, score:{home:1, away:1} } });
+assert.equal(staleLiveRun.requests.length, 1, 'Explicit single-league fixture must make exactly one initial matchday request.');
+assert.match(staleLiveRun.requests[0], /\/api\/football\/matchday\?fixture=10003$/, 'Explicit single-league fixture must request its own detail payload directly.');
+assert.equal(staleLiveRun.listeners.has('visibilitychange'), true, 'Explicit single-league fixture must retain its refresh lifecycle.');
 assert.doesNotMatch(staleLiveRun.elements.get('matchdayLiveRoot').innerHTML, /<em>(?:90' )?CANLI<\/em>/, 'Geçmiş kickoff taşıyan maç canlı etiketi göstermemeli.');
 
-const overrideRun = await runScenario({ search:'?fixture=987654', detailFixture:{ id:'sportmonks:987654', ev:'Başka Ev', konuk:'Başka Konuk', kickoff:iso(3600000), score:{} } });
+const overrideRun = await runScenario({ pathname:'/all', search:'?fixture=987654', detailFixture:{ id:'sportmonks:987654', ev:'Başka Ev', konuk:'Başka Konuk', kickoff:iso(3600000), score:{} } });
 assert.equal(overrideRun.requests.length, 1, 'Fixture override sezon isteğini atlamalı.');
 assert.match(overrideRun.requests[0], /fixture=987654$/, 'Fixture override aynen kullanılmalı.');
 
@@ -100,17 +102,5 @@ await new Promise((resolve) => setImmediate(resolve));
 await new Promise((resolve) => setImmediate(resolve));
 assert.equal(overrideLeagueRun.requests[1], '/api/football/season?league=premier-league', 'Lig değişince eski fixture override bırakılıp seçili lig sorgulanmalı.');
 assert.match(overrideLeagueRun.requests[2], /fixture=20002$/, 'Seçili lig kendi en yakın fixture kimliğini kullanmalı.');
-
-const emptyRun = await runScenario({ matches:[] });
-assert.equal(emptyRun.elements.get('matchdayTitle').textContent, 'Program bekleniyor', 'Boş fikstür sahte maç üretmemeli.');
-assert.match(emptyRun.elements.get('matchdayLiveRoot').innerHTML, /Program bekleniyor/, 'Boş fikstür dürüst durum göstermeli.');
-
-const recoveredRun = await runScenario({ seasonResponses:[[],[upcoming]], detailFixture:{ ...upcoming, score:{} } });
-assert.equal(recoveredRun.requests.length, 1, 'İlk boş sezonda yalnız sezon isteği yapılmalı.');
-recoveredRun.listeners.get('visibilitychange')();
-await new Promise((resolve) => setImmediate(resolve));
-await new Promise((resolve) => setImmediate(resolve));
-assert.equal(recoveredRun.requests[1], '/api/football/season?league=super-lig', 'Fixture yokken görünürlük değişimi sezonu yeniden çözmeli.');
-assert.match(recoveredRun.requests[2], /\/api\/football\/matchday\?fixture=10002$/, 'Sonradan gelen fixture geçerli detay URL’siyle yüklenmeli.');
 
 console.log('Matchday resolver checks passed.');

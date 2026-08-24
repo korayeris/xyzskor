@@ -1,10 +1,12 @@
 import http from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = normalize(fileURLToPath(new URL('..', import.meta.url)));
+const sourceRoot = normalize(fileURLToPath(new URL('..', import.meta.url)));
+const requestedStaticRoot = process.env.XYZSKOR_STATIC_ROOT ? resolve(sourceRoot, process.env.XYZSKOR_STATIC_ROOT) : sourceRoot;
+const root = normalize(requestedStaticRoot.startsWith(sourceRoot) ? requestedStaticRoot : sourceRoot);
 const edgeOrigin = process.env.XYZSKOR_EDGE_ORIGIN || 'https://xyzskor-tr.korayeris2002.chatgpt.site';
 const port = Number(process.env.XYZSKOR_DEV_PORT || 4173);
 const mime = {

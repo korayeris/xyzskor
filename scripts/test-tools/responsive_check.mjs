@@ -28,6 +28,11 @@ const ALL_VIEWPORTS = [
 ];
 const ALL_ROUTES = [
   { name: 'anasayfa', path: '/' },
+  { name: 'super-lig-overview', path: '/super-lig' },
+  { name: 'premier-league-overview', path: '/premier-league' },
+  { name: 'la-liga-overview', path: '/la-liga' },
+  { name: 'bundesliga-overview', path: '/bundesliga' },
+  { name: 'serie-a-overview', path: '/serie-a' },
   { name: 'super-lig-maclar', path: '/super-lig/matches' },
   { name: 'predict', path: '/predict' },
   { name: 'basketbol', path: '/basketbol/' },
@@ -35,11 +40,21 @@ const ALL_ROUTES = [
   { name: 'ufc', path: '/ufc/' },
   { name: 'formula-1', path: '/motorsports/formula-1' },
 ];
+const FOOTBALL_OVERVIEW_ROUTES = new Map([
+  ['super-lig-overview', 'super-lig'],
+  ['premier-league-overview', 'premier-league'],
+  ['la-liga-overview', 'la-liga'],
+  ['bundesliga-overview', 'bundesliga'],
+  ['serie-a-overview', 'serie-a'],
+]);
+const TOUCH_TARGET_ROUTES = new Set(['anasayfa', ...FOOTBALL_OVERVIEW_ROUTES.keys()]);
+const selectedViewportNames = new Set((process.env.XYZSKOR_TEST_VIEWPORT || '').split(',').map((item) => item.trim()).filter(Boolean));
+const selectedRouteNames = new Set((process.env.XYZSKOR_TEST_ROUTE || '').split(',').map((item) => item.trim()).filter(Boolean));
 const VIEWPORTS = process.env.XYZSKOR_TEST_VIEWPORT
-  ? ALL_VIEWPORTS.filter(({ width, name }) => String(width) === process.env.XYZSKOR_TEST_VIEWPORT || name === process.env.XYZSKOR_TEST_VIEWPORT)
+  ? ALL_VIEWPORTS.filter(({ width, name }) => selectedViewportNames.has(String(width)) || selectedViewportNames.has(name))
   : ALL_VIEWPORTS;
 const ROUTES = process.env.XYZSKOR_TEST_ROUTE
-  ? ALL_ROUTES.filter(({ name }) => name === process.env.XYZSKOR_TEST_ROUTE)
+  ? ALL_ROUTES.filter(({ name }) => selectedRouteNames.has(name))
   : ALL_ROUTES;
 
 let PASS = 0, FAIL = 0;
@@ -61,20 +76,65 @@ const mockSeason = {
   ],
   results: [], standings: [], coverage: { fixtures: 3, results: 0, standings: 0 }, errors: [],
 };
+const MOCK_FOOTBALL_LEAGUES = {
+  'super-lig':{ label:'Süper Lig', id:'600', teams:['Galatasaray','Fenerbahçe','Beşiktaş','Trabzonspor'] },
+  'premier-league':{ label:'Premier League', id:'8', teams:['Arsenal','Liverpool','Manchester City','Chelsea'] },
+  'la-liga':{ label:'La Liga', id:'564', teams:['Barcelona','Real Madrid','Atlético Madrid','Villarreal'] },
+  bundesliga:{ label:'Bundesliga', id:'82', teams:['Bayern München','Borussia Dortmund','RB Leipzig','Bayer Leverkusen'] },
+  'serie-a':{ label:'Serie A', id:'384', teams:['Inter','Milan','Juventus','Napoli'] },
+};
+function mockSeasonFor(league){
+  const scoped=MOCK_FOOTBALL_LEAGUES[league]||MOCK_FOOTBALL_LEAGUES['super-lig'];
+  const [first,second,third,fourth]=scoped.teams;
+  return {
+    ...mockSeason, league, leagueId:scoped.id, competition:scoped.label,
+    matches:[
+      { ...mockSeason.matches[0], id:`sportmonks:${scoped.id}01`, ev:first, konuk:second, competition:scoped.label, provider_league_id:scoped.id },
+      { ...mockSeason.matches[1], id:`sportmonks:${scoped.id}02`, ev:third, konuk:fourth, competition:scoped.label, provider_league_id:scoped.id },
+      { ...mockSeason.matches[2], id:`sportmonks:${scoped.id}03`, ev:second, konuk:third, competition:scoped.label, provider_league_id:scoped.id },
+    ],
+    standings:scoped.teams.map((team,index)=>({team,played:3,won:Math.max(0,3-index),drawn:index?1:0,lost:index,goals_for:8-index,goals_against:2+index,goal_difference:6-index*2,points:9-index*2,form:index%2?'WDW':'WWW',competition:scoped.label,provider_league_id:scoped.id})),
+    coverage:{fixtures:3,results:0,standings:4},
+  };
+}
+
+function requestedLeague(url, fallback = 'super-lig') {
+  const requested = new URL(url).searchParams.get('league') || fallback;
+  return requested === 'all' || Object.hasOwn(MOCK_FOOTBALL_LEAGUES, requested) ? requested : fallback;
+}
 
 function mockFor(url) {
   if (MODE === 'nodata') {
     if (url.includes('/api/media/youtube')) return [{ error: 'youtube_not_configured', channels: [], items: [] }, 503];
     return [{ error: 'sportmonks_not_configured', provider: 'sportmonks' }, 503];
   }
-  if (url.includes('/api/football/season')) return [mockSeason, 200];
-  if (url.includes('/api/football/coverage')) return [{ source: 'sportmonks', updatedAt: iso, selected: [{ league: 'super-lig', leagueId: '600', name: 'Süper Lig', available: true, metadataAvailable: true, currentSeasonId: '1' }] }, 200];
-  if (url.includes('/api/football/live')) return [{ source: 'sportmonks', league: 'super-lig', updatedAt: iso, matches: [], coverage: {}, degraded: false }, 200];
+  if (url.includes('/api/football/home')) {
+    const bundles=Object.keys(MOCK_FOOTBALL_LEAGUES).map(mockSeasonFor);
+    return [{
+      version:1, league:'all', source:'sportmonks-football-home', updatedAt:iso,
+      matches:bundles.flatMap(bundle=>bundle.matches.map(match=>({...match,league_key:bundle.league}))),
+      results:[], standings:[],
+      standingsByLeague:Object.fromEntries(bundles.map(bundle=>[bundle.league,bundle.standings.slice(0,5)])),
+      availability:Object.fromEntries(bundles.map(bundle=>[bundle.league,true])),
+      errors:[],
+    }, 200];
+  }
+  if (url.includes('/api/football/season')) return [mockSeasonFor(requestedLeague(url)), 200];
+  if (url.includes('/api/football/coverage')) return [{
+    source: 'sportmonks', updatedAt: iso,
+    selected: Object.entries(MOCK_FOOTBALL_LEAGUES).map(([league, item]) => ({
+      league, leagueId: item.id, name: item.label, available: true, metadataAvailable: true, currentSeasonId: '1',
+    })),
+  }, 200];
+  if (url.includes('/api/football/live')) return [{ source: 'sportmonks', league: requestedLeague(url, 'all'), updatedAt: iso, matches: [], coverage: {}, degraded: false }, 200];
   if (url.includes('/api/football/matchday')) return [{ source: 'sportmonks', provider: 'sportmonks', updatedAt: iso, degraded: false, fixture: mockSeason.matches[0], details: { events: [], statistics: [], lineups: [] } }, 200];
-  if (url.includes('/api/football/transfers')) return [{ source: 'sportmonks', league: 'super-lig', updatedAt: iso, confirmed: [], rumours: [], errors: [] }, 200];
-  if (url.includes('/api/media/youtube')) return [{ source: 'youtube-data-api-v3', updated_at: iso, channels: [], items: [] }, 200];
-  if (url.includes('/api/social/')) return [{ source: 'mock', league: 'super-lig', updated_at: iso, clubs: [], publishers: [], items: [] }, 200];
+  if (url.includes('/api/football/transfers')) return [{ source: 'sportmonks', league: requestedLeague(url), updatedAt: iso, confirmed: [], rumours: [], errors: [] }, 200];
+  if (url.includes('/api/football/x-media')) return [{ source: 'x-api', league: requestedLeague(url), status: 'ok', updated_at: iso, clubs: [], publishers: [], errors: [] }, 200];
+  if (url.includes('/api/football/x-preseason')) return [{ source: 'x-api', league: requestedLeague(url), status: 'ok', updated_at: iso, clubs: [], errors: [] }, 200];
+  if (url.includes('/api/media/youtube')) return [{ source: 'youtube-data-api-v3', league: requestedLeague(url), updated_at: iso, channels: [], items: [] }, 200];
+  if (url.includes('/api/social/')) return [{ source: 'mock', league: requestedLeague(url), updated_at: iso, clubs: [], publishers: [], items: [] }, 200];
   if (url.includes('/api/health')) return [{ status: 'ok', checks: {} }, 200];
+  if (url.includes('/api/predict-game/session')) return [{ session: { id: '00000000-0000-4000-8000-000000000001', nonce: 'responsive-mock-nonce', reward_eligible: false } }, 200];
   if (url.includes('/api/predict-game/status')) return [{ authenticated: false, reward_eligible: false, training: false }, 200];
   if (url.includes('/api/sports/today')) {
     const sport = new URL(url).searchParams.get('sport');
@@ -119,11 +179,13 @@ async function main() {
       const page = await ctx.newPage();
       const pageErrors = [], consoleErrors = [];
       const requestedApiPaths = [];
+      const requestedResourcePaths = [];
       page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 240)));
       page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
       // Harici host (CDN, Supabase, gorsel) sandbox'ta yok; bos yanit ver.
       await page.route('**://**', async (r) => {
         const url = r.request().url();
+        if (url.startsWith(BASE)) requestedResourcePaths.push(new URL(url).pathname + new URL(url).search);
         // Tek route katmani kullan: ikinci bir genel route, API mock'unu
         // `continue()` ile yanlışlıkla atlayıp canlı backend'e kaçırmasın.
         if (url.startsWith(BASE) && new URL(url).pathname.startsWith('/api/')) {
@@ -172,20 +234,69 @@ async function main() {
           }
         }
         overflowing.sort((a, b) => b.overflowPx - a.overflowPx);
-        const smallTargets = [...document.querySelectorAll('a[href],button,[role="button"],input,select')]
-          .filter((el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
-            return r.width > 0 && r.height > 0 && s.display !== 'none' && r.height < 32; }).length;
+        const touchTargetCandidates = [...document.querySelectorAll('a[href],button,[role="button"],input,select,textarea,summary')];
+        const isInlineTextLink = (el, style) => {
+          if (!el.matches('a[href]') || style.display !== 'inline' || el.closest('nav')) return false;
+          return Boolean(el.closest('p,small,figcaption,.legal-copy,.source-transparency,.live-data-note,.section-copy'));
+        };
+        const isNativeInlineNav = (el, style) => {
+          const semanticInlineNav = el.matches('nav a[href]') && style.display === 'inline';
+          // Flex layout, footer linklerini computed-style'da blocklastirir; yine de
+          // bunlar semantik olarak tek satirlik yasal navigasyon linkleridir.
+          const legalFooterNav = el.matches('.legal-footer-links > a[href]');
+          if (!semanticInlineNav && !legalFooterNav) return false;
+          // Yalniz sinifsiz ve yalniz metinden olusan gercek inline nav linkleri.
+          // Semantik nav ve yasal footer disindaki sekme/pill/button kontrolleri
+          // bu istisnaya giremez.
+          return !el.getAttribute('class') && el.children.length === 0;
+        };
+        const touchTargetExceptions = [];
+        const smallTouchTargetSamples = [];
+        for (const el of touchTargetCandidates) {
+          const rect = el.getBoundingClientRect();
+          const style = getComputedStyle(el);
+          if (rect.width <= 0 || rect.height <= 0 || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0 || el.hidden || el.matches(':disabled,[aria-hidden="true"]')) continue;
+          let exception = '';
+          if (isInlineTextLink(el, style)) exception = 'inline-text-link';
+          else if (isNativeInlineNav(el, style)) exception = 'native-inline-nav';
+          if (exception) {
+            touchTargetExceptions.push(exception);
+            continue;
+          }
+          if (rect.width < 44 || rect.height < 44) {
+            smallTouchTargetSamples.push({
+              tag: el.tagName.toLowerCase(),
+              id: el.id || '',
+              cls: String(el.className || '').trim().replace(/\s+/g, '.').slice(0, 100),
+              text: (el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80),
+              width: Math.round(rect.width * 10) / 10,
+              height: Math.round(rect.height * 10) / 10,
+            });
+          }
+        }
         return {
           docScrollWidth: doc.scrollWidth,
           viewportWidth: vw,
           horizontalOverflowPx: Math.max(0, doc.scrollWidth - vw),
           overflowingElements: overflowing.slice(0, 6),
           overflowingCount: overflowing.length,
-          smallTouchTargets: smallTargets,
+          smallTouchTargets: smallTouchTargetSamples.length,
+          smallTouchTargetSamples: smallTouchTargetSamples.slice(0, 16),
+          touchTargetExceptionCounts: touchTargetExceptions.reduce((counts, reason) => ({ ...counts, [reason]: (counts[reason] || 0) + 1 }), {}),
           activeTabPage: document.querySelector('.tabpage.active')?.id || null,
           visibleTextLength: (document.body.innerText || '').trim().length,
           skeletons: [...document.querySelectorAll('.skeleton')].filter((el)=>el.offsetWidth||el.offsetHeight).length,
+          visibleLegacyLiveCenter: (()=>{ const el=document.getElementById('page-live'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
+          tickerText: document.getElementById('liveTicker')?.innerText?.trim() || '',
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
+          canonicalRuntime: {
+            hubReady: document.getElementById('xyzFootballHubStyle')?.media === 'all',
+            legacyStylesPresent: Boolean(document.getElementById('xyzLegacyStylesheet')),
+            uiExtrasPresent: Boolean(document.getElementById('xyzUiExtrasScript')),
+            xmsVisible: (()=>{ const el=document.querySelector('body > .xms-primary'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
+            sideChatVisible: (()=>{ const el=document.getElementById('sideChatPrototype'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
+            miniGameVisible: (()=>{ const el=document.getElementById('miniGoalGame'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
+          },
         };
       });
 
@@ -198,18 +309,52 @@ async function main() {
       ok(metrics.overflowingCount === 0, `${tag}: viewport disina cikan eleman yok`, JSON.stringify(metrics.overflowingElements));
       ok(metrics.visibleTextLength > 200, `${tag}: sayfa icerik uretti`, `metin uzunlugu=${metrics.visibleTextLength}`);
       ok(metrics.skeletons === 0, `${tag}: yukleme iskeleti kalmadi`, `iskelet=${metrics.skeletons}`);
-      if(['anasayfa','super-lig-maclar','predict'].includes(route.name)){
+      if(MODE === 'withdata'){
+        ok(consoleErrors.length === 0, `${tag}: console error yok`, consoleErrors.join(' | '));
+      }
+      if(TOUCH_TARGET_ROUTES.has(route.name)){
+        ok(metrics.smallTouchTargets === 0, `${tag}: etkilesimli hedefler gercek 44x44`, JSON.stringify(metrics.smallTouchTargetSamples));
+      }
+      if(route.name === 'anasayfa' || FOOTBALL_OVERVIEW_ROUTES.has(route.name)){
+        ok(metrics.canonicalRuntime.hubReady, `${tag}: kanonik futbol stili boyamadan once hazir`);
+        ok(!metrics.canonicalRuntime.legacyStylesPresent, `${tag}: agir legacy stil ilk acilista yuklenmiyor`);
+        ok(!metrics.canonicalRuntime.uiExtrasPresent, `${tag}: istege bagli arayuz modulleri ilk acilista yuklenmiyor`);
+        ok(!metrics.canonicalRuntime.xmsVisible&&!metrics.canonicalRuntime.sideChatVisible&&!metrics.canonicalRuntime.miniGameVisible, `${tag}: ilgisiz prototip yuzeyleri futbol merkezine sizmiyor`, JSON.stringify(metrics.canonicalRuntime));
+      }
+      if(route.name === 'anasayfa' || FOOTBALL_OVERVIEW_ROUTES.has(route.name) || ['super-lig-maclar','predict'].includes(route.name)){
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/sports/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: futbol/Predict akisi diger spor API ailelerine dokunmuyor`, requestedApiPaths.join(' | '));
+      }
+      if(MODE==='withdata'&&route.name==='anasayfa'){
+        ok(requestedApiPaths.filter((path)=>path==='/api/football/home').length===1, `${tag}: bes lig tek kompakt home istegiyle geliyor`, requestedApiPaths.join(' | '));
+        ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/season')||path.startsWith('/api/football/matchday')), `${tag}: aggregate kokte season/matchday tekrari yok`, requestedApiPaths.join(' | '));
+        const rootLivePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/live'));
+        ok(rootLivePaths.length===1&&rootLivePaths[0]==='/api/football/live?league=all', `${tag}: aggregate canli poll ilk acilista tek ve all kapsamli`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter((path)=>path==='/api/health').length===1, `${tag}: saglayici saglik kontrolu tek istek`, requestedApiPaths.join(' | '));
+        ok(!metrics.visibleLegacyLiveCenter, `${tag}: kanonik vitrin disinda ikinci canli merkez yok`);
+      }
+      if(MODE==='withdata'&&FOOTBALL_OVERVIEW_ROUTES.has(route.name)){
+        const league=FOOTBALL_OVERVIEW_ROUTES.get(route.name);
+        const seasonPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/season'));
+        const homePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/home'));
+        const matchdayPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/matchday'));
+        const livePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/live'));
+        ok(seasonPaths.length===1&&seasonPaths[0]===`/api/football/season?league=${league}`, `${tag}: lig genel bakisi yalniz kendi sezonunu bir kez istiyor`, requestedApiPaths.join(' | '));
+        ok(homePaths.length===0, `${tag}: lig genel bakisi aggregate home istemiyor`, requestedApiPaths.join(' | '));
+        ok(matchdayPaths.length===0, `${tag}: fixture secilmeden matchday istegi yok`, requestedApiPaths.join(' | '));
+        ok(livePaths.length===1&&livePaths[0]===`/api/football/live?league=${league}`, `${tag}: lig canli poll ilk acilista yalniz kendi ligini bir kez istiyor`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter((path)=>path==='/api/health').length===1, `${tag}: lig saglik kontrolu tek istek`, requestedApiPaths.join(' | '));
+        ok(!metrics.visibleLegacyLiveCenter, `${tag}: lig genel bakisinda ikinci canli merkez yok`);
+        ok(!/Fikstür yükleniyor/i.test(metrics.tickerText), `${tag}: veri geldikten sonra yukleniyor mesaji kalmiyor`, metrics.tickerText);
       }
       if(route.name === 'basketbol'){
         ok(!/Galatasaray|Beşiktaş|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
-        ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
+        if(MODE==='withdata') ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
         ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/')), `${tag}: arka planda futbol API'leri yuklenmiyor`, requestedApiPaths.join(' | '));
         ok(requestedApiPaths.some((path)=>path.startsWith('/api/sports/today?sport=basketball')), `${tag}: yalniz basketbol verisi isteniyor`, requestedApiPaths.join(' | '));
       }
       if(route.name === 'voleybol'){
         ok(!/Anadolu Efes|Fenerbahçe Beko|Galatasaray|Beşiktaş/.test(metrics.multisportText), `${tag}: futbol ve basketbol verisi voleybola sizmiyor`, metrics.multisportText.slice(0,240));
-        ok(/Eczacıbaşı|VakıfBank/.test(metrics.multisportText), `${tag}: voleybol verisi gorunuyor`, metrics.multisportText.slice(0,240));
+        if(MODE==='withdata') ok(/Eczacıbaşı|VakıfBank/.test(metrics.multisportText), `${tag}: voleybol verisi gorunuyor`, metrics.multisportText.slice(0,240));
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/football/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: yalniz voleybol API ailesi kullaniliyor`, requestedApiPaths.join(' | '));
       }
       if(route.name === 'ufc'){
@@ -218,7 +363,25 @@ async function main() {
       if(route.name === 'formula-1'){
         ok(requestedApiPaths.every((path)=>path.startsWith('/api/motorsports')), `${tag}: Motor Sporlari baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));
       }
-      report.push({ route: route.name, viewport: viewport.name, mode: MODE, pageErrors, consoleErrors, metrics, screenshot: shot });
+      let chatSmoke = null;
+      if(MODE === 'withdata' && route.name === 'anasayfa' && viewport.width === 390){
+        await page.click('#chatLauncher');
+        await page.waitForFunction(() => {
+          const panel=document.getElementById('chatPanel');
+          return Boolean(document.getElementById('xyzLegacyStylesheet')&&panel?.classList.contains('open')&&getComputedStyle(panel).display!=='none');
+        }, null, { timeout:5000 }).catch(()=>{});
+        chatSmoke = await page.evaluate(() => {
+          const panel=document.getElementById('chatPanel');
+          return {
+            legacyStylesPresent:Boolean(document.getElementById('xyzLegacyStylesheet')),
+            panelOpen:Boolean(panel?.classList.contains('open')),
+            panelVisible:Boolean(panel&&(panel.offsetWidth||panel.offsetHeight)&&getComputedStyle(panel).display!=='none'),
+            ariaHidden:panel?.getAttribute('aria-hidden')||null,
+          };
+        });
+        ok(chatSmoke.legacyStylesPresent&&chatSmoke.panelOpen&&chatSmoke.panelVisible&&chatSmoke.ariaHidden==='false', `${tag}: sohbet ilk tiklamada stilini yukleyip aciliyor`, JSON.stringify(chatSmoke));
+      }
+      report.push({ route: route.name, viewport: viewport.name, mode: MODE, pageErrors, consoleErrors, requestedApiPaths, requestedResourcePaths, metrics, chatSmoke, screenshot: shot });
       await page.close();
     }
     await ctx.close();

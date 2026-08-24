@@ -199,6 +199,35 @@ async function main() {
     ok(source.includes('requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView'), 'geÃ§ dÃ¶nen eski branÅŸ yanÄ±tÄ± yeni ekranÄ± yeniden Ã§izemez');
   }
 
+  console.log('\n=== 10) Bes lig kompakt home endpointi ===');
+  {
+    let leagueLookups = 0;
+    const { status, payload } = await call('/api/football/home', (u) => {
+      if(u.hostname !== 'api.sportmonks.com') return null;
+      const leagueMatch = u.pathname.match(/\/v3\/football\/leagues\/(\d+)$/);
+      if(leagueMatch){
+        leagueLookups += 1;
+        const id = leagueMatch[1];
+        return json({ data:{ id, name:`League ${id}`, currentSeason:{ id:`season-${id}` } } });
+      }
+      if(u.pathname.includes('/v3/football/standings/seasons/')) return json({ data:[] });
+      if(u.pathname.includes('/v3/football/schedules/seasons/')) return json({ data:[] });
+      return null;
+    });
+    ok(status === 200 && payload?.league === 'all', 'home endpointi tek aggregate sozlesme dondurur', `status=${status}`);
+    ok(leagueLookups === 5, 'edge katmani bes ligi paralel ve tam birer kez cozer', `lookups=${leagueLookups}`);
+    ok(Object.keys(payload?.availability||{}).length === 5 && Object.values(payload.availability).every(Boolean), 'home yaniti bes lig icin ayri availability tasir', JSON.stringify(payload?.availability));
+    ok(Array.isArray(payload?.errors) && payload.errors.length === 0, 'basarili bes lig yanitinda hata siniri temizdir', JSON.stringify(payload?.errors));
+  }
+
+  console.log('\n=== 11) Statik varlik cache butunlugu ===');
+  {
+    const versioned = await worker.fetch(new Request('http://localhost/assets/js/app.js?v=release-hash'), ENV, ctx);
+    const unversioned = await worker.fetch(new Request('http://localhost/assets/img/team.webp'), ENV, ctx);
+    ok(/max-age=31536000/.test(versioned.headers.get('cache-control') || '') && /immutable/.test(versioned.headers.get('cache-control') || ''), 'surumlu asset uzun immutable cache alir');
+    ok(/max-age=3600/.test(unversioned.headers.get('cache-control') || '') && !/immutable/.test(unversioned.headers.get('cache-control') || ''), 'surumsuz gorsel yeniden dogrulanabilir kisa cache alir');
+  }
+
   console.log(`\n=== OZET === PASS: ${PASS}  FAIL: ${FAIL}`);
   if (failures.length) { console.log(failures.map((f) => ' - ' + f).join('\n')); process.exit(1); }
 }
