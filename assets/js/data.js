@@ -681,6 +681,18 @@ function footballLeagueRequestKey(){
 function matchInActiveLeague(match){
   return activeFootballLeague==='all' || competitionSlug(competitionName(match))===activeFootballLeague;
 }
+function normalizeClientFootballStatus(value){
+  const status=String(value||'').toLocaleLowerCase('tr-TR').replaceAll('ı','i').replace(/[\s-]+/g,'_');
+  if(status.startsWith('canl') || ['live','inplay','in_play','1h','2h','et','p','int'].includes(status)) return 'live';
+  if(['devre_arasi','halftime','half_time','ht','bt','break'].includes(status)) return 'halftime';
+  if(['bitti','finished','finish','ft','aet','pen','after_penalties','after_extra_time'].includes(status)) return 'finished';
+  if(['iptal','cancelled','canceled','canc','cancl'].includes(status)) return 'cancelled';
+  if(['ertelendi','postponed','postp','suspended','delayed'].includes(status)) return 'postponed';
+  return 'scheduled';
+}
+function footballStatusIsLive(matchOrStatus){ return ['live','halftime'].includes(normalizeClientFootballStatus(matchOrStatus?.status??matchOrStatus)); }
+function footballStatusIsFinished(matchOrStatus){ return normalizeClientFootballStatus(matchOrStatus?.status??matchOrStatus)==='finished'; }
+function footballStatusIsUnavailable(matchOrStatus){ return ['cancelled','postponed'].includes(normalizeClientFootballStatus(matchOrStatus?.status??matchOrStatus)); }
 function matchInActiveTeam(match){
   return activeFootballTeam==='Tümü' || match?.ev===activeFootballTeam || match?.konuk===activeFootballTeam;
 }
@@ -764,7 +776,7 @@ async function loadPredictChallengeSelection(){
     const now=Date.now();
     PREDICT_CHALLENGE_MATCHES=bundles.flatMap((bundle,index)=>{
       const key=leagues[index];
-      return (bundle?.matches||[]).filter(match=>!['iptal','ertelendi','bitti','canlı','devre_arasi'].includes(String(match.status||'').toLocaleLowerCase('tr-TR'))).filter(match=>Date.parse(match.kickoff)>now+15*60000).sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff)).slice(0,2).map(match=>({...match,hafta:activeWeek,challengeLeague:key}));
+      return (bundle?.matches||[]).filter(match=>!footballStatusIsUnavailable(match)&&!footballStatusIsFinished(match)&&!footballStatusIsLive(match)).filter(match=>Date.parse(match.kickoff)>now+15*60000).sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff)).slice(0,2).map(match=>({...match,hafta:activeWeek,challengeLeague:key}));
     });
     PREDICT_CHALLENGE_MATCHES.forEach(match=>{ if(match?.ev&&safeExternalURL(match.home_logo)) TEAM_CRESTS[match.ev]=match.home_logo; if(match?.konuk&&safeExternalURL(match.away_logo)) TEAM_CRESTS[match.konuk]=match.away_logo; });
     predictChallengeReady=true;

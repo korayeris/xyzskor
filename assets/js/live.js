@@ -30,10 +30,10 @@ function weekStatus(w){
   if(!ms.length) return { key:'none', text:'Bu hafta için fikstür henüz eklenmedi.' };
   const now = Date.now();
   const withResult = ms.filter(m => getResult(m.id));
-  const cancelled = ms.filter(m => m.status==='iptal');
-  const playable = ms.filter(m => m.status!=='iptal' && m.status!=='ertelendi');
+  const cancelled = ms.filter(m => normalizeClientFootballStatus(m.status)==='cancelled');
+  const playable = ms.filter(m => !footballStatusIsUnavailable(m));
   const started = playable.filter(m => now >= new Date(m.kickoff).getTime());
-  const live = playable.filter(m => (m.status==='canlı' || m.status==='devre_arasi') && !getResult(m.id));
+  const live = playable.filter(m => footballStatusIsLive(m) && !getResult(m.id));
   if(withResult.length + cancelled.length === ms.length){
     return { key:'completed', text: cancelled.length ? `Hafta tamamlandı (${cancelled.length} maç iptal).` : 'Hafta tamamlandı.' };
   }
@@ -65,8 +65,8 @@ function validFootballLeagueKey(value){
 function buildFootballPath(league, section, transferTab, clubSlug){
   const safeLeague = validFootballLeagueKey(league);
   const safeSection = ['home','matches','news','clubs','transfers','standings'].includes(section) ? section : 'home';
-  const base = safeLeague==='all' ? '/' : `/${safeLeague}`;
-  if(safeSection==='home') return base;
+  const base = safeLeague==='all' ? '/all' : `/${safeLeague}`;
+  if(safeSection==='home') return safeLeague==='all' ? '/' : base;
   if(safeSection==='transfers'){
     const safeTransferTab = normalizeTransferRouteTab(transferTab);
     return safeTransferTab==='confirmed' ? `${base}/transfers` : `${base}/transfers/${safeTransferTab}`;
@@ -269,14 +269,14 @@ function renderTicker(){
   if(lastLoadError || DATA_ERRORS.matches){ el.innerHTML = `<span class="ticker-dot" style="background:var(--danger);"></span><span class="ticker-label" style="color:var(--danger);">HATA</span><span class="ticker-match">Fikstür verileri şu anda alınamıyor</span>`; return; }
   if(!MATCHES.length){ el.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">FİKSTÜR</span><span class="ticker-match">Henüz fikstür eklenmedi</span>`; return; }
   const now=Date.now();
-  const scoped=MATCHES.filter(matchInActiveLeague).filter(m=>m.status!=='iptal'&&m.status!=='ertelendi');
-  const completed=scoped.filter(m=>m.result||getResult(m.id)||m.status==='bitti').sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff)).slice(0,3).reverse();
-  const upcoming=scoped.filter(m=>!m.result&&!getResult(m.id)&&new Date(m.kickoff).getTime()>now).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,6);
+  const scoped=MATCHES.filter(matchInActiveLeague).filter(m=>!footballStatusIsUnavailable(m));
+  const completed=scoped.filter(m=>m.result||getResult(m.id)||footballStatusIsFinished(m)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff)).slice(0,3).reverse();
+  const upcoming=scoped.filter(m=>!m.result&&!getResult(m.id)&&!footballStatusIsLive(m)&&new Date(m.kickoff).getTime()>now).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).slice(0,6);
   const agenda=[...completed,...upcoming];
   if(!agenda.length){ el.innerHTML = `<span class="ticker-match">Seçili ligde yayınlanmış maç bulunmuyor</span>`; return; }
   const logo=(src,name)=>safeLiveImage(src)?`<img src="${escapeHTML(src)}" alt="${escapeHTML(name)}" loading="lazy" onerror="this.remove()">`:'';
   const card=m=>{
-    const result=m.result||getResult(m.id), finished=Boolean(result||m.status==='bitti');
+    const result=m.result||getResult(m.id), finished=Boolean(result||footballStatusIsFinished(m));
     const fixtureId=String(m.provider_fixture_id||m.fixture_id||m.provider_id||m.id||'').replace(/^sportmonks:/,'');
     const when=new Date(m.kickoff);
     const date=when.toLocaleDateString('tr-TR',{day:'2-digit',month:'short'});

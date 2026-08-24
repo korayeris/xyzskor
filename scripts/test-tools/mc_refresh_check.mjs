@@ -1,5 +1,6 @@
 ﻿// Canli mac yenilemesi gercekten calisiyor mu? Ve panel kapaninca duruyor mu?
 import { launchChromium } from './lib/playwright-loader.mjs';
+import assert from 'node:assert/strict';
 
 const b = await launchChromium();
 const ctx = await b.newContext({viewport:{width:1280,height:900}});
@@ -26,20 +27,23 @@ await page.route(/(jsdelivr|unpkg|fonts\.g|wikimedia|fotmob|mythos|supabase\.co|
 await page.goto('http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
 await page.waitForTimeout(2000);
 
-// CANLI bir mac enjekte et ve mac merkezini ac
+// CANLI bir maç enjekte et. openMatchCenter artık kalıcı fixture rotasına
+// yönlendirdiği için eski modalı açmasını beklemiyoruz; veri yenileme sözleşmesini
+// doğrudan fixture kimliği üzerinden doğruluyoruz.
 await page.evaluate(() => {
   MATCHES.length = 0;
   MATCHES.push({ id:'sportmonks:1', hafta:1, ev:'Galatasaray', konuk:'FenerbahÃ§e',
     kickoff:new Date(Date.now()-30*60000).toISOString(), stadyum:'RAMS Park', status:'canlÄ±', verified:true, competition:'SÃ¼per Lig' });
 });
-await page.evaluate(() => openMatchCenter('sportmonks:1', false));
+const phase = await page.evaluate(()=>typeof mcPhase==='function' ? mcPhase(MATCHES[0]) : 'fonksiyon yok');
+await page.evaluate(async () => {
+  mcMatchId='sportmonks:1';
+  await ensureMcData(mcMatchId);
+  mcScheduleRefresh();
+});
 await page.waitForTimeout(1500);
 
-const opened = await page.evaluate(()=>document.getElementById('mcOverlay')?.classList.contains('show'));
 const callsAfterOpen = fixtureCalls;
-
-// mcPhase dogru mu?
-const phase = await page.evaluate(()=>typeof mcPhase==='function' ? mcPhase(MATCHES[0]) : 'fonksiyon yok');
 
 // 32 sn beklemek yerine zamanlayiciyi hizlandiramayiz; bunun yerine
 // TTL'i asmis gibi cache'i eskitip ensureMcData'yi tekrar cagiralim
@@ -65,7 +69,6 @@ const timerStopped = await page.evaluate(()=>typeof mcRefreshTimer!=='undefined'
 
 await b.close();
 console.log('=== CANLI MAC YENILEME TESTI ===');
-console.log('  mac merkezi acildi        :', opened);
 console.log('  mcPhase(canli mac)        :', phase, '(BEKLENEN: live)');
 console.log('  acilista fixture cagrisi  :', callsAfterOpen, '(BEKLENEN: 1)');
 console.log('  TTL dolunca yeniden cekti :', callsAfterStale > callsAfterOpen, `(${callsAfterOpen} -> ${callsAfterStale})`);
@@ -74,3 +77,10 @@ console.log('  acikken zamanlayici aktif :', timerRunning, '(BEKLENEN: true)');
 console.log('  kapaninca zamanlayici dur :', timerStopped, '(BEKLENEN: true)');
 console.log('  pageerror                 :', errs.length?errs:'YOK');
 
+assert.equal(phase,'live','Canlı durum bütün istemci varyantlarında live fazına dönmeli.');
+assert.equal(callsAfterOpen,1,'İlk canlı fixture detayı tam bir kez çekilmeli.');
+assert.ok(callsAfterStale>callsAfterOpen,'Canlı TTL dolduğunda fixture yeniden çekilmeli.');
+assert.ok(supabaseSkipped?.hasSupabaseStamp&&supabaseSkipped?.fetchedAtGuncel,'Ayrı Supabase ve sağlayıcı cache damgaları korunmalı.');
+assert.equal(timerRunning,true,'Canlı maçta yenileme zamanlayıcısı kurulmalı.');
+assert.equal(timerStopped,true,'Maç merkezi kapanınca zamanlayıcı durmalı.');
+assert.deepEqual(errs,[],'Sayfa hatası oluşmamalı.');

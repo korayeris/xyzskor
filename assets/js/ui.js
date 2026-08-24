@@ -1013,11 +1013,12 @@ function fmtEditorialDate(value){
   return date.toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
 }
 function explicitMatchState(m){
-  if(m.status==='canlı') return { label:'Canlı', live:true };
-  if(m.status==='devre_arasi') return { label:'Devre arası', live:true };
-  if(m.status==='ertelendi') return { label:'Ertelendi', live:false };
-  if(m.status==='iptal') return { label:'İptal', live:false };
-  if(getResult(m.id)) return { label:'Bitti', live:false };
+  const status=normalizeClientFootballStatus(m.status);
+  if(status==='live') return { label:'Canlı', live:true };
+  if(status==='halftime') return { label:'Devre arası', live:true };
+  if(status==='postponed') return { label:'Ertelendi', live:false };
+  if(status==='cancelled') return { label:'İptal', live:false };
+  if(status==='finished' || m.result || getResult(m.id)) return { label:'Bitti', live:false };
   return { label:new Date(m.kickoff).getTime()>Date.now() ? 'Yaklaşan' : 'Sonuç açıklanmadı', live:false };
 }
 function matchIsCurrentFixture(match){
@@ -1037,7 +1038,7 @@ function leagueMatchDaySelection(matches,now=Date.now()){
   const today=matchDayKey(now);
   const todayRows=valid.filter(match=>matchDayKey(match.kickoff)===today).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
   if(todayRows.length) return {key:today,rows:todayRows,isToday:true};
-  const future=valid.filter(match=>new Date(match.kickoff).getTime()>now&&!['iptal','ertelendi'].includes(match.status)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  const future=valid.filter(match=>new Date(match.kickoff).getTime()>now&&!footballStatusIsUnavailable(match)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
   if(future.length){ const key=matchDayKey(future[0].kickoff); return {key,rows:future.filter(match=>matchDayKey(match.kickoff)===key),isToday:false}; }
   const past=valid.sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
   const key=past.length?matchDayKey(past[0].kickoff):'';
@@ -1082,9 +1083,9 @@ function renderFootballQuickMatches(){
 }
 function matchHubScopedRows(){
   const rows=MATCHES.filter(match=>matchInActiveLeague(match) && matchInActiveTeam(match));
-  const live=rows.filter(match=>['canlı','devre_arasi'].includes(match.status)).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-  const upcoming=rows.filter(match=>!getResult(match.id)&&!live.includes(match)&&!['iptal','ertelendi'].includes(match.status)&&new Date(match.kickoff).getTime()>Date.now()).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-  const completed=rows.filter(match=>getResult(match.id)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
+  const live=rows.filter(footballStatusIsLive).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  const upcoming=rows.filter(match=>!getResult(match.id)&&!match.result&&!live.includes(match)&&!footballStatusIsUnavailable(match)&&new Date(match.kickoff).getTime()>Date.now()).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  const completed=rows.filter(match=>getResult(match.id)||match.result||footballStatusIsFinished(match)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
   const pending=rows.filter(match=>!live.includes(match)&&!upcoming.includes(match)&&!completed.includes(match)).sort((a,b)=>new Date(b.kickoff)-new Date(a.kickoff));
   if(activeMatchHubFilter==='live') return live;
   if(activeMatchHubFilter==='today') return rows.filter(match=>matchDayKey(match.kickoff)===matchDayKey(Date.now())).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
@@ -1104,9 +1105,9 @@ function setMatchHubFilter(name,button){
 function renderMatchesHub(){
   const stats=document.getElementById('footballMatchesStats'); const area=document.getElementById('footballMatchesFullList'); if(!stats||!area) return;
   const scoped=MATCHES.filter(match=>matchInActiveLeague(match) && matchInActiveTeam(match));
-  const live=scoped.filter(match=>['canlı','devre_arasi'].includes(match.status)).length;
-  const upcoming=scoped.filter(match=>!getResult(match.id)&&!['canlı','devre_arasi','iptal','ertelendi'].includes(match.status)&&new Date(match.kickoff).getTime()>Date.now()).length;
-  const results=scoped.filter(match=>getResult(match.id)).length;
+  const live=scoped.filter(footballStatusIsLive).length;
+  const upcoming=scoped.filter(match=>!getResult(match.id)&&!match.result&&!footballStatusIsLive(match)&&!footballStatusIsUnavailable(match)&&new Date(match.kickoff).getTime()>Date.now()).length;
+  const results=scoped.filter(match=>getResult(match.id)||match.result||footballStatusIsFinished(match)).length;
   const activeScope=activeFootballTeam==='Tümü'?competitionLabelBySlug(activeFootballLeague):`${competitionShortBySlug(activeFootballLeague)} · ${activeFootballTeam}`;
   stats.innerHTML=`<article><span>Toplam kayıt</span><strong>${escapeHTML(scoped.length)}</strong><small>${escapeHTML(activeScope)}</small></article><article class="${live?'is-live':''}"><span>Canlı</span><strong>${escapeHTML(live)}</strong><small>resmî durum kaydı</small></article><article><span>Yaklaşan</span><strong>${escapeHTML(upcoming)}</strong><small>yayınlanmış fikstür</small></article><article><span>Sonuç</span><strong>${escapeHTML(results)}</strong><small>tamamlanan maç</small></article>`;
   if(DATA_ERRORS.matches){ area.innerHTML=footballEmpty('Fikstür alınamadı','Maç veri kaynağına ulaşılamadı; diğer bölümler çalışmaya devam ediyor.'); return; }
@@ -1697,10 +1698,10 @@ function scheduleFootballLazyModule(key,targetId,loader){
   observer.observe(target);
 }
 function footballHomeMatchState(match){
-  const result=typeof getResult==='function' ? getResult(match.id) : null;
-  const status=String(match.status||'').toLocaleLowerCase('tr-TR');
-  if(['canlı','canlÄ±','devre_arasi','devre arası'].includes(status)) return {key:'live',label:match.minute?`${match.minute}' CANLI`:'CANLI',score:result?`${result.home} - ${result.away}`:''};
-  if(result || ['bitti','finished','ft'].includes(status)) return {key:'finished',label:'MS',score:result?`${result.home} - ${result.away}`:''};
+  const result=match.result || (typeof getResult==='function' ? getResult(match.id) : null);
+  const status=normalizeClientFootballStatus(match.status);
+  if(status==='live' || status==='halftime') return {key:'live',label:status==='halftime'?'DEVRE':match.minute?`${match.minute}' CANLI`:'CANLI',score:result?`${result.home} - ${result.away}`:''};
+  if(result || status==='finished') return {key:'finished',label:'MS',score:result?`${result.home} - ${result.away}`:''};
   return {key:'upcoming',label:fmtTime(match.kickoff),score:''};
 }
 function footballHomeMatchRow(match){

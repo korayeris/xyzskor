@@ -205,6 +205,9 @@ assert.match(liveFunctionSource('parseAppLocation'), /league:'all'[\s\S]*section
 assert.match(functionSource('fetchFootballHomeBundle'), /Promise\.all\(FOOTBALL_HOME_LEAGUES\.map/, 'Futbol ana sayfası beş lig isteğini paralel başlatmalı.');
 assert.match(functionSource('renderFootballScoreboardHome'), /scoreboard-league-group[\s\S]*scoreboard-picks/, 'Futbol ana sayfası lig grupları ve 1-X-2 girişlerini göstermeli.');
 assert.match(functionSource('footballHomeMatchRow'), /scoreboard-predict/, 'Her ana sayfa maçı Predict düğmesi taşımalı.');
+assert.match(functionSource('normalizeClientFootballStatus'), /startsWith\('canl'\)[\s\S]*live[\s\S]*halftime[\s\S]*finished[\s\S]*cancelled[\s\S]*postponed/, 'Sağlayıcı maç durumları tek istemci sözleşmesine normalize edilmeli.');
+assert.match(liveFunctionSource('buildFootballPath'), /safeLeague==='all' \? '\/all'[\s\S]*safeLeague==='all' \? '\/' : base/, 'Tüm ligler alt rotası yenilemede kapsamını korumalı.');
+assert.match(functionSource('footballHomeMatchState'), /normalizeClientFootballStatus[\s\S]*status==='live'[\s\S]*status==='finished'/, 'Ana maç vitrini normalize edilmiş canlı ve bitmiş durumlarını kullanmalı.');
 assert.match(dataSource, /payload\.league!==leagueKey/, 'Sportmonks sezon cevabı istenen lig anahtarıyla doğrulanmalı.');
 assert.match(dataSource, /const scopedSuperLig = isStrictSuperLigScope\(\)/, 'Süper Lig Supabase fallback verisi diğer liglere ve tüm ligler kapsamına taşınmamalı.');
 assert.match(workerSource, /\/transfers\/latest\?include=/, 'Transfer akışı Sportmonks latest ucundan alınmalı.');

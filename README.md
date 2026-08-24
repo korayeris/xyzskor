@@ -414,7 +414,7 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 ## Git ve yayın
 
-### Futbol ana sayfası ve performans zinciri (v309)
+### Futbol ana sayfası ve performans zinciri (v310)
 
 - `/` tek bir lige değil, Süper Lig, Premier League, La Liga, Bundesliga ve Serie A maç merkezine açılır.
 - Beş lig isteği birbirini beklemez; aynı anda başlatılır. Ekran ilk HTML boyamasında hazır bir maç merkezi kabuğu gösterir.
@@ -423,6 +423,8 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 - Oturum bilgisi sekme ömründe bir kez okunur; lig geçişi kapsam kontrolünü beklemez. Kapsam denetimi arka planda çalışırken önbellekteki doğrulanmış lig paketi hemen çizilir.
 - Ana vitrindeki her karşılaşma maç merkezine bağlıdır; `Predict` ve `1 / X / 2` girişleri aynı doğrulanmış fixture kimliğini taşır.
 - Canlı, bitmiş ve yaklaşan maçlar ayrı görsel durumlara ve filtrelere sahiptir. Ana sayfadaki toplu veri yalnız futbol liglerinden oluşur; diğer spor API aileleri çağrılmaz.
+- Sağlayıcının Türkçe veya İngilizce durum değerleri (`canlı/live`, `devre_arasi/halftime`, `bitti/finished`, iptal ve erteleme varyantları) tek istemci sözleşmesine normalize edilir. Şerit, maç listesi, ana vitrin ve maç merkezi aynı durumu kullanır.
+- Tüm ligler ekranında alt bölüme gidildiğinde rota `/all/...` olarak korunur; yenileme sonrasında kapsamın sessizce Süper Lig'e dönmesi engellenir.
 
 Kaynak dalı: `integration/latest-zip-2026-08-17`
 

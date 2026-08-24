@@ -8,12 +8,13 @@ let mcOriginScroll = 0;
 let mcScrollRestoration = 'auto';
 
 function matchStatusLabel(m){
-  if(m.status==='ertelendi') return 'Ertelendi';
-  if(m.status==='iptal') return 'İptal edildi';
-  if(m.status==='canlı') return 'Canlı';
-  if(m.status==='devre_arasi') return 'Devre arası';
-  const result = getResult(m.id);
-  if(result) return 'Bitti';
+  const status=normalizeClientFootballStatus(m.status);
+  if(status==='postponed') return 'Ertelendi';
+  if(status==='cancelled') return 'İptal edildi';
+  if(status==='live') return 'Canlı';
+  if(status==='halftime') return 'Devre arası';
+  const result = m.result || getResult(m.id);
+  if(status==='finished' || result) return 'Bitti';
   const now = Date.now(); const kt = new Date(m.kickoff).getTime();
   if(now < kt - 15*60000) return 'Tahminlere açık';
   if(now < kt) return 'Tahminler kapandı';
@@ -45,8 +46,8 @@ let mcRefreshTimer = null;
 /* Maçın hangi aşamada olduğunu tek yerden belirler. */
 function mcPhase(match){
   if(!match) return 'pre';
-  if(match.status === 'canlı' || match.status === 'devre_arasi') return 'live';
-  if(match.status === 'bitti' || getResult(match.id)) return 'post';
+  if(footballStatusIsLive(match)) return 'live';
+  if(footballStatusIsFinished(match) || match.result || getResult(match.id)) return 'post';
   const kickoff = match.kickoff ? new Date(match.kickoff).getTime() : 0;
   if(kickoff && Date.now() > kickoff + 3 * 60 * 60 * 1000) return 'post';
   if(kickoff && Date.now() >= kickoff) return 'live';
