@@ -385,13 +385,22 @@ async function main() {
         { id: 'u5', username: 'FabrizioRomano', verified: true },
         { id: 'u6', username: 'yagosabuncuoglu', verified: false },
       ] });
-      if (u.pathname.startsWith('/2/users/u1/tweets')) return jsonUpstream({ data: [{ id: 't1', text: 'Galatasaray bugün kazandı', created_at: '2026-08-06T10:00:00Z', public_metrics: {} }] });
+      // content_scope=transfer-only: transfer sinyali taşıyan post yayınlanır,
+      // maç sonucu/genel içerik x-media yüzeyinde elenir.
+      if (u.pathname.startsWith('/2/users/u1/tweets')) return jsonUpstream({ data: [
+        { id: 't1', text: 'Galatasaray bugün kazandı', created_at: '2026-08-06T12:00:00Z', public_metrics: {} },
+        { id: 't2', text: 'Galatasaray yeni transferi ile sözleşme imzaladı', created_at: '2026-08-06T10:00:00Z', public_metrics: {} },
+      ] });
       if (/^\/2\/users\/u[2-6]\/tweets/.test(u.pathname)) return jsonUpstream({ data: [] });
       return null;
     });
     assertEqual(status, 200, 'x-media success -> 200');
     assertEqual(body?.clubs?.length, 4, 'x-media success -> 4 kulüp (X_CLUB_DAILY_LIMIT)');
     assertTrue(body?.clubs?.[0]?.post?.text?.includes('Galatasaray'), 'x-media success -> ilk kulübün post metni doğru');
+    assertTrue(body?.clubs?.[0]?.post?.text?.includes('imzaladı'), 'x-media success -> yayınlanan post transfer içerikli');
+    assertTrue(!/kazandı/.test(body?.clubs?.[0]?.post?.text || ''), 'x-media success -> transfer dışı maç sonucu postu elendi (transfer-only sözleşmesi)');
+    assertEqual(body?.content_scope, 'transfer-only', 'x-media success -> content_scope transfer-only');
+    assertTrue(body?.clubs?.slice(1).every((club) => club.post === null), 'x-media success -> uygun post bulunmayan kulüpler için post null (uydurma yok)');
   }
   {
     const { status, body } = await run('xmedia-402-credits', '/api/football/x-media?league=super-lig', ALL_SECRETS_ENV, (u) => {

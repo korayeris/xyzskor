@@ -477,7 +477,9 @@ async function runColdScenario(browser, base, runNumber) {
 
   let navigationError = null;
   try {
-    await page.goto(`${base}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    // Bes ligli futbol vitrini `/futbol/` altindadir; `/` genel cok sporlu
+    // ana sayfadir ve hicbir spor API'sini cagirmaz.
+    await page.goto(`${base}/futbol/`, { waitUntil: 'domcontentloaded', timeout: 20_000 });
   } catch (error) {
     navigationError = String(error);
   }

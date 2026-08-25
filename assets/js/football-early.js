@@ -68,7 +68,7 @@
     button.dataset.leagueSwitch = leagueKey;
     button.onclick = function () {
       if (typeof window.selectFootballLeague === "function") window.selectFootballLeague(leagueKey);
-      else location.assign(leagueKey === "all" ? "/" : "/" + leagueKey);
+      else location.assign(leagueKey === "all" ? "/futbol/" : "/" + leagueKey);
     };
   }
   function bindEarlySectionButton(button, section) {
@@ -381,7 +381,7 @@
     var stillHome = function () {
       var path = location.pathname.replace(/^\/+|\/+$/g, "");
       var route = new URLSearchParams(location.search);
-      return (!path || path === "index.html" || path === "all") && !route.get("fixture") && !document.hidden;
+      return (path === "futbol" || path === "all") && !route.get("fixture") && !document.hidden;
     };
     var paint = function () {
       if (!stillHome()) return;

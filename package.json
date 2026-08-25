@@ -34,7 +34,8 @@
     "qa:weekly-load": "node scripts/test-weekly-football-load.mjs",
     "qa:db": "bash scripts/test-tools/pg_suite.sh",
     "qa:responsive": "node scripts/test-tools/responsive_check.mjs withdata",
-    "qa:responsive:nodata": "node scripts/test-tools/responsive_check.mjs nodata"
+    "qa:responsive:nodata": "node scripts/test-tools/responsive_check.mjs nodata",
+    "qa:general-home": "node scripts/test-general-home-router.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

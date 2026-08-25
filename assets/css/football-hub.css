@@ -128,11 +128,11 @@ body.football-league-overview-mode .football-league-overview { display:block; }
 .league-overview-identity h1 { margin:4px 0 2px; font-size:30px; }
 .league-overview-identity p { margin:0; color:#98a7b1; font-size:13px; }
 .league-overview-switch { display:flex; max-width:620px; gap:7px; overflow:auto; padding-bottom:2px; }
-.league-overview-switch button { flex:0 0 auto; min-height:44px; padding:10px 13px; border:1px solid #334550; border-radius:10px; background:#142029; color:#abb7bf; font-size:11px; font-weight:800; }
+.league-overview-switch button { flex:0 0 auto; min-height:44px; min-width:44px; padding:10px 13px; border:1px solid #334550; border-radius:10px; background:#142029; color:#abb7bf; font-size:11px; font-weight:800; }
 .league-overview-switch button:hover,
 .league-overview-switch button.active { border-color:var(--league-accent,#f05d74); background:color-mix(in srgb,var(--league-accent,#f05d74) 18%,#142029); color:#fff; }
 .league-overview-tabs { display:flex; position:static; align-items:center; gap:4px; overflow:auto; padding:0 22px; border:1px solid #2b3a44; border-top:0; border-radius:0 0 18px 18px; background:#12191f; white-space:nowrap; }
-.league-overview-tabs button { position:relative; flex:0 0 auto; min-height:48px; padding:17px 14px 16px; border:0; background:transparent; color:#9fabb4; font-size:12px; font-weight:800; }
+.league-overview-tabs button { position:relative; flex:0 0 auto; min-height:48px; min-width:44px; padding:17px 14px 16px; border:0; background:transparent; color:#9fabb4; font-size:12px; font-weight:800; }
 .league-overview-tabs button::after { position:absolute; right:12px; bottom:0; left:12px; height:3px; border-radius:3px 3px 0 0; background:transparent; content:""; }
 .league-overview-tabs button.active { color:#fff; }
 .league-overview-tabs button.active::after { background:var(--league-accent,#53d99f); }
@@ -601,4 +601,22 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .football-weekly-pitch { gap:14px; padding-inline:8px; }
   .football-weekly-pitch article { width:min(78px,21vw); }
   .football-weekly-pitch article>span { width:38px; height:38px; }
+}
+
+/* v315 — Fotoğraf kapsamı şeffaflığı (P1.3/P1.4) ve kaynak/lisans
+   atıf yüzeyi (P1.7). Ayrı bir "sınır içinde sınır" kartı üretmemek için
+   ince, tipografik ve düşük kontrastlı bir not olarak kurulur. */
+.football-leader-photo-notice { display:flex; flex-direction:column; gap:3px; margin:0 0 12px; padding:9px 12px; border-left:2px solid var(--league-accent,#53d99f); border-radius:0 8px 8px 0; background:#111a20; }
+.football-leader-photo-notice b { color:#d6e2e8; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.football-leader-photo-notice span { color:#8b9aa4; font-size:11px; line-height:1.5; }
+.football-leader-photo-notice.is-complete { border-left-color:#33d6a0; }
+.football-weekly-team-summary .football-leader-photo-notice { margin:14px 0 0; }
+.club-social-licence-note { flex:1 0 100%; margin:12px 0 0; padding:9px 12px; border-top:1px solid #232d35; color:#77848d; font-size:11px; line-height:1.55; }
+.club-social-licence-note a { color:#9fb3bd; text-decoration:underline; text-underline-offset:2px; }
+.club-social-licence-note a:hover { color:#ff8a99; }
+.club-social-profile-link.is-unlinked,
+.transfer-record-source.is-unlinked { color:#7b8891; font-style:normal; text-decoration:none; cursor:default; }
+@media(max-width:520px){
+  .football-leader-photo-notice { padding:8px 10px; }
+  .football-leader-photo-notice span { font-size:10.5px; }
 }

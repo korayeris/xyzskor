@@ -60,17 +60,64 @@
     hubRequestEpoch += 1;
     feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
     feedControllers.clear();
-    if(routeState()) { location.assign('/'); return; }
+    // Futbol merkezi artık `/futbol/` altındadır; `/` genel ana sayfadır.
+    if(routeState()) {
+      if(window.XYZBranchRouter) window.XYZBranchRouter.navigate('/futbol/', {label:'Futbol'});
+      else location.assign('/futbol/');
+      return;
+    }
     document.body.classList.remove('multisport-open');
     const hub = document.getElementById('multiSportHub');
     if(hub) hub.hidden = true;
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.remove('active'));
   }
 
+  // Futbol yüzeyi DOM'dan silinmez, yalnız gizlenir. Silmek route-aware
+  // geçişi tek yönlü hale getiriyordu; gizlemek geri dönüşü mümkün kılar ve
+  // branş izolasyonunu (görünür DOM sızıntısı yok) aynı şekilde korur.
+  const FOOTBALL_SURFACE_IDS = ['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand'];
+
   function pruneFootballSurface(){
     if(!routeState()) return;
-    ['page-story','page-live','footballContextNav','footballLeagueCommand','matchdayCommand'].forEach((id)=>document.getElementById(id)?.remove());
-    document.querySelectorAll('.next-match-ticker,.live-ticker').forEach((element)=>element.remove());
+    FOOTBALL_SURFACE_IDS.forEach((id)=>{
+      const element = document.getElementById(id);
+      if(element){ element.hidden = true; element.classList.add('xyz-branch-hidden'); }
+    });
+    document.querySelectorAll('.next-match-ticker,.live-ticker').forEach((element)=>{
+      element.hidden = true; element.classList.add('xyz-branch-hidden');
+    });
+  }
+
+  function restoreFootballSurface(){
+    document.querySelectorAll('.xyz-branch-hidden').forEach((element)=>{
+      element.hidden = false; element.classList.remove('xyz-branch-hidden');
+    });
+  }
+
+  // Branş ekranlarında veri az olduğunda büyük boş alan bırakılmaz (P1.5/P1.6):
+  // doğrulanmış boş sonuç, kapsam ve son güncelleme zamanı kompakt biçimde
+  // gösterilir. Boş sonuç asla "veri yok" diye sessizce geçilmez.
+  function lastUpdatedLabel(payload){
+    const raw=payload?.updated_at||payload?.updatedAt||payload?.generated_at||null;
+    if(!raw) return '';
+    const parsed=new Date(raw);
+    if(Number.isNaN(parsed.getTime())) return '';
+    try{
+      return new Intl.DateTimeFormat('tr-TR',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Istanbul'}).format(parsed);
+    }catch(_error){ return ''; }
+  }
+
+  function compactEmptyHTML(title, detail, payload, scopeLabel){
+    const updated=lastUpdatedLabel(payload);
+    const meta=[
+      scopeLabel ? `Kapsam: ${scopeLabel}` : '',
+      updated ? `Son güncelleme: ${updated}` : 'Son güncelleme: sağlayıcıdan bekleniyor'
+    ].filter(Boolean);
+    return `<div class="multi-event-empty is-compact" role="status">`
+      + `<strong>${escapeHTML(title)}</strong>`
+      + (detail ? `<span>${escapeHTML(detail)}</span>` : '')
+      + `<em>${meta.map(escapeHTML).join(' · ')}</em>`
+      + `</div>`;
   }
 
   function teamCardHTML(team){
@@ -146,7 +193,7 @@
       return `<button type="button" data-volley-league="${escapeHTML(name)}"><span>${escapeHTML(name)}</span><b>${count?`${count} maç`:'Program bekleniyor'}</b></button>`;
     }).join('');
     return `<section class="volley-command"><div><span>VOLEYBOL MERKEZİ</span><h2>Ligler ve güncel program</h2><p>Yalnızca sağlayıcının doğruladığı karşılaşmalar gösterilir.</p></div><button type="button" data-volley-view="leagues">Tüm ligler →</button></section>
-      <section class="volley-layout"><aside class="volley-leagues"><header><span>LİGLER</span><h3>Organizasyon seç</h3></header>${leagues}</aside><div class="volley-schedule">${schedule||'<div class="multi-event-empty"><strong>Voleybol programı bekleniyor.</strong><span>Lig seçimi kullanılabilir; doğrulanmış maç verisi geldiğinde program otomatik dolacak.</span></div>'}</div></section>`;
+      <section class="volley-layout"><aside class="volley-leagues"><header><span>LİGLER</span><h3>Organizasyon seç</h3></header>${leagues}</aside><div class="volley-schedule">${schedule||compactEmptyHTML('Doğrulanmış voleybol programı bulunmuyor.','Lig seçimi kullanılabilir; sağlayıcı maç verisi döndürdüğünde program otomatik dolar.',null,'Voleybol')}</div></section>`;
   }
 
   function render(payload){
@@ -211,16 +258,16 @@
       grid.innerHTML = groups.size ? [...groups.entries()].map(([name, events]) => {
         const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || '')).length;
         return '<article class="multi-league-card"><span>LIG / ORGANIZASYON</span><h3>'+escapeHTML(name)+'</h3><div><b>'+events.length+'</b><small>gunluk etkinlik</small></div><em class="'+(live ? 'is-live' : '')+'">'+(live ? live+' canli' : 'program aktif')+'</em></article>';
-      }).join('') : '<div class="multi-event-empty"><strong>Bugunun lig programi hazirlaniyor.</strong></div>';
+      }).join('') : compactEmptyHTML('Doğrulanmış lig programı bulunmuyor.','Sağlayıcı bugün için bu branşta organizasyon programı döndürmedi.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
       return;
     }    if(activeView === 'teams'){
       const unique = new Map();
       items.forEach((item) => [item.first,item.second].forEach((team) => { if(team?.name) unique.set(team.name,team); }));
-      grid.innerHTML = unique.size ? [...unique.values()].map(teamCardHTML).join('') : '<div class="multi-event-empty"><strong>Bugünün takım listesi hazırlanıyor.</strong></div>';
+      grid.innerHTML = unique.size ? [...unique.values()].map(teamCardHTML).join('') : compactEmptyHTML('Doğrulanmış takım kaydı bulunmuyor.','Günlük programda takım eşleşmesi yayınlandığında liste otomatik dolar.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
       return;
     }
     if(activeView === 'predict'){
-      grid.innerHTML = items.length ? items.slice(0,10).map(predictCardHTML).join('') : '<div class="multi-event-empty"><strong>Bugün tahmine açık etkinlik yok.</strong></div>';
+      grid.innerHTML = items.length ? items.slice(0,10).map(predictCardHTML).join('') : compactEmptyHTML('Bugün tahmine açık etkinlik yok.','Bu doğrulanmış boş bir sonuçtur; yeni program geldiğinde tahmin kartları açılır.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
       grid.querySelectorAll('[data-predict-key] button').forEach((button) => button.addEventListener('click', () => {
         const card = button.closest('[data-predict-key]');
         try{ localStorage.setItem(card.dataset.predictKey, button.dataset.pick); }catch(_error){}
@@ -228,7 +275,7 @@
       }));
       return;
     }
-    grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : '<div class="multi-event-empty"><strong>Bu branşın son verileri hazırlanıyor.</strong><span>Yasal API kaynağı veri sunduğunda son gerçekleşen karşılaşmalar otomatik gösterilir.</span></div>';
+    grid.innerHTML = items.length ? items.slice(0, activeView === 'games' ? 24 : 12).map(cardHTML).join('') : compactEmptyHTML('Doğrulanmış karşılaşma bulunmuyor.','Lisanslı sağlayıcı bu kapsam için boş sonuç döndürdü; yeni veri geldiğinde liste otomatik güncellenir.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
   }
 
   async function load(sport){
@@ -292,7 +339,7 @@
     }
     catch(_error){
       if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
-      grid.innerHTML = '<div class="multi-event-empty"><strong>Spor akisi su anda yenileniyor.</strong><span>Son dogrulanmis program geldiginde burada gosterilecek.</span></div>';
+      grid.innerHTML = compactEmptyHTML('Sağlayıcı yanıtı şu anda alınamadı.','Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Son doğrulanmış program korunur ve bağlantı düzeldiğinde otomatik yenilenir.',null,'');
     }
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -333,6 +380,40 @@
     const initial = routeState();
     if(initial) openHub(initial.sport,initial.view,false);
     window.addEventListener('popstate', () => { const state=routeState(); if(state) openHub(state.sport,state.view,false); else closeHub(); });
+
+    // Route-aware router entegrasyonu: basketbol ve voleybol yüzeyleri belge
+    // yenilenmeden mount/unmount edilebilir. Router geçişte önce abort hook'u
+    // çağırır, böylece eski branşın isteği yeni branşın üstüne veri yazamaz.
+    if(window.XYZBranchRouter){
+      window.XYZBranchRouter.registerAbortHook(() => {
+        hubRequestEpoch += 1;
+        feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
+        feedControllers.clear();
+      });
+      window.XYZBranchRouter.register({
+        key:'multisport',
+        matches:(pathname)=>{
+          const segment = String(pathname||'').split('/').filter(Boolean)[0];
+          return segment === 'basketbol' || segment === 'voleybol';
+        },
+        mount:(context)=>{
+          const parts = String(context?.pathname||location.pathname).split('/').filter(Boolean);
+          const sport = ({basketbol:'basketball',voleybol:'volleyball'})[parts[0]];
+          const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
+          if(sport) openHub(sport,view,false);
+        },
+        unmount:()=>{
+          hubRequestEpoch += 1;
+          feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
+          feedControllers.clear();
+          document.body.classList.remove('multisport-open');
+          const hub = document.getElementById('multiSportHub');
+          if(hub) hub.hidden = true;
+          document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.remove('active'));
+          restoreFootballSurface();
+        }
+      });
+    }
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});

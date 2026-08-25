@@ -29,7 +29,10 @@ const ALL_VIEWPORTS = [
   { name: '1440-masaustu', width: 1440, height: 900 },
 ];
 const ALL_ROUTES = [
-  { name: 'anasayfa', path: '/' },
+  // `/` bagimsiz genel cok sporlu ana sayfadir; futbol bes lig merkezi
+  // `/futbol/` altindadir.
+  { name: 'genel-anasayfa', path: '/' },
+  { name: 'anasayfa', path: '/futbol/' },
   { name: 'super-lig-overview', path: '/super-lig' },
   { name: 'premier-league-overview', path: '/premier-league' },
   { name: 'la-liga-overview', path: '/la-liga' },
@@ -49,7 +52,7 @@ const FOOTBALL_OVERVIEW_ROUTES = new Map([
   ['bundesliga-overview', 'bundesliga'],
   ['serie-a-overview', 'serie-a'],
 ]);
-const TOUCH_TARGET_ROUTES = new Set(['anasayfa', ...FOOTBALL_OVERVIEW_ROUTES.keys()]);
+const TOUCH_TARGET_ROUTES = new Set(['genel-anasayfa', 'anasayfa', ...FOOTBALL_OVERVIEW_ROUTES.keys()]);
 const selectedViewportNames = new Set((process.env.XYZSKOR_TEST_VIEWPORT || '').split(',').map((item) => item.trim()).filter(Boolean));
 const selectedRouteNames = new Set((process.env.XYZSKOR_TEST_ROUTE || '').split(',').map((item) => item.trim()).filter(Boolean));
 const VIEWPORTS = process.env.XYZSKOR_TEST_VIEWPORT
@@ -326,6 +329,14 @@ async function main() {
         ok(!metrics.canonicalRuntime.legacyStylesPresent, `${tag}: agir legacy stil ilk acilista yuklenmiyor`);
         ok(!metrics.canonicalRuntime.uiExtrasPresent, `${tag}: istege bagli arayuz modulleri ilk acilista yuklenmiyor`);
         ok(!metrics.canonicalRuntime.xmsVisible&&!metrics.canonicalRuntime.sideChatVisible&&!metrics.canonicalRuntime.miniGameVisible, `${tag}: ilgisiz prototip yuzeyleri futbol merkezine sizmiyor`, JSON.stringify(metrics.canonicalRuntime));
+      }
+      // Genel ana sayfa sozlesmesi: statik brans kartlari, sifir spor API'si,
+      // baska brans yuzeyi sizintisi yok.
+      if(route.name === 'genel-anasayfa'){
+        ok(metrics.canonicalRuntime.hubReady, `${tag}: kanonik stil boyamadan once hazir`);
+        ok(!metrics.canonicalRuntime.legacyStylesPresent, `${tag}: agir legacy stil genel kabukta yuklenmiyor`);
+        ok(!metrics.canonicalRuntime.xmsVisible&&!metrics.canonicalRuntime.sideChatVisible&&!metrics.canonicalRuntime.miniGameVisible, `${tag}: ilgisiz prototip yuzeyleri genel ana sayfaya sizmiyor`, JSON.stringify(metrics.canonicalRuntime));
+        ok(requestedApiPaths.filter((path)=>/^\/api\/(football|sports|ufc|motorsports)/.test(path)).length===0, `${tag}: genel ana sayfa hicbir spor API istegi yapmiyor`, requestedApiPaths.join(' | '));
       }
       if(route.name === 'anasayfa' || FOOTBALL_OVERVIEW_ROUTES.has(route.name) || ['super-lig-maclar','predict'].includes(route.name)){
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/sports/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: futbol/Predict akisi diger spor API ailelerine dokunmuyor`, requestedApiPaths.join(' | '));

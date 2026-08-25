@@ -15,7 +15,7 @@ hdr() { echo; echo "===================== $1"; }
 psql -q -d postgres -c "select 1" >/dev/null 2>&1 || { echo "PostgreSQL erisilemedi (PGHOST=$PGHOST PGPORT=$PGPORT). Paket atlandi."; exit 2; }
 
 hdr "1) Migration apply / rollback / re-apply dongusu"
-MIGRATION_TEST_DB="$DB" "$DIR/pg_migration_cycle.sh" || fail=1
+MIGRATION_TEST_DB="$DB" bash "$DIR/pg_migration_cycle.sh" || fail=1
 
 hdr "2) Idempotency: tum migrationlar ucuncu kez uygulanabilir"
 for pass in 2 3; do
@@ -42,7 +42,7 @@ PGDATABASE="$DB" psql -q -d "$DB" -f "$DIR/pg_challenge_e2e_test.sql" 2>&1 | gre
 psql -q -d "$DB" -f "$DIR/pg_challenge_e2e_test.sql" >/dev/null 2>&1 || fail=1
 
 hdr "6) Es zamanli odul claim yarisi"
-PGDATABASE="$DB" "$DIR/pg_concurrency_test.sh" || fail=1
+PGDATABASE="$DB" bash "$DIR/pg_concurrency_test.sh" || fail=1
 
 hdr "7) Haftalik futbol RLS ve idempotency"
 psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$DIR/weekly_football_db_test.sql" || fail=1

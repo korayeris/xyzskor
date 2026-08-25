@@ -16,6 +16,19 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +41,7 @@ jobs:
         run: node scripts/check.mjs
       - name: Critical Node QA
         run: |
+          npm run qa:general-home
           npm run qa:supabase-lazy
           npm run qa:football-ia
           npm run qa:demand-scope
@@ -38,5 +52,12 @@ jobs:
           npm run qa:hardening
           npm run qa:weekly-football
           npm run qa:weekly-load
+      - name: PostgreSQL migration, rollback and RLS QA
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5433
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: npm run qa:db
       - name: Production build
         run: node scripts/build.mjs

@@ -66,15 +66,24 @@ async function initialRequests(pathname, search = '', { homeCache = null, season
 
 console.log('\n=== Initial route demand scope ===');
 {
-  const root = await initialRequests('/');
+  // `/` artik bagimsiz genel cok sporlu ana sayfadir ve hicbir spor API'sini
+  // cagirmaz. Futbol bes lig merkezi `/futbol` altindadir.
+  const generalHome = await initialRequests('/');
+  assert.deepEqual(generalHome.requests, [], 'Genel ana sayfa hicbir spor API istegi baslatmamali.');
+  assert.equal(generalHome.context.window.__XYZ_FOOTBALL_HOME_REQUEST__, undefined, 'Genel ana sayfa erken futbol home promise\'i kurmamali.');
+
+  const root = await initialRequests('/futbol');
   assert.deepEqual(root.requests, ['/api/football/home'], 'Futbol koku yalniz tek kompakt /home istegi baslatmali.');
   assert.ok(root.context.window.__XYZ_FOOTBALL_HOME_REQUEST__, 'Kok istek promise\'i tam runtime tarafindan yeniden kullanilabilmeli.');
   assert.ok(root.context.window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__?.signal, 'Cold root erken istegi runtime route degisiminde abort edilebilmeli.');
 
   const cachedPayload = { league:'all', matches:[], standingsByLeague:{}, availability:{} };
-  const cachedRoot = await initialRequests('/', '', { homeCache:{ savedAt:Date.now(), payload:cachedPayload } });
+  const cachedRoot = await initialRequests('/futbol', '', { homeCache:{ savedAt:Date.now(), payload:cachedPayload } });
   assert.deepEqual(cachedRoot.requests, [], 'Taze futbol home cache varken erken bootstrap /home istegini hic baslatmamali.');
   assert.equal(JSON.stringify(await cachedRoot.context.window.__XYZ_FOOTBALL_HOME_REQUEST__), JSON.stringify(cachedPayload), 'Taze home payload tam runtime tarafindan Promise handoff ile kullanilmali.');
+
+  const legacyRoot = await initialRequests('/all');
+  assert.deepEqual(legacyRoot.requests, ['/api/football/home'], 'Geriye donuk `/all` rotasi ayni tek kompakt /home kapsamini korumali.');
 }
 
 for (const league of ['super-lig', 'premier-league', 'la-liga', 'bundesliga', 'serie-a']) {

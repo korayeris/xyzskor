@@ -277,12 +277,61 @@ async function canonicalFragmentState(page) {
   }), REQUIRED_CANONICAL_FRAGMENT_IDS);
 }
 
+// `/` genel çok sporlu ana sayfadır ve hiçbir spor API'sini çağırmaz.
+// Futbol beş lig merkezi `/futbol/` altındadır.
+async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors) {
+  const scenario = `${viewportName} general home`;
+  const page = await context.newPage();
+  watchErrors(page, scenario, runtimeErrors);
+  const requestStart = requestLog.length;
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#generalHome .gh-card', { state: 'visible', timeout: 12_000 });
+  await waitForAppBoot(page);
+  const state = await page.evaluate(() => ({
+    generalRoute: document.body.classList.contains('general-home-route'),
+    cards: document.querySelectorAll('#generalHome [data-branch-link]').length,
+    footballCard: Boolean(document.querySelector('#generalHome [data-branch-link="football"]')),
+    footballSurfaceVisible: Boolean(document.querySelector('#footballScoreboardHome')?.offsetParent),
+    overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  }));
+  check(state.generalRoute && state.cards >= 5 && state.footballCard, `${scenario}: static multi-sport branch cards render`, JSON.stringify(state));
+  check(!state.footballSurfaceVisible, `${scenario}: football surface is not visible on the general shell`);
+  check(!state.overflow, `${scenario}: no horizontal overflow`);
+
+  // En kritik sözleşme: genel ana sayfa açılışı sıfır spor API isteği yapar.
+  const sportRequests = requestLog.slice(requestStart).filter((item) => (
+    /^\/api\/(football|sports|ufc|motorsports)/.test(item.url)
+  ));
+  check(sportRequests.length === 0, `${scenario}: zero sport API requests on first paint`, sportRequests.map((item) => item.url).join(', '));
+
+  // Genel ana sayfadan basketbola geçiş belge yenilemeden yapılır ve yalnız
+  // aktif branşın API ailesi çağrılır.
+  const token = `${viewportName}-gh-token`;
+  await page.evaluate((value) => { window.__XYZ_DIST_DOCUMENT_TOKEN__ = value; }, token);
+  const branchStart = requestLog.length;
+  await page.click('#generalHome [data-branch-link="basketball"]');
+  await page.waitForFunction(() => location.pathname.replace(/\/+$/, '') === '/basketbol', null, { timeout: 12_000 });
+  const branchState = await page.evaluate((value) => ({
+    path: location.pathname.replace(/\/+$/, ''),
+    sameDocument: window.__XYZ_DIST_DOCUMENT_TOKEN__ === value,
+    generalHidden: Boolean(document.getElementById('generalHome')?.hidden),
+  }), token);
+  check(
+    branchState.path === '/basketbol' && branchState.sameDocument && branchState.generalHidden,
+    `${scenario}: branch transition is client-side (no document reload)`,
+    JSON.stringify(branchState),
+  );
+  const branchRequests = requestLog.slice(branchStart).filter((item) => /^\/api\/(football|ufc|motorsports)/.test(item.url));
+  check(branchRequests.length === 0, `${scenario}: branch transition leaks no other sport API family`, branchRequests.map((item) => item.url).join(', '));
+  await page.close();
+}
+
 async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   const scenario = `${viewportName} root`;
   const page = await context.newPage();
   watchErrors(page, scenario, runtimeErrors);
   const requestStart = requestLog.length;
-  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/futbol/`, { waitUntil: 'domcontentloaded' });
   try {
     await page.waitForFunction(() => (
       document.querySelectorAll('#footballScoreboardHome .scoreboard-league-group').length === 5
@@ -420,6 +469,7 @@ try {
     const runtimeErrors = [];
     await installNetworkHarness(context, requestLog);
     try {
+      await smokeGeneralHome(context, viewport.name, requestLog, runtimeErrors);
       await smokeRoot(context, viewport.name, requestLog, runtimeErrors);
       await smokeLeague(context, viewport.name, requestLog, runtimeErrors);
       await smokeExplicitFixture(context, viewport.name, requestLog, runtimeErrors);

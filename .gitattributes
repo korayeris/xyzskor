@@ -4,3 +4,6 @@
 *.json text eol=lf
 *.md text eol=lf
 *.ps1 text eol=crlf
+# Shell scriptleri Linux/CI uzerinde calistigi icin daima LF olmali;
+# CRLF satir sonlari `bash` altinda sozdizimi hatasi uretiyordu.
+*.sh text eol=lf

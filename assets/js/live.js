@@ -106,12 +106,23 @@ function parseAppLocation(){
   if(legacy && ['week','match'].includes(legacy.type)) return legacy;
   const pathname = (location.pathname || '/').replace(/\/+$/,'') || '/';
   const segments = pathname.split('/').filter(Boolean);
+  // `/` bagimsiz genel cok sporlu ana sayfadir: futbol verisi yuklenmez.
+  // Futbol bes lig merkezi `/futbol` (ve geriye donuk `/all`) altindadir.
   if(!segments.length || segments[0]==='index.html'){
     if(legacy?.type==='football-section'){
       return { type:'football-route', league:'super-lig', section:legacy.value, transferTab:legacy.sub || 'confirmed' };
     }
     if(legacy?.type==='product') return legacy;
+    return { type:'general-home' };
+  }
+  if(segments[0]==='futbol' || segments[0]==='all'){
     return { type:'football-route', league:'all', section:'home', transferTab:'confirmed' };
+  }
+  // Bu rotalar kendi branch router yuzeylerinin sahibidir. Onlari asagidaki
+  // football fallback'ine dusurmek, Back/Forward sirasinda multisport mount'unun
+  // hemen ardindan futbol sekmesini yeniden etkinlestiriyordu.
+  if(['basketbol','voleybol','ufc','motorsports'].includes(segments[0])){
+    return { type:'branch-route', value:segments[0] };
   }
   if(segments[0]==='predict'){
     const section=['predict','standings','leader','rewards','profile'].includes(segments[1]) ? segments[1] : 'predict';
@@ -208,6 +219,19 @@ async function loadFootballLeagueSelection(leagueKey){
   }
 }
 async function applyParsedLocation(parsed){
+  // Genel ana sayfa hicbir spor API ailesinin sahibi degildir: futbol lig
+  // secimi, canli akis ve section yukleme burada tetiklenmez.
+  if(parsed && parsed.type==='general-home'){
+    if(mcMatchId) closeMatchCenter(false);
+    if(typeof stopLiveFeed==='function') stopLiveFeed();
+    if(window.XYZGeneralHome && typeof window.XYZGeneralHome.mount==='function') window.XYZGeneralHome.mount();
+    return;
+  }
+  if(parsed && parsed.type==='branch-route'){
+    if(mcMatchId) closeMatchCenter(false);
+    if(typeof stopLiveFeed==='function') stopLiveFeed();
+    return;
+  }
   if(parsed && parsed.type==='match'){ openMatchCenter(parsed.value, false); }
   else if(parsed && parsed.type==='week'){ if(mcMatchId) closeMatchCenter(false); goToWeek(parsed.value, false); }
   else if(parsed && parsed.type==='football-route'){
@@ -388,11 +412,14 @@ async function fetchLiveMatchDetailIfNeeded(fixtureId){
   if(cached && Date.now()-cached.fetchedAt < LIVE_MATCH_DETAIL_TTL_MS) return;
   if(LIVE_MATCH_DETAIL_PENDING.has(fixtureId)) return;
   LIVE_MATCH_DETAIL_PENDING.add(fixtureId);
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  if(controller) LIVE_MATCH_DETAIL_CONTROLLERS.set(fixtureId,controller);
   try{
     const [eventsRes, statsRes] = await Promise.all([
-      fetch(`/api/football/matches/${encodeURIComponent(fixtureId)}/events`,{headers:{Accept:'application/json'},cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch(`/api/football/matches/${encodeURIComponent(fixtureId)}/statistics`,{headers:{Accept:'application/json'},cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`/api/football/matches/${encodeURIComponent(fixtureId)}/events`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal}).then(r=>r.ok?r.json():null).catch(error=>{if(error?.name==='AbortError') throw error; return null;}),
+      fetch(`/api/football/matches/${encodeURIComponent(fixtureId)}/statistics`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal}).then(r=>r.ok?r.json():null).catch(error=>{if(error?.name==='AbortError') throw error; return null;}),
     ]);
+    if(controller?.signal.aborted) return;
     LIVE_MATCH_DETAIL_CACHE.set(fixtureId, {
       events: Array.isArray(eventsRes?.events) ? eventsRes.events : (cached?.events || []),
       statistics: Array.isArray(statsRes?.statistics) ? statsRes.statistics : (cached?.statistics || []),
@@ -402,7 +429,10 @@ async function fetchLiveMatchDetailIfNeeded(fixtureId){
     // tam sayfa yenilemesini onler).
     if(document.getElementById('page-story')?.classList.contains('active')) renderLiveFeed();
   }catch(_error){ /* iyilestirici katman; ana canli akisi engellemez */ }
-  finally{ LIVE_MATCH_DETAIL_PENDING.delete(fixtureId); }
+  finally{
+    LIVE_MATCH_DETAIL_PENDING.delete(fixtureId);
+    if(LIVE_MATCH_DETAIL_CONTROLLERS.get(fixtureId)===controller) LIVE_MATCH_DETAIL_CONTROLLERS.delete(fixtureId);
+  }
 }
 function renderLiveFeed(){
   const list = document.getElementById('liveScoreList');
@@ -464,20 +494,28 @@ function refreshLiveProviderLabel(){
 async function refreshLiveProviderHealth(){
   const state = document.getElementById('liveProviderState');
   if(!state) return;
+  liveProviderHealthAbortController?.abort?.();
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  liveProviderHealthAbortController=controller;
   try{
-    const response = await fetch('/api/health',{headers:{Accept:'application/json'},cache:'no-store'});
+    const response = await fetch('/api/health',{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal});
     const payload = await response.json().catch(()=>null);
+    if(controller?.signal.aborted) return;
     const status = payload?.checks?.sportmonks_live;
     state.textContent = status === 'configured' ? 'Sportmonks · canlı bağlantı hazır' : 'Sportmonks · bağlantı yapılandırması eksik';
-  }catch(_error){ state.textContent = 'Canlı sağlayıcı durumu doğrulanamadı'; }
+  }catch(_error){ if(_error?.name!=='AbortError') state.textContent = 'Canlı sağlayıcı durumu doğrulanamadı'; }
+  finally{ if(liveProviderHealthAbortController===controller) liveProviderHealthAbortController=null; }
 }
 async function verifyExitedLiveFixture(liveMatch){
   const id=String(liveMatch?.id||'');
   if(!id||LIVE_EXIT_VERIFICATION_PENDING.has(id)) return;
   LIVE_EXIT_VERIFICATION_PENDING.add(id);
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  if(controller) LIVE_EXIT_VERIFICATION_CONTROLLERS.set(id,controller);
   try{
-    const response=await fetch(`/api/football/fixture?id=${encodeURIComponent(id)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+    const response=await fetch(`/api/football/fixture?id=${encodeURIComponent(id)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal});
     const payload=await response.json().catch(()=>null);
+    if(controller?.signal.aborted) return;
     const fixture=payload?.fixture;
     if(!response.ok||!fixture) return;
     const stored=MATCHES.find(match=>String(match.id)===id); if(!stored) return;
@@ -491,7 +529,10 @@ async function verifyExitedLiveFixture(liveMatch){
       else if(activeFootballLeague!=='all'&&typeof renderFootballLeagueOverview==='function') renderFootballLeagueOverview();
     }
   }catch(_error){}
-  finally{ LIVE_EXIT_VERIFICATION_PENDING.delete(id); }
+  finally{
+    LIVE_EXIT_VERIFICATION_PENDING.delete(id);
+    if(LIVE_EXIT_VERIFICATION_CONTROLLERS.get(id)===controller) LIVE_EXIT_VERIFICATION_CONTROLLERS.delete(id);
+  }
 }
 async function loadLiveFeed(force){
   if(!footballLiveDemandActive()){
@@ -611,6 +652,8 @@ function footballLiveDemandActive(){
   if(typeof location!=='undefined'){
     const root=(location.pathname||'/').split('/').filter(Boolean)[0]?.toLowerCase()||'';
     if(['predict','basketbol','voleybol','motorsports','ufc'].includes(root)) return false;
+    // Genel cok sporlu ana sayfa canli futbol akisinin sahibi degildir.
+    if(!root || root==='index.html') return false;
     if(/(?:^|[?&])fixture=/.test(location.search||'')) return false;
   }
   const story=document.getElementById('page-story');
@@ -680,6 +723,30 @@ function stopLiveFeed(){
   liveFeedLoading=false;
   liveFeedActiveScope=null;
   liveFeedRequestScope=null;
+}
+function abortFootballLiveRequests(){
+  stopLiveFeed();
+  LIVE_MATCH_DETAIL_CONTROLLERS.forEach(controller=>controller.abort());
+  LIVE_MATCH_DETAIL_CONTROLLERS.clear();
+  LIVE_EXIT_VERIFICATION_CONTROLLERS.forEach(controller=>controller.abort());
+  LIVE_EXIT_VERIFICATION_CONTROLLERS.clear();
+  liveProviderHealthAbortController?.abort?.();
+  liveProviderHealthAbortController=null;
+}
+// Football owns several independently lazy or polling GET flows. Register one
+// consolidated router hook so every client-side branch transition invalidates
+// the complete football request scope before the destination surface mounts.
+function abortFootballBranchWork(){
+  abortFootballLiveRequests();
+  if(typeof abortFootballCriticalData==='function') abortFootballCriticalData();
+  if(typeof abortFootballWeeklyFeatures==='function') abortFootballWeeklyFeatures();
+  if(typeof abortFootballCoverage==='function') abortFootballCoverage();
+  if(typeof abortFootballUiRequests==='function') abortFootballUiRequests();
+  if(typeof abortMatchCenterNetwork==='function') abortMatchCenterNetwork();
+}
+if(typeof window!=='undefined'&&window.XYZBranchRouter&&!window.__XYZ_FOOTBALL_BRANCH_ABORT_REGISTERED__){
+  window.__XYZ_FOOTBALL_BRANCH_ABORT_REGISTERED__=true;
+  window.XYZBranchRouter.registerAbortHook(abortFootballBranchWork);
 }
 
 /* ===================== MAIN TAB SWITCH ===================== */

@@ -225,6 +225,8 @@ const FOOTBALL_COVERAGE_CACHE_MS = 60 * 60 * 1000;
 const FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS = 30 * 1000;
 let FOOTBALL_COVERAGE_CACHE = null;
 let footballCoverageRequest = null;
+let footballCoverageAbortController = null;
+let footballCoverageRequestSequence = 0;
 let footballCoverageRetryAt = 0;
 function footballCoverageState(leagueKey){
   if(!FOOTBALL_COVERAGE_CACHE || FOOTBALL_COVERAGE_CACHE.expiresAt<=Date.now()) return null;
@@ -246,10 +248,14 @@ async function loadFootballCoverage(){
   if(FOOTBALL_COVERAGE_CACHE?.expiresAt>Date.now()) return FOOTBALL_COVERAGE_CACHE;
   if(footballCoverageRetryAt>Date.now()) return null;
   if(footballCoverageRequest) return footballCoverageRequest;
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  const sequence=++footballCoverageRequestSequence;
+  footballCoverageAbortController=controller;
   footballCoverageRequest=(async()=>{
     try{
-      const response=await fetch('/api/football/coverage',{headers:{Accept:'application/json'}});
+      const response=await fetch('/api/football/coverage',{headers:{Accept:'application/json'},signal:controller?.signal});
       const payload=await response.json().catch(()=>null);
+      if(controller?.signal.aborted||sequence!==footballCoverageRequestSequence) return null;
       if(!response.ok || !Array.isArray(payload?.selected)) throw new Error('coverage_unavailable');
       FOOTBALL_COVERAGE_CACHE={
         leagues:new Map(payload.selected.map(row=>[String(row.league),{available:row.available===true,currentSeasonId:row.currentSeasonId||null,reason:row.reason||null,capabilities:row.capabilities||null}])),
@@ -258,12 +264,24 @@ async function loadFootballCoverage(){
       };
       return FOOTBALL_COVERAGE_CACHE;
     }catch(_error){
+      if(controller?.signal.aborted||sequence!==footballCoverageRequestSequence||_error?.name==='AbortError') return null;
       // Coverage yardimci bir katmandir. 5xx veya ag hatasi lig akisini engellemez.
       footballCoverageRetryAt=Date.now()+FOOTBALL_COVERAGE_FAILURE_BACKOFF_MS;
       return null;
-    }finally{ footballCoverageRequest=null; }
+    }finally{
+      if(sequence===footballCoverageRequestSequence){
+        footballCoverageRequest=null;
+        footballCoverageAbortController=null;
+      }
+    }
   })();
   return footballCoverageRequest;
+}
+function abortFootballCoverage(){
+  footballCoverageRequestSequence+=1;
+  footballCoverageAbortController?.abort?.();
+  footballCoverageAbortController=null;
+  footballCoverageRequest=null;
 }
 const LEAGUE_CONTEXT = {
   all:{headline:'5 lig genel görünümü',copy:'Süper Lig, Premier League, La Liga, Bundesliga ve Serie A verisi aynı vitrinde toplanır.',agenda:'Seçili liglerin doğrulanmış gündemi',standings:'Lig tabloları',transfer:'Transfer gelişmeleri'},
@@ -633,7 +651,10 @@ let liveFeedVisibilityBound = false;
 const LIVE_MATCH_DETAIL_CACHE = new Map(); // fixtureId -> {events, statistics, fetchedAt}
 const LIVE_MATCH_DETAIL_TTL_MS = 8000; // /events uc cache TTL degeriyle hizali (bkz worker MATCH_EVENTS_CACHE)
 const LIVE_MATCH_DETAIL_PENDING = new Set();
+const LIVE_MATCH_DETAIL_CONTROLLERS = new Map();
 const LIVE_EXIT_VERIFICATION_PENDING = new Set();
+const LIVE_EXIT_VERIFICATION_CONTROLLERS = new Map();
+let liveProviderHealthAbortController = null;
 const LIVE_FEED_MIN_REFRESH_MS = 5000;
 const LIVE_FEED_MAX_REFRESH_MS = 300000;
 const LIVE_FEED_HIDDEN_REFRESH_MS = 120000; // sekme arka plandayken hizli polling yerine bu kullanilir

@@ -90,7 +90,7 @@ assert.match(fullHomeRenderer, /addEventListener\('xyz:football-home-early-ready
 assert.match(fullHomeRenderer, /existingGroups\[nextLeague\][\s\S]*setTimeout\(upgradeLeague,0\)/, 'Canonical kök yükseltmesi bir taskta yalnız bir lig grubunu değiştirmeli.');
 assert.match(fullHomeRenderer, /setTimeout\(\(\)=>\{[\s\S]*feature\.innerHTML=footballHomeFeatureContent/, 'Öne çıkan maç ve mini puan tablosu lig gruplarından ayrı taskta yükseltilmeli.');
 assert.match(buildSource, /let canonicalLeanHtml[\s\S]*weekSelector[\s\S]*page-league[\s\S]*removeMarkedBlock[\s\S]*fragmentContracts[\s\S]*fragmentDirectory/, 'Bare canonical production rotaları yalnız erken futbol shell’ini taşımalı; etkileşim DOM’u açık sözleşmeli fragmentlere ayrılmalı.');
-assert.match(buildSource, /leagues\.includes\(route\) \? canonicalLeanHtml : routeReadyHtml/, 'Yalnız çıplak lig rotaları lean olmalı; section ve Predict belgeleri tam DOM’u korumalı.');
+assert.match(buildSource, /leagues\.includes\(route\) \|\| route === "futbol" \? canonicalLeanHtml : routeReadyHtml/, 'Yalnız çıplak lig rotaları ve futbol kökü lean olmalı; section ve Predict belgeleri tam DOM’u korumalı.');
 
 const sectionFallbacks = [];
 const leanSectionContext = vm.createContext({

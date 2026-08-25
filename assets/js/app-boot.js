@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   var path = location.pathname.replace(/^\/+|\/+$/g, "");
-  var canonical = new Set(["", "index.html", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
+  var canonical = new Set(["", "index.html", "futbol", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
   var fixture = new URLSearchParams(location.search).get("fixture");
   var bootScriptSource = document.currentScript && document.currentScript.src ? document.currentScript.src : location.href;
   var assetVersion = new URL(bootScriptSource, location.href).searchParams.get("v") || "";
@@ -178,6 +178,36 @@
     // while users were switching from the five-league board to a league.
     return [chatChunk, branchChunk];
   }
+
+  // Route-aware geçiş için talep anında branş paketi yükleyici.
+  //
+  // Genel ana sayfa ve futbol rotaları bütün spor renderer'larını önden
+  // yüklemez (bu, ilk boyamayı gereksiz yere uzatıyordu). Router bir branşa
+  // geçmeden önce bu fonksiyonu çağırır; modül hazır olduğunda geçiş belge
+  // yenilemeden istemcide yapılabilir. Modül yoksa router denetimli
+  // navigasyona düşer. Bu fonksiyon hiçbir spor API'sini çağırmaz; yalnız
+  // JS paketini indirir.
+  function chunksForProduct(product) {
+    var chatChunk = productionPostChunks[0];
+    var multisportChunk = productionPostChunks[1];
+    var branchChunk = productionPostChunks[2];
+    var motorsportsChunk = productionPostChunks[3];
+    var ufcChunk = productionPostChunks[4];
+    if (product === "basketbol" || product === "voleybol") return [chatChunk, branchChunk, multisportChunk];
+    if (product === "motorsports") return [chatChunk, branchChunk, motorsportsChunk];
+    if (product === "ufc") return [chatChunk, branchChunk, ufcChunk];
+    return [chatChunk, branchChunk];
+  }
+
+  window.ensureXYZBranchModule = function (product) {
+    var key = String(product || "").replace(/^\/+|\/+$/g, "").split("/")[0].toLowerCase();
+    // Geliştirme sunucusu tüm zinciri statik olarak sunar; template yoksa
+    // modüller zaten yüklüdür.
+    if (!document.getElementById("xyzChatTemplate")) return Promise.resolve(true);
+    var chunks = chunksForProduct(key);
+    primeChunkDownloads(chunks);
+    return loadSequence(chunks, false).then(function () { return true; }).catch(function () { return false; });
+  };
 
   function ensureProductionRuntime() {
     var hasCore = Boolean(document.getElementById("xyzDataTemplate"));

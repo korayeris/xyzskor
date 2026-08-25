@@ -26,6 +26,7 @@
   let timer = 0;
   let matchdayAbortController = null;
   let matchdayRequestSequence = 0;
+  let matchdayBranchSequence = 0;
   let currentFixture = null;
   let currentStatsXg = [];
   let selectedPredictionPick = "";
@@ -33,6 +34,7 @@
   let serverRefreshSeconds = 0;
   const ownPredictionCache = new Map();
   const ownPredictionRequests = new Map();
+  const ownPredictionControllers = new Map();
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const rows = (value) => Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   const localTime = (value) => value ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(value)) : "Program bekleniyor";
@@ -67,6 +69,14 @@
     if(matchdayAbortController) matchdayAbortController.abort();
     matchdayAbortController=null;
   }
+  function abortMatchdayBranchWork(){
+    matchdayBranchSequence+=1;
+    abortMatchdayNetwork();
+    ownPredictionControllers.forEach(controller=>controller.abort());
+    ownPredictionControllers.clear();
+    ownPredictionRequests.clear();
+  }
+  if(window.XYZBranchRouter) window.XYZBranchRouter.registerAbortHook(abortMatchdayBranchWork);
   const detailSectionIds = new Set(["matchdayEvents", "matchdayStatistics", "matchdayLineups"]);
   function detailSectionHref(sectionId) {
     const url = new URL(location.pathname || "/", location.origin);
@@ -262,18 +272,26 @@
   }
   async function hydrateOwnPrediction() {
     const status = document.getElementById("matchdayPredictStatus");
-    if (!status || !currentFixture) return;
+    if (!status || !currentFixture || !matchdayDemandActive()) return;
+    const branchSequence = matchdayBranchSequence;
     const requestedPredictionFixture = fixtureId;
     const token = await predictionAuthToken();
-    if (fixtureId !== requestedPredictionFixture || !document.getElementById("matchdayPredictStatus")) return;
+    if (branchSequence !== matchdayBranchSequence || !matchdayDemandActive() || fixtureId !== requestedPredictionFixture || !document.getElementById("matchdayPredictStatus")) return;
     if (!token) { status.innerHTML = 'Tahminini kaydetmek için <button type="button" data-predict-login>giriş yap veya ücretsiz üye ol</button>.'; return; }
     const key=`${requestedPredictionFixture}:${token}`;
     if(ownPredictionCache.has(key)){ applyOwnPrediction(ownPredictionCache.get(key),status); return; }
     if(!ownPredictionRequests.has(key)){
-      ownPredictionRequests.set(key,fetch(`/api/football/prediction?fixture=${encodeURIComponent(requestedPredictionFixture)}`, { headers:{ Accept:"application/json", Authorization:`Bearer ${token}` }, cache:"no-store" })
+      const controller=typeof AbortController!=="undefined"?new AbortController():null;
+      if(controller) ownPredictionControllers.set(key,controller);
+      const request=fetch(`/api/football/prediction?fixture=${encodeURIComponent(requestedPredictionFixture)}`, { headers:{ Accept:"application/json", Authorization:`Bearer ${token}` }, cache:"no-store", signal:controller?.signal })
         .then(async response=>response.ok?(await response.json().catch(()=>null))?.prediction||null:null)
         .then(saved=>{ ownPredictionCache.set(key,saved); return saved; })
-        .finally(()=>ownPredictionRequests.delete(key)));
+        .catch(error=>error?.name==="AbortError"?null:Promise.reject(error))
+        .finally(()=>{
+          if(ownPredictionRequests.get(key)===request) ownPredictionRequests.delete(key);
+          if(ownPredictionControllers.get(key)===controller) ownPredictionControllers.delete(key);
+        });
+      ownPredictionRequests.set(key,request);
     }
     const saved=await ownPredictionRequests.get(key);
     if(fixtureId!==requestedPredictionFixture) return;

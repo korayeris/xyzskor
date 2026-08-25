@@ -21,6 +21,36 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null">
 <style id="xyzCriticalCss">
   :root{color-scheme:dark;--critical-bg:#0c0f12;--critical-panel:#14191e;--critical-accent:#ef5f74}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--critical-bg);color:#f5f7f8;font-family:Inter,Arial,sans-serif}html.xyz-branch-css-pending body>:not(.global-header){visibility:hidden!important}html.xyz-branch-css-pending body{overflow:hidden}button{font:inherit}.global-header{position:relative;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:10px max(16px,calc((100vw - 1340px)/2));background:#111417}.brand-lockup{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none}.brand-mark{display:grid;place-items:center;width:38px;height:42px;border-radius:9px;background:linear-gradient(145deg,#ff6b7d,#c93e54)}.brand-mark:after{content:"X";font-weight:900}.logo{font-size:20px;font-weight:900}.logo span{color:#ff6579}.brand-kicker{font-size:7px;letter-spacing:.2em;color:#8ca0ad}.primary-nav{display:flex;gap:7px}.maintab{min-height:42px;padding:0 14px;border:0;border-radius:999px;background:#1a2026;color:#d7dfe4;font-weight:800}.maintab.active{background:#6b2734}.live-ticker{min-height:28px;background:#0c1013}.tabpage{display:none}.tabpage.active{display:block}body.football-root-route>#footballContextNav,body.football-root-route>#footballLeagueCommand,body.football-root-route>#matchdayCommand,body.football-league-overview-mode>#footballContextNav,body.football-league-overview-mode>#footballLeagueCommand,body.football-league-overview-mode>#matchdayCommand,body.football-root-route #page-live,body.football-league-overview-mode #page-live{display:none!important}body.football-root-route #footballOverviewView>:not(#footballScoreboardHome),body.football-league-overview-mode #footballOverviewView>:not(#footballLeagueOverview){display:none!important}.football-scoreboard-home,.football-league-overview{display:none;width:min(1220px,calc(100% - 32px));margin:28px auto 56px}.football-league-overview{width:min(1240px,calc(100% - 32px))}body.football-root-route .football-scoreboard-home,body.football-league-overview-mode .football-league-overview{display:block}.scoreboard-shell{display:grid;grid-template-columns:184px minmax(0,1fr) 260px;gap:28px}.scoreboard-shell>*{min-width:0}.scoreboard-first-paint>*{min-height:260px;padding:18px 0}.scoreboard-first-paint>.scoreboard-fixtures{padding:0}.scoreboard-kicker,.league-overview-identity small{color:#ff7083;font-size:10px;letter-spacing:.14em}.scoreboard-loading-lines{display:grid;gap:7px;overflow:hidden}.scoreboard-loading-lines span{display:block;height:58px;border-radius:10px;background:linear-gradient(100deg,#11161a 20%,#1a2228 45%,#11161a 70%);background-size:240% 100%;animation:criticalShimmer 1.1s linear infinite}@keyframes criticalShimmer{to{background-position:-240% 0}}.league-overview-hero{display:flex;align-items:center;gap:16px;min-height:112px;padding:20px 4px;background:transparent}.league-overview-logo{display:grid;place-items:center;width:62px;height:62px;border:0;border-radius:18px;background:#181e23}.league-overview-identity{display:flex;align-items:center;gap:16px}.league-overview-identity h1{margin:5px 0;font-size:28px}.league-overview-identity p{margin:0;color:#91a0aa}.chat-panel,.account-overlay,.modal-overlay,[hidden]{display:none}
+  /* Genel çok sporlu ana sayfa (statik, API sahibi değil) + route progress. */
+  body.general-home-route>.wrap,body.general-home-route>.live-ticker,body.general-home-route>#footballContextNav,body.general-home-route>#footballLeagueCommand,body.general-home-route>#matchdayCommand,body.general-home-route .next-match-ticker,body.general-home-route #miniGoalGame,body.general-home-route>.xms-primary,body.general-home-route #sideChatPrototype{display:none!important}
+  .general-home{display:block;width:min(1180px,calc(100% - 40px));margin:0 auto;padding:40px 0 64px}
+  .general-home[hidden]{display:none}
+  .gh-hero{padding:8px 0 28px}
+  .gh-hero-kicker{display:block;color:#ff7083;font-size:10px;font-weight:800;letter-spacing:.18em}
+  .gh-hero h1{margin:10px 0 8px;font-family:'Space Grotesk',Inter,Arial,sans-serif;font-size:clamp(26px,4.4vw,42px);line-height:1.12;font-weight:800}
+  .gh-hero p{margin:0;max-width:56ch;color:#93a3ad;font-size:15px}
+  .gh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px}
+  .gh-card{position:relative;display:flex;flex-direction:column;gap:6px;min-height:132px;padding:18px 20px;border-radius:16px;background:#14191e;color:#f1f5f7;text-decoration:none;transition:background .16s ease,transform .16s ease}
+  .gh-card:hover,.gh-card:focus-visible{background:#1b2228;transform:translateY(-2px)}
+  .gh-card:focus-visible{outline:2px solid #ff7083;outline-offset:2px}
+  .gh-card-kicker{color:#8ca0ad;font-size:9px;font-weight:800;letter-spacing:.16em}
+  .gh-card-title{font-family:'Space Grotesk',Inter,Arial,sans-serif;font-size:22px;font-weight:800}
+  .gh-card-note{color:#8b9aa4;font-size:12px;line-height:1.45}
+  .gh-card-go{position:absolute;top:18px;right:20px;color:#54646f;font-size:17px;transition:color .16s ease,transform .16s ease}
+  .gh-card:hover .gh-card-go{color:#ff7083;transform:translateX(3px)}
+  .gh-card:before{content:"";position:absolute;left:0;top:20px;bottom:20px;width:3px;border-radius:0 3px 3px 0;background:#2a333a}
+  .gh-accent-coral:before{background:#ef5f74}.gh-accent-mint:before{background:#33d6a0}.gh-accent-amber:before{background:#f0a838}
+  .gh-accent-steel:before{background:#5c93c4}.gh-accent-crimson:before{background:#e0455f}.gh-accent-violet:before{background:#8a72ef}
+  .gh-scope-note{margin:26px 0 0;max-width:70ch;color:#6f7f89;font-size:11px;line-height:1.6}
+  .xyz-route-progress{position:fixed;top:0;left:0;right:0;z-index:80;display:flex;align-items:center;gap:10px;height:3px;opacity:0;pointer-events:none;transition:opacity .12s ease}
+  .xyz-route-progress.is-active{opacity:1}
+  .xyz-route-progress-bar{display:block;width:100%;height:3px;background:linear-gradient(90deg,#ef5f74,#33d6a0,#ef5f74);background-size:220% 100%;animation:xyzRouteSlide .9s linear infinite}
+  @keyframes xyzRouteSlide{to{background-position:-220% 0}}
+  .xyz-route-progress-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .xyz-branch-hidden{display:none!important}
+  @media(max-width:720px){.general-home{width:calc(100% - 32px);padding:26px 0 44px}.gh-grid{grid-template-columns:1fr;gap:11px}.gh-card{min-height:0;padding:16px 18px}.gh-card-title{font-size:19px}.gh-hero{padding:4px 0 20px}}
+  @media(max-width:380px){.general-home{width:calc(100% - 24px)}.gh-card{padding:15px 16px}}
+  @media(prefers-reduced-motion:reduce){.gh-card,.gh-card-go{transition:none}.xyz-route-progress-bar{animation:none}}
   .legal-footer-links{display:flex;min-height:64px;align-items:center;justify-content:center;gap:10px 20px;flex-wrap:wrap;padding:20px 16px;border-top:1px solid #252c31;color:#7f8c95;font-size:11px}.legal-footer-links a{color:inherit;text-decoration:none}
   @media(max-width:980px){.scoreboard-shell{grid-template-columns:1fr;gap:22px}.scoreboard-first-paint>*{min-height:120px}.scoreboard-feature{display:none}}
   @media(max-width:520px){.global-header{min-height:58px;padding:8px 12px}.logo{font-size:17px}.maintab{min-height:40px;padding:0 10px}.football-scoreboard-home,.football-league-overview{width:calc(100% - 20px);margin:16px auto 36px}.scoreboard-shell{gap:18px}.scoreboard-first-paint>*{padding:10px 0}.league-overview-hero{padding:16px 0}.league-overview-identity h1{font-size:23px}}
@@ -30,6 +60,9 @@
 <link rel="stylesheet" href="/assets/css/app.css?v=314" media="print" onload="this.media='all';this.onload=null">
 <template id="xyzLegacyStyleTemplate"><link rel="stylesheet" href="/assets/css/app-late.css?v=314" media="print" onload="this.media='all';this.onload=null"></template>
 <script src="/assets/js/style-loader.js?v=314"></script>
+<!-- Route-aware branş router'ı diğer branş modüllerinden önce hazır olmalıdır;
+     modüller mount/unmount yüzeylerini yüklenirken kaydeder. -->
+<script src="/assets/js/branch-router.js?v=314"></script>
 <link id="xyzFootballControlsStyle" rel="stylesheet" href="/assets/css/football-controls-v236.css?v=240" media="print" onload="this.media='all';this.onload=null">
 <link id="xyzFootballHubStyle" rel="stylesheet" href="/assets/css/football-hub.css?v=314" media="print" onload="this.media='all';this.onload=null;window.__XYZ_MARK_FOOTBALL_HUB_READY__&&window.__XYZ_MARK_FOOTBALL_HUB_READY__()" onerror="window.__XYZ_MARK_FOOTBALL_HUB_READY__&&window.__XYZ_MARK_FOOTBALL_HUB_READY__()">
 <noscript><link rel="stylesheet" href="/assets/css/app.css?v=314"><link rel="stylesheet" href="/assets/css/app-late.css?v=314"><link rel="stylesheet" href="/assets/css/football-controls-v236.css?v=240"><link rel="stylesheet" href="/assets/css/football-hub.css?v=314"></noscript>
@@ -40,7 +73,7 @@
 <script defer src="/assets/js/football-early.js?v=314"></script>
 
 <nav class="global-header" aria-label="Ana navigasyon">
-  <a class="brand-lockup" href="/" aria-label="XYZSKOR futbol ana sayfasına dön">
+  <a class="brand-lockup" href="/" data-router-link aria-label="XYZSKOR genel spor ana sayfasına dön">
     <div class="brand-mark" aria-hidden="true"><span></span></div>
 <div class="brand-copy"><div class="logo">XYZ<span>SKOR</span></div><div class="brand-kicker">Sports Intelligence</div></div>
   </a>
@@ -128,6 +161,12 @@
   </form>
 </aside>
 <!-- PRODUCTION_STRIP_LEGACY_HTML_END -->
+
+<!-- XYZ_FRAGMENT_GENERAL_HOME_START -->
+<!-- Genel çok sporlu ana sayfa. Statiktir; hiçbir spor API'sinin sahibi
+     değildir. İçeriği assets/js/general-home.js tarafından üretilir. -->
+<main class="general-home" id="generalHome" aria-label="XYZSKOR spor branşları" hidden></main>
+<!-- XYZ_FRAGMENT_GENERAL_HOME_END -->
 
 <div class="wrap">
 
@@ -640,6 +679,7 @@
 <!-- XYZ_FRAGMENT_CHAT_END -->
 
 <script defer src="/assets/js/chat.js?v=314"></script>
+<script src="/assets/js/general-home.js?v=314"></script>
 <script defer src="/assets/js/multisport.js?v=314"></script>
 <script defer src="/assets/js/sport-branches.js?v=314"></script>
 <script defer src="/assets/js/motorsports.js?v=314"></script>

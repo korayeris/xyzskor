@@ -42,6 +42,15 @@ const MC_TTL_PRE_MS = 300000;      // maç öncesi: 5 dk
 const MC_TTL_POST_MS = 900000;     // maç sonrası: 15 dk
 const MC_SUPABASE_TTL_MS = 180000; // kadro/sakat/model: 3 dk
 let mcRefreshTimer = null;
+let mcRequestSequence = 0;
+const mcProviderControllers = new Set();
+
+function abortMatchCenterNetwork(){
+  if(mcRefreshTimer){ clearInterval(mcRefreshTimer); mcRefreshTimer=null; }
+  mcRequestSequence+=1;
+  mcProviderControllers.forEach(controller=>controller.abort());
+  mcProviderControllers.clear();
+}
 
 /* Maçın hangi aşamada olduğunu tek yerden belirler. */
 function mcPhase(match){
@@ -87,11 +96,14 @@ async function ensureMcData(matchId){
     // yenilenir. Yenileme sırasında eldeki veri ekranda kalmaya devam eder.
     cached.refreshing = true;
   }
+  const requestSequence=mcRequestSequence;
+  const previous = mcCache[matchId];
   const entry = { lineups:[], absences:[], events:[], statistics:[], provider:null, modelPred:null, consensus:null, errors:{}, loaded:false };
-  const providerPromise=String(matchId).startsWith('sportmonks:')?fetch(`/api/football/fixture?id=${encodeURIComponent(matchId)}`,{headers:{Accept:'application/json'}}).then(async response=>{ const payload=await response.json().catch(()=>({})); if(!response.ok) throw new Error(payload.error||'fixture_unavailable'); return payload; }).catch(error=>({error:error.message||'fixture_unavailable'})):Promise.resolve(null);
+  const providerController=String(matchId).startsWith('sportmonks:')&&typeof AbortController!=='undefined'?new AbortController():null;
+  if(providerController) mcProviderControllers.add(providerController);
+  const providerPromise=String(matchId).startsWith('sportmonks:')?fetch(`/api/football/fixture?id=${encodeURIComponent(matchId)}`,{headers:{Accept:'application/json'},signal:providerController?.signal}).then(async response=>{ const payload=await response.json().catch(()=>({})); if(providerController?.signal.aborted) throw new DOMException('Aborted','AbortError'); if(!response.ok) throw new Error(payload.error||'fixture_unavailable'); return payload; }).catch(error=>error?.name==='AbortError'?null:{error:error.message||'fixture_unavailable'}).finally(()=>{if(providerController) mcProviderControllers.delete(providerController);}):Promise.resolve(null);
   // Supabase tarafi kendi TTL suresi dolmadiysa tekrar sorgulanmaz (canli yenilemede
   // 30 saniyede bir 5 sorgu yerine yalnizca saglayici cagrisi yapilir).
-  const previous = mcCache[matchId];
   const supabaseFresh = previous && previous.loaded && (Date.now() - (previous.supabaseFetchedAt || 0) < MC_SUPABASE_TTL_MS);
   const skip = () => Promise.resolve({ data:null, error:null, skipped:true });
   const [lineupsRes, absencesRes, modelRes, consensusRes, providerRes] = await Promise.all([
@@ -101,6 +113,7 @@ async function ensureMcData(matchId){
     supabaseFresh ? skip() : mcQuery(sb.rpc('get_match_prediction_consensus', { p_match_id: matchId }), 'prediction_consensus'),
     providerPromise
   ]);
+  if(requestSequence!==mcRequestSequence||providerController?.signal.aborted) return previous||entry;
   // Atlanan (skipped) sorgularda önceki değer korunur, sıfırlanmaz.
   entry.lineups = lineupsRes.skipped ? (previous?.lineups || []) : (Array.isArray(lineupsRes.data) ? lineupsRes.data : []);
   entry.absences = absencesRes.skipped ? (previous?.absences || []) : (Array.isArray(absencesRes.data) ? absencesRes.data : []);
@@ -171,7 +184,7 @@ function closeMatchCenter(updateUrl){
   const shouldNavigateBack = updateUrl !== false && !!mcOriginHash && location.hash.startsWith('#match/');
   // Panel kapanınca arka plan yenilemesi durmalı; aksi halde görünmeyen bir maç
   // icin sonsuza kadar 30 saniyede bir istek atilir.
-  if(mcRefreshTimer){ clearInterval(mcRefreshTimer); mcRefreshTimer = null; }
+  abortMatchCenterNetwork();
   mcMatchId = null;
   const overlay=document.getElementById('mcOverlay'); overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true');
   document.body.classList.remove('modal-open');

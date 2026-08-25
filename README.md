@@ -363,7 +363,34 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 
 ## Test ve build sonuçları
 
-2026-08-24 canlı skor ve futbol bilgi mimarisi release doğrulamasında kaydedilen sonuçlar:
+2026-08-25 dış inceleme (EXTERNAL-REVIEW-HANDOFF-2026-08-25) uygulama turunda
+kaydedilen sonuçlar:
+
+| Komut | Sonuç |
+| --- | --- |
+| `npm run check` | ✅ Geçti |
+| `npm run build` | ✅ Geçti (dist/ üretildi) |
+| `npm run qa:api` | ✅ 165/165 (x-media transfer-only sözleşmesi için 5 yeni assertion) |
+| `npm run qa:general-home` | ✅ 44/44 — **yeni kapı**: kök rotanın sıfır spor API sözleşmesi, `/futbol` + `/all` tek `/football/home` kapsamı, router pushState/abort/popstate ve MANAGED abort→prefetch→commit sırası |
+| `npm run qa:demand-scope` | ✅ Geçti (genel ana sayfa + `/futbol` + `/all` kapsamları için güncellendi) |
+| `npm run qa:league-contract` | ✅ Geçti |
+| `npm run qa:football-ia` | ✅ Geçti |
+| `npm run qa:matchday` | ✅ Geçti |
+| `npm run qa:live-architecture` | ✅ Geçti |
+| `npm run qa:live-quota` | ✅ Geçti |
+| `npm run qa:hardening` | ✅ Geçti |
+| `npm run qa:weekly-football` | ✅ Geçti |
+| `npm run qa:predict-security` | ✅ Geçti |
+| `npm run qa:football-predictions` | ✅ Geçti |
+| `npm run qa:supabase-lazy` | ✅ Geçti |
+| `npm run qa:dist` | ✅ 44/44 (2 viewport × 4 senaryo); `smokeGeneralHome` kök rotada sıfır spor API'si ve `sameDocument` istemci geçişini kanıtlıyor |
+| `npm run qa:responsive` (withdata) | ✅ 1408/1408 — 7 viewport × 13 rota (genel ana sayfa dahil) |
+| `npm run qa:responsive:nodata` | ✅ 819/819 |
+| `npm run qa:perf` | ✅ Tüm kapılar geçti. FCP 664 ms, dolu beş lig 1416 ms, **Premier League geçişi 242 ms** (önceki tur 397 ms), en uzun görev 120 ms, tekrarlı API 0, cardinality ihlali 0 |
+| `npm run qa:db` | ✅ **Gerçek PostgreSQL 16.13 üzerinde PASS** — apply/rollback/re-apply, 3× idempotency, chat/RLS, Predict güvenlik SQL'i, challenge E2E 11/11, eşzamanlı ödül claim yarışı, 20 paralel haftalık hesaplama. Bu koşuda 3 gerçek hata bulundu ve düzeltildi (ayrıntı: *Bilinen riskler*). Geçici yerel örnek; production Supabase üzerinde yinelenmelidir |
+| `npm run check:legal` | ❌ **Başarısız (kasıtlı)** — `assets/legal/legal-config.js` içindeki `infrastructure.crossBorderMechanism` alanı hâlâ placeholder. KVKK yurt dışı aktarım mekanizması veri sorumlusunun/hukukçunun kararıdır; uydurulmadı. Yayın kapısı bu alan gerçek bilgiyle doldurulmadan yeşil sayılamaz |
+
+Önceki tur (2026-08-24 canlı skor ve futbol bilgi mimarisi release doğrulaması):
 
 | Komut | Sonuç |
 | --- | --- |
@@ -440,11 +467,33 @@ ile [`legal/data-sources.html`](legal/data-sources.html) içinde açıklanır.
   enjeksiyonu için `sinon`/`vitest` gibi bir bağımlılık eklenmedi — bu kasıtlı
   bir minimal-bağımlılık kararıdır, `package.json`'a yeni devDependency
   eklemeden önce onay gerekir).
-- **`npm run qa:db` bu son istemci/performance release turunda yeniden
-  çalıştırılmadı.** Şema değişikliği production'a alınmadan önce migration
-  apply → rollback → re-apply, RLS ve paralel transaction kontrolleri hedef
-  PostgreSQL/Supabase ortamında yeniden çalıştırılmalı ve ayrı kanıt kaydı
-  tutulmalıdır.
+- **`npm run qa:db` gerçek PostgreSQL 16.13 üzerinde çalıştırıldı ve PASS
+  verdi (2026-08-25).** Bu tur migration apply → rollback → re-apply döngüsü,
+  üç kez idempotency, chat/RLS, Predict güvenlik SQL'i, haftalık challenge
+  E2E (11/11), eşzamanlı ödül claim yarışı ve 20 paralel haftalık hesaplama
+  senaryolarını kapsar. Bu koşuda üç gerçek hata bulundu ve düzeltildi:
+  1. `scripts/test-tools/*.sh` dosyaları CRLF satır sonu taşıdığı için paket
+     Linux/CI üzerinde `bash` altında hiç çalışmıyordu (`.gitattributes`'a
+     `*.sh text eol=lf` eklendi).
+  2. `rollback/20260825160000_prediction_integrity_restore_down.sql`,
+     aslında `20260802180000_platform_core.sql` tarafından oluşturulan
+     `public.enforce_prediction_integrity()` fonksiyonunu koşulsuz `drop`
+     ediyordu; bu, `20260821090000` down/re-apply adımlarını
+     "function does not exist" hatasıyla kırıyordu. Rollback artık fonksiyonu
+     silmek yerine 20260802180000'deki tanımına döndürür.
+  3. `scripts/test-tools/pg_migration_cycle.sh` tüm rollback dosyalarını
+     uyguluyor ama elle yazılmış **4** migration'ı geri yüklüyordu; migration
+     seti büyüdüğü için son durum doğrulaması eksik şemayı tam şema gibi
+     ölçüyordu (anon SECURITY DEFINER sayısı 2 yerine 4 görünüyordu). Re-apply
+     listesi artık rollback dosyalarından türetilir.
+  Ek olarak `pg_challenge_e2e_test.sql` fixture'ı,
+  `20260825160000_prediction_integrity_restore.sql`'in getirdiği "tahmin
+  yazmak için oturum zorunlu" sıkılaştırmasından önce yazılmıştı ve gerçek
+  PostgreSQL'de hiç çalışmadığı için farkedilmemişti; test artık her
+  kullanıcının tahminini kendi oturum bağlamında yazar ve ek olarak
+  "başkası adına yazma" ile "oturumsuz yazma" reddini de kanıtlar.
+  **Bu koşu geçici bir yerel PostgreSQL örneği üzerindedir; production
+  Supabase projesi üzerinde ayrı bir kanıtlı operasyon olarak yinelenmelidir.**
 
 ## Git ve yayın
 
@@ -462,11 +511,69 @@ ile [`legal/data-sources.html`](legal/data-sources.html) içinde açıklanır.
 
 ### İki katmanlı profesyonel futbol bilgi mimarisi (v311)
 
+### Genel çok sporlu ana sayfa ve route-aware branş router'ı (v315)
+
+`/` artık beş ligli futbol merkezi değildir. Marka logosunun götürdüğü kök rota,
+bağımsız bir **genel çok sporlu ana sayfadır**:
+
+- İçeriği `assets/js/general-home.js` üretir; modül statiktir ve **kendi başına
+  hiçbir `fetch` yapmaz**. İlk ekran yalnız statik branş kartlarıdır.
+- Kök açılışta **sıfır spor API isteği** yapılır (`/api/football/*`,
+  `/api/sports/*`, `/api/ufc/*`, `/api/motorsports*` hiç çağrılmaz). Veri
+  yalnız kullanıcı bir branş seçtiğinde o branşın modülü tarafından istenir.
+- Futbol beş lig merkezi `/futbol` altına taşındı; `/all` geriye dönük
+  uyumluluk için aynı davranışı korur.
+
+Branş geçişleri `assets/js/branch-router.js` üzerinden yürür ve iki modu vardır:
+
+| Mod | Ne zaman | Davranış |
+| --- | --- | --- |
+| `CLIENT` | Hedef yüzey `register()` ile `mount`/`unmount` sunuyorsa (genel ana sayfa, basketbol, voleybol) | `history.pushState` ile belge yenilenmeden geçilir |
+| `MANAGED` | Hedef modül yüklenme anında `location.pathname`'e bağlıysa (futbol kökü, UFC, motor sporları) | Eski istek abort edilir → hedef paket `ensureXYZBranchModule()` ile indirilir → hedef belge prefetch edilir → ancak sonra tek `commitNavigation()` noktasından commit edilir |
+
+Her iki modda da: devam eden istekler `registerAbortHook()` üzerinden iptal
+edilir, header yeniden kurulmaz, tüm sayfa skeleton'a çevrilmez (yalnız ince
+`.xyz-route-progress` göstergesi açılır) ve yalnız yeni görünür branşın API
+ailesi çağrılır.
+
+`multisport.js` içindeki `pruneFootballSurface()` artık futbol DOM'unu
+**silmez, gizler** (`.xyz-branch-hidden`); silme işlemi geçişi tek yönlü
+yapıyordu, gizleme `restoreFootballSurface()` ile geri dönüşü mümkün kılar ve
+görünür DOM sızıntısını aynı şekilde engeller.
+
+Regresyon kapısı: `npm run qa:general-home`
+(`scripts/test-general-home-router.mjs`) — kök rotanın sıfır API sözleşmesini,
+`/futbol` ve `/all` tek `/football/home` kapsamını, router'ın
+`pushState`/abort/`popstate` davranışını ve MANAGED yolun
+abort → prefetch → commit sırasını doğrular. `npm run qa:dist` içindeki
+`smokeGeneralHome` senaryosu aynı sözleşmeyi gerçek tarayıcıda ölçer ve
+geçişin belge yenilemeden yapıldığını (`sameDocument`) kanıtlar.
+
+### Fotoğraf kapsamı şeffaflığı (v315)
+
+Lider listeleri ve haftanın 11'i yalnız resmî Sportmonks oyuncu fotoğrafı
+doğrulanmış oyuncuları gösterir; uydurma veya alternatif yüz kullanılmaz. Bu
+filtre gösterilen sıralamayı ham istatistik sıralamasından ayırabildiği için
+durum artık kullanıcıdan saklanmaz: `footballLeaderPhotoNoticeHTML()`
+"Fotoğraflı oyuncular" etiketini, kaç oyuncunun fotoğraf eksikliği nedeniyle
+listelenmediğini ve sıralamanın sapabileceğini açıkça yazar. Haftanın 11'i de
+aynı notu taşır.
+
+### Kaynak ve lisans şeffaflığı (v315)
+
+X/medya yüzeyinde yayıncı hesabı (`@handle`), platform ve kaynak bağlantısı
+kaldırılamaz; `xSourceLicenceNoteHTML()` içerik ve kaynak politikası
+bağlantısını hem dolu hem hata durumunda gösterir. Doğrulanmış kaynak URL'i
+yoksa `#` hedefli ölü bağlantı üretilmez, yayıncı adı düz metin olarak
+gösterilir.
+
 Futbol ürünü iki ayrı ekran sözleşmesine ayrılmıştır:
 
 | Rota | Sorumluluk | Veri kapsamı |
 | --- | --- | --- |
-| `/` | Beş liglik futbol maç merkezi | Süper Lig, Premier League, La Liga, Bundesliga ve Serie A |
+| `/` | Genel çok sporlu ana sayfa (statik branş kartları) | **Hiçbir spor API'si çağrılmaz** |
+| `/futbol` | Beş liglik futbol maç merkezi | Süper Lig, Premier League, La Liga, Bundesliga ve Serie A |
+| `/all` | `/futbol` ile aynı (geriye dönük uyumluluk) | Beş lig |
 | `/<lig>` | Seçili ligin genel bakışı | Yalnız URL'deki lig |
 | `/<lig>/matches` | Seçili ligin tam fikstürü | Yalnız URL'deki lig |
 | `/<lig>/standings` | Seçili ligin tam puan durumu | Yalnız URL'deki lig |

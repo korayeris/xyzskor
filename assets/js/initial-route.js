@@ -7,8 +7,16 @@
     if (detailFixture) document.body.classList.add("matchday-detail-open");
     var league = location.pathname.replace(/^\/+|\/+$/g, "");
     var homeLeagues = ["super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"];
-    var isFootballRoot = !league || league === "index.html" || league === "all";
+    // `/` artık beş ligli futbol merkezi değil, bağımsız çok sporlu genel
+    // ana sayfadır ve hiçbir spor API'sini çağırmaz. Futbol merkezi `/futbol`
+    // altındadır; `/all` geriye dönük uyumluluk için korunur.
+    var isGeneralHome = !league || league === "index.html";
+    var isFootballRoot = league === "futbol" || league === "all";
     document.body.classList.add("league-theme-all");
+    if (isGeneralHome) {
+      document.body.classList.add("general-home-route");
+      document.body.dataset.xyzRoute = "general-home";
+    }
     if (isFootballRoot) {
       document.body.classList.add("football-root-route");
       document.body.dataset.footballLeague = "all";
@@ -51,11 +59,12 @@
 
     var parts = location.pathname.split("/").filter(Boolean);
     var leagueNames = {"super-lig":"Süper Lig","premier-league":"Premier League","la-liga":"La Liga","bundesliga":"Bundesliga","serie-a":"Serie A"};
-    var productNames = {predict:"Predict",basketbol:"Basketbol",voleybol:"Voleybol",ufc:"UFC",motorsports:"Motor Sporları"};
+    var productNames = {predict:"Predict",basketbol:"Basketbol",voleybol:"Voleybol",ufc:"UFC",motorsports:"Motor Sporları",futbol:"Futbol",all:"Futbol"};
     var sectionNames = {matches:"Maçlar",agenda:"Gündem",clubs:"Kulüpler",transfers:"Transferler",standings:"Puan Durumu"};
     var titleParts = [];
     if (leagueNames[parts[0]]) titleParts.push(leagueNames[parts[0]], sectionNames[parts[1]] || "Futbol");
     else if (productNames[parts[0]]) titleParts.push(productNames[parts[0]]);
+    else if (isGeneralHome) titleParts.push("Çok Sporlu Canlı Skor");
     else titleParts.push("Futbol");
     document.title = titleParts.join(" · ") + " — XYZSKOR";
   } catch (_) {}

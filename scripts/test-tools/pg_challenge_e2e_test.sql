@@ -20,13 +20,43 @@ select 'e2e:'||i, 1, 'Ev '||i, 'Konuk '||i, now()+interval '3 hours', true, 'pla
        date '2026-08-17', (array['super-lig','premier-league','la-liga'])[1+(i%3)]
 from generate_series(1,6) i;
 
+-- 20260825160000_prediction_integrity_restore.sql tahmin yazmayi oturum zorunlu
+-- hale getirdi (auth.uid() null ise reddedilir). Bu yuzden her kullanicinin
+-- tahminleri kendi oturum baglaminda yazilir; boylece test hem eski davranisa
+-- gore guncellenmis olur hem de sahiplik kontrolunu gercekten kanitlar.
+set local "request.jwt.claim.sub" = '22222222-2222-2222-2222-222222222222';
 -- Mukemmel kullanici 6/6 dogru (hepsi ev sahibi kazanir -> pick '1')
 insert into public.predictions (match_id,user_id,pick,score_home,score_away)
 select 'e2e:'||i,'22222222-2222-2222-2222-222222222222','1',2,0 from generate_series(1,6) i;
+
+set local "request.jwt.claim.sub" = '33333333-3333-3333-3333-333333333333';
 -- Kismi kullanici 5 dogru 1 yanlis
 insert into public.predictions (match_id,user_id,pick,score_home,score_away)
 select 'e2e:'||i,'33333333-3333-3333-3333-333333333333', case when i=6 then 'X' else '1' end,2,0
 from generate_series(1,6) i;
+
+-- Regresyon: baska kullanici adina tahmin yazilamaz ve oturumsuz yazma reddedilir.
+do $$
+begin
+  begin
+    insert into public.predictions (match_id,user_id,pick,score_home,score_away)
+    values ('e2e:1','22222222-2222-2222-2222-222222222222','1',1,0);
+    raise exception 'GUVENLIK: baska kullanici adina tahmin yazilabildi.';
+  exception when others then
+    if position('Başka kullanıcı adına' in sqlerrm) = 0 then raise; end if;
+  end;
+end $$;
+reset "request.jwt.claim.sub";
+do $$
+begin
+  begin
+    insert into public.predictions (match_id,user_id,pick,score_home,score_away)
+    values ('e2e:2','22222222-2222-2222-2222-222222222222','1',1,0);
+    raise exception 'GUVENLIK: oturum olmadan tahmin yazilabildi.';
+  exception when others then
+    if position('oturum gerekli' in sqlerrm) = 0 then raise; end if;
+  end;
+end $$;
 
 -- DB tarafi kickoff kilidi (enforce_prediction_integrity) kanitlandi: tahminler
 -- kickoff oncesi yazildi, simdi maclar gecmise alinip settlement yapilir.

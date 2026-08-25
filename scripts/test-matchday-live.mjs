@@ -4,12 +4,13 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 
-async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {}, fixtureFallback = null, matchdayFailures = 0, sessionToken = '' }) {
+async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {}, fixtureFallback = null, matchdayFailures = 0, sessionToken = '', authSessionPromise = null }) {
   const requests = [];
   const listeners = new Map();
   const timers = [];
   let seasonRequest = 0;
   let matchdayRequest = 0;
+  let branchAbortHook = null;
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, { id, hidden:false, isConnected:true, textContent:'', innerHTML:'', style:{}, classList:{ toggle() {}, add() {}, remove() {} }, nextElementSibling:null, appendChild() {}, addEventListener() {}, querySelectorAll:() => [] });
@@ -28,7 +29,11 @@ async function runScenario({ pathname = '/super-lig', search = '', matches = [],
       createElement:() => ({ hidden:false, dataset:{}, className:'', textContent:'', addEventListener() {} }),
       querySelector:() => ({ appendChild() {} }), querySelectorAll:() => [], addEventListener:(name,handler) => listeners.set(name,handler)
     },
-    window:{ addEventListener:(name,handler) => listeners.set(`window:${name}`,handler), location:{ hash:'' } },
+    window:{
+      addEventListener:(name,handler) => listeners.set(`window:${name}`,handler),
+      location:{ hash:'' },
+      XYZBranchRouter:{ registerAbortHook:(hook) => { branchAbortHook=hook; } }
+    },
     setTimeout:(handler) => { timers.push(handler); return timers.length; }, clearTimeout() {},
     fetch:async (url, options = {}) => {
       requests.push(String(url));
@@ -51,12 +56,16 @@ async function runScenario({ pathname = '/super-lig', search = '', matches = [],
       }
       return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:detailDetails }) };
     },
-    sb:sessionToken ? { auth:{ getSession:async () => ({ data:{ session:{ access_token:sessionToken } } }) } } : undefined
+    sb:authSessionPromise
+      ? { auth:{ getSession:() => authSessionPromise } }
+      : sessionToken
+        ? { auth:{ getSession:async () => ({ data:{ session:{ access_token:sessionToken } } }) } }
+        : undefined
   };
   vm.runInNewContext(source, context, { filename:'matchday-live.js' });
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
-  return { requests, elements, listeners, timers };
+  return { requests, elements, listeners, timers, branchAbortHook };
 }
 
 const now = Date.now();
@@ -143,5 +152,20 @@ for (let poll = 0; poll < 2; poll += 1) {
 }
 assert.equal(predictionRun.requests.filter((url) => url.includes('/api/football/matchday?fixture=40001')).length, 3, 'İlk render ve iki skor poll aynı fixture detayını yenilemeli.');
 assert.equal(predictionRun.requests.filter((url) => url.includes('/api/football/prediction?fixture=40001')).length, 1, 'Aynı fixture ve auth bağlamında tahmin GET yalnız bir kez yapılmalı.');
+
+let resolveDelayedAuth;
+const delayedAuthSession = new Promise((resolve) => { resolveDelayedAuth = resolve; });
+const authRaceRun = await runScenario({
+  search:'?fixture=50001',
+  detailFixture:{ id:'sportmonks:50001', ev:'Yarış Ev', konuk:'Yarış Konuk', kickoff:iso(3600000), status:null, score:{} },
+  authSessionPromise:delayedAuthSession
+});
+assert.equal(typeof authRaceRun.branchAbortHook, 'function', 'Fixture rotası matchday branch abort hook’unu kaydetmeli.');
+assert.equal(authRaceRun.requests.filter((url) => url.includes('/api/football/prediction?fixture=50001')).length, 0, 'Auth beklerken tahmin GET başlamamalı.');
+authRaceRun.branchAbortHook();
+resolveDelayedAuth({ data:{ session:{ access_token:'delayed-token' } } });
+await new Promise((resolve) => setImmediate(resolve));
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(authRaceRun.requests.filter((url) => url.includes('/api/football/prediction?fixture=50001')).length, 0, 'Branch abort, sonradan çözülen auth sonucunun tahmin GET başlatmasını engellemeli.');
 
 console.log('Matchday resolver checks passed.');

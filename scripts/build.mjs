@@ -17,7 +17,7 @@ const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
 // chat.js daha önce parmak izine DAHİL DEĞİLDİ; bu yüzden yalnızca chat.js
 // değiştiğinde buildVersion aynı kalıyor ve tarayıcı eski dosyayı önbellekten
 // sunabiliyordu. Liste tek yere alınarak bu sınıf hata tekrarlanamaz hale getirildi.
-const CLIENT_JS_FILES = ["style-loader.js", "initial-route.js", "football-early.js", "data.js", "analytics.js", "live.js", "match-center.js", "matchday-live.js", "predict-game.js", "ui.js", "app-boot.js", "ui-extras.js", "chat.js", "multisport.js", "sport-branches.js", "motorsports.js", "ufc-hub.js", "compliance.js"];
+const CLIENT_JS_FILES = ["style-loader.js", "initial-route.js", "branch-router.js", "general-home.js", "football-early.js", "data.js", "analytics.js", "live.js", "match-center.js", "matchday-live.js", "predict-game.js", "ui.js", "app-boot.js", "ui-extras.js", "chat.js", "multisport.js", "sport-branches.js", "motorsports.js", "ufc-hub.js", "compliance.js"];
 const clientFingerprintSources = await Promise.all([
   resolve(root, "assets", "css", "app.css"),
   resolve(root, "assets", "css", "app-late.css"),
@@ -278,7 +278,7 @@ await cp(resolve(root, ".openai", "hosting.json"), resolve(dist, ".openai", "hos
 // paylaşılabilir ürün ve lig URL'lerini fiziksel giriş sayfaları olarak üretiriz.
 const leagues = ["super-lig", "la-liga", "premier-league", "bundesliga", "serie-a", "all"];
 const leagueSections = ["matches", "agenda", "clubs", "transfers", "standings"];
-const routeDirectories = ["predict", "basketbol", "basketbol/maclar", "basketbol/ligler", "basketbol/takimlar", "basketbol/predict", "ufc", "ufc/live", "ufc/events", "ufc/fighters", "ufc/rankings", "ufc/bouts", "ufc/maclar", "ufc/ligler", "ufc/predict", "voleybol", "voleybol/ligler", "motorsports", "motorsports/formula-1", "motorsports/formula-e", "motorsports/indycar", "motorsports/motogp", "motorsports/moto2", "motorsports/moto3", "motorsports/wrc", "motorsports/wec", "motorsports/le-mans", "motorsports/nascar", ...leagues.flatMap((league) => [
+const routeDirectories = ["predict", "futbol", "basketbol", "basketbol/maclar", "basketbol/ligler", "basketbol/takimlar", "basketbol/predict", "ufc", "ufc/live", "ufc/events", "ufc/fighters", "ufc/rankings", "ufc/bouts", "ufc/maclar", "ufc/ligler", "ufc/predict", "voleybol", "voleybol/ligler", "motorsports", "motorsports/formula-1", "motorsports/formula-e", "motorsports/indycar", "motorsports/motogp", "motorsports/moto2", "motorsports/moto3", "motorsports/wrc", "motorsports/wec", "motorsports/le-mans", "motorsports/nascar", ...leagues.flatMap((league) => [
   league,
   ...leagueSections.map((section) => `${league}/${section}`),
   `${league}/transfers/talks`,
@@ -288,7 +288,9 @@ const routeDirectories = ["predict", "basketbol", "basketbol/maclar", "basketbol
 for (const route of routeDirectories) {
   const target = resolve(dist, "client", ...route.split("/"), "index.html");
   await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, leagues.includes(route) ? canonicalLeanHtml : routeReadyHtml);
+  // `futbol` beş ligli futbol kökü olduğu için lig rotalarıyla aynı lean
+  // gövdeyi alır; branş rotaları legacy yerleşimi eager isteyen gövdeyi alır.
+  await writeFile(target, leagues.includes(route) || route === "futbol" ? canonicalLeanHtml : routeReadyHtml);
 }
 
 if (minifyEnabled) {

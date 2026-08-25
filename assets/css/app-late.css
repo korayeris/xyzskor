@@ -3753,7 +3753,7 @@ body.predict-product-open .predict-feed-kicker{display:block!important}
 @media(max-width:860px){body.predict-product-open #page-league{width:calc(100% - 20px)!important}body.predict-product-open .predict-app-shell{grid-template-columns:1fr!important}.predict-competition-rail{position:static!important;grid-row:1}.predict-feed-column{grid-row:2}}
 @media(max-width:520px){body.predict-product-open #page-league{width:100%!important;padding-top:10px!important}body.predict-product-open .predict-feed-column{padding:14px 8px!important;border-radius:0}body.predict-product-open .predict-faceoff{padding-inline:8px!important}body.predict-product-open .predict-action{padding-inline:8px!important}.predict-action .prediction-zone{padding:8px!important}}
 
-@view-transition{navigation:auto}
+@view-transition{navigation:none}
 ::view-transition-old(root){animation:xyzFadeOut .14s ease both}
 ::view-transition-new(root){animation:xyzFadeIn .2s ease both}
 @keyframes xyzFadeOut{to{opacity:.35}}
@@ -3824,3 +3824,13 @@ a.scoreboard-match-main,a.scoreboard-predict,a.scoreboard-open{text-decoration:n
 .scoreboard-early-ready .scoreboard-feature h2{white-space:pre-line}.scoreboard-early-ready .scoreboard-feature-score{display:block;text-align:center;font:850 22px/1 var(--mono)}
 .league-overview-table .team{display:table-cell;min-width:150px;text-align:left}.league-overview-table .team .shield{display:inline-flex;margin-right:7px;vertical-align:middle}.league-overview-table .team strong{display:inline-block;max-width:calc(100% - 34px);overflow:hidden;text-overflow:ellipsis;vertical-align:middle;white-space:nowrap}.league-overview-table .points{color:#72e1bd;font-weight:900}
 @media(max-width:640px){.league-overview-table{min-width:100%;table-layout:fixed}.league-overview-table th:nth-child(4),.league-overview-table td:nth-child(4),.league-overview-table th:nth-child(5),.league-overview-table td:nth-child(5),.league-overview-table th:nth-child(6),.league-overview-table td:nth-child(6),.league-overview-table th:nth-child(7),.league-overview-table td:nth-child(7),.league-overview-table th:nth-child(10),.league-overview-table td:nth-child(10){display:none}.league-overview-table th:nth-child(1),.league-overview-table td:nth-child(1){width:34px}.league-overview-table th:nth-child(3),.league-overview-table td:nth-child(3),.league-overview-table th:nth-child(8),.league-overview-table td:nth-child(8),.league-overview-table th:nth-child(9),.league-overview-table td:nth-child(9){width:38px}.league-overview-table .team{min-width:0}.league-overview-table .team strong{max-width:calc(100% - 31px)}}
+
+/* v315 — Branş ekranlarında dürüst ve kompakt veri durumu (P1.5/P1.6).
+   Eski 260px'lik kesikli boş kutu, veri az olduğunda ekranın tamamını boş
+   gösteriyordu. Kompakt varyant sola hizalı, sınırı düşük kontrastlı ve
+   son güncelleme/kapsam bilgisini taşır. */
+.multi-event-empty.is-compact{grid-column:1/-1;display:flex;flex-direction:column;gap:5px;place-items:start;align-content:start;min-height:0;padding:15px 17px;border:0;border-left:2px solid #33d6a0;border-radius:0 12px 12px 0;background:#11171d;text-align:left}
+.multi-event-empty.is-compact strong{color:#eef2f5;font-size:14px;line-height:1.35}
+.multi-event-empty.is-compact span{margin:0;color:#8b9aa4;font-size:11.5px;line-height:1.55;max-width:68ch}
+.multi-event-empty.is-compact em{margin-top:2px;color:#6d7b85;font-size:10px;font-style:normal;letter-spacing:.03em}
+@media(max-width:520px){.multi-event-empty.is-compact{padding:13px 14px}.multi-event-empty.is-compact strong{font-size:13px}}

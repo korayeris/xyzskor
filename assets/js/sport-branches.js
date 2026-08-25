@@ -1,6 +1,6 @@
 (() => {
   const primary = [
-    ["football", "Futbol", "/"],
+    ["football", "Futbol", "/futbol/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
     ["motorsports", "Motor Sporları", "/motorsports/"],
@@ -12,7 +12,9 @@
     voleybol: "volleyball",
     motorsports: "motorsports"
   };
-  const active = routeMap[location.pathname.split("/").filter(Boolean)[0]] || "football";
+  const firstSegment = location.pathname.split("/").filter(Boolean)[0];
+  // `/` genel çok sporlu ana sayfadır; hiçbir branş sekmesi aktif değildir.
+  const active = firstSegment ? (routeMap[firstSegment] || "football") : null;
 
   function renderMetrics(payload, sport) {
     const hub = document.getElementById("multiSportHub");
@@ -48,18 +50,44 @@
     nav.className = "sport-branch-nav sport-branch-nav-compact";
     nav.setAttribute("aria-label", "Spor branslari");
     nav.innerHTML = `<div class="sport-branch-main">
-      ${primary.map(([key, label, url]) => `<button class="sport-branch-button ${key === active ? "active" : ""}" data-branch="${key}" data-url="${url}">${label}</button>`).join("")}
+      ${primary.map(([key, label, url]) => `<button class="sport-branch-button ${key === active ? "active" : ""}" data-branch="${key}" data-url="${url}" ${key === active ? 'aria-current="page"' : ""}>${label}</button>`).join("")}
       <button class="sport-branch-button sport-predict-button" data-action="predict">Predict</button>
     </div>`;
     header.after(nav);
 
+    // Geçiş router'a devredilir: tam sayfa navigasyon (location.assign) burada
+    // yapılmaz; router eski isteği abort eder ve flash'sız geçişi yönetir.
+    const route = (url, label) => {
+      if (window.XYZBranchRouter) return window.XYZBranchRouter.navigate(url, { label });
+      return Promise.resolve(false);
+    };
+
     nav.querySelectorAll("[data-url]").forEach((button) => {
-      button.addEventListener("click", () => location.assign(button.dataset.url));
+      button.addEventListener("click", () => {
+        if (button.classList.contains("active")) return;
+        nav.querySelectorAll("[data-branch]").forEach((item) => {
+          item.classList.toggle("active", item === button);
+          if (item === button) item.setAttribute("aria-current", "page");
+          else item.removeAttribute("aria-current");
+        });
+        route(button.dataset.url, button.textContent.trim());
+      });
     });
     nav.querySelector("[data-action='predict']")?.addEventListener("click", () => {
       const existing = [...document.querySelectorAll(".primary-nav .maintab")].find((item) => /predict/i.test(item.textContent));
       if (existing) existing.click();
-      else location.assign("/predict/");
+      else route("/predict/", "Predict");
+    });
+    // Geri/ileri düğmesinde aktif branş vurgusu belge yenilenmeden güncellenir.
+    window.addEventListener("popstate", () => {
+      const segment = location.pathname.split("/").filter(Boolean)[0];
+      const key = segment ? (routeMap[segment] || "football") : null;
+      nav.querySelectorAll("[data-branch]").forEach((item) => {
+        const isActive = item.dataset.branch === key;
+        item.classList.toggle("active", isActive);
+        if (isActive) item.setAttribute("aria-current", "page");
+        else item.removeAttribute("aria-current");
+      });
     });
     if (active !== "football" && active !== "motorsports") setTimeout(refreshMetrics);
   }

@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   var path = location.pathname.replace(/^\/+|\/+$/g, "");
-  var canonical = new Set(["", "index.html", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
+  var canonical = new Set(["", "index.html", "futbol", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
   var fixture = new URLSearchParams(location.search).get("fixture");
   var isBranchRoute = !canonical.has(path) && !fixture;
   var pending = null;

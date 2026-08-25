@@ -58,6 +58,11 @@ const workerSource = await readFile(new URL('../worker/index.js', import.meta.ur
 const weeklyMigration = await readFile(new URL('../supabase/migrations/20260825130000_weekly_football_awards.sql', import.meta.url), 'utf8');
 const memberAdminHardeningMigration = await readFile(new URL('../supabase/migrations/20260825150000_member_admin_hardening.sql', import.meta.url), 'utf8');
 const predictionIntegrityRestoreMigration = await readFile(new URL('../supabase/migrations/20260825160000_prediction_integrity_restore.sql', import.meta.url), 'utf8');
+const predictionIntegrityRollbackMigration = await readFile(new URL('../supabase/migrations/rollback/20260825160000_prediction_integrity_restore_down.sql', import.meta.url), 'utf8');
+const predictionIntegrityStateCheck = await readFile(new URL('./test-tools/pg_prediction_integrity_state.sql', import.meta.url), 'utf8');
+const migrationCycleScript = await readFile(new URL('./test-tools/pg_migration_cycle.sh', import.meta.url), 'utf8');
+const pgSuiteScript = await readFile(new URL('./test-tools/pg_suite.sh', import.meta.url), 'utf8');
+const productionChecksWorkflow = await readFile(new URL('../.github/workflows/production-checks.yml', import.meta.url), 'utf8');
 const weeklyMethodDoc = await readFile(new URL('../docs/release-readiness/XYZSKOR_SCORING_METHODOLOGY.md', import.meta.url), 'utf8');
 const devServerSource = await readFile(new URL('./dev-server.mjs', import.meta.url), 'utf8');
 const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url), 'utf8');
@@ -77,6 +82,14 @@ assert.match(legalCss, /--legal-bg:#171521/, 'Yasal merkez ana portalın gece re
 assert.match(legalCss, /--legal-gold:#c93642/, 'Yasal merkez ana portalın kırmızı vurgu rengini kullanmalı.');
 assert.match(legalScript, /legal-brand-mark/, 'Yasal merkez ana sayfadaki marka kilidini kullanmalı.');
 assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
+const clientJsFingerprintList = buildScript.match(/const CLIENT_JS_FILES = \[([^\]]+)\];/)?.[1] || '';
+for (const routedClientFile of ['branch-router.js', 'general-home.js']) {
+  assert.match(
+    clientJsFingerprintList,
+    new RegExp(`["']${routedClientFile.replace('.', '\\.')}["']`),
+    `${routedClientFile} production parmak izi ve minify listesine dahil olmalı.`,
+  );
+}
 assert.match(workerSource, /handleFootballLeaders[\s\S]*handleFootballWeeklyAwards/, 'Haftalık futbol API uçları worker tarafında bulunmalı.');
 assert.match(workerSource, /XYZ_PERFORMANCE_ALGORITHM_VERSION\s*=\s*"v1"/, 'XYZ performans algoritması sürümlenmeli.');
 assert.match(dataSource, /loadFootballWeeklyFeatures[\s\S]*football\/leaders[\s\S]*football\/weekly-awards/, 'Haftalık modül yalnız kendi iki kapsam ucunu kullanmalı.');
@@ -91,6 +104,14 @@ assert.match(predictionIntegrityRestoreMigration, /create or replace function pu
 assert.match(predictionIntegrityRestoreMigration, /create trigger predictions_integrity_before_write[\s\S]*before insert or update/i, 'Predict bütünlük triggerı insert ve update işlemlerini korumalı.');
 assert.match(predictionIntegrityRestoreMigration, /create policy predictions_own_read[\s\S]*create policy predictions_own_insert[\s\S]*create policy predictions_own_update/i, 'Predict RLS yalnız kullanıcının kendi kayıt zincirini açmalı.');
 assert.match(predictionIntegrityRestoreMigration, /revoke all on table public\.predictions from public, anon/i, 'Predict tablosu anonim doğrudan erişime kapalı olmalı.');
+assert.match(predictionIntegrityRollbackMigration, /create policy predictions_own_read[\s\S]*create policy predictions_own_insert[\s\S]*create policy predictions_own_update[\s\S]*create policy predictions_admin_all/i, 'Predict rollback dört önceki RLS politikasını yeniden kurmalı.');
+assert.doesNotMatch(predictionIntegrityRollbackMigration, /grant\s+(?:select,\s*)?insert[^;]*\bto\s+anon\b/i, 'Predict rollback anon yazma yetkisi açmamalı.');
+assert.match(predictionIntegrityRollbackMigration, /revoke all on table public\.predictions from public, anon, authenticated[\s\S]*grant select, insert, update on table public\.predictions to authenticated/i, 'Predict rollback önceki sıkı tablo ACL durumunu kurmalı.');
+assert.match(predictionIntegrityRollbackMigration, /revoke all on function public\.enforce_prediction_integrity\(\)[\s\S]*from public, anon, authenticated/i, 'Predict rollback trigger fonksiyonunu doğrudan çağrıya kapalı tutmalı.');
+assert.match(predictionIntegrityStateCheck, /pg_policies[\s\S]*aclexplode[\s\S]*pg_get_functiondef[\s\S]*pg_get_triggerdef[\s\S]*pg_get_indexdef/i, 'Predict rollback katalog karşılaştırması policy, ACL, function, trigger ve index durumunu kapsamalı.');
+assert.match(migrationCycleScript, /prediction_integrity_pre_state[\s\S]*prediction_integrity_rollback_state[\s\S]*= "\$prediction_integrity_pre_state"/, 'Migration döngüsü Predict rollback durumunu re-apply öncesinde birebir karşılaştırmalı.');
+assert.match(productionChecksWorkflow, /image:\s*postgres:16[\s\S]*npm run qa:db/, 'Production CI gerçek PostgreSQL üzerinde migration/rollback/RLS paketini çalıştırmalı.');
+assert.match(pgSuiteScript, /bash "\$DIR\/pg_migration_cycle\.sh"[\s\S]*bash "\$DIR\/pg_concurrency_test\.sh"/, 'DB paketi alt shell testlerini ZIP/Git executable bitine bağlı olmadan Bash ile başlatmalı.');
 assert.match(weeklyMethodDoc, /Sportmonks verilerinden XYZSkor tarafından hesaplandı/, 'Hesaplanan haftalık verinin kaynağı açıkça belgelenmeli.');
 assert.match(buildScript, /ui-stage\.js[\s\S]*ui-runtime\.js[\s\S]*stageIndex[\s\S]*runtimeIndex/, 'Production UI üç güvenli top-level chunk olarak üretilmeli.');
 assert.match(appBootSource, /var stageChunk = \["xyzUiStageTemplate"[\s\S]*var runtimeChunk = \["xyzUiRuntimeTemplate"[\s\S]*\.then\(nextTask\)[\s\S]*stageChunk\.concat\(true\)[\s\S]*\.then\(nextTask\)[\s\S]*runtimeChunk\.concat\(true\)/, 'Preload edilen UI stage ve runtime chunkları ayrı macrotasklarda sırayla çalışmalı.');
@@ -258,7 +279,8 @@ assert.match(html, /matches-hub-view[^}]*background:linear-gradient\(180deg,#dfe
 assert.match(html, /id="footballTeamStrip"/i, 'Futbol alanında gerçek veriden üretilen takım filtresi bulunmalı.');
 assert.match(html, /id="clubSocialSection"/i, 'Resmî kulüp X akışı bulunmalı.');
 assert.match(html, /const X_CLUBS = \[/i, 'X akışı yalnız tanımlı resmî kulüp hesaplarını kullanmalı.');
-assert.match(functionSource('loadXClubPosts'), /fetch\('\/api\/football\/x-media'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
+assert.match(functionSource('fetchLeagueXMediaPayload'), /fetch\('\/api\/football\/x-media'/, 'X paylaşımları medya destekli aynı alan adlı sunucu katmanından alınmalı.');
+assert.match(functionSource('loadXClubPosts'), /fetchLeagueXMediaPayload\(\)/, 'Kulüp X görünümü aynı alan adlı merkezi medya GET yardımcısını kullanmalı.');
 assert.doesNotMatch(html, /id="preseasonSocialSection"/i, 'Hazırlık maçı sosyal akışı ana sayfadan kaldırılmış kalmalı.');
 assert.doesNotMatch(html, /Güvenli Beta/i, 'Güvenli Beta bandı görünür sayfadan kaldırılmış kalmalı.');
 assert.match(appCss, /\.transfer-signal-stream\{[^}]*grid-auto-flow:row[^}]*overflow-y:auto/, 'X sinyal kaynakları okunaklı dikey akış kullanmalı.');
@@ -291,7 +313,24 @@ assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image
 assert.match(liveFunctionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
 assert.match(liveFunctionSource('xEmptyFeedHTML'), /club-social-empty[\s\S]*XYZSKOR TRANSFER MASASI/, 'Boş kaynak akışı sahte haber kartları yerine kompakt XYZSkor transfer durumu göstermeli.');
 assert.match(workerSource, /TRANSFER_NEWS_KEYWORDS[\s\S]*isTransferNewsPost[\s\S]*filter\(\(row\) => isTransferNewsPost/, 'Sosyal kaynak akışı yalnız transfer sinyallerini kabul etmeli.');
-assert.match(liveFunctionSource('xPostCardHTML'), /xyzTransferSummary[\s\S]*Haberi aç/, 'Transfer kartı ham gönderi kopyası yerine XYZSkor özeti ve kaynak bağlantısı sunmalı.');
+assert.match(liveFunctionSource('xPostCardHTML'), /xyzTransferSummary[\s\S]*Kaynak gönderiyi aç/, 'Transfer kartı ham gönderi kopyası yerine XYZSkor özeti ve kaynak bağlantısı sunmalı.');
+// P1.7 kaynak ve lisans şeffaflığı: yayıncı hesabı, kaynak bağlantısı ve
+// içerik/lisans politikası bu yüzeyden kaldırılamaz.
+assert.match(liveFunctionSource('xPostCardHTML'), /publisherLine[\s\S]*@\$\{escapeHTML\(handle\)\}/, 'X transfer kartı yayıncı hesabını (@handle) kullanıcıdan saklamamalı.');
+assert.match(liveFunctionSource('xPostCardHTML'), /safeExternalURL\(targetURL\)/, 'X transfer kartı kaynak bağlantısını doğrulanmış dış URL üzerinden vermeli.');
+assert.match(liveFunctionSource('xPostCardHTML'), /is-unlinked[\s\S]*Kaynak:/, 'Geçerli kaynak bağlantısı yoksa ölü bağlantı yerine yayıncı adı düz metin gösterilmeli.');
+assert.match(appSource, /function xSourceLicenceNoteHTML\(\)[\s\S]*icerik-ve-kaynak-politikasi\.html/, 'X/medya yüzeyi içerik ve kaynak politikası bağlantısını taşımalı.');
+assert.match(appSource, /xEmptyFeedHTML\(clubs,label,code\)\+xSourceLicenceNoteHTML\(\)/, 'Kaynak/lisans notu hata durumunda da gösterilmeli.');
+assert.match(appSource, /item\.sourceUrl&&item\.sourceUrl!=='#'[\s\S]{0,400}transfer-record-source is-unlinked/, 'Transfer kaydı doğrulanmamış kaynak icin `#` hedefli ölü bağlantı yerine düz metin kaynak göstermeli.');
+
+// P1.3/P1.4 fotoğraf kapsamı şeffaflığı: resmî fotoğrafı olmayan gerçek lider
+// atlanabildiği için sıralamanın fotoğrafla filtrelendiği açıkça etiketlenmeli.
+assert.match(appSource, /function footballLeaderPhotoNoticeHTML\(/, 'Lider listeleri fotoğraf kapsamı etiketi üretmeli.');
+assert.match(liveFunctionSource('footballLeaderPhotoNoticeHTML'), /Fotoğraflı oyuncular/, 'Fotoğraf kapsamı etiketi kullanıcıya açık metinle sunulmalı.');
+assert.match(liveFunctionSource('footballLeaderPhotoNoticeHTML'), /ham istatistik sıralamasından farklı olabilir/, 'Etiket, sıralamanın ham istatistikten sapabileceğini açıkça söylemeli.');
+assert.match(liveFunctionSource('footballLeaderListHTML'), /footballLeaderPhotoNoticeHTML\(rawRows,picturedRows\)/, 'Lider listesi etiketi ham ve fotoğraflı satır sayılarıyla hesaplamalı.');
+assert.match(liveFunctionSource('footballTeamOfWeekHTML'), /Fotoğraflı oyuncular[\s\S]*11'e alınmadı/, 'Haftanın 11\'i fotoğraf kapsamı nedeniyle değişen sıralamayı açıkça bildirmeli.');
+assert.match(footballHubCss, /football-leader-photo-notice/, 'Fotoğraf kapsamı etiketi için stil tanımlanmalı.');
 assert.match(appCss, /club-social-card\.has-media \.club-social-copy\{height:82px;min-height:82px/, 'Masaüstü X kartlarında medya başlangıç çizgisi eşitlenmeli.');
 assert.match(appCss, /club-social-media\.items-3\{grid-template-columns:minmax\(0,1\.28fr\) minmax\(0,\.72fr\)/, 'Üç görselli X gönderisi dengeli bir ana görsel kompozisyonu kullanmalı.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
@@ -645,7 +684,8 @@ assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 
 assert.doesNotMatch(multisportSource, /skiPortalHTML|data-ski-discipline|americanFootball|australianFootball|\brugby\b|\bbaseball\b|\bhandball\b|\bhockey\b/, 'Emekli spor dallarinin erişilemez renderer kodu bundle icinde kalmamali.');
 assert.doesNotMatch(appCss, /ski-hero-v1|field-hero-v1|data-sport=["']ski/, 'Emekli Kayak renderer ve kullanilmayan kahraman gorselleri CSS icinde kalmamali.');
 assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
-assert.match(sportBranchesSource, /\["football", "Futbol", "\/"\]/, 'Spor menüsünün ilk öğesi genel ana sayfa gibi davranmamalı; futbol kapsamını açıkça belirtmeli.');
+// `/` genel çok sporlu ana sayfaya ayrıldı; futbol kapsamı `/futbol/` altındadır.
+assert.match(sportBranchesSource, /\["football", "Futbol", "\/futbol\/"\]/, 'Spor menüsünün ilk öğesi genel ana sayfa gibi davranmamalı; futbol kapsamını açıkça `/futbol/` olarak belirtmeli.');
 assert.match(motorsportsSource, /href="\/ufc\/">UFC/, 'Motor sporları kabuğu UFC geçişini kaybetmemeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');
