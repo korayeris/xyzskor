@@ -2069,16 +2069,21 @@ function verifiedWeeklyPlayerImage(value){
   }catch(_){return '';}
 }
 
-function weeklyPlayerInitials(value){
-  const parts=String(value||'').trim().split(/\s+/).filter(Boolean);
-  return (parts.slice(0,2).map(part=>part.charAt(0)).join('')||'—').toLocaleUpperCase('tr-TR');
+function verifiedWeeklyTeamImage(value){
+  const raw=String(value||'').trim();
+  if(!raw || /placeholder/i.test(raw)) return '';
+  try{
+    const parsed=new URL(raw,location.origin);
+    return parsed.hostname==='cdn.sportmonks.com' && /\/images\/soccer\/teams\//i.test(parsed.pathname) ? parsed.href : '';
+  }catch{return '';}
 }
 
 function weeklyPlayerVisual(player){
-  const src=verifiedWeeklyPlayerImage(player?.playerImage);
-  return src
-    ? `<img src="${escapeHTML(src)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-    : `<i class="weekly-player-monogram" aria-hidden="true">${escapeHTML(weeklyPlayerInitials(player?.playerName))}</i>`;
+  const playerSrc=verifiedWeeklyPlayerImage(player?.playerImage);
+  const teamSrc=verifiedWeeklyTeamImage(player?.teamImage);
+  if(playerSrc) return `<img src="${escapeHTML(playerSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+  if(teamSrc) return `<img class="weekly-player-team-crest" src="${escapeHTML(teamSrc)}" alt="${escapeHTML(player?.teamName||'Kulüp')} arması" loading="lazy" referrerpolicy="no-referrer">`;
+  return `<img class="weekly-player-team-crest" src="/assets/world-cup-2026-ball.png" alt="Oyuncu görseli sağlayıcı tarafından yayınlanmadı" loading="lazy">`;
 }
 function footballLeaderListHTML(rows,label){
   if(!Array.isArray(rows)||!rows.length) return `<p class="football-weekly-empty">${escapeHTML(label)} verisi henüz doğrulanmış olarak yayınlanmadı.</p>`;
