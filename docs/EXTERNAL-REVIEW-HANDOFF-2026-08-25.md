@@ -214,14 +214,38 @@ raporlanmalı; geçmiş bir rapor yeni kanıt gibi sunulmamalıdır.
 - Gerçek canlı maç zinciri ve email doğrulama kanıtı eklenir.
 - Legal ve production DB gate'i yeşil olmadan release tamamlandı sayılmaz.
 
-## 10. Dış geliştiriciye verilecek kısa görev metni
+## 10. Dış geliştiriciye verilecek full-stack görev metni
 
-> XYZSKOR deposunu devral. Önce bu belgedeki mimari sözleşmeleri ve testleri
-> doğrula. Çalışan backend, API kota korumaları, lig/branş izolasyonu, Predict
-> güvenliği ve Supabase RLS yapısını bozma. Öncelik sırası: gerçek çok sporlu ana
-> sayfa, flash/delay üretmeyen route-aware geçiş, tüm branşlarda boşluksuz mobil
-> UI, yalnız lisanslı gerçek oyuncu fotoğrafları, canlı maç E2E, SMTP ve production
-> PostgreSQL doğrulaması, ardından legal gate. FotMob/Sofascore'u kopyalama;
-> XYZSKOR'un kömür/mercan/mint tasarımını sade ve özgün biçimde geliştir. Her
-> değişiklikten sonra request-cardinality, responsive ve performance kapılarını
-> çalıştır. Yapamadığın veya doğrulayamadığın her şeyi final raporda açıkça yaz.
+> XYZSKOR deposunu full-stack olarak devral; görev yalnız UI değildir. Önce bu
+> belgedeki mimari sözleşmeleri ve testleri doğrula. Çalışan backend, API kota
+> korumaları, lig/branş izolasyonu, Predict güvenliği ve Supabase RLS yapısını
+> bozma. UI tarafında gerçek çok sporlu genel ana sayfa, flash/delay üretmeyen
+> route-aware geçiş, özgün ve sade lig sayfaları, düzgün Predict kartları,
+> resmî oyuncu fotoğraflı haftanın takımı ve tüm branşlarda boşluksuz mobil
+> ekranlar üret. Backend tarafında gerçek canlı maç yaşam döngüsü, Sportmonks
+> kapsam doğrulaması, haftalık algoritma/veri kalitesi, Supabase migration/RLS,
+> 20 paralel hesaplama, rollback/re-apply, Auth SMTP ve gözlemlenebilir cache
+> zincirini tamamla. FotMob/Sofascore'u piksel piksel kopyalama; XYZSKOR'un
+> kömür/mercan/mint tasarımını sade ve özgün biçimde geliştir. Kullanıcı hangi
+> branşı veya ligi görüyorsa yalnız onun API'si çalışsın. Her değişiklikten sonra
+> request-cardinality, API, security, DB, responsive ve performance kapılarını
+> çalıştır. Yapamadığın veya gerçek ortamda doğrulayamadığın her şeyi final
+> raporda açıkça yaz; mock test sonucunu canlı production kanıtı gibi sunma.
+
+### Full-stack teslim kapsamı
+
+1. **UI/UX:** Genel çok sporlu ana sayfa, ortak sabit shell, pürüzsüz branş ve lig
+   geçişleri, özgün görsel dil, mobil/masaüstü parity, dürüst empty/error/loading
+   durumları ve erişilebilir 44×44 kontroller.
+2. **Futbol verisi:** Beş ligde maçlar, canlı skor, puan durumu, kadro/diziliş,
+   olaylar, istatistikler, liderler, haftanın oyuncuları ve haftanın 11'i için
+   gerçek sağlayıcı kapsamı ve lisanslı görsel doğrulaması.
+3. **Diğer branşlar:** Basketbol, voleybol, UFC ve motor sporlarında yalnız aktif
+   branşın verisi; başka branştan DOM, metin veya API sızıntısı olmaması.
+4. **Backend/kota:** Edge cache, stale-while-revalidate, single-flight, lease,
+   timeout, structured error, no-false-empty ve görünür kapsama göre polling.
+5. **Supabase/Auth:** Migration, RLS, admin/kullanıcı yönetimi, Predict kayıtları,
+   ödül atomikliği, SMTP doğrulama ve production operasyon kanıtı.
+6. **Release:** Legal gate hariç tüm otomatik testleri, gerçek PostgreSQL paketini,
+   canlı maç gözlemini, SMTP akışını ve final responsive/performance raporunu
+   sun; legal placeholder'lar gerçek yetkili bilgi olmadan uydurulmasın.
