@@ -58,8 +58,14 @@ let supabaseClientLoadPromise = null;
 let resolveSupabaseClientReady = null;
 const supabaseClientReadyPromise = new Promise(resolve=>{ resolveSupabaseClientReady=resolve; });
 const SUPABASE_CLIENT_SOURCES = [
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
+  {
+    src:'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js',
+    integrity:'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV',
+  },
+  {
+    src:'https://unpkg.com/@supabase/supabase-js@2.112.4/dist/umd/supabase.js',
+    integrity:'sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz',
+  },
 ];
 function activateSupabaseClient(){
   try{
@@ -84,12 +90,15 @@ function activateSupabaseClient(){
     return false;
   }
 }
-function loadSupabaseClientSource(src,index){
+function loadSupabaseClientSource(source,index){
   return new Promise(resolve=>{
     if(activateSupabaseClient()){ resolve(true); return; }
     const script=document.createElement('script');
     script.async=true;
-    script.src=src;
+    script.src=source.src;
+    script.integrity=source.integrity;
+    script.crossOrigin='anonymous';
+    script.referrerPolicy='no-referrer';
     script.dataset.xyzSupabaseSource=String(index);
     let settled=false;
     const finish=(ok,mayArriveLate=false)=>{

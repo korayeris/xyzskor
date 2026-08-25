@@ -66,7 +66,7 @@ function buildFootballPath(league, section, transferTab, clubSlug){
   const safeLeague = validFootballLeagueKey(league);
   const safeSection = ['home','matches','news','clubs','transfers','standings'].includes(section) ? section : 'home';
   const base = safeLeague==='all' ? '/all' : `/${safeLeague}`;
-  if(safeSection==='home') return safeLeague==='all' ? '/' : base;
+  if(safeSection==='home') return safeLeague==='all' ? '/futbol/' : base;
   if(safeSection==='transfers'){
     const safeTransferTab = normalizeTransferRouteTab(transferTab);
     return safeTransferTab==='confirmed' ? `${base}/transfers` : `${base}/transfers/${safeTransferTab}`;
@@ -75,11 +75,33 @@ function buildFootballPath(league, section, transferTab, clubSlug){
   const segmentMap = { matches:'matches', news:'agenda', clubs:'clubs', standings:'standings' };
   return `${base}/${segmentMap[safeSection] || ''}`.replace(/\/+$/,'');
 }
+const FOOTBALL_RETURN_PATH_KEY='xyzskor:football-return-path:v1';
+function rememberFootballReturnPath(){
+  const current=(location.pathname||'/').replace(/\/+$/,'')||'/';
+  let target='';
+  if(current==='/futbol'||current==='/all') target='/futbol/';
+  else if(/^\/(super-lig|premier-league|la-liga|bundesliga|serie-a)(?:\/|$)/.test(current)) target=current;
+  else if(current.startsWith('/football')) target=current;
+  if(!target) return '';
+  try{ sessionStorage.setItem(FOOTBALL_RETURN_PATH_KEY,target); }catch(_error){}
+  return target;
+}
+function storedFootballReturnPath(){
+  let stored='';
+  try{ stored=sessionStorage.getItem(FOOTBALL_RETURN_PATH_KEY)||''; }catch(_error){}
+  if(!/^\/(?:futbol(?:\/|$)|football(?:\/|$)|super-lig(?:\/|$)|premier-league(?:\/|$)|la-liga(?:\/|$)|bundesliga(?:\/|$)|serie-a(?:\/|$))/.test(stored)) return '';
+  return stored==='/futbol' ? '/futbol/' : stored;
+}
+if(typeof window!=='undefined') window.rememberXYZFootballReturnPath=rememberFootballReturnPath;
 function buildProductPath(name){
   const product = ['league','predict'].includes(name) ? 'predict' : 'football';
   if(product==='predict'){
     const section=typeof activeLeagueSection!=='undefined' ? activeLeagueSection : 'predict';
     return section==='predict' ? '/predict' : `/predict/${section}`;
+  }
+  if(/^\/predict(?:\/|$)/.test(location.pathname||'')){
+    const remembered=storedFootballReturnPath();
+    if(remembered) return remembered;
   }
   return buildFootballPath(activeFootballLeague, typeof activeFootballSection!=='undefined' ? activeFootballSection : 'home', typeof activeTransferCenterTab!=='undefined' ? activeTransferCenterTab : 'confirmed');
 }
@@ -87,6 +109,7 @@ function updatePath(pathname, replace){
   const targetPath = pathname && pathname.startsWith('/') ? pathname : `/${String(pathname || '').replace(/^\/+/,'')}`;
   if(location.pathname===targetPath && !location.hash) return;
   history[replace ? 'replaceState' : 'pushState'](null,'',targetPath);
+  if(window.XYZBranchRouter?.syncMetadata) window.XYZBranchRouter.syncMetadata(location.pathname,location.search);
 }
 function parseLegacyHash(){
   const h = (location.hash || '').replace('#','');
@@ -755,6 +778,13 @@ function switchMainTab(name, updateUrl){
   const storyPage=document.getElementById('page-story');
   const leaguePage=document.getElementById('page-league');
   const livePage=document.getElementById('page-live');
+  if(product==='football'&&updateUrl!==false&&/^\/predict(?:\/|$)/.test(location.pathname||'')){
+    const returnPath=storedFootballReturnPath()||'/futbol/';
+    if(window.XYZBranchRouter) window.XYZBranchRouter.navigate(returnPath,{label:'Futbol'});
+    else location.assign(returnPath);
+    return;
+  }
+  if(product==='predict') rememberFootballReturnPath();
   if(product==='predict'&&!leaguePage){ location.assign('/predict'); return; }
   if(product==='predict'&&typeof ensureXYZLegacyStyles==='function') ensureXYZLegacyStyles();
   if(product==='predict'&&typeof ensureXYZUiExtras==='function') ensureXYZUiExtras();

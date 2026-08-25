@@ -62,7 +62,7 @@
       <header class="mini-goal-head">
         <div>
           <span>Predict Mini Oyun</span>
-          <h2>Golü At</h2>
+          <h2 id="miniGoalTitle">Golü At</h2>
           <p>Top sekiyor. Alttaki barı sağa-sola sürükle, topu kaleye sektir.</p>
         </div>
         <button class="mini-goal-close" id="miniGoalClose" type="button" aria-label="Mini oyunu kapat">x</button>
@@ -125,6 +125,63 @@
       goalFlashUntil:0,
       goalTextUntil:0
     };
+    const focusableSelector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled]):not([type="hidden"])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[contenteditable="true"]',
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(',');
+    el.modal.tabIndex = -1;
+
+    function isVisible(element){
+      if(!element || element.hidden || element.closest('[hidden],[aria-hidden="true"]')) return false;
+      const style = getComputedStyle(element);
+      return style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse' && element.getClientRects().length > 0;
+    }
+
+    function focusWithoutScroll(element){
+      if(!element) return;
+      try{ element.focus({ preventScroll:true }); }
+      catch(_error){ element.focus(); }
+    }
+
+    function dialogFocusables(){
+      return [...el.modal.querySelectorAll(focusableSelector)].filter(isVisible);
+    }
+
+    function focusDialog(){
+      focusWithoutScroll(isVisible(el.close) ? el.close : el.modal);
+    }
+
+    function trapDialogFocus(event){
+      const focusables = dialogFocusables();
+      if(!focusables.length){
+        event.preventDefault();
+        focusWithoutScroll(el.modal);
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if(event.shiftKey && (active === first || !el.modal.contains(active))){
+        event.preventDefault();
+        focusWithoutScroll(last);
+      }else if(!event.shiftKey && (active === last || !el.modal.contains(active))){
+        event.preventDefault();
+        focusWithoutScroll(first);
+      }
+    }
+
+    function restoreTriggerFocus(){
+      if(isVisible(trigger)){
+        focusWithoutScroll(trigger);
+      }else if(overlay.contains(document.activeElement)){
+        document.activeElement?.blur?.();
+      }
+    }
 
     function track(name, data = {}){
       if(typeof trackEvent === 'function') trackEvent(name, { goals:game.goals, misses:game.misses, points:pointValue(game.goals), ...data });
@@ -449,6 +506,7 @@
       trigger.setAttribute('aria-expanded', 'true');
       document.body.classList.add('mini-goal-open');
       trigger.classList.add('is-game-hidden');
+      focusDialog();
       track('predict_game_view');
       await restart();
     }
@@ -461,6 +519,7 @@
       trigger.classList.remove('is-game-hidden');
       if(raf) cancelAnimationFrame(raf);
       raf = 0;
+      restoreTriggerFocus();
     }
 
     function moveBarFromPointer(event){
@@ -483,11 +542,19 @@
     el.canvas.addEventListener('pointercancel', () => { pointerActive = false; });
     window.addEventListener('keydown', (event) => {
       if(!game.open) return;
+      if(event.key === 'Escape' || event.code === 'Escape'){
+        event.preventDefault();
+        close();
+        return;
+      }
+      if(event.key === 'Tab'){
+        trapDialogFocus(event);
+        return;
+      }
       if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(event.code)){
         game.keys.add(event.code);
         event.preventDefault();
       }
-      if(event.code === 'Escape') close();
     });
     window.addEventListener('keyup', (event) => { game.keys.delete(event.code); });
     window.addEventListener('resize', () => { setupCanvas(); draw(); });

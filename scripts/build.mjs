@@ -93,6 +93,72 @@ const routeReadyHtml = splitUiHtml
   // create on a cold mobile navigation.
   .replace(/>\s*\r?\n\s*</g, "><");
 
+const PUBLIC_ORIGIN = "https://xyzskor-tr.korayeris2002.chatgpt.site";
+const routeLabels = {
+  futbol:"Futbol", all:"Tüm Ligler", "super-lig":"Süper Lig", "premier-league":"Premier League",
+  "la-liga":"La Liga", bundesliga:"Bundesliga", "serie-a":"Serie A", predict:"Predict",
+  basketbol:"Basketbol", voleybol:"Voleybol", ufc:"UFC", motorsports:"Motor Sporları",
+  matches:"Maçlar", maclar:"Maçlar", agenda:"Gündem", clubs:"Kulüpler", takimlar:"Takımlar",
+  ligler:"Ligler", transfers:"Transferler", standings:"Puan Durumu", talks:"Görüşmeler",
+  rumours:"Söylentiler", live:"Canlı", events:"Etkinlikler", fighters:"Dövüşçüler",
+  rankings:"Sıralamalar", bouts:"Müsabakalar", "formula-1":"Formula 1", "formula-e":"Formula E",
+  indycar:"IndyCar", motogp:"MotoGP", moto2:"Moto2", moto3:"Moto3", wrc:"WRC", wec:"WEC",
+  "le-mans":"Le Mans", nascar:"NASCAR",
+};
+
+function routeMetadata(route) {
+  const normalized = String(route || "").replace(/^\/+|\/+$/g, "");
+  if (!normalized) {
+    return {
+      title:"XYZSkor — Bilinmeyen Skoru Verilerle Çöz",
+      description:"Süper Lig, Premier League, La Liga, Bundesliga ve Serie A için canlı skor, fikstür, puan durumu ve ücretsiz tahmin yarışması.",
+      url:`${PUBLIC_ORIGIN}/`,
+    };
+  }
+  const segments = normalized.split("/");
+  const labels = segments.map((segment) => routeLabels[segment] || segment.replace(/(^|-)\p{L}/gu, (value) => value.replace("-", " ").toUpperCase()));
+  const product = segments[0];
+  const descriptions = {
+    futbol:"Beş büyük lig için canlı skor, fikstür, puan durumu, kadro ve maç verileri.",
+    all:"Süper Lig ve Avrupa'nın dört büyük ligi için birleşik canlı skor ve fikstür görünümü.",
+    predict:"Ücretsiz futbol tahmin yarışmasına katıl, skorunu takip et ve haftalık sıralamada yerini gör.",
+    basketbol:"Basketbol maçları, ligler, takımlar ve güncel skor akışı.",
+    voleybol:"Voleybol maçları, ligler, takımlar ve güncel skor akışı.",
+    ufc:"UFC etkinlikleri, dövüş kartları, sporcu profilleri ve sıralamalar.",
+    motorsports:"Formula 1, MotoGP, WRC, WEC ve diğer motor sporları için takvim, sonuç ve sıralamalar.",
+    "super-lig":"Süper Lig canlı skorları, fikstürü, puan durumu, transferleri ve takım verileri.",
+    "premier-league":"Premier League canlı skorları, fikstürü, puan durumu, transferleri ve takım verileri.",
+    "la-liga":"La Liga canlı skorları, fikstürü, puan durumu, transferleri ve takım verileri.",
+    bundesliga:"Bundesliga canlı skorları, fikstürü, puan durumu, transferleri ve takım verileri.",
+    "serie-a":"Serie A canlı skorları, fikstürü, puan durumu, transferleri ve takım verileri.",
+  };
+  return {
+    title:`${labels.join(" · ")} — XYZSKOR`,
+    description:descriptions[product] || "XYZSKOR canlı skor, spor verisi ve analiz merkezi.",
+    url:`${PUBLIC_ORIGIN}/${normalized}/`,
+  };
+}
+
+function escapeHtmlAttribute(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function withRouteMetadata(html, route) {
+  const metadata = routeMetadata(route);
+  const title = escapeHtmlAttribute(metadata.title);
+  const description = escapeHtmlAttribute(metadata.description);
+  const url = escapeHtmlAttribute(metadata.url);
+  return html
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${title}</title>`)
+    .replace(/<meta name="description" content="[^"]*">/i, `<meta name="description" content="${description}">`)
+    .replace(/<link rel="canonical" href="[^"]*">/i, `<link rel="canonical" href="${url}">`)
+    .replace(/<meta property="og:url" content="[^"]*">/i, `<meta property="og:url" content="${url}">`)
+    .replace(/<meta property="og:title" content="[^"]*">/i, `<meta property="og:title" content="${title}">`)
+    .replace(/<meta property="og:description" content="[^"]*">/i, `<meta property="og:description" content="${description}">`)
+    .replace(/<meta name="twitter:title" content="[^"]*">/i, `<meta name="twitter:title" content="${title}">`)
+    .replace(/<meta name="twitter:description" content="[^"]*">/i, `<meta name="twitter:description" content="${description}">`);
+}
+
 function markerBounds(html, marker, label) {
   const startMarker = `<!-- ${marker}_START -->`;
   const endMarker = `<!-- ${marker}_END -->`;
@@ -187,7 +253,7 @@ for (const templateId of [
 if (productionHtml.includes("PRODUCTION_STRIP_LEGACY")) {
   throw new Error("Production HTML temizleme işaretleri eşleşmedi.");
 }
-await writeFile(resolve(dist, "client", "index.html"), canonicalLeanHtml);
+await writeFile(resolve(dist, "client", "index.html"), withRouteMetadata(canonicalLeanHtml, ""));
 await cp(resolve(root, "assets"), resolve(dist, "client", "assets"), { recursive: true });
 await cp(resolve(root, "legal"), resolve(dist, "client", "legal"), { recursive: true });
 const fragmentDirectory = resolve(dist, "client", "assets", "fragments");
@@ -273,6 +339,7 @@ for (const cssFile of ["football-hub.css", "app.css", "app-late.css"]) {
 
 await cp(resolve(root, "worker", "index.js"), resolve(dist, "server", "index.js"));
 await cp(resolve(root, ".openai", "hosting.json"), resolve(dist, ".openai", "hosting.json"));
+await cp(resolve(root, "site.webmanifest"), resolve(dist, "client", "site.webmanifest"));
 
 // Sites, mevcut olmayan yol isteklerini ana sayfaya yönlendirir. Bu yüzden
 // paylaşılabilir ürün ve lig URL'lerini fiziksel giriş sayfaları olarak üretiriz.
@@ -290,7 +357,8 @@ for (const route of routeDirectories) {
   await mkdir(dirname(target), { recursive: true });
   // `futbol` beş ligli futbol kökü olduğu için lig rotalarıyla aynı lean
   // gövdeyi alır; branş rotaları legacy yerleşimi eager isteyen gövdeyi alır.
-  await writeFile(target, leagues.includes(route) || route === "futbol" ? canonicalLeanHtml : routeReadyHtml);
+  const routeHtml = leagues.includes(route) || route === "futbol" ? canonicalLeanHtml : routeReadyHtml;
+  await writeFile(target, withRouteMetadata(routeHtml, route));
 }
 
 if (minifyEnabled) {

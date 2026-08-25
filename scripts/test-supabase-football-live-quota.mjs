@@ -6,7 +6,7 @@ import { transform } from 'esbuild';
 const sourcePath = new URL('../supabase/functions/football-live/index.ts', import.meta.url);
 const rawSource = await readFile(sourcePath, 'utf8');
 const testableSource = rawSource.replace(
-  /^import\s+\{\s*createClient\s*\}\s+from\s+"npm:@supabase\/supabase-js@2";\s*/,
+  /^import\s+\{\s*createClient\s*\}\s+from\s+"npm:@supabase\/supabase-js@2\.112\.4";\s*/,
   'const createClient = globalThis.__createClient;\n',
 );
 const compiled = await transform(testableSource, { loader:'ts', format:'iife', target:'es2022' });

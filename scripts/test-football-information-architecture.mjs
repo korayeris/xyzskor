@@ -110,6 +110,7 @@ const productFallbacks = [];
 const leanProductContext = vm.createContext({
   document: { getElementById: () => null },
   location: { assign: (path) => productFallbacks.push(path) },
+  rememberFootballReturnPath() {},
 });
 vm.runInContext(sourceBetween(liveSource, 'function switchMainTab', 'function openStories'), leanProductContext, { filename:'lean-product-fallback.js' });
 vm.runInContext("switchMainTab('predict')", leanProductContext);

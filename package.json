@@ -35,7 +35,10 @@
     "qa:db": "bash scripts/test-tools/pg_suite.sh",
     "qa:responsive": "node scripts/test-tools/responsive_check.mjs withdata",
     "qa:responsive:nodata": "node scripts/test-tools/responsive_check.mjs nodata",
-    "qa:general-home": "node scripts/test-general-home-router.mjs"
+    "qa:general-home": "node scripts/test-general-home-router.mjs",
+    "qa:metadata": "node scripts/test-site-metadata.mjs",
+    "qa:a11y": "node scripts/test-branch-fallback-auth-a11y.mjs",
+    "qa:focus": "node scripts/test-mini-goal-focus.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

@@ -282,6 +282,13 @@ async function canonicalFragmentState(page) {
 async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors) {
   const scenario = `${viewportName} general home`;
   const page = await context.newPage();
+  const productRouteRequests = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.origin === BASE && /^\/(?:futbol|predict)(?:\/|$)/.test(url.pathname)) {
+      productRouteRequests.push({ path:url.pathname, navigation:request.isNavigationRequest() });
+    }
+  });
   watchErrors(page, scenario, runtimeErrors);
   const requestStart = requestLog.length;
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
@@ -292,10 +299,12 @@ async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors
     cards: document.querySelectorAll('#generalHome [data-branch-link]').length,
     footballCard: Boolean(document.querySelector('#generalHome [data-branch-link="football"]')),
     footballSurfaceVisible: Boolean(document.querySelector('#footballScoreboardHome')?.offsetParent),
+    chatLauncherVisible: Boolean(document.querySelector('#chatLauncher')?.offsetParent),
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   }));
   check(state.generalRoute && state.cards >= 5 && state.footballCard, `${scenario}: static multi-sport branch cards render`, JSON.stringify(state));
   check(!state.footballSurfaceVisible, `${scenario}: football surface is not visible on the general shell`);
+  check(!state.chatLauncherVisible, `${scenario}: chat launcher stays clear of general-home branch cards`);
   check(!state.overflow, `${scenario}: no horizontal overflow`);
 
   // En kritik sözleşme: genel ana sayfa açılışı sıfır spor API isteği yapar.
@@ -303,6 +312,22 @@ async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors
     /^\/api\/(football|sports|ufc|motorsports)/.test(item.url)
   ));
   check(sportRequests.length === 0, `${scenario}: zero sport API requests on first paint`, sportRequests.map((item) => item.url).join(', '));
+
+  const landingResources = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => ({
+    path:new URL(entry.name, location.href).pathname,
+    sameOrigin:new URL(entry.name, location.href).origin === location.origin,
+    bytes:entry.transferSize || entry.encodedBodySize || 0,
+  })));
+  const forbiddenLandingResources = landingResources.filter((entry) => (
+    /\/assets\/(?:fragments\/|js\/(?:data|analytics|live|match-center|matchday-live|predict-game|ui(?:-stage|-runtime)?|chat|multisport|sport-branches|motorsports|ufc-hub)\.js)/.test(entry.path)
+  ));
+  check(
+    forbiddenLandingResources.length === 0,
+    `${scenario}: landing fast path skips football core and late fragments`,
+    forbiddenLandingResources.map((entry) => entry.path).join(', '),
+  );
+  const landingBytes = landingResources.filter((entry) => entry.sameOrigin).reduce((sum, entry) => sum + entry.bytes, 0);
+  check(landingBytes <= 150_000, `${scenario}: same-origin landing transfer stays within 150 KB`, `${landingBytes} bytes`);
 
   // Genel ana sayfadan basketbola geçiş belge yenilemeden yapılır ve yalnız
   // aktif branşın API ailesi çağrılır.
@@ -315,14 +340,56 @@ async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors
     path: location.pathname.replace(/\/+$/, ''),
     sameDocument: window.__XYZ_DIST_DOCUMENT_TOKEN__ === value,
     generalHidden: Boolean(document.getElementById('generalHome')?.hidden),
+    title: document.title,
+    description: document.querySelector('meta[name="description"]')?.content || '',
+    canonical: document.querySelector('link[rel="canonical"]')?.href || '',
+    ogUrl: document.querySelector('meta[property="og:url"]')?.content || '',
+    ogTitle: document.querySelector('meta[property="og:title"]')?.content || '',
+    ogDescription: document.querySelector('meta[property="og:description"]')?.content || '',
+    twitterTitle: document.querySelector('meta[name="twitter:title"]')?.content || '',
+    twitterDescription: document.querySelector('meta[name="twitter:description"]')?.content || '',
+    legacyStylesReady: Boolean(document.getElementById('xyzLegacyStylesheet'))
+      && !document.documentElement.classList.contains('xyz-branch-css-pending'),
   }), token);
   check(
     branchState.path === '/basketbol' && branchState.sameDocument && branchState.generalHidden,
     `${scenario}: branch transition is client-side (no document reload)`,
     JSON.stringify(branchState),
   );
+  check(branchState.title === 'Basketbol — XYZSKOR' && /Basketbol/.test(branchState.description), `${scenario}: client branch metadata follows Basketbol route`, JSON.stringify(branchState));
+  check(
+    branchState.canonical === `${BASE}/basketbol/`
+      && branchState.ogUrl === branchState.canonical
+      && branchState.ogTitle === branchState.title
+      && branchState.ogDescription === branchState.description
+      && branchState.twitterTitle === branchState.title
+      && branchState.twitterDescription === branchState.description,
+    `${scenario}: client branch canonical and social metadata stay synchronized`,
+    JSON.stringify(branchState),
+  );
+  check(branchState.legacyStylesReady, `${scenario}: branch CSS is ready before the client surface is committed`, JSON.stringify(branchState));
   const branchRequests = requestLog.slice(branchStart).filter((item) => /^\/api\/(football|ufc|motorsports)/.test(item.url));
   check(branchRequests.length === 0, `${scenario}: branch transition leaks no other sport API family`, branchRequests.map((item) => item.url).join(', '));
+
+  // Predict branch handler must own the click. The old handler forwarded the
+  // click to the hidden header, which first started /futbol and then /predict.
+  await page.waitForFunction(() => window.__XYZ_SPORT_BRANCHES_READY__ === true, null, { timeout:15_000 });
+  await page.waitForSelector('.sport-predict-button', { state:'visible', timeout:8_000 });
+  const productRequestStart = productRouteRequests.length;
+  await Promise.all([
+    page.waitForURL((url) => url.pathname.replace(/\/+$/, '') === '/predict', { waitUntil:'domcontentloaded', timeout:12_000 }),
+    page.click('.sport-predict-button'),
+  ]);
+  await waitForAppBoot(page);
+  const predictState = await page.evaluate(() => ({
+    path:location.pathname.replace(/\/+$/,''),
+    title:document.title,
+    description:document.querySelector('meta[name="description"]')?.content || '',
+  }));
+  const productRequests = productRouteRequests.slice(productRequestStart);
+  check(productRequests.every((item) => !item.path.startsWith('/futbol')), `${scenario}: Basketbol Predict transition never requests intermediate /futbol`, JSON.stringify(productRequests));
+  check(productRequests.filter((item) => item.navigation).length === 1, `${scenario}: Basketbol Predict transition commits one target document`, JSON.stringify(productRequests));
+  check(predictState.path === '/predict' && predictState.title === 'Predict — XYZSKOR' && /ücretsiz maç tahminleri/.test(predictState.description), `${scenario}: Predict route metadata is current`, JSON.stringify(predictState));
   await page.close();
 }
 
@@ -363,6 +430,8 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
     matches: document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row').length,
     legacyPredictDom: Boolean(document.getElementById('page-league')),
     matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
+    title: document.title,
+    description: document.querySelector('meta[name="description"]')?.content || '',
   }));
   const homeRequests = requestLog.slice(requestStart).filter((item) => item.url === '/api/football/home');
   check(state.rootRoute && state.groups === 5 && state.matches >= 5, `${scenario}: early/canonical football shell ready`, JSON.stringify(state));
@@ -370,6 +439,7 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   check(state.groups === 5, `${scenario}: aggregate home contains five league groups`, `groups=${state.groups}`);
   check(!state.legacyPredictDom, `${scenario}: lean root omits same-DOM Predict surface`);
   check(!state.matchdayCommand, `${scenario}: fixture-less root omits matchday command`);
+  check(state.title === 'Futbol · 5 Lig — XYZSKOR' && /Süper Lig/.test(state.description), `${scenario}: football root metadata is current`, JSON.stringify(state));
   check(fragments.marker && fragments.missing.length === 0, `${scenario}: canonical fragments restored`, fragments.missing.join(', '));
 
   await page.waitForSelector('#accountBtn', { state: 'visible', timeout: 8_000 });
@@ -401,8 +471,37 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   const predictState = await page.evaluate((value) => ({
     path: location.pathname.replace(/\/+$/, ''),
     sameDocument: window.__XYZ_DIST_DOCUMENT_TOKEN__ === value,
+    title: document.title,
+    description: document.querySelector('meta[name="description"]')?.content || '',
   }), token);
   check(predictState.path === '/predict' && !predictState.sameDocument, `${scenario}: Predict performs a document navigation`, JSON.stringify(predictState));
+  check(predictState.title === 'Predict — XYZSKOR' && /ücretsiz maç tahminleri/.test(predictState.description), `${scenario}: Predict document metadata is current`, JSON.stringify(predictState));
+
+  // `/futbol -> Predict -> Futbol` must return through exactly one managed
+  // document commit. The Predict document intentionally has no hydrated
+  // football dataset to reuse as an in-document surface.
+  await waitForAppBoot(page);
+  await page.waitForFunction(() => window.__XYZ_SPORT_BRANCHES_READY__ === true, null, { timeout:15_000 });
+  await page.waitForSelector('.sport-branch-button[data-branch="football"]', { state:'visible', timeout:8_000 });
+  const returnNavigations = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.origin === BASE && request.isNavigationRequest()) returnNavigations.push(url.pathname);
+  });
+  const predictToken = `${token}-predict`;
+  await page.evaluate((value) => { window.__XYZ_PREDICT_DOCUMENT_TOKEN__ = value; }, predictToken);
+  await Promise.all([
+    page.waitForURL((url) => url.pathname.replace(/\/+$/, '') === '/futbol', { waitUntil:'domcontentloaded', timeout:12_000 }),
+    page.click('.sport-branch-button[data-branch="football"]'),
+  ]);
+  const footballReturn = await page.evaluate((value) => ({
+    path:location.pathname.replace(/\/+$/,''),
+    sameDocument:window.__XYZ_PREDICT_DOCUMENT_TOKEN__===value,
+    title:document.title,
+    description:document.querySelector('meta[name="description"]')?.content || '',
+  }), predictToken);
+  check(returnNavigations.length === 1 && returnNavigations[0].replace(/\/+$/,'') === '/futbol', `${scenario}: Predict -> Futbol performs one /futbol document commit`, JSON.stringify(returnNavigations));
+  check(footballReturn.path === '/futbol' && !footballReturn.sameDocument && footballReturn.title === 'Futbol · 5 Lig — XYZSKOR' && /Premier League/.test(footballReturn.description), `${scenario}: Football return route and metadata are canonical`, JSON.stringify(footballReturn));
 
   const fixturelessRequests = requestLog.slice(requestStart).filter((item) => item.url.startsWith('/api/football/matchday'));
   check(fixturelessRequests.length === 0, `${scenario}: no matchday request without fixture`, fixturelessRequests.map((item) => item.url).join(', '));

@@ -1,8 +1,10 @@
 (function () {
   "use strict";
   var path = location.pathname.replace(/^\/+|\/+$/g, "");
+  var generalHomePath = path === "" || path === "index.html";
   var canonical = new Set(["", "index.html", "futbol", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
   var fixture = new URLSearchParams(location.search).get("fixture");
+  var generalHome = generalHomePath && !fixture;
   var bootScriptSource = document.currentScript && document.currentScript.src ? document.currentScript.src : location.href;
   var assetVersion = new URL(bootScriptSource, location.href).searchParams.get("v") || "";
   var extrasPromise = null;
@@ -206,7 +208,14 @@
     if (!document.getElementById("xyzChatTemplate")) return Promise.resolve(true);
     var chunks = chunksForProduct(key);
     primeChunkDownloads(chunks);
-    return loadSequence(chunks, false).then(function () { return true; }).catch(function () { return false; });
+    var stylesReady = ["basketbol", "voleybol", "motorsports", "ufc"].includes(key)
+      && typeof window.ensureXYZLegacyStyles === "function"
+      ? window.ensureXYZLegacyStyles()
+      : Promise.resolve();
+    return Promise.resolve(stylesReady)
+      .then(function () { return loadSequence(chunks, false); })
+      .then(function () { return true; })
+      .catch(function () { return false; });
   };
 
   function ensureProductionRuntime() {
@@ -242,18 +251,24 @@
     if (target) target.innerHTML = '<div class="load-error"><p>Uygulama dosyalari yuklenemedi.</p><button type="button" onclick="location.reload()">Yeniden dene</button></div>';
   }
 
-  var appBootPromise = ensureProductionRuntime()
-    .then(function (productionMode) {
-      if (!canonical.has(path) || fixture) return window.ensureXYZUiExtras().then(function () { return productionMode; });
-      return productionMode;
-    })
-    .then(nextTask)
-    .then(start);
+  // The general landing page is a static branch directory. Loading the full
+  // football data/UI/fragment graph here spent more than a megabyte without
+  // owning a single sports API request. Branch-router can still load the
+  // selected branch module on demand through ensureXYZBranchModule.
+  var appBootPromise = generalHome
+    ? Promise.resolve(true)
+    : ensureProductionRuntime()
+      .then(function (productionMode) {
+        if (!canonical.has(path) || fixture) return window.ensureXYZUiExtras().then(function () { return productionMode; });
+        return productionMode;
+      })
+      .then(nextTask)
+      .then(start);
   window.__XYZ_APP_BOOT_READY__ = appBootPromise;
   appBootPromise
     .then(function () {
       window.__XYZ_APP_BOOT_READY__ = true;
-      if (!document.getElementById("xyzChatTemplate")) return;
+      if (generalHome || !document.getElementById("xyzChatTemplate")) return;
       // These modules stay available, but never collapse into the first
       // football paint's single adjacent-defer long task.
       var routePostChunks = postChunksForRoute();

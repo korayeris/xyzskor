@@ -1,0 +1,30 @@
+{
+  "id": "/",
+  "name": "XYZSKOR — Canlı Skor ve Spor Verisi",
+  "short_name": "XYZSKOR",
+  "description": "Canlı skor, beş büyük lig, spor verisi ve ücretsiz tahmin yarışması.",
+  "lang": "tr",
+  "dir": "ltr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0c0f12",
+  "theme_color": "#0c0f12",
+  "categories": ["sports", "news", "entertainment"],
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

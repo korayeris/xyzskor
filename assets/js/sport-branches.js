@@ -12,9 +12,11 @@
     voleybol: "volleyball",
     motorsports: "motorsports"
   };
+  const footballRoutes = new Set(["futbol", "all", "football", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
+  const branchKey = (segment) => routeMap[segment] || (footballRoutes.has(segment) ? "football" : null);
   const firstSegment = location.pathname.split("/").filter(Boolean)[0];
   // `/` genel çok sporlu ana sayfadır; hiçbir branş sekmesi aktif değildir.
-  const active = firstSegment ? (routeMap[firstSegment] || "football") : null;
+  const active = firstSegment ? branchKey(firstSegment) : null;
 
   function renderMetrics(payload, sport) {
     const hub = document.getElementById("multiSportHub");
@@ -74,14 +76,13 @@
       });
     });
     nav.querySelector("[data-action='predict']")?.addEventListener("click", () => {
-      const existing = [...document.querySelectorAll(".primary-nav .maintab")].find((item) => /predict/i.test(item.textContent));
-      if (existing) existing.click();
-      else route("/predict/", "Predict");
+      if (typeof window.rememberXYZFootballReturnPath === "function") window.rememberXYZFootballReturnPath();
+      route("/predict/", "Predict");
     });
     // Geri/ileri düğmesinde aktif branş vurgusu belge yenilenmeden güncellenir.
     window.addEventListener("popstate", () => {
       const segment = location.pathname.split("/").filter(Boolean)[0];
-      const key = segment ? (routeMap[segment] || "football") : null;
+      const key = segment ? branchKey(segment) : null;
       nav.querySelectorAll("[data-branch]").forEach((item) => {
         const isActive = item.dataset.branch === key;
         item.classList.toggle("active", isActive);

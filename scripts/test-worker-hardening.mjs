@@ -487,7 +487,29 @@ async function main() {
     ok(calls.ufc === 1 && calls.motorsports === 1, 'UFC ve motorspor cold-missleri de scope basina tek upstream kullanir', JSON.stringify(calls));
   }
 
-  console.log('\n=== 13) Statik varlik cache butunlugu ===');
+  console.log('\n=== 13) JSON hata siniri ve bayt limiti ===');
+  {
+    for (const path of ['/api/analytics/event', '/api/predict-game/session']) {
+      const malformed = await worker.fetch(new Request('http://localhost' + path, {
+        method:'POST', headers:{ 'Content-Type':'application/json' }, body:'{"broken":',
+      }), ENV, ctx);
+      const payload = await malformed.json();
+      ok(malformed.status === 400 && payload?.error === 'invalid_json', `${path} bozuk JSON icin kontrollu 400 dondurur`, JSON.stringify(payload));
+      ok(malformed.headers.get('cache-control') === 'no-store' && malformed.headers.get('x-content-type-options') === 'nosniff', `${path} JSON hata yaniti guvenlik basliklarini korur`);
+    }
+    const oversized = await worker.fetch(new Request('http://localhost/api/analytics/event', {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ value:'x'.repeat(9000) }),
+    }), ENV, ctx);
+    const oversizedPayload = await oversized.json();
+    ok(oversized.status === 413 && oversizedPayload?.error === 'payload_too_large', 'gercek UTF-8 bayt limiti asimi kontrollu 413 dondurur', JSON.stringify(oversizedPayload));
+
+    const declaredOversized = await worker.fetch(new Request('http://localhost/api/analytics/event', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'Content-Length':'9000' }, body:'{}',
+    }), ENV, ctx);
+    ok(declaredOversized.status === 413, 'buyuk Content-Length govde okunmadan 413 ile reddedilir', `status=${declaredOversized.status}`);
+  }
+
+  console.log('\n=== 14) Statik varlik cache butunlugu ===');
   {
     const versioned = await worker.fetch(new Request('http://localhost/assets/js/app.js?v=release-hash'), ENV, ctx);
     const unversioned = await worker.fetch(new Request('http://localhost/assets/img/team.webp'), ENV, ctx);

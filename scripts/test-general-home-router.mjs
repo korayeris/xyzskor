@@ -97,7 +97,20 @@ function createRouterHarness(fetchImpl = async () => response(''), initialPathna
     reload() { reloads.push(location.href); },
   };
   const progressLabel = { textContent: '' };
+  const metadataNodes = new Map([
+    ['meta[name="description"]', { content: '' }],
+    ['link[rel="canonical"]', { href: '' }],
+    ['meta[property="og:url"]', { content: '' }],
+    ['meta[property="og:title"]', { content: '' }],
+    ['meta[property="og:description"]', { content: '' }],
+    ['meta[name="twitter:title"]', { content: '' }],
+    ['meta[name="twitter:description"]', { content: '' }],
+  ]);
+  metadataNodes.forEach((node) => {
+    node.setAttribute = function setAttribute(name, value) { this[name] = String(value); };
+  });
   const document = {
+    title: '',
     body: { appendChild(element) { element.isConnected = true; } },
     documentElement: { classList: classList() },
     createElement: () => ({
@@ -108,6 +121,7 @@ function createRouterHarness(fetchImpl = async () => response(''), initialPathna
       setAttribute() {},
       querySelector: (selector) => selector === '.xyz-route-progress-label' ? progressLabel : null,
     }),
+    querySelector: (selector) => metadataNodes.get(selector) || null,
     querySelectorAll: () => [],
   };
   const window = {
@@ -127,6 +141,7 @@ function createRouterHarness(fetchImpl = async () => response(''), initialPathna
   const context = vm.createContext({
     AbortController,
     URL,
+    URLSearchParams,
     Promise,
     document,
     fetch: fetchImpl,
@@ -141,7 +156,7 @@ function createRouterHarness(fetchImpl = async () => response(''), initialPathna
     clearTimeout(id) { timers.delete(id); },
   });
   vm.runInContext(branchRouterSource, context, { filename: 'branch-router.js' });
-  return { assignments, context, listeners, pushes, reloads, timers, window };
+  return { assignments, context, metadataNodes, document, listeners, pushes, reloads, timers, window };
 }
 
 function sourceBetween(source, startMarker, endMarker) {
@@ -282,6 +297,79 @@ console.log('\n=== 5c) İstemci geçişi önce eski branş işini iptal eder ===
   check(() => assert.equal(harness.assignments.length, 0), 'İstemci yüzeyi geçişi belge navigasyonuna düşmez.');
 }
 
+console.log('\n=== 5c.1) SPA geçişleri route metadata bilgisini eşzamanlar ===');
+{
+  const harness = createRouterHarness(async () => response(''), '/');
+  check(() => assert.equal(harness.document.title, 'Çok Sporlu Canlı Skor — XYZSKOR'), 'Genel ana sayfanın başlangıç title değeri doğrudur.');
+  check(() => assert.match(harness.metadataNodes.get('meta[name="description"]').content, /basketbol/i), 'Genel ana sayfanın meta description değeri çok spor kapsamını açıklar.');
+  harness.window.XYZBranchRouter.register({
+    key: 'multisport-metadata-test',
+    matches: (pathname) => pathname.startsWith('/basketbol'),
+    mount() {},
+  });
+  await harness.window.XYZBranchRouter.navigate('/basketbol/maclar/');
+  check(() => assert.equal(harness.document.title, 'Basketbol · Maçlar — XYZSKOR'), 'İstemci branş geçişi document.title değerini günceller.');
+  check(() => assert.match(harness.metadataNodes.get('meta[name="description"]').content, /Basketbol/), 'İstemci branş geçişi meta description değerini günceller.');
+  check(() => assert.equal(harness.metadataNodes.get('link[rel="canonical"]').href, 'https://xyzskor.test/basketbol/maclar/'), 'SPA geçişi canonical URL değerini mutlak hedef rotaya taşır.');
+  check(() => assert.equal(harness.metadataNodes.get('meta[property="og:url"]').content, 'https://xyzskor.test/basketbol/maclar/'), 'SPA geçişi og:url değerini canonical URL ile eşler.');
+  check(() => assert.equal(harness.metadataNodes.get('meta[property="og:title"]').content, harness.document.title), 'SPA geçişi Open Graph başlığını document.title ile eşler.');
+  check(() => assert.equal(harness.metadataNodes.get('meta[property="og:description"]').content, harness.metadataNodes.get('meta[name="description"]').content), 'SPA geçişi Open Graph açıklamasını meta description ile eşler.');
+  check(() => assert.equal(harness.metadataNodes.get('meta[name="twitter:title"]').content, harness.document.title), 'SPA geçişi Twitter başlığını document.title ile eşler.');
+  check(() => assert.equal(harness.metadataNodes.get('meta[name="twitter:description"]').content, harness.metadataNodes.get('meta[name="description"]').content), 'SPA geçişi Twitter açıklamasını meta description ile eşler.');
+
+  harness.window.XYZBranchRouter.syncMetadata('/super-lig/matches/', '?utm_source=test');
+  check(() => assert.equal(harness.metadataNodes.get('link[rel="canonical"]').href, 'https://xyzskor.test/super-lig/matches/'), 'Canonical URL izleme query parametrelerini dışarıda bırakır.');
+  harness.window.XYZBranchRouter.syncMetadata('/super-lig/matches/', '?fixture=123&utm_source=test');
+  check(() => assert.equal(harness.metadataNodes.get('link[rel="canonical"]').href, 'https://xyzskor.test/super-lig/matches/?fixture=123'), 'Maç merkezi canonical URL değeri yalnız fixture kimliğini korur.');
+}
+
+console.log('\n=== 5c.2) Multisport ürün sekmeleri tek hedefli router geçişidir ===');
+{
+  const productBinding = sourceBetween(multisportSource, 'const bindProductRoute', "bindProductRoute('tabBtnFootball'");
+  check(() => assert.match(productBinding, /preventDefault\(\)/), 'Multisport ürün handler\'ı varsayılan/inline navigasyonu engeller.');
+  check(() => assert.match(productBinding, /stopImmediatePropagation\(\)/), 'Multisport ürün handler\'ı ikinci click handler\'ını durdurur.');
+  check(
+    () => assert.match(multisportSource, /bindProductRoute\('tabBtnPredict','\/predict\/','Predict'\)/),
+    'Basketbol/Voleybol Predict sekmesi doğrudan `/predict/` hedefine gider.',
+  );
+  check(
+    () => assert.doesNotMatch(multisportSource, /tabBtnPredict[^\n]*addEventListener\([^\n]*closeHub/),
+    'Predict sekmesi artık ara `/futbol/` closeHub navigasyonunu başlatmaz.',
+  );
+  check(
+    () => assert.match(sportBranchesSource, /data-action='predict'[\s\S]{0,180}?route\("\/predict\/", "Predict"\)/),
+    'Branş navigasyonundaki Predict düğmesi header click zinciri yerine router\'a doğrudan gider.',
+  );
+  check(
+    () => assert.match(liveSource, /safeSection==='home'\) return safeLeague==='all' \? '\/futbol\/' : base/),
+    'Beş lig futbol kökü Predict dönüşünde genel `/` yerine `/futbol/` olarak commit edilir.',
+  );
+}
+
+console.log('\n=== 5c.3) Kayıtlı branş yüzeyi CSS tamamlanmadan commit edilmez ===');
+for (const product of ['basketbol', 'voleybol', 'ufc', 'motorsports']) {
+  const harness = createRouterHarness(async () => response(''), '/');
+  let releaseStyles;
+  const stylesReady = new Promise((resolve) => { releaseStyles = resolve; });
+  let mounted = 0;
+  harness.window.ensureXYZLegacyStyles = () => stylesReady;
+  harness.window.XYZBranchRouter.register({
+    key: `${product}-css-test`,
+    matches: (pathname) => pathname.startsWith(`/${product}`),
+    mount() { mounted += 1; },
+  });
+
+  const navigation = harness.window.XYZBranchRouter.navigate(`/${product}/`);
+  check(() => assert.equal(harness.document.documentElement.classList.contains('xyz-branch-css-pending'), true), `${product}: CSS beklerken görünürlük kapısı kapanır.`);
+  check(() => assert.equal(harness.pushes.length, 0), `${product}: CSS tamamlanmadan URL commit edilmez.`);
+  check(() => assert.equal(mounted, 0), `${product}: CSS tamamlanmadan branş mount edilmez.`);
+  releaseStyles();
+  await navigation;
+  check(() => assert.equal(harness.pushes.length, 1), `${product}: CSS tamamlanınca tek URL commit edilir.`);
+  check(() => assert.equal(mounted, 1), `${product}: CSS tamamlanınca yüzey bir kez mount edilir.`);
+  check(() => assert.equal(harness.document.documentElement.classList.contains('xyz-branch-css-pending'), false), `${product}: CSS tamamlanınca görünürlük kapısı açılır.`);
+}
+
 console.log('\n=== 5d) MANAGED prefetch sonlu sürede normal navigasyona düşer ===');
 {
   let prefetchSignal = null;
@@ -290,6 +378,7 @@ console.log('\n=== 5d) MANAGED prefetch sonlu sürede normal navigasyona düşer
     return new Promise(() => {});
   });
   const navigation = harness.window.XYZBranchRouter.navigate('/ufc/');
+  await flush();
   const deadline = [...harness.timers.values()].find((timer) => timer.delay > 0);
   check(() => assert.ok(deadline), 'MANAGED prefetch için bir son tarih zamanlayıcısı kurulur.');
   check(

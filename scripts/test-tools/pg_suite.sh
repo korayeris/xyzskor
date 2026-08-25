@@ -27,12 +27,13 @@ for pass in 2 3; do
 done
 
 hdr "3) Chat / RLS davranis testleri (18 senaryo)"
-psql -q -d "$DB" -f "$DIR/chat_rls_test.sql" >/tmp/xyz_rls.log 2>&1
-if grep -qiE "^psql.*ERROR" /tmp/xyz_rls.log; then
-  # Bu paket bilincli olarak beklenen hatalar uretiyor; yalnizca beklenmeyenleri ara.
-  echo "NOT: beklenen RLS hatalari uretildi (detay /tmp/xyz_rls.log)"
+if psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$DIR/chat_rls_test.sql" >/tmp/xyz_rls.log 2>&1; then
+  echo "OK   chat_rls_test.sql assertions passed"
+else
+  echo "FAIL chat_rls_test.sql"
+  tail -20 /tmp/xyz_rls.log
+  fail=1
 fi
-grep -c "BEKLENEN" /tmp/xyz_rls.log >/dev/null && echo "OK   chat_rls_test.sql calisti"
 
 hdr "4) Predict mini oyun guvenlik SQL testi"
 psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$DIR/predict_game_security_test.sql" >/tmp/xyz_pg.log 2>&1 && echo "OK   predict_game_security_test.sql" || { echo "FAIL predict_game_security_test.sql"; tail -5 /tmp/xyz_pg.log; fail=1; }
@@ -47,6 +48,9 @@ PGDATABASE="$DB" bash "$DIR/pg_concurrency_test.sh" || fail=1
 hdr "7) Haftalik futbol RLS ve idempotency"
 psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$DIR/weekly_football_db_test.sql" || fail=1
 PGDATABASE="$DB" bash "$DIR/weekly_football_concurrency_test.sh" || fail=1
+
+hdr "8) Uyelik haftalik oyun / odul ACL ve RLS butunlugu"
+psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$DIR/membership_game_reward_integrity_test.sql" || fail=1
 
 echo
 if [ $fail -eq 0 ]; then echo "PG SUITE SONUC: PASS"; else echo "PG SUITE SONUC: FAIL"; fi

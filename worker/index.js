@@ -473,12 +473,19 @@ function predictPoints(goals) {
 }
 
 async function readJsonBody(request, maxBytes = 8192) {
-  const text = await request.text();
-  if (text.length > maxBytes) {
+  const declaredLength = Number(request.headers.get("Content-Length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     const error = new Error("payload_too_large");
     error.status = 413;
     throw error;
   }
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength > maxBytes) {
+    const error = new Error("payload_too_large");
+    error.status = 413;
+    throw error;
+  }
+  const text = new TextDecoder().decode(bytes);
   try {
     return text ? JSON.parse(text) : {};
   } catch {
@@ -4433,6 +4440,8 @@ export { calculateXYZPerformanceScore, chooseWeeklyXI, selectWeeklyRound };
 
 export default {
   async fetch(request, env, context) {
+    try {
+    return await (async () => {
     const url = new URL(request.url);
     const retiredSportRoutes = /^\/(kayak|buz-hokeyi|rugby|beyzbol|hentbol|amerikan-futbolu|avustralya-futbolu)(?:\/|$)/;
     if (retiredSportRoutes.test(url.pathname)) return Response.redirect(new URL("/", url), 308);
@@ -4495,6 +4504,17 @@ export default {
     }
 
     return withHeaders(response, pathname, request.url);
+    })();
+    } catch (error) {
+      const code = error?.message === "invalid_json"
+        ? "invalid_json"
+        : error?.message === "payload_too_large"
+          ? "payload_too_large"
+          : "internal_error";
+      const status = code === "invalid_json" ? 400 : code === "payload_too_large" ? 413 : 500;
+      if (status === 500) console.error("[XYZSkor] Unhandled request error", error);
+      return jsonResponse({ error:code }, status, { "Cache-Control":"no-store" });
+    }
   },
   async scheduled(_controller, env, context) {
     context.waitUntil(Promise.all([

@@ -67,5 +67,8 @@
     else if (isGeneralHome) titleParts.push("Çok Sporlu Canlı Skor");
     else titleParts.push("Futbol");
     document.title = titleParts.join(" · ") + " — XYZSKOR";
+    if (window.XYZBranchRouter && typeof window.XYZBranchRouter.syncMetadata === "function") {
+      window.XYZBranchRouter.syncMetadata(location.pathname, location.search);
+    }
   } catch (_) {}
 })();

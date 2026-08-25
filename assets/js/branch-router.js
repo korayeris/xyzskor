@@ -28,9 +28,120 @@
   var progressTimer = null;
   var MANAGED_PREFETCH_TIMEOUT_MS = 3000;
   var BRANCH_MODULE_TIMEOUT_MS = 3000;
+  var LEGACY_STYLE_PRODUCTS = {
+    basketbol: true,
+    voleybol: true,
+    ufc: true,
+    motorsports: true
+  };
 
   function normalize(pathname) {
     return String(pathname || "").replace(/\/+$/, "") || "/";
+  }
+
+  var LEAGUE_LABELS = {
+    "super-lig": "Süper Lig",
+    "premier-league": "Premier League",
+    "la-liga": "La Liga",
+    bundesliga: "Bundesliga",
+    "serie-a": "Serie A"
+  };
+  var SECTION_LABELS = {
+    matches: "Maçlar", maclar: "Maçlar", agenda: "Gündem", news: "Gündem", clubs: "Kulüpler",
+    transfers: "Transferler", standings: "Puan Durumu", ligler: "Ligler",
+    takimlar: "Takımlar", predict: "Predict", live: "Canlı", events: "Etkinlikler",
+    fighters: "Dövüşçüler", rankings: "Sıralama", bouts: "Maç Merkezi",
+    leader: "Liderlik", rewards: "Ödüller", profile: "Profil"
+  };
+
+  function routeMetadata(pathname, search) {
+    var path = normalize(pathname);
+    var parts = path.split("/").filter(Boolean);
+    var first = parts[0] || "";
+    var second = parts[1] || "";
+    var hasFixture = false;
+    try { hasFixture = Boolean(new URLSearchParams(search || "").get("fixture")); } catch (_) {}
+
+    if (hasFixture) return {
+      title: "Maç Merkezi — XYZSKOR",
+      description: "Canlı maç olayları, istatistikler, kadrolar ve ücretsiz tahmin seçenekleri XYZSKOR Maç Merkezi'nde."
+    };
+    if (!first || first === "index.html") return {
+      title: "Çok Sporlu Canlı Skor — XYZSKOR",
+      description: "Futbol, basketbol, voleybol, UFC ve motor sporları merkezlerini XYZSKOR'da keşfet; veri yalnız seçtiğin branş için yüklenir."
+    };
+    if (first === "futbol" || first === "all" || first === "football") return {
+      title: "Futbol · 5 Lig — XYZSKOR",
+      description: "Süper Lig, Premier League, La Liga, Bundesliga ve Serie A için canlı skor, fikstür ve puan durumu."
+    };
+    if (LEAGUE_LABELS[first]) {
+      var leagueSection = SECTION_LABELS[second] || "Futbol";
+      return {
+        title: LEAGUE_LABELS[first] + " · " + leagueSection + " — XYZSKOR",
+        description: LEAGUE_LABELS[first] + " için canlı skor, fikstür, puan durumu, kulüp ve gündem verileri."
+      };
+    }
+    if (first === "predict") return {
+      title: "Predict" + (SECTION_LABELS[second] ? " · " + SECTION_LABELS[second] : "") + " — XYZSKOR",
+      description: "XYZSKOR Predict'te ücretsiz maç tahminleri yap, puan topla ve sıralamadaki yerini takip et."
+    };
+    if (first === "basketbol" || first === "voleybol") {
+      var sportLabel = first === "basketbol" ? "Basketbol" : "Voleybol";
+      return {
+        title: sportLabel + (SECTION_LABELS[second] ? " · " + SECTION_LABELS[second] : "") + " — XYZSKOR",
+        description: sportLabel + " için günlük maç programı, canlı skorlar, ligler ve takım verileri."
+      };
+    }
+    if (first === "ufc") return {
+      title: "UFC" + (SECTION_LABELS[second] ? " · " + SECTION_LABELS[second] : "") + " — XYZSKOR",
+      description: "UFC etkinlikleri, canlı maçlar, dövüşçü profilleri ve güncel sıralamalar."
+    };
+    if (first === "motorsports") {
+      var seriesLabels = {
+        "formula-1": "Formula 1", "formula-e": "Formula E", indycar: "IndyCar",
+        motogp: "MotoGP", moto2: "Moto2", moto3: "Moto3", wrc: "WRC",
+        wec: "WEC", "le-mans": "Le Mans", nascar: "NASCAR"
+      };
+      return {
+        title: "Motor Sporları" + (seriesLabels[second] ? " · " + seriesLabels[second] : "") + " — XYZSKOR",
+        description: "Formula, MotoGP, WRC, WEC ve diğer motor sporları için takvim, sonuç, sıralama ve canlı veri."
+      };
+    }
+    return {
+      title: "XYZSKOR — Spor Verileri",
+      description: "Canlı skor, fikstür, puan durumu ve ücretsiz spor tahminleri XYZSKOR'da."
+    };
+  }
+
+  function syncMetadata(pathname, search) {
+    var metadata = routeMetadata(pathname == null ? location.pathname : pathname, search == null ? location.search : search);
+    var routePath = pathname == null ? location.pathname : pathname;
+    var routeSearch = search == null ? location.search : search;
+    var canonical;
+    try {
+      canonical = new URL(routePath || "/", location.origin);
+      canonical.hash = "";
+      canonical.search = "";
+      var fixture = new URLSearchParams(routeSearch || "").get("fixture");
+      if (fixture) canonical.searchParams.set("fixture", fixture);
+    } catch (_) {
+      canonical = { href: location.origin + "/" };
+    }
+
+    document.title = metadata.title;
+    function setAttribute(selector, attribute, value) {
+      var element = document.querySelector && document.querySelector(selector);
+      if (element) element.setAttribute(attribute, value);
+    }
+    setAttribute('meta[name="description"]', "content", metadata.description);
+    setAttribute('link[rel="canonical"]', "href", canonical.href);
+    setAttribute('meta[property="og:url"]', "content", canonical.href);
+    setAttribute('meta[property="og:title"]', "content", metadata.title);
+    setAttribute('meta[property="og:description"]', "content", metadata.description);
+    setAttribute('meta[name="twitter:title"]', "content", metadata.title);
+    setAttribute('meta[name="twitter:description"]', "content", metadata.description);
+    metadata.url = canonical.href;
+    return metadata;
   }
 
   function findSurface(pathname) {
@@ -40,6 +151,26 @@
       } catch (_) {}
     }
     return null;
+  }
+
+  function ensureBranchStyles(pathname) {
+    var product = normalize(pathname).split("/").filter(Boolean)[0] || "";
+    if (!LEGACY_STYLE_PRODUCTS[product] || typeof window.ensureXYZLegacyStyles !== "function") {
+      return Promise.resolve();
+    }
+    document.documentElement.classList.add("xyz-branch-css-pending");
+    try {
+      return Promise.resolve(window.ensureXYZLegacyStyles()).then(function () {
+        document.documentElement.classList.remove("xyz-branch-css-pending");
+      }, function () {
+        document.documentElement.classList.remove("xyz-branch-css-pending");
+        document.documentElement.classList.add("xyz-branch-css-failed");
+      });
+    } catch (_) {
+      document.documentElement.classList.remove("xyz-branch-css-pending");
+      document.documentElement.classList.add("xyz-branch-css-failed");
+      return Promise.resolve();
+    }
   }
 
   function register(surface) {
@@ -180,18 +311,22 @@
 
     var token = ++navToken;
     abortPendingBranchWork();
+    var stylesReady = ensureBranchStyles(target.pathname);
 
     // Hedef branşın JS paketi henüz yüklü değilse önce onu indir. Paket hazır
     // olursa geçiş belge yenilemeden istemcide yapılır; olmazsa denetimli
     // navigasyona düşülür. Bu adım hiçbir spor API'sini çağırmaz.
     if (!findSurface(target.pathname) && typeof window.ensureXYZBranchModule === "function") {
       showProgress(settings.label || "Yükleniyor");
-      return loadBranchModule(target.pathname).then(function () {
+      return Promise.all([stylesReady, loadBranchModule(target.pathname)]).then(function () {
         if (token !== navToken) return false;
         return finishNavigate(target, settings, token);
       });
     }
-    return finishNavigate(target, settings, token);
+    return stylesReady.then(function () {
+      if (token !== navToken) return false;
+      return finishNavigate(target, settings, token);
+    });
   }
 
   function finishNavigate(target, settings, token) {
@@ -207,6 +342,7 @@
       }
       currentKey = surface.key;
       try { surface.mount({ pathname: target.pathname, search: target.search }); } catch (_) {}
+      syncMetadata(target.pathname, target.search);
       hideProgress();
       if (settings.scroll !== false) scrollTopSoft();
       return Promise.resolve(true);
@@ -257,6 +393,7 @@
       }
       currentKey = surface.key;
       try { surface.mount({ pathname: location.pathname, search: location.search }); } catch (_) {}
+      syncMetadata(location.pathname, location.search);
       hideProgress();
       return;
     }
@@ -285,6 +422,9 @@
     bindLink: bindLink,
     showProgress: showProgress,
     hideProgress: hideProgress,
+    routeMetadata: routeMetadata,
+    syncMetadata: syncMetadata,
     currentKey: function () { return currentKey; }
   };
+  syncMetadata(location.pathname, location.search);
 })();

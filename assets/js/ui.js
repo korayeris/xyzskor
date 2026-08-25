@@ -224,7 +224,9 @@ let authReturnFocus = null;
 function closeAuth(){ document.getElementById('authOverlay').classList.remove('show'); document.body.classList.remove('modal-open'); if(authReturnFocus&&authReturnFocus.focus) authReturnFocus.focus(); }
 function openAuth(mode){
   if(typeof ensureXYZSupabaseClient==='function') ensureXYZSupabaseClient().catch(()=>{});
-  if(!document.getElementById('authOverlay').classList.contains('show')) authReturnFocus=document.activeElement;
+  const authOverlay=document.getElementById('authOverlay');
+  const switchingMode=authOverlay.classList.contains('show');
+  if(!switchingMode) authReturnFocus=document.activeElement;
   authMode = mode;
   document.getElementById('authTitle').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
   document.getElementById('registerFields').style.display = mode==='register' ? 'block' : 'none';
@@ -232,12 +234,14 @@ function openAuth(mode){
   document.getElementById('authSubmit').textContent = mode==='register' ? 'Üye Ol' : 'Giriş Yap';
   document.getElementById('authPass').autocomplete = mode==='register' ? 'new-password' : 'current-password';
   document.getElementById('authSwitch').textContent = mode==='register' ? 'Zaten üye misin? Giriş yap' : 'Hesabın yok mu? Üye ol';
-  document.getElementById('authErr').classList.remove('show');
-  document.getElementById('authErr').style.color = '';
+  const authError=document.getElementById('authErr');
+  authError.textContent='';
+  authError.classList.remove('show');
+  authError.style.color = '';
   const resendButton=document.getElementById('authResend'); if(resendButton) resendButton.hidden=true;
-  document.getElementById('authOverlay').classList.add('show');
+  authOverlay.classList.add('show');
   document.body.classList.add('modal-open');
-  document.getElementById('authClose').focus();
+  document.getElementById(switchingMode?'authSwitch':'authClose').focus();
 }
 document.getElementById('authClose').onclick = closeAuth;
 document.getElementById('authSwitch').onclick = () => openAuth(authMode==='register'?'login':'register');

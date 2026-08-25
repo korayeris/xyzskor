@@ -474,8 +474,61 @@
     const canvas=document.getElementById('miniGoalCanvas');
     const pointsEl=document.getElementById('miniGoalPoints');
     const missesEl=document.getElementById('miniGoalRemainingMisses');
-    if(!trigger || !overlay || !canvas || !pointsEl || !missesEl || trigger.dataset.ready) return;
+    const modal=overlay?.querySelector('.mini-goal-modal');
+    if(!trigger || !overlay || !modal || !canvas || !pointsEl || !missesEl || trigger.dataset.ready) return;
     trigger.dataset.ready='1';
+    modal.tabIndex=-1;
+
+    const focusableSelector=[
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled]):not([type="hidden"])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[contenteditable="true"]',
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(',');
+    function isVisible(element){
+      if(!element || element.hidden || element.closest('[hidden],[aria-hidden="true"]')) return false;
+      const style=getComputedStyle(element);
+      return style.display!=='none' && style.visibility!=='hidden' && style.visibility!=='collapse' && element.getClientRects().length>0;
+    }
+    function focusWithoutScroll(element){
+      if(!element) return;
+      try{ element.focus({preventScroll:true}); }
+      catch(_error){ element.focus(); }
+    }
+    function dialogFocusables(){
+      return [...modal.querySelectorAll(focusableSelector)].filter(isVisible);
+    }
+    function focusDialog(){
+      focusWithoutScroll(isVisible(close)?close:modal);
+    }
+    function trapDialogFocus(event){
+      const focusables=dialogFocusables();
+      if(!focusables.length){
+        event.preventDefault();
+        focusWithoutScroll(modal);
+        return;
+      }
+      const first=focusables[0];
+      const last=focusables[focusables.length-1];
+      const active=document.activeElement;
+      if(event.shiftKey && (active===first || !modal.contains(active))){
+        event.preventDefault();
+        focusWithoutScroll(last);
+      }else if(!event.shiftKey && (active===last || !modal.contains(active))){
+        event.preventDefault();
+        focusWithoutScroll(first);
+      }
+    }
+    function restoreTriggerFocus(){
+      if(isVisible(trigger)){
+        focusWithoutScroll(trigger);
+      }else if(overlay.contains(document.activeElement)){
+        document.activeElement?.blur?.();
+      }
+    }
 
     const MAX_GOALS = 10;
     const MAX_MISSES = 5;
@@ -581,6 +634,9 @@
       game.open=true;
       overlay.hidden=false;
       trigger.setAttribute('aria-expanded','true');
+      document.body.classList.add('mini-goal-open');
+      trigger.classList.add('is-game-hidden');
+      focusDialog();
       renderScore();
       game.last=performance.now();
       game.raf=requestAnimationFrame(loop);
@@ -589,8 +645,11 @@
       game.open=false;
       overlay.hidden=true;
       trigger.setAttribute('aria-expanded','false');
+      document.body.classList.remove('mini-goal-open');
+      trigger.classList.remove('is-game-hidden');
       if(game.raf) cancelAnimationFrame(game.raf);
       game.raf=0;
+      restoreTriggerFocus();
     }
     function update(dt){
       if(game.gameOver){
@@ -741,11 +800,19 @@
     restart?.addEventListener('click',restartGame);
     window.addEventListener('keydown',(event)=>{
       if(!game.open) return;
+      if(event.key==='Escape' || event.code==='Escape'){
+        event.preventDefault();
+        closeGame();
+        return;
+      }
+      if(event.key==='Tab'){
+        trapDialogFocus(event);
+        return;
+      }
       if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(event.code)){
         event.preventDefault();
         game.keys.add(event.code);
       }
-      if(event.code==='Escape') closeGame();
     });
     window.addEventListener('keyup',(event)=>game.keys.delete(event.code));
     canvas.addEventListener('pointerdown',(event)=>{ if(game.open){ isPointerDown=true; event.preventDefault(); canvas.setPointerCapture(event.pointerId); pointerToBar(event); } });

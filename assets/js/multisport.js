@@ -120,6 +120,14 @@
       + `</div>`;
   }
 
+  function updateBranchIdentity(sport, statusText){
+    const label = SPORT_LABELS[sport] || 'Spor';
+    const title = document.getElementById('multiSportTitle');
+    const note = document.getElementById('multiSportNote');
+    if(title) title.textContent = label;
+    if(note) note.textContent = statusText || 'Günün programı hazırlanıyor';
+  }
+
   function teamCardHTML(team){
     return `<article class="multi-team-card"><span>${visual(team.name, imageOf(team))}</span><strong>${escapeHTML(team.name || 'Takim')}</strong><small>Gunun programinda</small></article>`;
   }
@@ -199,8 +207,6 @@
   function render(payload){
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
-    const title = document.getElementById('multiSportTitle');
-    const note = document.getElementById('multiSportNote');
     if(!hub || !grid) return;
     const sports = payload?.sports || {};
     const available = Object.keys(SPORT_LABELS).filter((key) => Array.isArray(sports[key]) && sports[key].length);
@@ -216,8 +222,7 @@
     updateBranchTicker(allItems);
     hub.dataset.sport = activeSport;
     grid.dataset.sport = activeSport;
-    title.textContent = SPORT_LABELS[activeSport] || 'Spor';
-    note.textContent = `${payload?.date || ''} programı · ücretsiz API-Sports verisi`;
+    updateBranchIdentity(activeSport, `${payload?.date || ''} programı · ücretsiz API-Sports verisi`);
     const viewNav = document.getElementById('multiSportViews');
     const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma&#231;lar'],['leagues','Organizasyonlar'],['teams','Dovusculer'],['predict','Predict']] : [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']];
     viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}">${label}</button>`).join('');
@@ -324,13 +329,17 @@
       feedPromises.delete(scope);
     });
     if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
+    if(window.XYZBranchRouter?.syncMetadata) window.XYZBranchRouter.syncMetadata(location.pathname,location.search);
     document.body.classList.add('multisport-open');
     updateBranchTicker([]);
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
     if(!hub || !grid) return;
     hub.hidden = false;
-    grid.innerHTML = '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canli program hazirlaniyor</span></div>';
+    if(hub.dataset) hub.dataset.sport = requestedSport;
+    if(grid.dataset) grid.dataset.sport = requestedSport;
+    updateBranchIdentity(requestedSport, 'Günün programı hazırlanıyor');
+    grid.innerHTML = '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canlı program hazırlanıyor</span></div>';
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.toggle('active', button.dataset.multiSport === activeSport));
     try{
       const payload = await load(requestedSport);
@@ -339,7 +348,9 @@
     }
     catch(_error){
       if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
-      grid.innerHTML = compactEmptyHTML('Sağlayıcı yanıtı şu anda alınamadı.','Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Son doğrulanmış program korunur ve bağlantı düzeldiğinde otomatik yenilenir.',null,'');
+      const branchLabel = SPORT_LABELS[requestedSport] || 'Spor';
+      updateBranchIdentity(requestedSport, 'Veri bağlantısı yeniden denenecek');
+      grid.innerHTML = compactEmptyHTML(`${branchLabel} verisi şu anda alınamadı.`,'Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Son doğrulanmış program korunur ve bağlantı düzeldiğinde otomatik yenilenir.',null,branchLabel);
     }
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -368,15 +379,27 @@
     hub.id = 'multiSportHub';
     hub.className = 'multisport-hub';
     hub.hidden = true;
-    hub.innerHTML = `<header class="multisport-hero"><div><span>XYZSKOR MULTISPORT</span><h1 id="multiSportTitle">Basketbol</h1><p id="multiSportNote">Gunun programi</p></div><b>CANLI VERI</b></header>
+    hub.innerHTML = `<header class="multisport-hero"><div><span>XYZSKOR MULTISPORT</span><h1 id="multiSportTitle">${escapeHTML(SPORT_LABELS[routeState()?.sport || activeSport] || 'Spor')}</h1><p id="multiSportNote">Günün programı hazırlanıyor</p></div><b>CANLI VERİ</b></header>
       <nav class="multisport-switcher" aria-label="Spor branşı seçimi">${Object.entries(SPORT_LABELS).map(([key,label]) => `<button type="button" data-multi-sport="${key}">${label}</button>`).join('')}</nav>
       <nav class="multisport-view-nav" id="multiSportViews" aria-label="Branş bölümleri"></nav>
       <section class="multi-event-grid" id="multiSportGrid" aria-live="polite"></section>`;
     wrap.parentNode.insertBefore(hub, wrap);
     pruneFootballSurface();
     hub.querySelectorAll('[data-multi-sport]').forEach((button) => button.addEventListener('click', () => openHub(button.dataset.multiSport,'home',true)));
-    document.getElementById('tabBtnFootball')?.addEventListener('click', closeHub, true);
-    document.getElementById('tabBtnPredict')?.addEventListener('click', closeHub, true);
+    const bindProductRoute = (id, url, label) => {
+      document.getElementById(id)?.addEventListener('click', (event) => {
+        // Bu capture handler yalnız aktif Basketbol/Voleybol yüzeyinin ürün
+        // geçişini sahiplenir. Inline legacy handler'a da izin verilirse önce
+        // `/futbol`, hemen ardından `/predict` çalışıp iki navigasyon yarışır.
+        if(!routeState() && !document.body.classList.contains('multisport-open')) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if(window.XYZBranchRouter) window.XYZBranchRouter.navigate(url,{label});
+        else location.assign(url);
+      }, true);
+    };
+    bindProductRoute('tabBtnFootball','/futbol/','Futbol');
+    bindProductRoute('tabBtnPredict','/predict/','Predict');
     const initial = routeState();
     if(initial) openHub(initial.sport,initial.view,false);
     window.addEventListener('popstate', () => { const state=routeState(); if(state) openHub(state.sport,state.view,false); else closeHub(); });

@@ -11,7 +11,7 @@ const edgeOrigin = process.env.XYZSKOR_EDGE_ORIGIN || 'https://xyzskor-tr.koraye
 const port = Number(process.env.XYZSKOR_DEV_PORT || 4173);
 const mime = {
   '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8',
-  '.json':'application/json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg',
+  '.json':'application/json; charset=utf-8', '.webmanifest':'application/manifest+json; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg',
   '.webp':'image/webp', '.svg':'image/svg+xml', '.ico':'image/x-icon'
 };
 
