@@ -10,6 +10,7 @@ const appCss = [
 ].join('\n');
 const footballHubCss = await readFile(new URL('../assets/css/football-hub.css', import.meta.url), 'utf8');
 const footballControlsCss = await readFile(new URL('../assets/css/football-controls-v236.css', import.meta.url), 'utf8');
+const styleLoaderSource = await readFile(new URL('../assets/js/style-loader.js', import.meta.url), 'utf8');
 const rootEnvExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
 const workerEnvExample = await readFile(new URL('../worker/.dev.vars.example', import.meta.url), 'utf8');
 for (const key of ['SPORTMONKS_API_TOKEN','API_SPORTS_KEY','CITO_API_KEY','OCBLACKTOP_API_KEY','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY']) {
@@ -18,6 +19,8 @@ for (const key of ['SPORTMONKS_API_TOKEN','API_SPORTS_KEY','CITO_API_KEY','OCBLA
 }
 assert.match(documentHtmlRaw, /football-hub\.css\?v=314/, 'The route-scoped football stylesheet must use the v314 cache key.');
 assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=314/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
+assert.match(documentHtmlRaw, /xyz-branch-css-pending[\s\S]*body>:not\(\.global-header\)[\s\S]*visibility:hidden!important/, 'Branş stili hazır olmadan eski futbol DOM’u ilk boyamada görünmemeli.');
+assert.match(styleLoaderSource, /isBranchRoute[\s\S]*xyz-branch-css-pending[\s\S]*link\.media = "all"[\s\S]*xyz-branch-css-ready/, 'Branş stili ilk geçişte görünürlük kapısını güvenli biçimde açmalı.');
 assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
 assert.match(footballHubCss, /route-scoped football home and league overview[\s\S]*\.scoreboard-shell[\s\S]*\.league-overview-layout/i, 'Canonical football routes need their independent stylesheet.');
 const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'football-early.js', 'style-loader.js'];
@@ -26,6 +29,7 @@ const dataSource = scriptSources[0];
 const appSource = scriptSources.join('\n');
 const appBootSource = await readFile(new URL('../assets/js/app-boot.js', import.meta.url), 'utf8');
 const uiExtrasSource = await readFile(new URL('../assets/js/ui-extras.js', import.meta.url), 'utf8');
+const branchNavSource = await readFile(new URL('../assets/js/sport-branches.js', import.meta.url), 'utf8');
 assert.match(documentHtmlRaw, /ui\.js\?v=314[\s\S]*id="xyzUiExtrasTemplate"[\s\S]*ui-extras\.js\?v=314[\s\S]*app-boot\.js\?v=314/, 'Core UI, inert extras and mandatory boot must keep their load order.');
 assert.match(appBootSource, /productionCoreChunks[\s\S]*primeChunkDownloads\(productionCoreChunks[\s\S]*loadSequence\(productionCoreChunks\.slice\(0, 2\), true\)[\s\S]*fragmentsPrepared[\s\S]*then\(hydrateCanonicalFragments\)[\s\S]*loadSequence\(productionCoreChunks\.slice\(2\), true\)/, 'The mandatory bootstrap must warm downloads, then hydrate required DOM between dependency stages.');
 assert.match(appBootSource, /var appBootPromise = ensureProductionRuntime\(\)[\s\S]*\.then\(nextTask\)[\s\S]*\.then\(start\)/, 'The complete application boot must start in its own task after the production runtime.');
@@ -33,6 +37,10 @@ assert.match(appBootSource, /canonicalFragmentSpecs[\s\S]*hydrateCanonicalFragme
 assert.match(appBootSource, /if \(spec\[3\]\) throw error;[\s\S]*Ikincil UI parcasi devre disi/, 'Optional canonical fragments must not block the required football boot.');
 assert.match(appBootSource, /football-league-overview-mode[\s\S]*footballLeagueOverview[\s\S]*footballScoreboardHome/, 'Fatal canonical boot errors must render in the visible route surface.');
 assert.doesNotMatch(uiExtrasSource, /\bboot\s*\(/, 'Optional UI extras must not own the application boot contract.');
+assert.match(branchNavSource, /\["motorsports",\s*"Motor Sporlar[^\]]+\][\s\S]*\["mma",\s*"UFC"/, 'Üst spor menüsünde Motor Sporları UFC’nin solunda kalmalı.');
+assert.match(appSource, /function verifiedWeeklyPlayerImage[\s\S]*cdn\.sportmonks\.com[\s\S]*\/placeholder/, 'Haftalık oyuncu görselleri yalnız doğrulanmış Sportmonks oyuncu dosyalarını kabul etmeli.');
+assert.match(dataSource, /window\.XYZ_PREDICT_REWARD_TIERS=PREDICT_REWARD_TIERS/, 'Predict ödül katmanları üretim JS parçaları arasında açık bir global sözleşmeyle paylaşılmalı.');
+assert.match(appSource, /window\.XYZ_PREDICT_REWARD_TIERS\|\|\[\]/, 'Hesap paneli minify edilmiş veri parçasındaki yerel sabite doğrudan bağımlı olmamalı.');
 assert.match(dataSource, /SUPABASE_CLIENT_SOURCES[\s\S]*ensureXYZSupabaseClient[\s\S]*window\.ensureXYZSupabaseClient/, 'Hesap istemcisi kritik futbol zinciri dışında primary/fallback kaynaklarla lazy yüklenmeli.');
 assert.match(footballHubCss, /\.sport-branch-nav-compact[\s\S]*\.chat-launcher[\s\S]*\.mini-goal-game\s*\{\s*display:none[\s\S]*\.agenda-match/i, 'Canonical football CSS must own navigation, ticker and safe widget geometry without app-late.css.');
 assert.match(footballHubCss, /body\s*>\s*\.account-overlay[\s\S]*body\s*>\s*\.mc-overlay[\s\S]*z-index\s*:\s*300\s*!important/i, 'Canonical overlays must stay above the sticky football header before legacy styles load.');
