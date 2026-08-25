@@ -1025,6 +1025,47 @@ async function fetchFootballHomeBundle(options={}){
   return fetchFootballHomeNetwork(options);
 }
 
+let FOOTBALL_WEEKLY_FEATURES={league:null,leaders:null,awards:null,status:'idle',error:null};
+let footballWeeklyFeaturesRequest=null;
+let footballWeeklyFeaturesController=null;
+let footballWeeklyFeaturesSequence=0;
+async function loadFootballWeeklyFeatures(leagueKey){
+  if(!leagueKey||leagueKey==='all'||document.hidden) return null;
+  if(FOOTBALL_WEEKLY_FEATURES.league===leagueKey&&['ready','stale'].includes(FOOTBALL_WEEKLY_FEATURES.status)) return FOOTBALL_WEEKLY_FEATURES;
+  if(footballWeeklyFeaturesRequest&&FOOTBALL_WEEKLY_FEATURES.league===leagueKey) return footballWeeklyFeaturesRequest;
+  footballWeeklyFeaturesController?.abort();
+  footballWeeklyFeaturesController=typeof AbortController!=='undefined'?new AbortController():null;
+  const controller=footballWeeklyFeaturesController,sequence=++footballWeeklyFeaturesSequence;
+  FOOTBALL_WEEKLY_FEATURES={league:leagueKey,leaders:null,awards:null,status:'loading',error:null};
+  if(typeof renderFootballWeeklyFeatures==='function') renderFootballWeeklyFeatures();
+  const request=Promise.allSettled([
+    fetch(`/api/football/leaders?league=${encodeURIComponent(leagueKey)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal}).then(async response=>({ok:response.ok,payload:await response.json().catch(()=>null)})),
+    fetch(`/api/football/weekly-awards?league=${encodeURIComponent(leagueKey)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal}).then(async response=>({ok:response.ok,payload:await response.json().catch(()=>null)})),
+  ]).then(results=>{
+    if(controller?.signal.aborted||sequence!==footballWeeklyFeaturesSequence||activeFootballLeague!==leagueKey) return null;
+    const leaders=results[0].status==='fulfilled'&&results[0].value.ok?results[0].value.payload:null;
+    const awards=results[1].status==='fulfilled'&&results[1].value.ok?results[1].value.payload:null;
+    const stale=Boolean(leaders?.isStale||awards?.isStale),degraded=Boolean(leaders?.degraded||awards?.degraded);
+    const verifiedEmpty=Boolean(leaders?.cacheStatus==='verified-empty'&&!awards?.star&&!awards?.teamOfWeek);
+    FOOTBALL_WEEKLY_FEATURES={league:leagueKey,leaders,awards,status:leaders||awards?(degraded?'degraded':stale?'stale':verifiedEmpty?'verified-empty':'ready'):'error',error:leaders||awards?null:'weekly_features_unavailable'};
+    if(typeof renderFootballWeeklyFeatures==='function') renderFootballWeeklyFeatures();
+    return FOOTBALL_WEEKLY_FEATURES;
+  }).catch(error=>{
+    if(error?.name==='AbortError'||controller?.signal.aborted) return null;
+    FOOTBALL_WEEKLY_FEATURES={league:leagueKey,leaders:null,awards:null,status:'error',error:error?.message||'weekly_features_unavailable'};
+    if(typeof renderFootballWeeklyFeatures==='function') renderFootballWeeklyFeatures();
+    return null;
+  }).finally(()=>{if(footballWeeklyFeaturesRequest===request) footballWeeklyFeaturesRequest=null;});
+  footballWeeklyFeaturesRequest=request;
+  return request;
+}
+function abortFootballWeeklyFeatures(){
+  footballWeeklyFeaturesController?.abort();
+  footballWeeklyFeaturesController=null;
+  footballWeeklyFeaturesRequest=null;
+  footballWeeklyFeaturesSequence++;
+}
+
 let PREDICT_CHALLENGE_MATCHES = [];
 let predictChallengeLoading = null;
 let predictChallengeReady = false;

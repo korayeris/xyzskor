@@ -1,5 +1,5 @@
 // XYZSKOR responsive/gorsel regresyon harness'i (2026-08-21).
-// Devir belgesindeki acik: "Mobil 320, 375, 390, 768 ve desktop 1440 icin
+// Mobil 320, 360, 375, 390, 430, tablet 768 ve desktop 1440 icin
 // gorsel regresyon seti olusturulmali".
 //
 // Ne yapar:
@@ -21,8 +21,10 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const OUT = new URL('../../reports/screenshots/responsive/', import.meta.url);
 const ALL_VIEWPORTS = [
   { name: '320-mobil-kucuk', width: 320, height: 720 },
+  { name: '360-mobil', width: 360, height: 800 },
   { name: '375-iphone-se', width: 375, height: 812 },
   { name: '390-iphone-14', width: 390, height: 844 },
+  { name: '430-mobil-genis', width: 430, height: 932 },
   { name: '768-tablet', width: 768, height: 1024 },
   { name: '1440-masaustu', width: 1440, height: 900 },
 ];
@@ -120,6 +122,8 @@ function mockFor(url) {
     }, 200];
   }
   if (url.includes('/api/football/season')) return [mockSeasonFor(requestedLeague(url)), 200];
+  if (url.includes('/api/football/leaders')) return [{ league:requestedLeague(url), seasonId:'28203', goals:[], assists:[], yellowCards:[], redCards:[], source:'sportmonks', cacheStatus:'verified-empty', isStale:false, scopeValidated:true }, 200];
+  if (url.includes('/api/football/weekly-awards')) return [{ league:requestedLeague(url), seasonId:'28203', roundId:'3', status:'provisional', algorithmVersion:'v1', star:null, teamOfWeek:null, playerScores:[], isStale:false }, 200];
   if (url.includes('/api/football/coverage')) return [{
     source: 'sportmonks', updatedAt: iso,
     selected: Object.entries(MOCK_FOOTBALL_LEAGUES).map(([league, item]) => ({
@@ -344,11 +348,13 @@ async function main() {
         const matchdayPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/matchday'));
         const livePaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/live'));
         const leagueFootballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/'));
-        ok(JSON.stringify([...leagueFootballPaths].sort())===JSON.stringify([`/api/football/season?league=${league}`,`/api/football/live?league=${league}`].sort()), `${tag}: lig acilisi tam olarak kendi season + live kapsaminda`, leagueFootballPaths.join(' | '));
+        ok(JSON.stringify([...leagueFootballPaths].sort())===JSON.stringify([`/api/football/season?league=${league}`,`/api/football/live?league=${league}`,`/api/football/leaders?league=${league}`,`/api/football/weekly-awards?league=${league}`].sort()), `${tag}: lig acilisi kendi season/live ve gorunur haftalik kapsaminda`, leagueFootballPaths.join(' | '));
         ok(seasonPaths.length===1&&seasonPaths[0]===`/api/football/season?league=${league}`, `${tag}: lig genel bakisi yalniz kendi sezonunu bir kez istiyor`, requestedApiPaths.join(' | '));
         ok(homePaths.length===0, `${tag}: lig genel bakisi aggregate home istemiyor`, requestedApiPaths.join(' | '));
         ok(matchdayPaths.length===0, `${tag}: fixture secilmeden matchday istegi yok`, requestedApiPaths.join(' | '));
         ok(livePaths.length===1&&livePaths[0]===`/api/football/live?league=${league}`, `${tag}: lig canli poll ilk acilista yalniz kendi ligini bir kez istiyor`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter(path=>path===`/api/football/leaders?league=${league}`).length===1, `${tag}: gorunur liderlik tek ve secili lig kapsamli`, requestedApiPaths.join(' | '));
+        ok(requestedApiPaths.filter(path=>path===`/api/football/weekly-awards?league=${league}`).length===1, `${tag}: gorunur haftalik odul tek ve secili lig kapsamli`, requestedApiPaths.join(' | '));
         ok(requestedApiPaths.filter((path)=>path==='/api/football/coverage').length===0, `${tag}: lig acilisi otomatik coverage istemiyor`, requestedApiPaths.join(' | '));
         ok(requestedApiPaths.filter((path)=>path==='/api/health').length===0, `${tag}: gorunur lig verisi disinda health istegi yok`, requestedApiPaths.join(' | '));
         ok(!metrics.visibleLegacyLiveCenter, `${tag}: lig genel bakisinda ikinci canli merkez yok`);

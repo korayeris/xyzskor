@@ -36,5 +36,7 @@ jobs:
           npm run qa:live-architecture
           npm run qa:live-quota
           npm run qa:hardening
+          npm run qa:weekly-football
+          npm run qa:weekly-load
       - name: Production build
         run: node scripts/build.mjs

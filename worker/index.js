@@ -88,6 +88,11 @@ const DEMAND_PROVIDER_TIMEOUT_MS = 10000;
 const DEMAND_PROVIDER_LOCK_SECONDS = 15;
 const MULTISPORT_SHARED_TTL_SECONDS = 900;
 const MULTISPORT_SHARED_STALE_SECONDS = 21600;
+const FOOTBALL_LEADERS_TTL_SECONDS = 2700;
+const FOOTBALL_LEADERS_STALE_SECONDS = 86400;
+const FOOTBALL_WEEKLY_TTL_SECONDS = 21600;
+const FOOTBALL_WEEKLY_STALE_SECONDS = 604800;
+const XYZ_PERFORMANCE_ALGORITHM_VERSION = "v1";
 
 // ===================== CANLI SKOR MİMARİSİ (bkz. docs/LIVE-SCORE-HANDOFF-2026-08-22.md) =====================
 // Yalnızca /api/football/live (5sn poll edilen uç) tarafından kullanılır.
@@ -229,6 +234,14 @@ const PRESEASON_KEYWORDS = [
   "training match",
   "closed-door friendly",
 ];
+const TRANSFER_NEWS_KEYWORDS = [
+  "transfer", "transferred", "signing", "signed", "signs", "joins", "joined",
+  "contract", "agreement", "deal", "loan", "kiralık", "kiralik", "bonservis",
+  "imza", "imzaladı", "imzaladi", "anlaşma", "anlasma", "görüşme", "gorusme",
+  "ayrılık", "ayrilik", "resmi açıklama", "official statement", "here we go",
+  "fichaje", "traspaso", "prestamo", "firma", "verpflichtung", "wechsel",
+  "neuzugang", "prestito", "cessione", "acquisto", "rinnovo"
+];
 const MATCH_RESULT_KEYWORDS = [
   "mac sonucu",
   "maç sonucu",
@@ -341,6 +354,15 @@ function safeErrorMessage(error) {
   return redactSecrets(message).replace(/[\r\n\t]/g,' ').slice(0,240);
 }
 
+function publicProviderErrorCode(error) {
+  const status=Number(error?.status)||0;
+  if(status===401) return 'provider_auth_failed';
+  if(status===403) return 'provider_plan_restricted';
+  if(status===429) return 'provider_rate_limited';
+  if(error?.name==='AbortError') return 'provider_timeout';
+  return 'provider_unavailable';
+}
+
 // Saglayici mesajlarindan ve loglardan sizabilecek anahtarlari maskeler.
 function redactSecrets(value) {
   return String(value == null ? '' : value)
@@ -432,6 +454,12 @@ function cleanUuid(value) {
 
 function cleanToken(value, max = 120) {
   return String(value || "").trim().replace(/[^a-zA-Z0-9_:-]/g, "").slice(0, max) || null;
+}
+
+function productFeatureEnabled(env, key, defaultValue = true) {
+  const value = env?.[key] ?? env?.[key.toUpperCase()];
+  if (value === undefined || value === null || value === "") return defaultValue;
+  return !["0","false","off","disabled"].includes(String(value).trim().toLowerCase());
 }
 
 function predictPoints(goals) {
@@ -1308,6 +1336,11 @@ function isPreseasonPost(post, mediaByKey = new Map()) {
   return PRESEASON_KEYWORDS.some((keyword) => haystack.includes(normalizeLooseText(keyword)));
 }
 
+function isTransferNewsPost(post, mediaByKey = new Map()) {
+  const haystack = normalizeLooseText(xPostSearchText(post, mediaByKey));
+  return TRANSFER_NEWS_KEYWORDS.some((keyword) => haystack.includes(normalizeLooseText(keyword)));
+}
+
 function extractScoreline(text) {
   const match = String(text || "").match(/(^|[^\d])(\d{1,2})\s*[-:–]\s*(\d{1,2})([^\d]|$)/);
   if (!match) return null;
@@ -1376,7 +1409,8 @@ async function fetchXClubFeed(token, request, context) {
       });
       const timeline = await xRequest(`/2/users/${encodeURIComponent(user.id)}/tweets?${params}`, token);
       const mediaByKey = new Map((timeline.includes?.media || []).map((media) => [media.media_key, media]));
-      const posts = await Promise.all((timeline.data || []).slice(0, publisher ? 2 : 1).map(async (row) => {
+      const transferRows = (timeline.data || []).filter((row) => isTransferNewsPost(row, mediaByKey)).slice(0, publisher ? 2 : 1);
+      const posts = await Promise.all(transferRows.map(async (row) => {
         const normalized = normalizeXPost({ ...club, publisher }, row, mediaByKey).post;
         const translatedText = normalized?.text ? await translateTextToTurkish(normalized.text) : null;
         return normalized ? { ...normalized, translated_text_tr: translatedText } : null;
@@ -1402,6 +1436,7 @@ async function fetchXClubFeed(token, request, context) {
   return {
     source: "x-api",
     league,
+    content_scope: "transfer-only",
     cost_profile: "daily-capped-safe-mode",
     fetch_mode: "limited-club-and-publisher-watchlist",
     updated_at: new Date().toISOString(),
@@ -1832,7 +1867,7 @@ async function handleFootballCoverage(request, env, context) {
     const response = jsonResponse({ source:"sportmonks-selected-league-probes", updatedAt:new Date().toISOString(), myLeaguesReportedCount:availableIds.size, subscribed, selected }, 200, { "Cache-Control":"public, max-age=300, s-maxage=3600" });
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
-    return jsonResponse({ error:error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider:"sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control":"no-store", "Retry-After":"300" });
+    return jsonResponse({ error:error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable", provider:"sportmonks", providerStatus:error?.status || null }, error?.status === 401 || error?.status === 403 ? error.status : 502, { "Cache-Control":"no-store", "Retry-After":"300" });
   }
 }
 
@@ -1952,8 +1987,8 @@ async function handleFootballTransfers(request, env, context) {
     sportmonksRequest(rumoursPath, token),
   ]);
   const errors = [];
-  if (confirmedResult.status === "rejected") errors.push({ source: "transfers", status: confirmedResult.reason?.status || 502, message: redactSecrets(confirmedResult.reason?.providerMessage || confirmedResult.reason?.message || "unavailable") });
-  if (rumourResult.status === "rejected") errors.push({ source: "transfer-rumours", status: rumourResult.reason?.status || 502, message: redactSecrets(rumourResult.reason?.providerMessage || rumourResult.reason?.message || "unavailable") });
+  if (confirmedResult.status === "rejected") errors.push({ source: "transfers", status: confirmedResult.reason?.status || 502, code:publicProviderErrorCode(confirmedResult.reason) });
+  if (rumourResult.status === "rejected") errors.push({ source: "transfer-rumours", status: rumourResult.reason?.status || 502, code:publicProviderErrorCode(rumourResult.reason) });
   const confirmed = confirmedResult.status === "fulfilled" ? relationRows(confirmedResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "confirmed")) : [];
   const rumours = rumourResult.status === "fulfilled" ? relationRows(rumourResult.value?.data).map((row) => normalizeSportmonksTransfer(row, "rumour")) : [];
   const inScope = (row) => {
@@ -2238,9 +2273,9 @@ async function handleFootballPrediction(request, env) {
     return jsonResponse({ prediction:Array.isArray(saved) ? saved[0] || null : saved }, 200, { "Cache-Control":"no-store" });
   } catch (error) {
     if (error?.message === "fixture_out_of_scope") {
-      return jsonResponse({ error:"fixture_out_of_scope", message:safeErrorMessage(error) }, 400, { "Cache-Control":"no-store" });
+      return jsonResponse({ error:"fixture_out_of_scope" }, 400, { "Cache-Control":"no-store" });
     }
-    return jsonResponse({ error:error?.status === 404 ? "fixture_unavailable" : "prediction_save_failed", message:safeErrorMessage(error) }, error?.status === 404 ? 404 : 502, { "Cache-Control":"no-store" });
+    return jsonResponse({ error:error?.status === 404 ? "fixture_unavailable" : "prediction_save_failed" }, error?.status === 404 ? 404 : 502, { "Cache-Control":"no-store" });
   }
 }
 
@@ -2359,7 +2394,7 @@ async function fetchSportmonksLeagueWindow(leagueKey, leagueId, token, priorErro
   return {
     source:"sportmonks-football-api-v3", provider:"sportmonks", league:leagueKey, leagueId:String(leagueId), seasonId:String(strictlyScoped[0]?.season_id || "league-window"), competition:league.name || SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || null, updatedAt:new Date().toISOString(), matches:uniqueMatches,
     results:uniqueMatches.filter((row) => row.result).map((row) => ({ match_id:row.id, ...row.result, scored_at:new Date().toISOString() })), standings:[], coverage:{ fixtures:uniqueMatches.length, results:uniqueMatches.filter((row) => row.result).length, standings:0, mode:"league-date-window" },
-    errors:priorErrors.concat(settled.flatMap((result,index) => result.status === "rejected" ? [{ module:`fixtures-window-${index + 1}`, message:result.reason?.providerMessage || result.reason?.message || "unavailable" }] : [])),
+    errors:priorErrors.concat(settled.flatMap((result,index) => result.status === "rejected" ? [{ module:`fixtures-window-${index + 1}`, code:publicProviderErrorCode(result.reason) }] : [])),
   };
 }
 
@@ -2393,14 +2428,14 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
   }
   // Lig seçimine erişim yoksa bunu genel bir "fikstür bulunamadı" hatasına
   // dönüştürme; istemci gerçek plan/yetki durumunu gösterebilsin.
-  if (!season?.id && [401, 403].includes(leagueLookupError?.status)) throw leagueLookupError;
+  if (!season?.id && !leagueResolved && leagueLookupError) throw leagueLookupError;
   if (!season?.id && !leagueResolved) {
     const accessError = new Error(`${SELECTED_LEAGUE_NAMES_BY_KEY[leagueKey] || leagueKey} mevcut Sportmonks aboneliğine dahil değil`);
     accessError.status = 403;
     accessError.providerMessage = accessError.message;
     throw accessError;
   }
-  if (!season?.id) return fetchSportmonksLeagueWindow(leagueKey, leagueId, token, [{ module:"season", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "active_season_unavailable" }]);
+  if (!season?.id) return fetchSportmonksLeagueWindow(leagueKey, leagueId, token, [{ module:"season", code:leagueLookupError ? publicProviderErrorCode(leagueLookupError) : "active_season_unavailable" }]);
   const seasonId = String(season.id);
   const [standingsResult, scheduleResult] = await Promise.allSettled([
     sportmonksRequest(`/standings/seasons/${encodeURIComponent(seasonId)}?include=participant;details.type;form`, token),
@@ -2426,7 +2461,7 @@ async function fetchSportmonksSeasonBundle(leagueKey, token) {
     results: uniqueMatches.filter((row) => row.result).map((row) => ({ match_id: row.id, ...row.result, scored_at: new Date().toISOString() })),
     standings: standings.sort((a, b) => Number(b.points || 0) - Number(a.points || 0)),
     coverage: { fixtures: uniqueMatches.length, results: uniqueMatches.filter((row) => row.result).length, standings: standings.length },
-    errors: [standingsResult, scheduleResult].flatMap((result, index) => result.status === "rejected" ? [{ module: index === 0 ? "standings" : "fixtures", message: result.reason?.providerMessage || result.reason?.message || "unavailable" }] : []).concat(leagueLookupError ? [{ module:"league", message:leagueLookupError?.providerMessage || leagueLookupError?.message || "fallback_used" }] : []),
+    errors: [standingsResult, scheduleResult].flatMap((result, index) => result.status === "rejected" ? [{ module: index === 0 ? "standings" : "fixtures", code:publicProviderErrorCode(result.reason) }] : []).concat(leagueLookupError ? [{ module:"league", code:publicProviderErrorCode(leagueLookupError) }] : []),
   };
 }
 
@@ -2484,6 +2519,237 @@ async function singleFlightFootballSeason(env, league, token) {
   }
 }
 
+function footballProviderFixtureId(value) {
+  return String(value || "").replace(/^sportmonks:/, "");
+}
+
+function normalizedTopscorerMetric(type) {
+  const key = String(type?.developer_name || type?.code || type?.name || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (/assist/.test(key)) return "assists";
+  if (/yellowcard/.test(key)) return "yellowCards";
+  if (/redcard/.test(key)) return "redCards";
+  if (/goal/.test(key) && !/own|conced|against/.test(key)) return "goals";
+  return null;
+}
+
+function normalizeTopscorerRow(row) {
+  const metric = normalizedTopscorerMetric(row?.type);
+  const player = row?.player || {};
+  const team = row?.participant || {};
+  if (!metric || !row?.player_id || !Number.isFinite(Number(row?.total))) return null;
+  return {
+    metric,
+    playerId:String(row.player_id),
+    playerName:player.display_name || player.common_name || player.name || `Oyuncu ${row.player_id}`,
+    playerImage:player.image_path || null,
+    teamId:row.participant_id ? String(row.participant_id) : null,
+    teamName:team.name || null,
+    teamImage:team.image_path || null,
+    total:Number(row.total),
+    rank:Number(row.position) || null,
+    providerType:{ id:row.type_id ?? row?.type?.id ?? null, code:row?.type?.code || null, name:row?.type?.name || null },
+  };
+}
+
+function normalizeFootballLeaders(rows) {
+  const output = { goals:[], assists:[], yellowCards:[], redCards:[] };
+  const best = new Map(Object.keys(output).map((key) => [key, new Map()]));
+  for (const row of rows) {
+    const normalized = normalizeTopscorerRow(row);
+    if (!normalized) continue;
+    const previous=best.get(normalized.metric).get(normalized.playerId);
+    if(!previous||normalized.total>previous.total||(normalized.total===previous.total&&(normalized.rank||999)<(previous.rank||999))) best.get(normalized.metric).set(normalized.playerId,normalized);
+  }
+  for (const key of Object.keys(output)) output[key]=[...best.get(key).values()].sort((a,b) => b.total-a.total || (a.rank || 999)-(b.rank || 999) || a.playerId.localeCompare(b.playerId)).slice(0,10);
+  return output;
+}
+
+async function fetchFootballLeadersPayload(league, seasonId, token) {
+  const params = new URLSearchParams({ include:"player;participant;type", per_page:"100" });
+  const payload = await sportmonksRequest(`/topscorers/seasons/${encodeURIComponent(seasonId)}?${params}`, token);
+  const rows = relationRows(payload?.data);
+  const leaders = normalizeFootballLeaders(rows);
+  return {
+    league, leagueId:String(SELECTED_LEAGUE_IDS_BY_KEY[league][0]), seasonId:String(seasonId),
+    ...leaders,
+    source:"sportmonks-football-api-v3", sourceUpdatedAt:new Date().toISOString(), computedAt:new Date().toISOString(),
+    cacheStatus:rows.length ? "fresh" : "verified-empty", isStale:false, scopeValidated:true,
+  };
+}
+
+async function resolveFootballLeaders(env, league, seasonId, token) {
+  const identity = `${league}:${seasonId}:topscorers:v1`;
+  return singleFlightDemandProvider({
+    env, kind:"football-leaders", identity, provider:"sportmonks",
+    ttlSeconds:FOOTBALL_LEADERS_TTL_SECONDS, staleSeconds:FOOTBALL_LEADERS_STALE_SECONDS, lockSeconds:45,
+    validatePayload:(payload) => payload?.league === league && String(payload?.seasonId) === String(seasonId)
+      && ["goals","assists","yellowCards","redCards"].every((key) => Array.isArray(payload?.[key])),
+    fetchPayload:() => fetchFootballLeadersPayload(league, seasonId, token),
+  });
+}
+
+function playerPositionGroup(value, isKeeper=false) {
+  const text = String(value || "").toLowerCase();
+  if (isKeeper || /goal|keeper|kaleci/.test(text)) return "goalkeeper";
+  if (/defen|back|bek|stoper/.test(text)) return "defender";
+  if (/mid|orta|wing/.test(text)) return "midfielder";
+  if (/forward|striker|attack|forvet/.test(text)) return "forward";
+  return "unknown";
+}
+
+function eventKind(event) {
+  const value = String(event?.type?.developer_name || event?.type?.code || event?.type?.name || event?.type || event?.addition || "").toLowerCase();
+  if (/second.*yellow|yellow.*red/.test(value)) return "secondYellow";
+  if (/red.*card|redcard/.test(value)) return "redCard";
+  if (/yellow.*card|yellowcard/.test(value)) return "yellowCard";
+  if (/own.*goal/.test(value)) return "ownGoal";
+  if (/penalty.*miss|missed.*penalty/.test(value)) return "penaltyMissed";
+  if (/penalty.*save|saved.*penalty/.test(value)) return "penaltySaved";
+  if (/assist/.test(value)) return "assist";
+  if (/goal/.test(value)) return "goal";
+  return null;
+}
+
+function lineupMinutes(row) {
+  const details = relationRows(row?.details);
+  const minuteDetail = details.find((detail) => /minute/i.test(String(detail?.type?.developer_name || detail?.type?.name || detail?.type?.code || "")));
+  const value = minuteDetail?.data?.value ?? minuteDetail?.value ?? row?.minutes_played ?? row?.minutes;
+  if (Number.isFinite(Number(value))) return Math.max(0,Math.min(130,Number(value)));
+  return Number(row?.type_id) === 11 ? 90 : 0;
+}
+
+function calculateXYZPerformanceScore(input) {
+  const position = playerPositionGroup(input.position,input.isKeeper);
+  const minutes = Math.max(0,Number(input.minutes)||0);
+  const counts = { goal:0,assist:0,yellowCard:0,secondYellow:0,redCard:0,ownGoal:0,penaltyMissed:0,penaltySaved:0, ...(input.events || {}) };
+  const breakdown = {
+    base:minutes>0 ? 6 : 0,
+    minutes:minutes>=60 ? .5 : minutes>0 ? .2 : 0,
+    goals:counts.goal * ({goalkeeper:3,defender:2.5,midfielder:2,forward:1.7,unknown:1.7}[position]),
+    assists:counts.assist * 1.2,
+    result:input.teamResult === "win" ? .3 : input.teamResult === "draw" ? .1 : 0,
+    cleanSheet:input.cleanSheet && minutes>=60 ? ({goalkeeper:1,defender:1,midfielder:.3,forward:0,unknown:0}[position]) : 0,
+    cards:counts.yellowCard*-.5 + counts.secondYellow*-1.5 + counts.redCard*-2,
+    penalties:counts.ownGoal*-1.5 + counts.penaltyMissed*-1 + counts.penaltySaved*2,
+  };
+  const raw = Object.values(breakdown).reduce((sum,value)=>sum+Number(value||0),0);
+  return { score:Math.round(Math.max(0,Math.min(10,raw))*10)/10, breakdown, position, minutes };
+}
+
+function chooseWeeklyXI(players) {
+  const formations = [{name:"4-3-3",g:1,d:4,m:3,f:3},{name:"4-4-2",g:1,d:4,m:4,f:2},{name:"3-4-3",g:1,d:3,m:4,f:3}];
+  const sorted = [...players].sort((a,b)=>b.score-a.score || b.contributions-a.contributions || b.minutes-a.minutes || a.playerId.localeCompare(b.playerId));
+  let best = null;
+  for (const formation of formations) {
+    const picks = [
+      ...sorted.filter(p=>p.position==="goalkeeper").slice(0,formation.g),
+      ...sorted.filter(p=>p.position==="defender").slice(0,formation.d),
+      ...sorted.filter(p=>p.position==="midfielder").slice(0,formation.m),
+      ...sorted.filter(p=>p.position==="forward").slice(0,formation.f),
+    ];
+    if (picks.length!==11 || new Set(picks.map(p=>p.playerId)).size!==11) continue;
+    const total=picks.reduce((sum,p)=>sum+p.score,0);
+    if (!best || total>best.total) best={formation:formation.name,total,players:picks};
+  }
+  return best;
+}
+
+function selectWeeklyRound(matches) {
+  const rows = (Array.isArray(matches) ? matches : []).filter((match) => Number.isFinite(Number(match?.hafta)));
+  const unavailable = (match) => /postpon|ertelen|cancel|iptal|abandon|askıya/i.test(String(match?.status || ""));
+  const finished = (match) => !unavailable(match) && (Boolean(match?.result) || /bitti|finished|\bft\b|aet|pen/i.test(String(match?.status || "")));
+  const candidateRound = rows.filter(finished).reduce((max, match) => Math.max(max, Number(match.hafta) || 0), 0);
+  if (!candidateRound) return { roundId:0, matches:[], complete:false };
+  const roundMatches = rows.filter((match) => Number(match.hafta) === candidateRound);
+  return { roundId:candidateRound, matches:roundMatches, complete:roundMatches.length > 0 && roundMatches.every(finished) };
+}
+
+function scoreWeeklyFixture(fixture) {
+  const participants=relationRows(fixture?.participants);
+  const scoreByTeam=new Map(participants.map(team=>[String(team.id),sportmonksScore(fixture?.scores,team.id)]));
+  const eventRows=[...new Map(relationRows(fixture?.events).map((event,index)=>[String(event?.id ?? `${event?.type_id}:${event?.player_id}:${event?.minute}:${index}`),event])).values()];
+  return relationRows(fixture?.lineups).map(row=>{
+    const player=row?.player || {};
+    const playerId=String(row?.player_id || player?.id || "");
+    const teamId=String(row?.team_id || row?.participant_id || "");
+    const team=participants.find(item=>String(item?.id)===teamId) || {};
+    const opponent=participants.find(item=>String(item?.id)!==teamId) || {};
+    const ownScore=scoreByTeam.get(teamId),opponentScore=scoreByTeam.get(String(opponent?.id));
+    const events={};
+    for(const event of eventRows){
+      const primary=String(event?.player_id || event?.player?.id || "")===playerId;
+      const related=String(event?.related_player_id || event?.relatedplayer?.id || "")===playerId;
+      const kind=eventKind(event);
+      if(primary&&kind) events[kind]=(events[kind]||0)+1;
+      if(related&&kind==="goal") events.assist=(events.assist||0)+1;
+    }
+    // Providers may emit the same dismissal as yellow + second-yellow + red
+    // records. Score the disciplinary outcome once, while preserving a
+    // genuinely separate first yellow when it exists.
+    if(events.secondYellow){
+      events.yellowCard=Math.max(0,(events.yellowCard||0)-events.secondYellow);
+      events.redCard=0;
+    }
+    const result=Number.isFinite(ownScore)&&Number.isFinite(opponentScore)?(ownScore>opponentScore?"win":ownScore===opponentScore?"draw":"loss"):null;
+    const calculated=calculateXYZPerformanceScore({position:row?.detailedposition?.name || row?.position?.name, isKeeper:/goal|keeper/i.test(String(row?.detailedposition?.name||row?.position?.name||"")), minutes:lineupMinutes(row), events, teamResult:result, cleanSheet:Number(opponentScore)===0});
+    return { playerId,playerName:row?.player_name||player?.display_name||player?.common_name||player?.name||`Oyuncu ${playerId}`,playerImage:player?.image_path||null,teamId,teamName:team?.name||null,teamImage:team?.image_path||null,...calculated,events,contributions:(events.goal||0)+(events.assist||0),fixtureId:String(fixture.id) };
+  }).filter(player=>player.playerId&&player.minutes>0);
+}
+
+async function persistWeeklyAwards(env,payload) {
+  if(!supabaseServiceKey(env)||!payload?.roundId) return;
+  const rows=payload.playerScores.map(player=>({league_id:payload.leagueId,season_id:payload.seasonId,round_id:payload.roundId,player_id:player.playerId,algorithm_version:payload.algorithmVersion,status:payload.status,score:player.score,minutes:player.minutes,payload:player,source_updated_at:payload.sourceUpdatedAt,computed_at:payload.computedAt}));
+  await supabaseRest(env,"football_weekly_player_scores?on_conflict=league_id,season_id,round_id,player_id,algorithm_version",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
+  await supabaseRest(env,"football_weekly_awards?on_conflict=league_id,season_id,round_id,algorithm_version",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify([{league_id:payload.leagueId,season_id:payload.seasonId,round_id:payload.roundId,algorithm_version:payload.algorithmVersion,status:payload.status,star_player_id:payload.star?.playerId||null,formation:payload.teamOfWeek?.formation||null,payload:{star:payload.star,teamOfWeek:payload.teamOfWeek},source_updated_at:payload.sourceUpdatedAt,computed_at:payload.computedAt,is_stale:false,calculation_evidence:{fixtureIds:payload.fixtureIds,algorithmVersion:payload.algorithmVersion}}])});
+}
+
+async function fetchWeeklyAwardsPayload(env,league,seasonBundle,token) {
+  const selectedRound=selectWeeklyRound(seasonBundle.matches||[]),roundId=selectedRound.roundId,roundMatches=selectedRound.matches;
+  if(!roundId||!roundMatches.length||!selectedRound.complete) return {league,leagueId:String(SELECTED_LEAGUE_IDS_BY_KEY[league][0]),seasonId:String(seasonBundle.seasonId),roundId:roundId?String(roundId):null,status:"provisional",algorithmVersion:XYZ_PERFORMANCE_ALGORITHM_VERSION,star:null,teamOfWeek:null,playerScores:[],fixtureIds:[],sourceUpdatedAt:seasonBundle.updatedAt||null,computedAt:new Date().toISOString(),reason:selectedRound.complete?"no_completed_round":"round_incomplete"};
+  const fixtureResults=await Promise.allSettled(roundMatches.map(match=>sportmonksFixtureRequest(`/fixtures/${encodeURIComponent(footballProviderFixtureId(match.id))}`,token)));
+  const fixtures=fixtureResults.filter(result=>result.status==="fulfilled").map(result=>relationRows(result.value.payload?.data)[0]).filter(Boolean);
+  const scores=fixtures.flatMap(scoreWeeklyFixture);
+  const aggregated=[...new Map(scores.map(score=>[score.playerId,[]])).entries()].map(([playerId])=>{
+    const rows=scores.filter(score=>score.playerId===playerId),minutes=rows.reduce((sum,row)=>sum+row.minutes,0);
+    const base={...rows[0],score:Math.round((rows.reduce((sum,row)=>sum+row.score*row.minutes,0)/Math.max(1,minutes))*10)/10,minutes,contributions:rows.reduce((sum,row)=>sum+row.contributions,0)};
+    return base;
+  }).sort((a,b)=>b.score-a.score||b.contributions-a.contributions||b.minutes-a.minutes||a.playerId.localeCompare(b.playerId));
+  const status=fixtures.length===roundMatches.length?"published":"provisional";
+  const teamOfWeek=status==="published"?chooseWeeklyXI(aggregated):null;
+  const payload={league,leagueId:String(SELECTED_LEAGUE_IDS_BY_KEY[league][0]),seasonId:String(seasonBundle.seasonId),roundId:String(roundId),status:status==="published"&&teamOfWeek?"published":"provisional",algorithmVersion:XYZ_PERFORMANCE_ALGORITHM_VERSION,star:aggregated[0]||null,teamOfWeek,playerScores:aggregated,fixtureIds:fixtures.map(row=>String(row.id)),source:"sportmonks-data-xyzskor-calculation",sourceUpdatedAt:seasonBundle.updatedAt||new Date().toISOString(),computedAt:new Date().toISOString(),isStale:false};
+  if(payload.status==="published") await persistWeeklyAwards(env,payload).catch(()=>{});
+  return payload;
+}
+
+async function handleFootballLeaders(request,env) {
+  if(request.method!=="GET") return jsonResponse({error:"method_not_allowed"},405,{Allow:"GET"});
+  if(!productFeatureEnabled(env,"football_leaders_enabled")) return jsonResponse({error:"feature_disabled"},404,{"Cache-Control":"no-store"});
+  const token=env.SPORTMONKS_API_TOKEN||env.SPORTMONKS_TOKEN;
+  const league=validLeagueKey(new URL(request.url).searchParams.get("league"),{single:true});
+  if(!league) return jsonResponse({error:"invalid_league"},400,{"Cache-Control":"no-store"});
+  if(!token) return jsonResponse({error:"sportmonks_not_configured"},503,{"Cache-Control":"no-store"});
+  try{
+    const season=(await singleFlightFootballSeason(env,league,token)).payload;
+    const result=await resolveFootballLeaders(env,league,season.seasonId,token);
+    return jsonResponse({...result.payload,cacheStatus:result.stale?"stale":result.payload.cacheStatus,isStale:result.stale,degraded:Boolean(result.stale&&result.error)},200,{"Cache-Control":"public, max-age=300, s-maxage=2700, stale-while-revalidate=86400","X-Data-Stale":result.stale?"true":"false"});
+  }catch(error){return jsonResponse({error:error?.message==="provider_refresh_in_progress"?"provider_refresh_in_progress":"football_leaders_unavailable"},error?.message==="provider_refresh_in_progress"?503:502,{"Cache-Control":"no-store"});}
+}
+
+async function handleFootballWeeklyAwards(request,env) {
+  if(request.method!=="GET") return jsonResponse({error:"method_not_allowed"},405,{Allow:"GET"});
+  if(!productFeatureEnabled(env,"xyz_performance_score_enabled")||!productFeatureEnabled(env,"weekly_star_enabled")||!productFeatureEnabled(env,"team_of_week_enabled")) return jsonResponse({error:"feature_disabled"},404,{"Cache-Control":"no-store"});
+  const token=env.SPORTMONKS_API_TOKEN||env.SPORTMONKS_TOKEN;
+  const league=validLeagueKey(new URL(request.url).searchParams.get("league"),{single:true});
+  if(!league) return jsonResponse({error:"invalid_league"},400,{"Cache-Control":"no-store"});
+  if(!token) return jsonResponse({error:"sportmonks_not_configured"},503,{"Cache-Control":"no-store"});
+  try{
+    const season=(await singleFlightFootballSeason(env,league,token)).payload;
+    const identity=`${league}:${season.seasonId}:latest:${XYZ_PERFORMANCE_ALGORITHM_VERSION}`;
+    const result=await singleFlightDemandProvider({env,kind:"football-weekly-awards",identity,provider:"sportmonks",ttlSeconds:FOOTBALL_WEEKLY_TTL_SECONDS,staleSeconds:FOOTBALL_WEEKLY_STALE_SECONDS,lockSeconds:60,validatePayload:(payload)=>payload?.league===league&&payload?.algorithmVersion===XYZ_PERFORMANCE_ALGORITHM_VERSION&&Array.isArray(payload?.playerScores),fetchPayload:()=>fetchWeeklyAwardsPayload(env,league,season,token)});
+    return jsonResponse({...result.payload,cacheStatus:result.stale?"stale":result.payload.status==="published"?"fresh":"provisional",isStale:result.stale,degraded:Boolean(result.stale&&result.error)},200,{"Cache-Control":"public, max-age=900, s-maxage=21600, stale-while-revalidate=604800","X-Data-Stale":result.stale?"true":"false"});
+  }catch(error){return jsonResponse({error:error?.message==="provider_refresh_in_progress"?"provider_refresh_in_progress":"football_weekly_awards_unavailable"},error?.message==="provider_refresh_in_progress"?503:502,{"Cache-Control":"no-store"});}
+}
+
 async function handleFootballSeason(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
@@ -2507,7 +2773,7 @@ async function handleFootballSeason(request, env, context) {
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
     const locked = error?.message === "provider_refresh_in_progress";
-    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : locked ? "provider_refresh_in_progress" : "sportmonks_upstream_unavailable", provider: "sportmonks", providerStatus:error?.status || null, detail:error?.providerMessage || error?.message || "unavailable" }, error?.status === 401 || error?.status === 403 ? error.status : locked ? 503 : 502, { "Cache-Control": "no-store", "Retry-After": locked ? "3" : "300" });
+    return jsonResponse({ error: error?.status === 401 ? "sportmonks_token_invalid" : error?.status === 403 ? "sportmonks_plan_restricted" : locked ? "provider_refresh_in_progress" : "sportmonks_upstream_unavailable", provider: "sportmonks", providerStatus:error?.status || null }, error?.status === 401 || error?.status === 403 ? error.status : locked ? 503 : 502, { "Cache-Control": "no-store", "Retry-After": locked ? "3" : "300" });
   }
 }
 
@@ -2650,7 +2916,7 @@ async function handleFootballHome(request, env, context) {
     return response;
   } catch (error) {
     const locked = error?.message === "provider_refresh_in_progress";
-    return jsonResponse({ error:locked ? "provider_refresh_in_progress" : "football_home_unavailable", provider:"sportmonks", detail:safeErrorMessage(error) }, locked ? 503 : 502, { "Cache-Control":"no-store", "Retry-After":locked ? "3" : "60" });
+    return jsonResponse({ error:locked ? "provider_refresh_in_progress" : "football_home_unavailable", provider:"sportmonks" }, locked ? 503 : 502, { "Cache-Control":"no-store", "Retry-After":locked ? "3" : "60" });
   }
 }
 
@@ -3587,7 +3853,7 @@ async function handleInstagramFeed(request, env, context) {
     settled.forEach((result, index) => {
       const label = index < hashtags.length ? `hashtag:${hashtags[index]}` : "own-media";
       if (result.status === "fulfilled") items.push(...result.value);
-      else errors.push({ source: label, status: result.reason?.status || 502, code: result.reason?.providerCode ?? null, message: result.reason?.providerMessage || result.reason?.message || "unavailable" });
+      else errors.push({ source: label, status: result.reason?.status || 502, code: result.reason?.providerCode ?? publicProviderErrorCode(result.reason) });
     });
 
     // Her gönderi tek kez; en yeni önce.
@@ -3630,7 +3896,6 @@ async function handleInstagramFeed(request, env, context) {
     return jsonResponse({
       error: status === 401 ? "instagram_token_invalid" : status === 403 ? "instagram_permission_denied" : "instagram_upstream_unavailable",
       provider: "instagram-graph-api",
-      detail: error?.providerMessage || error?.message || "unavailable",
     }, status, { "Cache-Control": "no-store", "Retry-After": "600" });
   }
 }
@@ -4158,6 +4423,8 @@ async function fetchAsset(request, env, pathname) {
   return env.ASSETS.fetch(assetRequest);
 }
 
+export { calculateXYZPerformanceScore, chooseWeeklyXI, selectWeeklyRound };
+
 export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
@@ -4196,6 +4463,8 @@ export default {
     if (url.pathname === "/api/football/fixture") return handleFootballFixture(request, env);
     if (url.pathname === "/api/football/home") return handleFootballHome(request, env, context);
     if (url.pathname === "/api/football/season") return handleFootballSeason(request, env, context);
+    if (url.pathname === "/api/football/leaders") return handleFootballLeaders(request, env);
+    if (url.pathname === "/api/football/weekly-awards") return handleFootballWeeklyAwards(request, env);
     if (url.pathname === "/api/football/club") return handleClubProfile(request, env, context);
     if (url.pathname === "/api/football/transfers") return handleFootballTransfers(request, env, context);
     if (url.pathname === "/api/social/instagram") return handleInstagramFeed(request, env, context);

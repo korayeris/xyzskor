@@ -154,6 +154,13 @@ async function main() {
     assertEqual(body?.error, 'invalid_league', 'season league=all error code');
   }
   {
+    const echoedSecret = ALL_SECRETS_ENV.SPORTMONKS_API_TOKEN;
+    const { status, body } = await run('season-500-safe-body', '/api/football/season?league=premier-league', ALL_SECRETS_ENV, () => jsonUpstream({ message:`provider failed api_token=${echoedSecret}` }, 500));
+    assertEqual(status, 502, 'season upstream 500 -> 502');
+    assertEqual(body?.error, 'sportmonks_upstream_unavailable', 'season upstream 500 error code');
+    assertTrue(!('detail' in body) && !('message' in body) && !JSON.stringify(body).includes(echoedSecret), 'season hata gövdesi provider detayı veya token yansıtmaz');
+  }
+  {
     const { status, body } = await run('season-success', '/api/football/season?league=super-lig', ALL_SECRETS_ENV, (u) => {
       if (u.pathname === '/v3/football/leagues/600') return jsonUpstream({
         data: { id: 600, name: 'Süper Lig', country: { name: 'Türkiye' }, currentseason: { id: 999, is_current: true } },
@@ -299,6 +306,13 @@ async function main() {
     const { status, body } = await run('coverage-no-token', '/api/football/coverage', NO_SECRETS_ENV);
     assertEqual(status, 503, 'coverage no token -> 503');
     assertEqual(body?.error, 'sportmonks_not_configured', 'coverage no token error code');
+  }
+  {
+    const echoedSecret = ALL_SECRETS_ENV.SPORTMONKS_API_TOKEN;
+    const { status, body } = await run('coverage-500-safe-body', '/api/football/coverage', ALL_SECRETS_ENV, () => jsonUpstream({ message:`provider failed token=${echoedSecret}` }, 500));
+    assertEqual(status, 502, 'coverage upstream 500 -> 502');
+    assertEqual(body?.error, 'sportmonks_upstream_unavailable', 'coverage upstream 500 error code');
+    assertTrue(!('detail' in body) && !('message' in body) && !JSON.stringify(body).includes(echoedSecret), 'coverage hata gövdesi provider detayı veya token yansıtmaz');
   }
   {
     const { status, body } = await run('coverage-success', '/api/football/coverage', ALL_SECRETS_ENV, (u) => {

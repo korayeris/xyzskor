@@ -1,8 +1,16 @@
 X_BEARER_TOKEN=
 YOUTUBE_API_KEY=
 SPORTMONKS_API_TOKEN=
+SPORTMONKS_LEAGUE_IDS=600,8,564,82,384
+football_leaders_enabled=true
+xyz_performance_score_enabled=true
+weekly_star_enabled=true
+team_of_week_enabled=true
 # Alternatif isim. Tek token yeterlidir; iki değişkeni birden doldurmayın.
 SPORTMONKS_TOKEN=
+API_SPORTS_KEY=
+CITO_API_KEY=
+OCBLACKTOP_API_KEY=
 
 
 # Instagram Graph API (gündem gönderileri).

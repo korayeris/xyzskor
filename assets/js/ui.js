@@ -902,6 +902,7 @@ function renderMatchesLeagueFilters(){
 function selectFootballLeague(key){
   const previousLeague=activeFootballLeague;
   const requestedLeague=SELECTED_COMPETITIONS.some(item=>item.key===key) ? key : 'super-lig';
+  if(previousLeague!==requestedLeague&&typeof abortFootballWeeklyFeatures==='function') abortFootballWeeklyFeatures();
   playFootballLeagueTransition(previousLeague, requestedLeague);
   activeFootballLeague=requestedLeague;
   applyFootballLeagueTheme();
@@ -1388,12 +1389,19 @@ function renderFootballFeatured(){
   area.innerHTML=`<div class="football-module-kicker">Haftanın Manşeti · ${escapeHTML(activeWeek)}. Hafta</div><h2>${escapeHTML(story?.title || (activeWeek+'. Hafta'))}</h2>${story?.intro?`<p>${escapeHTML(story.intro)}</p>`:''}${source || checked?`<div class="featured-source">${source}${source&&checked?' · ':''}${checked?escapeHTML(fmtEditorialDate(checked)):''}</div>`:''}<div class="headline-actions"><button type="button" onclick="openFootballSection('news')">Gündemi takip et →</button></div>`;
 }
 function renderClubSocial(){
-  if(!document.getElementById('clubSocialSection')) return;
+  const section=document.getElementById('clubSocialSection');
+  if(!section) return;
+  if(activeFootballLeague==='all'){
+    section.hidden=true;
+    const stage=document.getElementById('clubSocialStage'); if(stage) stage.innerHTML='';
+    return;
+  }
+  section.hidden=false;
   const label=competitionLabelBySlug(activeFootballLeague);
   const clubs=rankedXClubs();
-  const title=document.getElementById('clubSocialTitle'); if(title) title.textContent=`${label} kulüplerinden son paylaşımlar`;
-  const kicker=document.getElementById('clubSocialKicker'); if(kicker) kicker.textContent=`RESMÎ SOSYAL AKIŞ · ${competitionShortBySlug(activeFootballLeague)}`;
-  const description=document.getElementById('clubSocialDescription'); if(description) description.textContent=`${clubs.length} doğrulanmış hesaptan son paylaşım, görsel ve video kapağı tek akışta sunulur.`;
+  const title=document.getElementById('clubSocialTitle'); if(title) title.textContent=`${label} transfer masası`;
+  const kicker=document.getElementById('clubSocialKicker'); if(kicker) kicker.textContent=`XYZSKOR TRANSFER AKIŞI · ${competitionShortBySlug(activeFootballLeague)}`;
+  const description=document.getElementById('clubSocialDescription'); if(description) description.textContent='Yalnız transfer, sözleşme, kiralık ve ayrılık sinyalleri; XYZSkor editoryal özetiyle sunulur.';
   loadXClubPosts();
 }
 function renderPreseasonSocial(){
@@ -2053,6 +2061,36 @@ function syncEarlyLeagueOverview(root,{leagueKey,label,country,seasonLabel,logo,
   return true;
 }
 let leagueOverviewHydrationSequence=0;
+function footballLeaderListHTML(rows,label){
+  if(!Array.isArray(rows)||!rows.length) return `<p class="football-weekly-empty">${escapeHTML(label)} verisi henüz doğrulanmış olarak yayınlanmadı.</p>`;
+  return `<ol class="football-leader-list">${rows.slice(0,5).map((row,index)=>`<li><span class="rank">${index+1}</span><span class="player-photo">${safeExternalURL(row.playerImage)?`<img src="${escapeHTML(row.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><span><strong>${escapeHTML(row.playerName)}</strong><small>${escapeHTML(row.teamName||'Takım bilgisi bekleniyor')}</small></span><b>${escapeHTML(row.total)}</b></li>`).join('')}</ol>`;
+}
+function footballScoreBreakdownHTML(breakdown){
+  const labels={base:'Başlangıç',minutes:'Süre',goals:'Gol',assists:'Asist',result:'Sonuç',cleanSheet:'Gol yememe',cards:'Kart',penalties:'Diğer'};
+  return Object.entries(breakdown||{}).filter(([,value])=>Number(value)!==0).map(([key,value])=>`<span>${escapeHTML(labels[key]||key)} <b>${Number(value)>0?'+':''}${escapeHTML(Number(value).toFixed(1))}</b></span>`).join('');
+}
+function footballTeamOfWeekHTML(team){
+  if(!team?.players?.length) return '<p class="football-weekly-empty">Geçerli 11 için tamamlanmış ve pozisyonu doğrulanmış oyuncu havuzu bekleniyor.</p>';
+  const order={goalkeeper:0,defender:1,midfielder:2,forward:3};
+  const rows=[...team.players].sort((a,b)=>(order[a.position]??9)-(order[b.position]??9)||b.score-a.score);
+  return `<div class="football-weekly-pitch" role="list" aria-label="${escapeHTML(team.formation)} haftanın takımı">${['forward','midfielder','defender','goalkeeper'].map(position=>`<div class="pitch-line">${rows.filter(player=>player.position===position).map(player=>`<article role="listitem"><span>${safeExternalURL(player.playerImage)?`<img src="${escapeHTML(player.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><strong>${escapeHTML(player.playerName)}</strong><b>${escapeHTML(Number(player.score).toFixed(1))}</b></article>`).join('')}</div>`).join('')}</div>`;
+}
+function renderFootballWeeklyFeatures(){
+  const root=document.getElementById('footballWeeklyFeatures'); if(!root) return;
+  const state=FOOTBALL_WEEKLY_FEATURES||{};
+  if(state.league!==activeFootballLeague||state.status==='idle'||state.status==='loading'){root.innerHTML='<p class="football-weekly-status">Liderler ve haftalık performanslar hazırlanıyor…</p>';root.setAttribute('aria-busy','true');return;}
+  root.setAttribute('aria-busy','false');
+  if(state.status==='error'){root.innerHTML='<p class="football-weekly-status is-error">Sağlayıcı verisi şu anda doğrulanamadı. Bu durum “veri yok” olarak gösterilmedi; son doğrulanmış kayıt geldiğinde alan yenilenecek.</p>';return;}
+  const leaders=state.leaders||{},awards=state.awards||{},star=awards.star;
+  const stateBadge={ready:'Güncel',stale:'Son doğrulanmış veri',degraded:'Sağlayıcı geçici hatası · doğrulanmış veri', 'verified-empty':'Doğrulanmış boş sonuç'}[state.status]||'';
+  root.innerHTML=`<div class="football-weekly-head"><div><small>XYZSKOR VERİ LABORATUVARI</small><h2>Sezon liderleri ve haftanın 11'i</h2><p>Sportmonks verilerinden XYZSkor tarafından hesaplandı · ${escapeHTML(awards.algorithmVersion||'v1')}</p></div>${stateBadge?`<span class="weekly-data-state">${escapeHTML(stateBadge)}</span>`:''}</div><div class="football-leader-tabs" role="tablist" aria-label="Liderlik türü"><button class="active" type="button" role="tab" aria-selected="true" data-leader-tab="goals">Gol</button><button type="button" role="tab" aria-selected="false" data-leader-tab="assists">Asist</button><button type="button" role="tab" aria-selected="false" data-leader-tab="yellowCards">Sarı kart</button><button type="button" role="tab" aria-selected="false" data-leader-tab="redCards">Kırmızı kart</button></div><div class="football-weekly-grid"><section class="football-leaders-pane" data-leader-pane>${footballLeaderListHTML(leaders.goals,'Gol liderliği')}</section><section class="football-weekly-star"><small>TUR ${escapeHTML(awards.roundId||'—')} · HAFTANIN YILDIZI</small>${star?`<div class="weekly-star-person"><span>${safeExternalURL(star.playerImage)?`<img src="${escapeHTML(star.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><div><h3>${escapeHTML(star.playerName)}</h3><p>${escapeHTML(star.teamName||'')} · ${escapeHTML(star.position||'')}</p></div><b>${escapeHTML(Number(star.score).toFixed(1))}</b></div><details><summary>Puan nasıl oluştu?</summary><div class="weekly-score-breakdown">${footballScoreBreakdownHTML(star.breakdown)}</div><p>Hazır sağlayıcı rating'i kullanılmaz. Puan; süre, gol, asist, maç sonucu, gol yememe ve kart olaylarından deterministik hesaplanır.</p></details>`:'<p class="football-weekly-empty">Tamamlanmış turun doğrulanmış oyuncu verisi bekleniyor.</p>'}</section></div><section class="football-team-week"><header><div><small>${escapeHTML(awards.teamOfWeek?.formation||'GEÇERLİ 11 BEKLENİYOR')}</small><h2>Haftanın takımı</h2></div><a href="/legal/data-sources.html">Metodoloji ve kaynak</a></header>${footballTeamOfWeekHTML(awards.teamOfWeek)}</section>`;
+  root.querySelectorAll('[data-leader-tab]').forEach(button=>button.addEventListener('click',()=>{root.querySelectorAll('[data-leader-tab]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});const metric=button.dataset.leaderTab,label={goals:'Gol liderliği',assists:'Asist liderliği',yellowCards:'Sarı kart liderliği',redCards:'Kırmızı kart liderliği'}[metric];const pane=root.querySelector('[data-leader-pane]');if(pane)pane.innerHTML=footballLeaderListHTML(leaders[metric],label);}));
+}
+function scheduleFootballWeeklyFeatures(root,leagueKey){
+  const target=root?.querySelector('#footballWeeklyFeatures');if(!target||target.dataset.weeklyObserved===leagueKey)return;target.dataset.weeklyObserved=leagueKey;
+  const load=()=>{if(activeFootballLeague===leagueKey&&activeFootballSection==='home'&&typeof loadFootballWeeklyFeatures==='function')loadFootballWeeklyFeatures(leagueKey);};
+  if(typeof IntersectionObserver==='undefined'){setTimeout(load,0);return;}const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){observer.disconnect();load();}},{rootMargin:'500px 0px'});observer.observe(target);
+}
 function renderFootballLeagueOverview(){
   const root=document.getElementById('footballLeagueOverview'); if(!root) return;
   setFootballOverviewChromeHidden(true);
@@ -2121,7 +2159,11 @@ function renderFootballLeagueOverview(){
       deferOverviewTask(appendRowBatch,0);
     },650);
   };
-  if(reusedEarly) hydrateRemaining();
+  if(reusedEarly){
+    if(!root.querySelector('#footballWeeklyFeatures')) root.querySelector('.league-overview-lower')?.insertAdjacentHTML('beforebegin','<section id="footballWeeklyFeatures" class="football-weekly-features" aria-live="polite" aria-busy="true"><p class="football-weekly-status">Liderler ve haftalık performanslar görünür olduğunda yüklenecek.</p></section>');
+    scheduleFootballWeeklyFeatures(root,leagueKey);
+    hydrateRemaining();
+  }
   else deferOverviewTask(()=>{
     if(!stillCurrent()) return;
     root.querySelectorAll(':scope > .league-overview-tabs').forEach(tab=>tab.remove());
@@ -2129,8 +2171,8 @@ function renderFootballLeagueOverview(){
     bindLeagueOverviewDOM(root,leagueKey);
     deferOverviewTask(()=>{
       if(!stillCurrent()) return;
-      root.querySelectorAll(':scope > .league-overview-layout, :scope > .league-overview-metrics, :scope > .league-overview-lower').forEach(section=>section.remove());
-      root.insertAdjacentHTML('beforeend',`<div class="league-overview-layout"><section class="league-overview-panel league-table-panel"><header><div><small>GÜNCEL SEZON</small><h2>Puan durumu</h2></div><button type="button" data-football-section="standings">Tam tablo →</button></header></section><aside class="league-overview-panel league-fixtures-panel"><header><div><small>MAÇ AKIŞI</small><h2>Sonuçlar ve fikstür</h2></div><button type="button" data-football-section="matches">Tüm maçlar →</button></header><div class="league-overview-fixtures-body"></div></aside></div><section class="league-overview-metrics"></section><div class="league-overview-lower"></div>`);
+      root.querySelectorAll(':scope > .league-overview-layout, :scope > .league-overview-metrics, :scope > .football-weekly-features, :scope > .league-overview-lower').forEach(section=>section.remove());
+      root.insertAdjacentHTML('beforeend',`<div class="league-overview-layout"><section class="league-overview-panel league-table-panel"><header><div><small>GÜNCEL SEZON</small><h2>Puan durumu</h2></div><button type="button" data-football-section="standings">Tam tablo →</button></header></section><aside class="league-overview-panel league-fixtures-panel"><header><div><small>MAÇ AKIŞI</small><h2>Sonuçlar ve fikstür</h2></div><button type="button" data-football-section="matches">Tüm maçlar →</button></header><div class="league-overview-fixtures-body"></div></aside></div><section class="league-overview-metrics"></section><section id="footballWeeklyFeatures" class="football-weekly-features" aria-live="polite" aria-busy="true"><p class="football-weekly-status">Liderler ve haftalık performanslar görünür olduğunda yüklenecek.</p></section><div class="league-overview-lower"></div>`);
       bindLeagueOverviewDOM(root,leagueKey);
       deferOverviewTask(()=>{
         if(!stillCurrent()) return;
@@ -2142,6 +2184,7 @@ function renderFootballLeagueOverview(){
         root.dataset.fullLeagueHydrated=leagueKey;
         delete root.dataset.leagueOverviewMounting;
         bindLeagueOverviewDOM(root,leagueKey);
+        scheduleFootballWeeklyFeatures(root,leagueKey);
         hydrateRemaining();
         if(root.dataset.leagueOverviewRefreshPending==='true'){
           delete root.dataset.leagueOverviewRefreshPending;
@@ -2899,33 +2942,31 @@ function xPostMediaHTML(club,post,targetURL){
   }).join('')}</div>`;
 }
 function xEmptyFeedHTML(accounts,label,status){
-  const unique=[...new Map((accounts||[]).filter(item=>item?.handle).map(item=>[String(item.handle).toLocaleLowerCase('tr-TR'),item])).values()].slice(0,6);
   const limited=/credit|402|payment/i.test(String(status||''));
   const paused=String(status||'')==='paused';
-  const title=limited?'X veri kotası yenileniyor':paused?'Sosyal akış günlük kontrolde':'Yeni kulüp paylaşımı bulunamadı';
-  const copy=limited?'Son doğrulanmış gönderiler korunuyor; kota yenilendiğinde akış otomatik güncellenecek.':paused?'Resmî hesaplar günde bir kez kontrol ediliyor. Yeni içerik geldiğinde bu alan kendiliğinden açılır.':`${label} kulüplerinin bağlı resmî hesaplarında yayımlanabilir yeni gönderi yok.`;
-  const links=unique.map(account=>`<a href="${escapeHTML(account.url||`https://x.com/${account.handle}`)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(account.team)} hesabını X'te aç"><span>${crestHTML(account.team,'xs')}</span><b>${escapeHTML(account.team)}</b><small>@${escapeHTML(account.handle)}</small><i aria-hidden="true">↗</i></a>`).join('');
-  return `<section class="club-social-empty" aria-label="${escapeHTML(label)} sosyal akış durumu"><div class="club-social-empty-mark" aria-hidden="true">𝕏</div><div class="club-social-empty-copy"><span>RESMÎ HESAPLAR</span><strong>${escapeHTML(title)}</strong><p>${escapeHTML(copy)}</p></div>${links?`<nav class="club-social-empty-accounts" aria-label="Bağlı resmî hesaplar">${links}</nav>`:''}</section>`;
+  const title=limited?'Transfer taraması yenileniyor':paused?'Transfer masası günlük kontrolde':'Yeni transfer gelişmesi yok';
+  const copy=limited?'Son doğrulanmış kayıtlar korunuyor; veri bütçesi yenilendiğinde tarama otomatik sürecek.':paused?'Kaynaklar günlük olarak kontrol ediliyor; yeni bir transfer sinyali doğrulandığında alan kendiliğinden güncellenir.':`${label} için doğrulanmış yeni transfer, sözleşme veya ayrılık kaydı bulunmuyor.`;
+  return `<section class="club-social-empty" aria-label="${escapeHTML(label)} transfer akışı durumu"><div class="club-social-empty-mark" aria-hidden="true">X</div><div class="club-social-empty-copy"><span>XYZSKOR TRANSFER MASASI</span><strong>${escapeHTML(title)}</strong><p>${escapeHTML(copy)}</p></div></section>`;
+}
+function xyzTransferSummary(club,post){
+  const text=normalizeLoose(`${post?.translated_text_tr||post?.text||''}`);
+  const team=club?.team||'Kulüp';
+  if(/loan|kiralik|kiralık|prestito|prestamo/.test(text)) return `${team} cephesinde kiralık oyuncu hareketi gündeme girdi.`;
+  if(/contract|sozlesme|sözleşme|rinnovo|renew/.test(text)) return `${team} cephesinde sözleşme süreciyle ilgili yeni gelişme var.`;
+  if(/depart|ayril|ayrıl|cessione|leave/.test(text)) return `${team} kadrosunda ayrılık süreciyle ilgili yeni gelişme var.`;
+  if(/sign|imza|fichaje|acquisto|neuzugang|verpflicht/.test(text)) return `${team} yeni oyuncu hamlesiyle ilgili resmî bir güncelleme yayımladı.`;
+  return `${team} transfer gündeminde doğrulanmış yeni bir gelişme var.`;
 }
 function xPostCardHTML(club){
   const post=club.post||null;
-  const cleanPostText=String(post?.text||'').replace(/https:\/\/t\.co\/\S+/gi,'').replace(/\s{2,}/g,' ').trim();
-  const metrics=post&&post.metrics?post.metrics:{};
   const targetURL=post?.url||club.url;
   const mediaBody=xPostMediaHTML(club,post,targetURL);
-  const translated=post?.translated_text_tr && normalizeLoose(post.translated_text_tr)!==normalizeLoose(post.text) ? `<div class="club-social-translation"><span>TR</span><p>${escapeHTML(post.translated_text_tr)}</p></div>` : '';
-  const postBody=post?`<p class="club-social-copy">${escapeHTML(cleanPostText)}</p>${translated}${mediaBody}
-    <div class="club-social-meta" aria-label="Paylaşım etkileşimleri">
-      <span aria-label="${escapeHTML(xMetric(metrics.reply_count))} yanıt"><i aria-hidden="true">◌</i>${escapeHTML(xMetric(metrics.reply_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(metrics.retweet_count))} yeniden paylaşım"><i aria-hidden="true">↻</i>${escapeHTML(xMetric(metrics.retweet_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(metrics.like_count))} beğeni"><i aria-hidden="true">♡</i>${escapeHTML(xMetric(metrics.like_count))}</span>
-      <span aria-label="${escapeHTML(xMetric(metrics.impression_count))} görüntülenme"><i aria-hidden="true">◒</i>${escapeHTML(xMetric(metrics.impression_count))}</span>
-    </div>`:club.account_found===false?`<div class="club-social-pending"><strong>Resmî sosyal hesap doğrulanıyor</strong><span>Hesap kataloğu güncellenirken bu kulüp için akış bağlantısı hazırlanıyor.</span></div>`:`<div class="club-social-pending"><strong>Henüz yeni paylaşım yok</strong><span>Resmî hesap bağlı; yeni gönderi geldiğinde burada yayınlanır.</span></div>`;
+  const postBody=post?`<p class="club-social-copy">${escapeHTML(xyzTransferSummary(club,post))}</p>${mediaBody}`:`<div class="club-social-pending"><strong>Yeni transfer kaydı yok</strong><span>Doğrulanmış gelişme geldiğinde XYZSkor özeti burada yayınlanır.</span></div>`;
   const verifiedMark=club.verified===false?'':`<span class="club-social-verified" aria-label="Doğrulanmış hesap">✓</span>`;
-  const accountLabel=club.publisher?'Editoryal kaynak':competitionShortBySlug(activeFootballLeague);
+  const accountLabel=club.publisher?'Transfer kaynağı':competitionShortBySlug(activeFootballLeague);
   return `<article class="club-social-card ${club.publisher?'publisher-card ':''}${mediaBody?'has-media':''}">
-    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${accountLabel}${accountLabel?' · ':''}@${escapeHTML(club.handle)}</small></div><span class="club-social-platform-mark" aria-label="X platformu" aria-hidden="true">𝕏</span></header>
-    <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Gönderiyi görüntüle':'Hesabı aç'} <span aria-hidden="true">↗</span></a></footer></div>
+    <header class="club-social-card-head"><span class="club-social-avatar">${crestHTML(club.team,'xs')}</span><div class="club-social-identity"><span class="club-social-team-line"><strong>${escapeHTML(club.team)}</strong>${verifiedMark}</span><small>${escapeHTML(accountLabel)} · XYZSkor özeti</small></div><span class="club-social-platform-mark" aria-hidden="true">X</span></header>
+    <div class="club-social-post">${postBody}<footer class="club-social-card-foot"><time datetime="${escapeHTML(post?.created_at||'')}">${post?escapeHTML(xPostDate(post.created_at)):'Günlük yenilenir'}</time><a class="club-social-profile-link" href="${escapeHTML(targetURL)}" target="_blank" rel="noopener noreferrer">${post?'Haberi aç':'Kaynağa git'} <span aria-hidden="true">↗</span></a></footer></div>
   </article>`;
 }
 function preseasonCardHTML(club){

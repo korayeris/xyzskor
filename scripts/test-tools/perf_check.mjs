@@ -235,6 +235,24 @@ function healthyMock(url) {
       matches: [],
     }, 200, 60];
   }
+  if (pathname === '/api/football/leaders') {
+    if (!LEAGUES[league]) return [{ error: 'invalid_league' }, 400, 35];
+    const scoped = LEAGUES[league];
+    const leader = (metric, index) => ({
+      metric,
+      playerId: `${scoped.id}-${metric}-${index}`,
+      playerName: `${scoped.teams[index % scoped.teams.length].name} Oyuncusu`,
+      teamName: scoped.teams[index % scoped.teams.length].name,
+      teamImage: scoped.teams[index % scoped.teams.length].logo,
+      total: 8 - index,
+      position: index + 1,
+    });
+    return [{ source: 'sportmonks', league, seasonId: `season-${scoped.id}`, updatedAt: new Date(now).toISOString(), goals: [leader('goals', 0)], assists: [leader('assists', 1)], yellowCards: [], redCards: [] }, 200, 65];
+  }
+  if (pathname === '/api/football/weekly-awards') {
+    if (!LEAGUES[league]) return [{ error: 'invalid_league' }, 400, 35];
+    return [{ source: 'xyzskor-performance', league, algorithmVersion: 'v1', status: 'published', updatedAt: new Date(now).toISOString(), star: null, teamOfWeek: null }, 200, 70];
+  }
   if (pathname === '/api/health') {
     return [{ status: 'ok', checks: { sportmonks_live: 'configured', sportmonks: 'configured' } }, 200, 30];
   }

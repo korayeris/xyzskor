@@ -64,7 +64,8 @@ Kayak özel negatif ek:
 > tourist crowd, avalanche, multiple skiers, crossed skis, malformed poles,
 > impossible tracks, text other than the exact word KAYAK
 
-Kullanılan çıktı: `assets/images/sports/heroes/ski-hero-v1.webp`.
+Bu branş veri kapsamı yetersiz olduğu için üründen emekli edildi; görsel çıktısı
+production assetleri arasından kaldırıldı. Bu metin yalnız tarihsel tasarım briefidir.
 
 ## 2. Motor sporları — hız ve veri merkezi
 

@@ -10,6 +10,12 @@ const appCss = [
 ].join('\n');
 const footballHubCss = await readFile(new URL('../assets/css/football-hub.css', import.meta.url), 'utf8');
 const footballControlsCss = await readFile(new URL('../assets/css/football-controls-v236.css', import.meta.url), 'utf8');
+const rootEnvExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
+const workerEnvExample = await readFile(new URL('../worker/.dev.vars.example', import.meta.url), 'utf8');
+for (const key of ['SPORTMONKS_API_TOKEN','API_SPORTS_KEY','CITO_API_KEY','OCBLACKTOP_API_KEY','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY']) {
+  assert.match(rootEnvExample, new RegExp(`^${key}=`, 'm'), `.env.example gerekli ${key} degiskenini belgelemeli.`);
+  assert.match(workerEnvExample, new RegExp(`^${key}=`, 'm'), `Worker env ornegi gerekli ${key} degiskenini belgelemeli.`);
+}
 assert.match(documentHtmlRaw, /football-hub\.css\?v=314/, 'The route-scoped football stylesheet must use the v314 cache key.');
 assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=314/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
 assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
@@ -41,6 +47,10 @@ const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
 assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
 const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
 const workerSource = await readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
+const weeklyMigration = await readFile(new URL('../supabase/migrations/20260825130000_weekly_football_awards.sql', import.meta.url), 'utf8');
+const memberAdminHardeningMigration = await readFile(new URL('../supabase/migrations/20260825150000_member_admin_hardening.sql', import.meta.url), 'utf8');
+const predictionIntegrityRestoreMigration = await readFile(new URL('../supabase/migrations/20260825160000_prediction_integrity_restore.sql', import.meta.url), 'utf8');
+const weeklyMethodDoc = await readFile(new URL('../docs/release-readiness/XYZSKOR_SCORING_METHODOLOGY.md', import.meta.url), 'utf8');
 const devServerSource = await readFile(new URL('./dev-server.mjs', import.meta.url), 'utf8');
 const legalIndex = await readFile(new URL('../legal/index.html', import.meta.url), 'utf8');
 const legalConfig = await readFile(new URL('../assets/legal/legal-config.js', import.meta.url), 'utf8');
@@ -59,6 +69,21 @@ assert.match(legalCss, /--legal-bg:#171521/, 'Yasal merkez ana portalın gece re
 assert.match(legalCss, /--legal-gold:#c93642/, 'Yasal merkez ana portalın kırmızı vurgu rengini kullanmalı.');
 assert.match(legalScript, /legal-brand-mark/, 'Yasal merkez ana sayfadaki marka kilidini kullanmalı.');
 assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
+assert.match(workerSource, /handleFootballLeaders[\s\S]*handleFootballWeeklyAwards/, 'Haftalık futbol API uçları worker tarafında bulunmalı.');
+assert.match(workerSource, /XYZ_PERFORMANCE_ALGORITHM_VERSION\s*=\s*"v1"/, 'XYZ performans algoritması sürümlenmeli.');
+assert.match(dataSource, /loadFootballWeeklyFeatures[\s\S]*football\/leaders[\s\S]*football\/weekly-awards/, 'Haftalık modül yalnız kendi iki kapsam ucunu kullanmalı.');
+assert.match(appSource, /IntersectionObserver[\s\S]*footballWeeklyFeatures/, 'Haftalık modül viewport yakınında lazy yüklenmeli.');
+assert.match(weeklyMigration, /unique \(league_id, season_id, round_id, player_id, algorithm_version\)/i, 'Haftalık oyuncu skorları idempotent anahtarla korunmalı.');
+assert.match(weeklyMigration, /enable row level security[\s\S]*status = 'published'/i, 'Haftalık tablolar RLS ile yalnız published okumaya açılmalı.');
+assert.match(memberAdminHardeningMigration, /create or replace function public\.handle_new_user[\s\S]*create trigger on_auth_user_created/i, 'Yeni üyeler için profil üretim fonksiyonu ve auth trigger yeniden kurulmalı.');
+assert.match(memberAdminHardeningMigration, /left join public\.profiles[\s\S]*where p\.id is null[\s\S]*on conflict \(id\) do nothing/i, 'Mevcut auth kullanıcılarındaki eksik profiller idempotent backfill edilmeli.');
+assert.match(memberAdminHardeningMigration, /revoke all on function public\.list_member_admin_console[\s\S]*from public, anon/i, 'Admin listeleme RPC yüzeyi anon rolüne kapalı olmalı.');
+assert.match(memberAdminHardeningMigration, /revoke all on function public\.set_member_admin_role[\s\S]*from public, anon/i, 'Admin yetkilendirme RPC yüzeyi anon rolüne kapalı olmalı.');
+assert.match(predictionIntegrityRestoreMigration, /create or replace function public\.enforce_prediction_integrity[\s\S]*kickoff - interval '15 minutes'/i, 'Predict kayıt kilidi veritabanında ve kickoff öncesinde uygulanmalı.');
+assert.match(predictionIntegrityRestoreMigration, /create trigger predictions_integrity_before_write[\s\S]*before insert or update/i, 'Predict bütünlük triggerı insert ve update işlemlerini korumalı.');
+assert.match(predictionIntegrityRestoreMigration, /create policy predictions_own_read[\s\S]*create policy predictions_own_insert[\s\S]*create policy predictions_own_update/i, 'Predict RLS yalnız kullanıcının kendi kayıt zincirini açmalı.');
+assert.match(predictionIntegrityRestoreMigration, /revoke all on table public\.predictions from public, anon/i, 'Predict tablosu anonim doğrudan erişime kapalı olmalı.');
+assert.match(weeklyMethodDoc, /Sportmonks verilerinden XYZSkor tarafından hesaplandı/, 'Hesaplanan haftalık verinin kaynağı açıkça belgelenmeli.');
 assert.match(buildScript, /ui-stage\.js[\s\S]*ui-runtime\.js[\s\S]*stageIndex[\s\S]*runtimeIndex/, 'Production UI üç güvenli top-level chunk olarak üretilmeli.');
 assert.match(appBootSource, /var stageChunk = \["xyzUiStageTemplate"[\s\S]*var runtimeChunk = \["xyzUiRuntimeTemplate"[\s\S]*\.then\(nextTask\)[\s\S]*stageChunk\.concat\(true\)[\s\S]*\.then\(nextTask\)[\s\S]*runtimeChunk\.concat\(true\)/, 'Preload edilen UI stage ve runtime chunkları ayrı macrotasklarda sırayla çalışmalı.');
 assert.match(buildScript, /productionCoreTemplates[\s\S]*moveDeferredScriptToTemplate[\s\S]*xyzUiCoreTemplate/, 'Production core scripts must become inert templates instead of an adjacent defer chain.');
@@ -256,7 +281,9 @@ assert.match(workerSource, /cost_profile:\s*"daily-capped-safe-mode"/, 'X akış
 assert.match(workerSource, /expansions:\s*"attachments\.media_keys"/, 'X akışı gönderiye bağlı gerçek medyayı expansion ile istemeli.');
 assert.match(workerSource, /"media\.fields":\s*"media_key,type,url,preview_image_url,width,height,alt_text"/, 'X medya görselleri, video kapakları ve erişilebilir açıklamaları istemeli.');
 assert.match(liveFunctionSource('xPostMediaHTML'), /club-social-media-item[\s\S]*loading="lazy"/, 'X gönderi medyası tembel yüklenen gerçek görsel kartları üretmeli.');
-assert.match(liveFunctionSource('xEmptyFeedHTML'), /club-social-empty[\s\S]*club-social-empty-accounts/, 'Boş X akışı büyük sahte kartlar yerine kompakt hesap özeti göstermeli.');
+assert.match(liveFunctionSource('xEmptyFeedHTML'), /club-social-empty[\s\S]*XYZSKOR TRANSFER MASASI/, 'Boş kaynak akışı sahte haber kartları yerine kompakt XYZSkor transfer durumu göstermeli.');
+assert.match(workerSource, /TRANSFER_NEWS_KEYWORDS[\s\S]*isTransferNewsPost[\s\S]*filter\(\(row\) => isTransferNewsPost/, 'Sosyal kaynak akışı yalnız transfer sinyallerini kabul etmeli.');
+assert.match(liveFunctionSource('xPostCardHTML'), /xyzTransferSummary[\s\S]*Haberi aç/, 'Transfer kartı ham gönderi kopyası yerine XYZSkor özeti ve kaynak bağlantısı sunmalı.');
 assert.match(appCss, /club-social-card\.has-media \.club-social-copy\{height:82px;min-height:82px/, 'Masaüstü X kartlarında medya başlangıç çizgisi eşitlenmeli.');
 assert.match(appCss, /club-social-media\.items-3\{grid-template-columns:minmax\(0,1\.28fr\) minmax\(0,\.72fr\)/, 'Üç görselli X gönderisi dengeli bir ana görsel kompozisyonu kullanmalı.');
 assert.match(workerSource, /x_credits_depleted/, 'X kredi bakiyesi bittiğinde açık bir sunucu durumu dönmeli.');
@@ -278,6 +305,7 @@ assert.match(workerSource, /env\.YOUTUBE_API_KEY/, 'YouTube API anahtarı yalnı
 assert.match(workerSource, /s-maxage=5400/, 'YouTube aramaları kota dostu sunucu önbelleği kullanmalı.');
 assert.match(workerSource, /\/api\/media\/youtube/, 'Doğrulanmış YouTube medya ucu bulunmalı.');
 assert.match(workerSource, /env\.SPORTMONKS_API_TOKEN/, 'Sportmonks token yalnız sunucu ortamından okunmalı.');
+assert.doesNotMatch(workerSource, /jsonResponse\(\{[^\n]*(?:detail|message):[^\n]*(?:providerMessage|safeErrorMessage|error\?\.message)/, 'Public API hata gövdeleri sağlayıcı veya dahili hata metnini yansıtmamalı.');
 assert.doesNotMatch(workerSource.match(/async function handleFootballMatchday[\s\S]*?\n}\n\nfunction normalizeLive/)?.[0] || '', /fetchFixtureTeamContext|sportmonksFixturePredictions/, 'Maç merkezi tek yenilemede ek Sportmonks çağrıları üretmemeli.');
 assert.match(workerSource, /function safeErrorMessage\(error\)/, 'Sağlayıcı hataları Worker istisnasına dönüşmeden güvenli JSON mesajına çevrilmeli.');
 assert.match(workerSource, /\/api\/football\/club/, 'Kulüp merkezi için Sportmonks sunucu adaptörü bulunmalı.');
@@ -312,7 +340,7 @@ assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin dü�
 assert.doesNotMatch(html, /class="predict-leaderboard-slot"/i, 'Futbol gezinmesi ile içerik arasına Predict duyuru bannerı girmemeli.');
 assert.doesNotMatch(html, /id="portalSponsorBanner"/i, 'Futbol portalında tekrar eden ikinci Predict bannerı bulunmamalı.');
 assert.match(html, /id="portalSponsorRail"/i, 'Futbol portalında sağ sponsor envanteri bulunmalı.');
-assert.match(documentHtml, /id="clubSocialTitle">Kulüp Gündemi</, 'Kulüp sosyal alanı ürünleşmiş gündem adı kullanmalı.');
+assert.match(documentHtml, /id="clubSocialTitle">Transfer Masası</, 'Kaynak akışı yalnız transfer odaklı ürün adı kullanmalı.');
 assert.match(documentHtml, /<h2>Süper Lig Maç Merkezi<\/h2>/, 'Canlı panel Süper Lig maç merkezi başlığı kullanmalı.');
 assert.match(html, /grid-template-columns:340px minmax\(0,1fr\) 290px/i, 'Masaüstü Futbol görünümü üç kolonlu portal düzenini kullanmalı.');
 assert.match(html, /prefers-reduced-motion:reduce/i, 'Yeni portal hareket azaltma tercihini desteklemeli.');
@@ -406,7 +434,7 @@ try {
       ] });
     }
     const id = url.match(/\/2\/users\/(\d+)\/tweets/)?.[1];
-    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Kulüp paylaşımı ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10}, attachments:{media_keys:[`3_media-${id}`]} }], includes:{media:[{media_key:`3_media-${id}`,type:'photo',url:`https://pbs.twimg.com/media/club-${id}.jpg`,width:1600,height:900,alt_text:`Kulüp görseli ${id}`}] } });
+    if (id) return Response.json({ data:[{ id:`post-${id}`, text:`Resmî transfer ve yeni imza açıklaması ${id}`, created_at:'2026-08-03T08:00:00Z', public_metrics:{like_count:10}, attachments:{media_keys:[`3_media-${id}`]} }], includes:{media:[{media_key:`3_media-${id}`,type:'photo',url:`https://pbs.twimg.com/media/club-${id}.jpg`,width:1600,height:900,alt_text:`Transfer görseli ${id}`}] } });
     return Response.json({ error:'unexpected_request' }, { status:500 });
   };
   const worker = (await import(new URL(`../worker/index.js?check=${Date.now()}`, import.meta.url))).default;
@@ -600,6 +628,8 @@ assert.match(multisportSource, /SPORT_LEAGUE_CATALOG[\s\S]*Sultanlar Ligi[\s\S]*
 assert.match(multisportSource, /volleyballPortalHTML/, 'Voleybol ana gorunumu ayri lig ve program yerlesimi kullanmali.');
 assert.doesNotMatch(multisportSource, /ski:\s*'Kayak'|kayak:'ski'/, 'Verisiz Kayak merkezi istemci rotalarinda kalmamali.');
 assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 'Verisiz Amerikan Futbolu merkezi istemci secimlerinde kalmamali.');
+assert.doesNotMatch(multisportSource, /skiPortalHTML|data-ski-discipline|americanFootball|australianFootball|\brugby\b|\bbaseball\b|\bhandball\b|\bhockey\b/, 'Emekli spor dallarinin erişilemez renderer kodu bundle icinde kalmamali.');
+assert.doesNotMatch(appCss, /ski-hero-v1|field-hero-v1|data-sport=["']ski/, 'Emekli Kayak renderer ve kullanilmayan kahraman gorselleri CSS icinde kalmamali.');
 assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');

@@ -7,8 +7,9 @@ ingest, kalıcı snapshot, single-flight kilit, circuit breaker, ayrıştırılm
 API sözleşmeleri ve şema-güvenli sonuç kesinleştirmesi artık kodda mevcut ve
 gerçek testlerle doğrulandı (bkz. [Test ve build sonuçları](#test-ve-build-sonuçları)).
 
-Gerçek bir in-play Sportmonks fikstürü üzerinde skor ve zengin maç verisi
-akışı production'da doğrulandı. Tek fikstüre özel kurtarma verisi kaldırıldı;
+Sportmonks Playground üzerinde skor, fikstür, kadro ve istatistik alanları
+doğrulandı; ancak gerçek bir in-play maç başlangıçtan bitişe kadar izlenmedi.
+Tek fikstüre özel kurtarma verisi kaldırıldı;
 aynı snapshot, kilit ve kota koruması artık seçili liglerdeki her fikstür için
 fikstür kimliği üzerinden çalışır.
 
@@ -81,9 +82,10 @@ hardening paketlerinde ayrı regresyon testleridir.
 
 ### Sayfa kapsamlı hızlı yükleme
 
-Lig değişimi bütün uygulamanın yeniden yüklenmesi değildir. Coverage kontrolü
-ve seçili lig sezon paketi paralel başlar; geç gelen eski lig cevabı artan istek
-sırası ile yeni ekranın üzerine yazamaz. Futbol ekranı Predict liderlik,
+Lig değişimi bütün uygulamanın yeniden yüklenmesi değildir. Yalnız seçili lig
+sezon paketi başlar; coverage kontrolü kullanıcı açıkça istemedikçe kritik yola
+girmez. Geç gelen eski lig cevabı artan istek sırası ile yeni ekranın üzerine
+yazamaz. Futbol ekranı Predict liderlik,
 profiller ve bütün kullanıcı tahminlerini beklemez. Liderlik RPC'leri yalnız
 Predict/Sıralama görünür olduğunda `Genel`, seçili takım ve oturum sahibinin
 takımı için çağrılır; aynı kapsamın eşzamanlı istekleri tek promise üzerinde
@@ -366,8 +368,10 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 | Komut | Sonuç |
 | --- | --- |
 | `npm run check` | ✅ Geçti |
-| `npm run qa:api` | ✅ 155/155 |
+| `npm run qa:api` | ✅ 161/161 |
 | `npm run qa:hardening` | ✅ 68/68; futbol home/season, canlı, basketbol/voleybol, UFC ve motorsporu single-flight/kota/hata-semantiği kontrolleri dahil |
+| `npm run qa:weekly-football` | ✅ Lider tabloları, XYZ Performans Skoru v1, olay tekilleştirme, 11 benzersiz oyunculu diziliş ve 50 eşzamanlı istekte tek upstream kontrolü geçti |
+| `npm run qa:weekly-load` | ✅ Yerel stub: 100 aynı-lig istek=1 Topscorers, beş lig=lig başına 1, 50 aynı-tur=1 fixture; p50/p95/p99 raporlandı |
 | `npm run qa:matchday` | ✅ Geçti |
 | `npm run qa:supabase-lazy` | ✅ Geçti |
 | `npm run qa:matchday:snapshots` | ✅ 4/4 genel maç senaryosu |
@@ -378,14 +382,35 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
 | `npm run qa:league-contract` | ✅ Beş lig anahtarı/ID'si, Edge Function, sohbet allowlist'i ve ileri/geri migration sözleşmesi geçti |
 | `npm run qa:live-architecture` | ✅ 43/43 |
 | `npm run qa:live-quota` | ✅ Geçti; `all + 5 lig` paralel fallback çağrısı tek upstream |
-| `npm run qa:responsive` (withdata) | ✅ 60 sayfa senaryosu, 876/876 kontrol |
+| `npm run qa:responsive` (withdata) | ✅ Son kanonik futbol koşusu: 7 viewport × ana sayfa + 5 lig = 42 sayfa, 974/974 kontrol |
 | `npm run qa:responsive:nodata` | ✅ 60 sayfa senaryosu, 535/535 kontrol |
 | `npm run qa:dist` | ✅ 32/32; kanonik kök, tek-lig, Predict, hesap/sohbet ve açık fixture senaryoları iki ardışık koşuda geçti |
 | `npm run qa:perf` | ✅ Release kapısı geçti; ham sonuç `reports/performance/release-performance-report.json` içinde |
 | `npm run qa:predict-security` | ✅ Geçti |
-| `npm run qa:db` | ⏭️ Bu istemci/performance release turunda yeniden çalıştırılmadı; production şema uygulama durumu bu tabloyla doğrulanmış sayılmaz |
+| `npm run qa:db` | ⏭️ Çağrıldı; PostgreSQL/psql bulunmadığı için exit 2 ile atlandı. Production şema, RLS ve paralel upsert bu makinede doğrulanmış sayılmaz |
 | `npm run build` | ✅ Geçti (dist/ üretildi) |
-| `npm run check:legal` | ❌ Beklenen şekilde başarısız — kuruluş öncesi hukuki placeholder'lar dolu değil. Bu, bu teslimatla **ilgisiz, önceden var olan** bir yayın engelidir |
+| `npm run check:legal` | ❌ Başarısız — kuruluş öncesi hukuki placeholder'lar dolu değil. Bu kod değişikliğinden kaynaklanmayan, fakat production yayınını kesin olarak engelleyen açık bir maddedir |
+
+## Haftalık futbol özellikleri
+
+Tek-lig genel bakışlarında gol, asist ve kart liderleri ile Haftanın Yıldızı /
+Haftanın 11'i gösterilir. Lider sayıları Sportmonks'un mevcut sezon
+top-scorer kayıtlarından gelir. Haftalık ödüller sağlayıcının ham olay, kadro,
+dakika, pozisyon ve skor verilerinden **XYZSkor tarafından**
+`XYZ Performance Score v1` ile hesaplanır; Sportmonks ödülü veya resmî lig
+seçimi gibi sunulmaz. Formül ve veri kökeni
+[`docs/release-readiness/XYZSKOR_SCORING_METHODOLOGY.md`](docs/release-readiness/XYZSKOR_SCORING_METHODOLOGY.md)
+ile [`legal/data-sources.html`](legal/data-sources.html) içinde açıklanır.
+
+- `/api/football/leaders?league=<lig>`: seçili lig ve mevcut sezon; 45 dakika
+  shared cache, single-flight ve distributed lease.
+- `/api/football/weekly-awards?league=<lig>`: son tamamlanan hafta; 6 saat shared
+  cache, aynı algoritma sürümüyle idempotent kalıcı kayıt.
+- Ana beş-lig `/` rotası bu uçları çağırmaz. Modül yalnız tek-lig ekranında
+  viewport'a yaklaşınca açılır ve rota değişince bekleyen istek iptal edilir.
+- Dört özellik bağımsız feature flag ile kapatılabilir:
+  `football_leaders_enabled`, `xyz_performance_score_enabled`,
+  `weekly_star_enabled`, `team_of_week_enabled`.
 
 ## Bilinen riskler ve doğrulanamayan maddeler
 
@@ -409,7 +434,7 @@ Ayrıntılı plan: [docs/API-PLANI.md](docs/API-PLANI.md)
   edilmelidir.
 - **20 gerekli test senaryosunun tamamı otomatikleştirilmedi.** Fake-clock ile
   tam maç öncesi→canlı→devre→bitti geçişi ve responsive/visual görsel
-  kontroller (320/375/390/768/1440) `qa:responsive` ile kapsanıyor; ancak
+  kontroller (320/360/375/390/430/768/1440) `qa:responsive` ile kapsanıyor; ancak
   gerçek zamanlayıcı tabanlı (fake timer) bir istemci-tarafı test seti
   yazılmadı (mevcut test altyapısı gerçek `setTimeout` bekliyor, sahte saat
   enjeksiyonu için `sinon`/`vitest` gibi bir bağımlılık eklenmedi — bu kasıtlı
@@ -693,6 +718,7 @@ npm run qa:matchday
 npm run qa:live-architecture
 npm run qa:live-quota
 npm run qa:hardening
+npm run qa:weekly-football
 npm run qa:dist
 npm run qa:responsive
 npm run qa:perf
@@ -707,8 +733,8 @@ tüm futbol rotalarında sıfır matchday isteği/listener sözleşmesini korur.
 `npm run check`; kritik CSS'in 9 KB sınırını, `football-hub.css` kapsamını,
 `app-late.css` template'inin inert kalmasını, `ui.js → ui-extras.js template →
 app-boot.js` sırasını, zorunlu boot sahipliğini ve bütün v313 cache anahtarlarını
-statik olarak denetler. `qa:responsive` withdata modu; 320, 375, 390, 768 ve
-1440 genişliklerinde kök ile beş lig genel bakışını ayrı ayrı açar. Her koşuda
+statik olarak denetler. `qa:responsive` withdata modu; 320, 360, 375, 390, 430,
+768 ve 1440 genişliklerinde kök ile beş lig genel bakışını ayrı ayrı açar. Her koşuda
 `requestedApiPaths` listesini rapora yazar; yukarıdaki kesin istek adetlerini,
 sıfır page/console error'ı, yatay taşma olmamasını ve istisnaları açıkça
 etiketlenmiş gerçek `44×44` dokunma hedeflerini release kapısı yapar.

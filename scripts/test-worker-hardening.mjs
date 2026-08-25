@@ -112,7 +112,7 @@ async function main() {
         : null);
     const text = JSON.stringify(payload?.errors || []);
     ok(!text.includes('SUPERSECRETTOKEN123'), 'transfers errors[] icinde token sizmaz', text.slice(0, 200));
-    ok(text.includes('REDACTED'), 'maskeleme etiketi eklenir', text.slice(0, 200));
+    ok((payload?.errors || []).every((row) => /^provider_/.test(row.code || '') && !('message' in row)), 'public hata kaydi yalniz makinece okunabilir genel kod tasir', text.slice(0, 200));
   }
 
   console.log('\n=== 5) Transfer akisinda lig filtresi calisir ===');

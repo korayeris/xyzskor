@@ -44,6 +44,10 @@ psql -q -d "$DB" -f "$DIR/pg_challenge_e2e_test.sql" >/dev/null 2>&1 || fail=1
 hdr "6) Es zamanli odul claim yarisi"
 PGDATABASE="$DB" "$DIR/pg_concurrency_test.sh" || fail=1
 
+hdr "7) Haftalik futbol RLS ve idempotency"
+psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$DIR/weekly_football_db_test.sql" || fail=1
+PGDATABASE="$DB" bash "$DIR/weekly_football_concurrency_test.sh" || fail=1
+
 echo
 if [ $fail -eq 0 ]; then echo "PG SUITE SONUC: PASS"; else echo "PG SUITE SONUC: FAIL"; fi
 exit $fail

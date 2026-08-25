@@ -24,7 +24,7 @@
 
   const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol'}[sport] || 'basketbol');
   const visualFallback = (name, sport = activeSport) => {
-    const colors = {basketball:'#ff9d24',mma:'#ff405d',volleyball:'#20c997',ski:'#73cfff',hockey:'#55b8ff',rugby:'#d5b44c',baseball:'#ef5b5b',handball:'#ff7b3d',americanFootball:'#8fb3ff',australianFootball:'#e6c45b'};
+    const colors = {basketball:'#ff9d24',mma:'#ff405d',volleyball:'#20c997'};
     const initials = String(name || SPORT_LABELS[sport] || 'XYZ').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
     return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${colors[sport] || '#ef4058'}"/><stop offset="1" stop-color="#091118"/></linearGradient></defs><rect width="160" height="160" rx="32" fill="url(#g)"/><circle cx="80" cy="68" r="34" fill="rgba(255,255,255,.14)"/><path d="M30 150c5-36 24-54 50-54s45 18 50 54" fill="rgba(255,255,255,.12)"/><text x="80" y="88" text-anchor="middle" font-family="Arial" font-size="40" font-weight="800" fill="white">${initials}</text></svg>`)}`;
   };
@@ -101,7 +101,7 @@
   function updateBranchTicker(items){
     const ticker = document.getElementById('liveTicker');
     if(!ticker || !activeSport || activeSport === 'football') return;
-    const labels = {basketball:'SIRADAKI BASKETBOL MACI',volleyball:'SIRADAKI VOLEYBOL MACI',ski:'SIRADAKI KAYAK YARISI',hockey:'SIRADAKI HOKEY MACI',rugby:'SIRADAKI RUGBY MACI',baseball:'SIRADAKI BEYZBOL MACI',handball:'SIRADAKI HENTBOL MACI',americanFootball:'SIRADAKI AMERIKAN FUTBOLU MACI',australianFootball:'SIRADAKI AFL MACI'};
+    const labels = {basketball:'SIRADAKI BASKETBOL MACI',volleyball:'SIRADAKI VOLEYBOL MACI',mma:'SIRADAKI UFC ETKINLIGI'};
     const next = items.find((item) => !/finished|ended|after|ft/i.test(item.status || '')) || items[0];
     if(!next){ ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">Program verisi bekleniyor</span>`; return; }
     const first = next.first || next.home || {};
@@ -147,16 +147,6 @@
     }).join('');
     return `<section class="volley-command"><div><span>VOLEYBOL MERKEZİ</span><h2>Ligler ve güncel program</h2><p>Yalnızca sağlayıcının doğruladığı karşılaşmalar gösterilir.</p></div><button type="button" data-volley-view="leagues">Tüm ligler →</button></section>
       <section class="volley-layout"><aside class="volley-leagues"><header><span>LİGLER</span><h3>Organizasyon seç</h3></header>${leagues}</aside><div class="volley-schedule">${schedule||'<div class="multi-event-empty"><strong>Voleybol programı bekleniyor.</strong><span>Lig seçimi kullanılabilir; doğrulanmış maç verisi geldiğinde program otomatik dolacak.</span></div>'}</div></section>`;
-  }
-
-  function skiPortalHTML(items, disciplineNames){
-    const program = items.slice(0,10).map(cardHTML).join('');
-    const disciplines = disciplineNames.map((name, index) => {
-      const count = items.filter((item) => (item.league || item.category) === name).length;
-      return `<button type="button" data-ski-discipline="${escapeHTML(name)}"><i>${String(index + 1).padStart(2,'0')}</i><span>${escapeHTML(name)}</span><b>${count ? `${count} etkinlik` : 'Program bekleniyor'}</b></button>`;
-    }).join('');
-    return `<section class="ski-command"><div><span>XYZSKOR KIŞ SPORLARI</span><h2>Zirveden piste, tek merkez</h2><p>Alp disiplini, kayakla atlama, kuzey kombine ve serbest stil programları doğrulanmış sağlayıcı verisiyle yayınlanır.</p></div><b>CANLI / TAKVİM / SONUÇ</b></section>
-      <section class="ski-layout"><aside class="ski-disciplines"><header><span>DİSİPLİNLER</span><h3>Parkuru seç</h3></header>${disciplines}</aside><div class="ski-program">${program || '<div class="multi-event-empty"><strong>Kayak programı bekleniyor.</strong><span>Disiplin seçimi hazır; doğrulanmış yarış verisi geldiğinde takvim otomatik dolacak.</span></div>'}</div></section>`;
   }
 
   function render(payload){
@@ -209,11 +199,6 @@
       grid.innerHTML=volleyballPortalHTML(items,leagueNames);
       grid.querySelectorAll('[data-volley-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.volleyLeague;render(payload)}));
       grid.querySelector('[data-volley-view]')?.addEventListener('click',()=>openHub(activeSport,'leagues',true));
-      return;
-    }
-    if(activeSport === 'ski' && activeView === 'home'){
-      grid.innerHTML= skiPortalHTML(items, leagueNames);
-      grid.querySelectorAll('[data-ski-discipline]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.skiDiscipline;render(payload)}));
       return;
     }
     if(activeView === 'leagues'){
