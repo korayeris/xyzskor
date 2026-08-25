@@ -2569,7 +2569,7 @@ body .ufcx-shell>.ufcx-nav{box-sizing:border-box!important;display:flex!importan
 body .ufcx-shell>.ufcx-nav::-webkit-scrollbar{display:none!important}
 body .ufcx-shell>.ufcx-nav>a{position:static!important;display:inline-flex!important;flex:0 0 auto!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:0!important;height:44px!important;margin:0!important;padding:0 16px!important;white-space:nowrap!important;border:1px solid #334250!important;background:#101923!important;color:#dce5ed!important;text-decoration:none!important}
 body .ufcx-shell>.ufcx-nav>a:first-child{border-color:#ef4058!important;background:#251218!important;color:#fff!important}
-body .xms-primary>.xms-primary-inner{display:flex!important;flex-flow:row nowrap!important;align-items:center!important;justify-content:center!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-width:none!important}
+body .xms-primary>.xms-primary-inner{display:flex!important;flex-flow:row wrap!important;align-items:center!important;justify-content:center!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-width:none!important}
 body .sport-branch-nav>div{display:flex!important;flex-flow:row nowrap!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important}
 @media(max-width:760px){body .ufcx-shell>.ufcx-nav{padding:9px!important;min-height:60px!important}body .ufcx-shell>.ufcx-nav>a{height:40px!important;padding:0 12px!important}body .xms-primary>.xms-primary-inner{justify-content:flex-start!important}}
 .ufcx-fighter-detail{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}.ufcx-fighter-detail>img{width:170px;height:220px;object-fit:cover;object-position:center top;background:#121820;border:1px solid #313b45}.ufcx-fighter-detail .ufcx-facts{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}@media(max-width:680px){.ufcx-fighter-detail{grid-template-columns:100px 1fr}.ufcx-fighter-detail>img{width:100px;height:145px}.ufcx-fighter-detail .ufcx-facts{grid-template-columns:1fr}}
@@ -3742,6 +3742,23 @@ body.predict-product-open .predict-action .score-row input{border:0!important;bo
 body.predict-product-open .predict-action .score-row .btn{border:0!important;border-radius:999px!important}
 body.predict-product-open .predict-evidence-row,body.predict-product-open .predict-data-details,body.predict-product-open .predict-match-footer{border:0!important}
 @media(max-width:520px){body.predict-product-open .predict-feed-column{padding:16px 10px;border-radius:20px}body.predict-product-open .predict-match{border-radius:18px!important}}
+
+/* v317 · tek ve ferah Predict çalışma alanı */
+body.predict-product-open #page-league{width:min(1040px,calc(100% - 28px))!important;padding-inline:0!important}
+body.predict-product-open .predict-app-shell{display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;gap:24px!important;align-items:start}
+body.predict-product-open .predict-competition-rail{display:grid!important;gap:12px;position:sticky;top:142px}
+body.predict-product-open .predict-feed-column{min-width:0}
+body.predict-product-open .predict-list-head p{display:block!important;max-width:620px}
+body.predict-product-open .predict-feed-kicker{display:block!important}
+@media(max-width:860px){body.predict-product-open #page-league{width:calc(100% - 20px)!important}body.predict-product-open .predict-app-shell{grid-template-columns:1fr!important}.predict-competition-rail{position:static!important;grid-row:1}.predict-feed-column{grid-row:2}}
+@media(max-width:520px){body.predict-product-open #page-league{width:100%!important;padding-top:10px!important}body.predict-product-open .predict-feed-column{padding:14px 8px!important;border-radius:0}body.predict-product-open .predict-faceoff{padding-inline:8px!important}body.predict-product-open .predict-action{padding-inline:8px!important}.predict-action .prediction-zone{padding:8px!important}}
+
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:xyzFadeOut .14s ease both}
+::view-transition-new(root){animation:xyzFadeIn .2s ease both}
+@keyframes xyzFadeOut{to{opacity:.35}}
+@keyframes xyzFadeIn{from{opacity:.35}to{opacity:1}}
+
 
 /* v285.1 · boş X akışını dev kartlar yerine kompakt ve kullanışlı sun */
 #footballOverviewView .club-social-stage:has(.club-social-empty){display:block;min-height:0}

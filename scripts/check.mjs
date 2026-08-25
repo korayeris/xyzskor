@@ -335,6 +335,8 @@ assert.doesNotMatch(liveFunctionSource('renderEditorialNews'), /EDITORIAL_NEWS_C
 assert.match(functionSource('editorialNewsEntries'), /imageType:editorialPhoto\?'photo':playerPortrait\?'portrait':'none'/, 'Editoryal fotoğraf ile oyuncu portresi ayrıştırılmalı.');
 assert.match(functionSource('footballTeamOfWeekHTML'), /pitch-line-\$\{position\}/, 'Haftanın takımı pozisyon satırlarını saha katmanlarıyla işaretlemeli.');
 assert.match(footballHubCss, /football-weekly-pitch::after[\s\S]*border-radius:50%/, 'Haftanın takımı sahasında orta yuvarlak ve saha çizgileri bulunmalı.');
+assert.match(html, /class="brand-lockup" href="\/"/, 'Marka bağlantısı doğrudan futbol ana sayfasına dönmeli.');
+assert.match(functionSource('footballTeamOfWeekHTML'), /football-weekly-team-layout[\s\S]*football-weekly-team-summary/, 'Haftanın takımı dar saha ve bilgi rayıyla dengelenmeli.');
 assert.match(functionSource('footballWeeklyCategoryPlayers'), /Haftanın kalecisi[\s\S]*Haftanın savunmacısı[\s\S]*Haftanın orta sahası[\s\S]*Haftanın forveti[\s\S]*Haftanın golcüsü[\s\S]*Haftanın asistçisi/, 'Haftalık oyuncular pozisyon ve katkı kategorilerine ayrılmalı.');
 assert.match(functionSource('authErrTR'), /email address not authorized[\s\S]*rate limit/, 'Üyelik e-postası SMTP yetki ve kota hatalarını açık anlatmalı.');
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
@@ -634,6 +636,8 @@ assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 
 assert.doesNotMatch(multisportSource, /skiPortalHTML|data-ski-discipline|americanFootball|australianFootball|\brugby\b|\bbaseball\b|\bhandball\b|\bhockey\b/, 'Emekli spor dallarinin erişilemez renderer kodu bundle icinde kalmamali.');
 assert.doesNotMatch(appCss, /ski-hero-v1|field-hero-v1|data-sport=["']ski/, 'Emekli Kayak renderer ve kullanilmayan kahraman gorselleri CSS icinde kalmamali.');
 assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
+assert.match(sportBranchesSource, /\["football", "Ana Sayfa", "\/"\]/, 'Spor menüsünün ilk öğesi açık bir Ana Sayfa bağlantısı olmalı.');
+assert.match(motorsportsSource, /href="\/ufc\/">UFC/, 'Motor sporları kabuğu UFC geçişini kaybetmemeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');
 assert.match(appCss, /v176[\s\S]*grid-template-areas:"main" "lower"/, 'Futbol ana sayfasi kaldirilan hizli mac rayina yer ayirmamali.');

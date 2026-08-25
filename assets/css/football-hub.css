@@ -482,7 +482,8 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .football-weekly-category b { color:#4ee0ae; font:900 14px/1 var(--mono); white-space:nowrap; }
 .football-team-week { margin-top:30px; }
 .football-team-week>header a { min-height:44px; display:flex; align-items:center; color:#73d9b6; font-size:11px; }
-.football-weekly-pitch { position:relative; isolation:isolate; display:grid; gap:24px; min-height:520px; margin-top:18px; padding:42px 24px; overflow:hidden; border:2px solid rgba(225,255,242,.28); border-radius:18px; background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 12.5%,transparent 12.5%,transparent 25%),linear-gradient(155deg,#14543f,#0b392d); }
+.football-weekly-team-layout { display:grid; grid-template-columns:minmax(0,760px) minmax(210px,1fr); gap:18px; align-items:stretch; margin-top:18px; }
+.football-weekly-pitch { position:relative; isolation:isolate; display:grid; width:100%; gap:18px; min-height:460px; margin:0; padding:34px 20px; overflow:hidden; border:2px solid rgba(225,255,242,.28); border-radius:18px; background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 12.5%,transparent 12.5%,transparent 25%),linear-gradient(155deg,#14543f,#0b392d); }
 .football-weekly-pitch::before { content:""; position:absolute; z-index:-1; inset:50% 0 auto; border-top:2px solid rgba(225,255,242,.3); }
 .football-weekly-pitch::after { content:""; position:absolute; z-index:-1; left:50%; top:50%; width:112px; height:112px; border:2px solid rgba(225,255,242,.3); border-radius:50%; transform:translate(-50%,-50%); }
 .football-weekly-pitch .pitch-line { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-evenly; gap:12px; }
@@ -491,6 +492,33 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .football-weekly-pitch .pitch-line-goalkeeper::before { bottom:-43px; border-bottom:0; }
 .football-weekly-pitch article { display:grid; width:min(112px,22vw); justify-items:center; gap:5px; text-align:center; }
 .football-weekly-pitch article>span { width:44px; height:44px; border:2px solid rgba(255,255,255,.18); }
+.football-weekly-team-summary { display:flex; min-width:0; flex-direction:column; justify-content:space-between; padding:24px; border-radius:18px; background:radial-gradient(circle at 90% 10%,rgba(78,224,174,.13),transparent 42%),#11181d; }
+.football-weekly-team-summary>small { color:#ef7082; font:800 9px/1 var(--mono); letter-spacing:.14em; }
+.football-weekly-team-summary>h3 { margin:8px 0 20px; font-size:34px; }
+.football-weekly-team-summary dl { display:grid; gap:1px; margin:0; overflow:hidden; border-radius:12px; background:#293138; }
+.football-weekly-team-summary dl>div { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px; background:#151c21; }
+.football-weekly-team-summary dt { color:#89969f; font-size:10px; }
+.football-weekly-team-summary dd { margin:0; color:#4ee0ae; font:900 15px/1 var(--mono); }
+.weekly-team-mvp { display:grid; grid-template-columns:48px minmax(0,1fr); align-items:center; gap:11px; margin-top:18px; padding-top:18px; border-top:1px solid #293138; }
+.weekly-team-mvp>span { display:grid; width:48px; height:48px; overflow:hidden; place-items:center; border-radius:50%; background:#20282e; }
+.weekly-team-mvp img { width:100%; height:100%; object-fit:cover; }
+.weekly-team-mvp p,.weekly-team-mvp strong,.weekly-team-mvp em,.weekly-team-mvp small { display:block; min-width:0; margin:0; }
+.weekly-team-mvp small { color:#788690; font:800 8px/1 var(--mono); }
+.weekly-team-mvp strong { margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.weekly-team-mvp em { margin-top:3px; color:#89969f; font-size:9px; font-style:normal; }
+
+.league-overview-table tbody tr:nth-child(odd) { background:rgba(255,255,255,.018); }
+.league-overview-table tbody tr:hover { background:rgba(78,224,174,.065); }
+.league-overview-table tbody:has(tr:nth-child(8)) tr:nth-child(-n+4) .rank { box-shadow:inset 3px 0 #40d89f; color:#7af0c5; }
+.league-overview-table tbody:has(tr:nth-child(8)) tr:nth-last-child(-n+3) .rank { box-shadow:inset 3px 0 #ef6478; color:#ff93a2; }
+.league-overview-lower>.league-overview-panel { overflow:hidden; border:0; border-radius:18px; background:#11171b; box-shadow:inset 0 0 0 1px #293138; }
+.league-overview-lower>.league-overview-panel>header { padding:20px 22px; background:linear-gradient(120deg,rgba(239,95,116,.08),transparent 50%); }
+.league-overview-stories { gap:1px; background:#293138; }
+.league-overview-stories article { position:relative; border:0; background:#11171b; transition:background .2s ease,transform .2s ease; }
+.league-overview-stories article:hover { z-index:1; background:#171f24; transform:translateY(-2px); }
+.league-overview-transfer-list article { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:5px 12px; }
+.league-overview-transfer-list article span { grid-column:1; }
+.league-overview-transfer-list article b { grid-column:2; grid-row:1/3; padding:6px 8px; border-radius:999px; background:rgba(78,224,174,.09); }
 .football-weekly-pitch strong { width:100%; overflow:hidden; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
 .football-weekly-pitch b { padding:4px 6px; border-radius:999px; background:#43d5a4; color:#092019; font:900 10px/1 var(--mono); }
 
@@ -560,6 +588,11 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .football-weekly-head,.football-team-week>header { align-items:flex-start; flex-direction:column; }
   .football-weekly-grid { grid-template-columns:1fr; gap:18px; }
   .football-weekly-category-grid { grid-template-columns:1fr; }
+  .football-weekly-team-layout { grid-template-columns:1fr; }
+  .football-weekly-pitch { min-height:430px; }
+  .football-weekly-team-summary { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px 18px; }
+  .football-weekly-team-summary dl { grid-column:1/-1; }
+  .weekly-team-mvp { margin:0; padding:0; border:0; }
   .football-weekly-pitch { gap:14px; padding-inline:8px; }
   .football-weekly-pitch article { width:min(78px,21vw); }
   .football-weekly-pitch article>span { width:38px; height:38px; }

@@ -224,7 +224,7 @@
     if (!header || document.querySelector('.xms-primary')) return;
     const nav = document.createElement('nav');
     nav.className = 'xms-primary';
-    nav.innerHTML = `<div class="xms-primary-inner"><a href="/">FUTBOL</a><a href="/basketbol/">BASKETBOL</a><a href="/voleybol/">VOLEYBOL</a><button class="xms-trigger ${isMotor() ? 'active' : ''}">MOTORSPORLARI</button><a href="/predict/">PREDICT</a><div class="xms-mega" hidden>${menu()}</div></div>`;
+    nav.innerHTML = `<div class="xms-primary-inner"><a href="/">ANA SAYFA</a><a href="/basketbol/">BASKETBOL</a><a href="/voleybol/">VOLEYBOL</a><a href="/ufc/">UFC</a><button class="xms-trigger ${isMotor() ? 'active' : ''}">MOTORSPORLARI</button><a href="/predict/">PREDICT</a><div class="xms-mega" hidden>${menu()}</div></div>`;
     header.after(nav);
     const trigger = nav.querySelector('.xms-trigger');
     const mega = nav.querySelector('.xms-mega');
