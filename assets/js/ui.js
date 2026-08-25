@@ -2063,7 +2063,8 @@ function syncEarlyLeagueOverview(root,{leagueKey,label,country,seasonLabel,logo,
 let leagueOverviewHydrationSequence=0;
 function footballLeaderListHTML(rows,label){
   if(!Array.isArray(rows)||!rows.length) return `<p class="football-weekly-empty">${escapeHTML(label)} verisi henüz doğrulanmış olarak yayınlanmadı.</p>`;
-  return `<ol class="football-leader-list">${rows.slice(0,5).map((row,index)=>`<li><span class="rank">${index+1}</span><span class="player-photo">${safeExternalURL(row.playerImage)?`<img src="${escapeHTML(row.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><span><strong>${escapeHTML(row.playerName)}</strong><small>${escapeHTML(row.teamName||'Takım bilgisi bekleniyor')}</small></span><b>${escapeHTML(row.total)}</b></li>`).join('')}</ol>`;
+  const cardTone=/sarı/i.test(label)?'yellow':/kırmızı/i.test(label)?'red':'';
+  return `<ol class="football-leader-list">${rows.slice(0,5).map((row,index)=>`<li><span class="rank">${index+1}</span><span class="player-photo">${safeExternalURL(row.playerImage)?`<img src="${escapeHTML(row.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><span><strong>${escapeHTML(row.playerName)}</strong><small>${escapeHTML(row.teamName||'Takım bilgisi bekleniyor')}</small></span><b class="${cardTone?'card-total':''}">${cardTone?`<i class="leader-card-icon ${cardTone}" aria-hidden="true"></i>`:''}${escapeHTML(row.total)}</b></li>`).join('')}</ol>`;
 }
 function footballScoreBreakdownHTML(breakdown){
   const labels={base:'Başlangıç',minutes:'Süre',goals:'Gol',assists:'Asist',result:'Sonuç',cleanSheet:'Gol yememe',cards:'Kart',penalties:'Diğer'};

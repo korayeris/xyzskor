@@ -338,6 +338,7 @@ assert.match(footballHubCss, /football-weekly-pitch::after[\s\S]*border-radius:5
 assert.match(html, /class="brand-lockup" href="\/"/, 'Marka bağlantısı doğrudan futbol ana sayfasına dönmeli.');
 assert.match(functionSource('footballTeamOfWeekHTML'), /football-weekly-team-layout[\s\S]*football-weekly-team-summary/, 'Haftanın takımı dar saha ve bilgi rayıyla dengelenmeli.');
 assert.match(functionSource('footballWeeklyCategoryPlayers'), /Haftanın kalecisi[\s\S]*Haftanın savunmacısı[\s\S]*Haftanın orta sahası[\s\S]*Haftanın forveti[\s\S]*Haftanın golcüsü[\s\S]*Haftanın asistçisi/, 'Haftalık oyuncular pozisyon ve katkı kategorilerine ayrılmalı.');
+assert.match(functionSource('footballLeaderListHTML'), /cardTone=[\s\S]*yellow[\s\S]*red[\s\S]*leader-card-icon/, 'Kart liderlerinde sarı ve kırmızı kart sembolleri gösterilmeli.');
 assert.match(functionSource('authErrTR'), /email address not authorized[\s\S]*rate limit/, 'Üyelik e-postası SMTP yetki ve kota hatalarını açık anlatmalı.');
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');

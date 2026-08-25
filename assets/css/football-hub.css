@@ -453,6 +453,10 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .football-leader-list strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .football-leader-list small { color:#87949d; }
 .football-leader-list li>b { color:#fff; font:900 18px/1 var(--mono); text-align:right; }
+.football-leader-list li>b.card-total { display:inline-flex; align-items:center; justify-content:flex-end; gap:8px; }
+.leader-card-icon { display:inline-block; width:12px; height:17px; border-radius:2px; box-shadow:0 2px 5px rgba(0,0,0,.3); transform:rotate(-5deg); }
+.leader-card-icon.yellow { background:#f2ca3b; }
+.leader-card-icon.red { background:#ed4f63; }
 .football-weekly-star { padding:4px 0; }
 .weekly-star-person { display:grid; grid-template-columns:62px minmax(0,1fr) 56px; align-items:center; gap:13px; margin:18px 0; }
 .weekly-star-person>span { width:62px; height:62px; }
