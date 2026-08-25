@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-25T11:53:06.791Z",
+  "generatedAt": "2026-08-25T12:24:04.353Z",
   "scenario": "mobile football root, Premier League transition, and direct Super Lig release gate",
   "environment": {
     "viewport": {
@@ -30,132 +30,132 @@
     "pageErrors": 0
   },
   "aggregate": {
-    "medianFirstContentfulPaintMs": 584,
-    "medianPopulatedScoreboardMs": 1572,
-    "medianPremierLeagueTransitionMs": 521,
-    "medianDirectSuperLigFirstContentfulPaintMs": 564,
-    "medianDirectSuperLigShellMs": 707,
-    "medianDirectSuperLigPopulatedOverviewMs": 1508
+    "medianFirstContentfulPaintMs": 540,
+    "medianPopulatedScoreboardMs": 1443,
+    "medianPremierLeagueTransitionMs": 397,
+    "medianDirectSuperLigFirstContentfulPaintMs": 532,
+    "medianDirectSuperLigShellMs": 625,
+    "medianDirectSuperLigPopulatedOverviewMs": 1416
   },
   "diagnostics": {
-    "medianUiScriptResponseEndMs": 3891,
-    "medianHomeRequestStartMs": 683,
-    "medianHomeResponseMs": 782,
-    "medianDirectUiScriptResponseEndMs": 3894,
-    "medianDirectAppCssResponseEndMs": 4595,
-    "medianDirectSeasonResponseMs": 829,
+    "medianUiScriptResponseEndMs": 4676,
+    "medianHomeRequestStartMs": 615,
+    "medianHomeResponseMs": 716,
+    "medianDirectUiScriptResponseEndMs": 4660,
+    "medianDirectAppCssResponseEndMs": 6043,
+    "medianDirectSeasonResponseMs": 746,
     "criticalResources": {
       "/assets/css/football-hub.css": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 216,
-        "medianResponseEndMs": 849,
-        "medianDurationMs": 630
+        "medianStartTimeMs": 219,
+        "medianResponseEndMs": 882,
+        "medianDurationMs": 671
       },
       "/assets/js/style-loader.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 219,
-        "medianResponseEndMs": 438,
-        "medianDurationMs": 221
+        "medianStartTimeMs": 222,
+        "medianResponseEndMs": 426,
+        "medianDurationMs": 205
       },
       "/assets/js/initial-route.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 242,
-        "medianResponseEndMs": 446,
-        "medianDurationMs": 200
+        "medianStartTimeMs": 225,
+        "medianResponseEndMs": 436,
+        "medianDurationMs": 208
       },
       "/assets/js/football-early.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 240,
-        "medianResponseEndMs": 915,
-        "medianDurationMs": 682
+        "medianStartTimeMs": 225,
+        "medianResponseEndMs": 952,
+        "medianDurationMs": 732
       },
       "/assets/js/data.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 970,
-        "medianResponseEndMs": 3074,
-        "medianDurationMs": 2101
+        "medianStartTimeMs": 976,
+        "medianResponseEndMs": 3638,
+        "medianDurationMs": 2658
       },
       "/assets/js/analytics.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 972,
-        "medianResponseEndMs": 1385,
-        "medianDurationMs": 421
+        "medianStartTimeMs": 978,
+        "medianResponseEndMs": 1430,
+        "medianDurationMs": 447
       },
       "/assets/js/live.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 974,
-        "medianResponseEndMs": 2296,
-        "medianDurationMs": 1319
+        "medianStartTimeMs": 980,
+        "medianResponseEndMs": 2378,
+        "medianDurationMs": 1405
       },
       "/assets/js/match-center.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 975,
-        "medianResponseEndMs": 2028,
-        "medianDurationMs": 1050
+        "medianStartTimeMs": 982,
+        "medianResponseEndMs": 2083,
+        "medianDurationMs": 1109
       },
       "/assets/js/matchday-live.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 976,
-        "medianResponseEndMs": 2263,
-        "medianDurationMs": 1291
+        "medianStartTimeMs": 983,
+        "medianResponseEndMs": 2523,
+        "medianDurationMs": 1533
       },
       "/assets/js/predict-game.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 978,
-        "medianResponseEndMs": 1892,
-        "medianDurationMs": 924
+        "medianStartTimeMs": 984,
+        "medianResponseEndMs": 2559,
+        "medianDurationMs": 1577
       },
       "/assets/js/ui.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 979,
-        "medianResponseEndMs": 3564,
-        "medianDurationMs": 2588
+        "medianStartTimeMs": 985,
+        "medianResponseEndMs": 4309,
+        "medianDurationMs": 3330
       },
       "/assets/js/ui-stage.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 981,
-        "medianResponseEndMs": 3699,
-        "medianDurationMs": 2718
+        "medianStartTimeMs": 987,
+        "medianResponseEndMs": 4516,
+        "medianDurationMs": 3523
       },
       "/assets/js/ui-runtime.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 985,
-        "medianResponseEndMs": 3891,
-        "medianDurationMs": 2905
+        "medianStartTimeMs": 988,
+        "medianResponseEndMs": 4676,
+        "medianDurationMs": 3689
       },
       "/assets/js/app-boot.js": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 249,
+        "medianStartTimeMs": 228,
         "medianResponseEndMs": 786,
-        "medianDurationMs": 534
+        "medianDurationMs": 558
       },
       "/assets/js/ui-extras.js": {
         "loadedRuns": 0,
@@ -169,55 +169,55 @@
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 959,
-        "medianResponseEndMs": 1218,
-        "medianDurationMs": 254
+        "medianStartTimeMs": 971,
+        "medianResponseEndMs": 1205,
+        "medianDurationMs": 235
       },
       "/assets/fragments/news-match.html": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 960,
-        "medianResponseEndMs": 1218,
-        "medianDurationMs": 255
+        "medianStartTimeMs": 972,
+        "medianResponseEndMs": 1213,
+        "medianDurationMs": 242
       },
       "/assets/fragments/mobile.html": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 961,
-        "medianResponseEndMs": 1186,
-        "medianDurationMs": 221
+        "medianStartTimeMs": 973,
+        "medianResponseEndMs": 1183,
+        "medianDurationMs": 211
       },
       "/assets/fragments/chat.html": {
         "loadedRuns": 6,
         "role": "canonical-required",
         "expectedRuns": 6,
-        "medianStartTimeMs": 963,
-        "medianResponseEndMs": 1195,
-        "medianDurationMs": 224
+        "medianStartTimeMs": 974,
+        "medianResponseEndMs": 1239,
+        "medianDurationMs": 272
       }
     },
     "deferredResources": {
       "/assets/css/app.css": {
-        "loadedRuns": 6,
+        "loadedRuns": 3,
         "role": "deferred-diagnostic",
         "expectedRuns": "diagnostic",
-        "medianStartTimeMs": 243,
-        "medianResponseEndMs": 4615,
-        "medianDurationMs": 4362
+        "medianStartTimeMs": 221,
+        "medianResponseEndMs": 6043,
+        "medianDurationMs": 5822
       }
     },
     "duplicateKeys": [],
     "observations": [
-      "The initial /api/football/home request starts at a median 683ms, 3208ms before ui.js finishes, through the early route bootstrap.",
-      "The progressive five-league scoreboard is populated at a median 1572ms; the full app shell remains outside that first-data critical path.",
+      "The initial /api/football/home request starts at a median 615ms, 4061ms before ui.js finishes, through the early route bootstrap.",
+      "The progressive five-league scoreboard is populated at a median 1443ms; the full app shell remains outside that first-data critical path.",
       "Each Premier League transition issued exactly one scoped season request and one scoped live request; no duplicate transition fetch was observed.",
-      "A direct cold /super-lig navigation paints its league shell at a median 707ms and populates the overview at a median 1508ms.",
-      "The direct Super Lig season payload is ready at a median 829ms; the split ui.js/ui-stage.js/ui-runtime.js chain finishes at 3894ms while the early populated overview is already visible at 1508ms.",
-      "The deferred app.css response completes at a median 4595ms on direct Super Lig cold loads; football-hub.css remains the early canonical visual stylesheet.",
+      "A direct cold /super-lig navigation paints its league shell at a median 625ms and populates the overview at a median 1416ms.",
+      "The direct Super Lig season payload is ready at a median 746ms; the split ui.js/ui-stage.js/ui-runtime.js chain finishes at 4660ms while the early populated overview is already visible at 1416ms.",
+      "The deferred app.css response completes at a median 6043ms on direct Super Lig cold loads; football-hub.css remains the early canonical visual stylesheet.",
       "Each direct Super Lig navigation issued exactly one scoped season request and one scoped live request.",
-      "The maximum observed long task was 184ms, within the 250ms release budget.",
+      "The maximum observed long task was 135ms, within the 250ms release budget.",
       "ui-extras.js is conditional and loaded in 0/6 canonical-route cold contexts."
     ]
   },
@@ -225,42 +225,42 @@
     "checks": [
       {
         "name": "median first-contentful-paint",
-        "actual": 584,
+        "actual": 540,
         "limit": 1000,
         "unit": "ms",
         "passed": true
       },
       {
         "name": "median populated five-league scoreboard",
-        "actual": 1572,
+        "actual": 1443,
         "limit": 2500,
         "unit": "ms",
         "passed": true
       },
       {
         "name": "median Premier League transition",
-        "actual": 521,
+        "actual": 397,
         "limit": 1500,
         "unit": "ms",
         "passed": true
       },
       {
         "name": "median direct Super Lig shell",
-        "actual": 707,
+        "actual": 625,
         "limit": 1000,
         "unit": "ms",
         "passed": true
       },
       {
         "name": "median direct Super Lig populated overview",
-        "actual": 1508,
+        "actual": 1416,
         "limit": 2500,
         "unit": "ms",
         "passed": true
       },
       {
         "name": "maximum long task",
-        "actual": 184,
+        "actual": 135,
         "limit": 250,
         "unit": "ms",
         "passed": true
@@ -327,9 +327,9 @@
       "coldContext": true,
       "navigationError": null,
       "root": {
-        "firstContentfulPaintMs": 644,
-        "populatedScoreboardMs": 1572,
-        "domContentLoadedMs": 995,
+        "firstContentfulPaintMs": 600,
+        "populatedScoreboardMs": 1488,
+        "domContentLoadedMs": 1019,
         "loadEventMs": 0,
         "leagueGroups": 5,
         "populatedLeagueGroups": 5,
@@ -338,26 +338,26 @@
         "path": "/",
         "resources": {
           "count": 14,
-          "transferBytes": 104476,
-          "encodedBytes": 100576,
-          "decodedBytes": 100576,
+          "transferBytes": 104965,
+          "encodedBytes": 101065,
+          "decodedBytes": 101065,
           "critical": [
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 235,
-              "durationMs": 615,
-              "responseEndMs": 850,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
+              "startTimeMs": 230,
+              "durationMs": 641,
+              "responseEndMs": 870,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/js/style-loader.js",
               "initiatorType": "script",
-              "startTimeMs": 239,
-              "durationMs": 238,
-              "responseEndMs": 477,
+              "startTimeMs": 233,
+              "durationMs": 229,
+              "responseEndMs": 462,
               "transferBytes": 1631,
               "encodedBytes": 1331,
               "decodedBytes": 1331
@@ -365,9 +365,9 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 241,
-              "durationMs": 695,
-              "responseEndMs": 935,
+              "startTimeMs": 234,
+              "durationMs": 744,
+              "responseEndMs": 978,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -375,29 +375,19 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 241,
-              "durationMs": 236,
-              "responseEndMs": 477,
+              "startTimeMs": 273,
+              "durationMs": 202,
+              "responseEndMs": 475,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
             },
             {
-              "name": "/assets/css/app.css",
-              "initiatorType": "link",
-              "startTimeMs": 289,
-              "durationMs": 4342,
-              "responseEndMs": 4630,
-              "transferBytes": 314015,
-              "encodedBytes": 313715,
-              "decodedBytes": 313715
-            },
-            {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 291,
-              "durationMs": 529,
-              "responseEndMs": 820,
+              "startTimeMs": 274,
+              "durationMs": 565,
+              "responseEndMs": 839,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -405,9 +395,9 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 956,
-              "durationMs": 266,
-              "responseEndMs": 1222,
+              "startTimeMs": 992,
+              "durationMs": 253,
+              "responseEndMs": 1245,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
@@ -415,9 +405,9 @@
             {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 957,
-              "durationMs": 280,
-              "responseEndMs": 1237,
+              "startTimeMs": 993,
+              "durationMs": 267,
+              "responseEndMs": 1260,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -425,9 +415,9 @@
             {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 959,
-              "durationMs": 234,
-              "responseEndMs": 1192,
+              "startTimeMs": 994,
+              "durationMs": 235,
+              "responseEndMs": 1229,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -435,9 +425,9 @@
             {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 960,
-              "durationMs": 247,
-              "responseEndMs": 1207,
+              "startTimeMs": 995,
+              "durationMs": 297,
+              "responseEndMs": 1292,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
@@ -445,19 +435,19 @@
             {
               "name": "/assets/js/data.js",
               "initiatorType": "link",
-              "startTimeMs": 968,
-              "durationMs": 2109,
-              "responseEndMs": 3077,
-              "transferBytes": 82082,
-              "encodedBytes": 81782,
-              "decodedBytes": 81782
+              "startTimeMs": 1000,
+              "durationMs": 2678,
+              "responseEndMs": 3678,
+              "transferBytes": 83314,
+              "encodedBytes": 83014,
+              "decodedBytes": 83014
             },
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 970,
-              "durationMs": 431,
-              "responseEndMs": 1401,
+              "startTimeMs": 1001,
+              "durationMs": 462,
+              "responseEndMs": 1463,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
@@ -465,9 +455,9 @@
             {
               "name": "/assets/js/live.js",
               "initiatorType": "link",
-              "startTimeMs": 972,
-              "durationMs": 1338,
-              "responseEndMs": 2310,
+              "startTimeMs": 1003,
+              "durationMs": 1425,
+              "responseEndMs": 2428,
               "transferBytes": 35070,
               "encodedBytes": 34770,
               "decodedBytes": 34770
@@ -475,9 +465,9 @@
             {
               "name": "/assets/js/match-center.js",
               "initiatorType": "link",
-              "startTimeMs": 973,
-              "durationMs": 1055,
-              "responseEndMs": 2028,
+              "startTimeMs": 1004,
+              "durationMs": 1125,
+              "responseEndMs": 2129,
               "transferBytes": 23832,
               "encodedBytes": 23532,
               "decodedBytes": 23532
@@ -485,9 +475,9 @@
             {
               "name": "/assets/js/matchday-live.js",
               "initiatorType": "link",
-              "startTimeMs": 974,
-              "durationMs": 1319,
-              "responseEndMs": 2294,
+              "startTimeMs": 1006,
+              "durationMs": 1540,
+              "responseEndMs": 2546,
               "transferBytes": 32244,
               "encodedBytes": 31944,
               "decodedBytes": 31944
@@ -495,9 +485,9 @@
             {
               "name": "/assets/js/predict-game.js",
               "initiatorType": "link",
-              "startTimeMs": 976,
-              "durationMs": 937,
-              "responseEndMs": 1912,
+              "startTimeMs": 1007,
+              "durationMs": 1604,
+              "responseEndMs": 2610,
               "transferBytes": 11678,
               "encodedBytes": 11378,
               "decodedBytes": 11378
@@ -505,9 +495,9 @@
             {
               "name": "/assets/js/ui.js",
               "initiatorType": "link",
-              "startTimeMs": 977,
-              "durationMs": 2600,
-              "responseEndMs": 3578,
+              "startTimeMs": 1008,
+              "durationMs": 3372,
+              "responseEndMs": 4380,
               "transferBytes": 65816,
               "encodedBytes": 65516,
               "decodedBytes": 65516
@@ -515,9 +505,9 @@
             {
               "name": "/assets/js/ui-stage.js",
               "initiatorType": "link",
-              "startTimeMs": 981,
-              "durationMs": 2717,
-              "responseEndMs": 3698,
+              "startTimeMs": 1009,
+              "durationMs": 3535,
+              "responseEndMs": 4544,
               "transferBytes": 68385,
               "encodedBytes": 68085,
               "decodedBytes": 68085
@@ -525,12 +515,12 @@
             {
               "name": "/assets/js/ui-runtime.js",
               "initiatorType": "link",
-              "startTimeMs": 985,
-              "durationMs": 2925,
-              "responseEndMs": 3910,
-              "transferBytes": 77523,
-              "encodedBytes": 77223,
-              "decodedBytes": 77223
+              "startTimeMs": 1010,
+              "durationMs": 3718,
+              "responseEndMs": 4728,
+              "transferBytes": 77365,
+              "encodedBytes": 77065,
+              "decodedBytes": 77065
             }
           ],
           "criticalCapturedAt": "post-app-boot-transition",
@@ -538,19 +528,29 @@
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 970,
-              "durationMs": 431,
-              "responseEndMs": 1401,
+              "startTimeMs": 1001,
+              "durationMs": 462,
+              "responseEndMs": 1463,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
             },
             {
+              "name": "/assets/fragments/chat.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 995,
+              "durationMs": 297,
+              "responseEndMs": 1292,
+              "transferBytes": 1219,
+              "encodedBytes": 919,
+              "decodedBytes": 919
+            },
+            {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 957,
-              "durationMs": 280,
-              "responseEndMs": 1237,
+              "startTimeMs": 993,
+              "durationMs": 267,
+              "responseEndMs": 1260,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -558,29 +558,19 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 956,
-              "durationMs": 266,
-              "responseEndMs": 1222,
+              "startTimeMs": 992,
+              "durationMs": 253,
+              "responseEndMs": 1245,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
             },
             {
-              "name": "/assets/fragments/chat.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 960,
-              "durationMs": 247,
-              "responseEndMs": 1207,
-              "transferBytes": 1219,
-              "encodedBytes": 919,
-              "decodedBytes": 919
-            },
-            {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 959,
-              "durationMs": 234,
-              "responseEndMs": 1192,
+              "startTimeMs": 994,
+              "durationMs": 235,
+              "responseEndMs": 1229,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -588,9 +578,9 @@
             {
               "name": "/assets/css/football-controls-v236.css",
               "initiatorType": "link",
-              "startTimeMs": 493,
-              "durationMs": 490,
-              "responseEndMs": 982,
+              "startTimeMs": 472,
+              "durationMs": 647,
+              "responseEndMs": 1119,
               "transferBytes": 12390,
               "encodedBytes": 12090,
               "decodedBytes": 12090
@@ -598,49 +588,49 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 241,
-              "durationMs": 695,
-              "responseEndMs": 935,
+              "startTimeMs": 234,
+              "durationMs": 744,
+              "responseEndMs": 978,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
             },
             {
-              "name": "/api/football/home",
-              "initiatorType": "fetch",
-              "startTimeMs": 646,
-              "durationMs": 206,
-              "responseEndMs": 853,
-              "transferBytes": 6478,
-              "encodedBytes": 6178,
-              "decodedBytes": 6178
-            },
-            {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 235,
-              "durationMs": 615,
-              "responseEndMs": 850,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
+              "startTimeMs": 230,
+              "durationMs": 641,
+              "responseEndMs": 870,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 291,
-              "durationMs": 529,
-              "responseEndMs": 820,
+              "startTimeMs": 274,
+              "durationMs": 565,
+              "responseEndMs": 839,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
             },
             {
+              "name": "/api/football/home",
+              "initiatorType": "fetch",
+              "startTimeMs": 607,
+              "durationMs": 186,
+              "responseEndMs": 792,
+              "transferBytes": 6478,
+              "encodedBytes": 6178,
+              "decodedBytes": 6178
+            },
+            {
               "name": "/assets/js/compliance.js",
               "initiatorType": "script",
-              "startTimeMs": 240,
-              "durationMs": 432,
-              "responseEndMs": 672,
+              "startTimeMs": 234,
+              "durationMs": 479,
+              "responseEndMs": 713,
               "transferBytes": 2682,
               "encodedBytes": 2382,
               "decodedBytes": 2382
@@ -648,32 +638,32 @@
             {
               "name": "/css2",
               "initiatorType": "link",
-              "startTimeMs": 280,
-              "durationMs": 228,
-              "responseEndMs": 508,
+              "startTimeMs": 266,
+              "durationMs": 220,
+              "responseEndMs": 486,
               "transferBytes": 0,
               "encodedBytes": 0,
               "decodedBytes": 0
             },
             {
-              "name": "/assets/js/style-loader.js",
-              "initiatorType": "script",
-              "startTimeMs": 239,
-              "durationMs": 238,
-              "responseEndMs": 477,
-              "transferBytes": 1631,
-              "encodedBytes": 1331,
-              "decodedBytes": 1331
-            },
-            {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 241,
-              "durationMs": 236,
-              "responseEndMs": 477,
+              "startTimeMs": 273,
+              "durationMs": 202,
+              "responseEndMs": 475,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
+            },
+            {
+              "name": "/assets/js/style-loader.js",
+              "initiatorType": "script",
+              "startTimeMs": 233,
+              "durationMs": 229,
+              "responseEndMs": 462,
+              "transferBytes": 1631,
+              "encodedBytes": 1331,
+              "decodedBytes": 1331
             }
           ]
         }
@@ -681,7 +671,7 @@
       "transition": {
         "triggered": true,
         "path": "/premier-league",
-        "populatedOverviewMs": 680,
+        "populatedOverviewMs": 386,
         "overviewVisible": true,
         "overviewTitle": "Premier League",
         "standingsRows": 1,
@@ -720,37 +710,37 @@
             "phase": "root",
             "method": "GET",
             "path": "/api/football/home",
-            "atMs": 760
+            "atMs": 697
           },
           {
             "phase": "root",
             "method": "GET",
             "path": "/api/football/live?league=all",
-            "atMs": 4065
+            "atMs": 4850
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/live?league=premier-league",
-            "atMs": 4371
+            "atMs": 5071
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/season?league=premier-league",
-            "atMs": 4371
+            "atMs": 5072
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/leaders?league=premier-league",
-            "atMs": 5069
+            "atMs": 5469
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/weekly-awards?league=premier-league",
-            "atMs": 5069
+            "atMs": 5470
           }
         ],
         "responses": [
@@ -758,199 +748,159 @@
             "phase": "root",
             "status": 200,
             "path": "/api/football/home",
-            "atMs": 874
+            "atMs": 805
           },
           {
             "phase": "root",
             "status": 200,
             "path": "/api/football/live?league=all",
-            "atMs": 4278
+            "atMs": 5003
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/live?league=premier-league",
-            "atMs": 4452
+            "atMs": 5143
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/season?league=premier-league",
-            "atMs": 4483
+            "atMs": 5178
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/leaders?league=premier-league",
-            "atMs": 5184
+            "atMs": 5552
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/weekly-awards?league=premier-league",
-            "atMs": 5184
+            "atMs": 5571
           }
         ],
         "criticalViolations": []
       },
       "longTasks": {
         "root": {
-          "count": 11,
-          "totalDurationMs": 1077,
-          "maximumDurationMs": 130,
+          "count": 8,
+          "totalDurationMs": 722,
+          "maximumDurationMs": 113,
           "entries": [
             {
-              "startTime": 492,
-              "duration": 127,
+              "startTime": 471,
+              "duration": 110,
               "name": "self"
             },
             {
-              "startTime": 633,
+              "startTime": 594,
+              "duration": 91,
+              "name": "self"
+            },
+            {
+              "startTime": 1044,
               "duration": 113,
               "name": "self"
             },
             {
-              "startTime": 944,
-              "duration": 51,
+              "startTime": 1291,
+              "duration": 85,
               "name": "self"
             },
             {
-              "startTime": 1023,
-              "duration": 130,
+              "startTime": 3695,
+              "duration": 66,
               "name": "self"
             },
             {
-              "startTime": 1243,
-              "duration": 57,
+              "startTime": 3853,
+              "duration": 68,
               "name": "self"
             },
             {
-              "startTime": 1323,
-              "duration": 111,
+              "startTime": 4738,
+              "duration": 102,
               "name": "self"
             },
             {
-              "startTime": 3098,
-              "duration": 86,
-              "name": "self"
-            },
-            {
-              "startTime": 3223,
-              "duration": 60,
-              "name": "self"
-            },
-            {
-              "startTime": 3295,
-              "duration": 90,
-              "name": "self"
-            },
-            {
-              "startTime": 3925,
-              "duration": 129,
-              "name": "self"
-            },
-            {
-              "startTime": 4097,
-              "duration": 123,
+              "startTime": 4870,
+              "duration": 87,
               "name": "self"
             }
           ]
         },
         "transition": {
-          "count": 3,
-          "totalDurationMs": 408,
-          "maximumDurationMs": 146,
+          "count": 2,
+          "totalDurationMs": 173,
+          "maximumDurationMs": 89,
           "entries": [
             {
-              "startTime": 4474,
-              "duration": 118,
+              "startTime": 5170,
+              "duration": 89,
               "name": "self"
             },
             {
-              "startTime": 4707,
-              "duration": 144,
-              "name": "self"
-            },
-            {
-              "startTime": 4862,
-              "duration": 146,
+              "startTime": 5342,
+              "duration": 84,
               "name": "self"
             }
           ]
         },
         "all": {
-          "count": 14,
-          "totalDurationMs": 1485,
-          "maximumDurationMs": 146,
+          "count": 10,
+          "totalDurationMs": 895,
+          "maximumDurationMs": 113,
           "entries": [
             {
-              "startTime": 492,
-              "duration": 127,
+              "startTime": 471,
+              "duration": 110,
               "name": "self"
             },
             {
-              "startTime": 633,
+              "startTime": 594,
+              "duration": 91,
+              "name": "self"
+            },
+            {
+              "startTime": 1044,
               "duration": 113,
               "name": "self"
             },
             {
-              "startTime": 944,
-              "duration": 51,
+              "startTime": 1291,
+              "duration": 85,
               "name": "self"
             },
             {
-              "startTime": 1023,
-              "duration": 130,
+              "startTime": 3695,
+              "duration": 66,
               "name": "self"
             },
             {
-              "startTime": 1243,
-              "duration": 57,
+              "startTime": 3853,
+              "duration": 68,
               "name": "self"
             },
             {
-              "startTime": 1323,
-              "duration": 111,
+              "startTime": 4738,
+              "duration": 102,
               "name": "self"
             },
             {
-              "startTime": 3098,
-              "duration": 86,
+              "startTime": 4870,
+              "duration": 87,
               "name": "self"
             },
             {
-              "startTime": 3223,
-              "duration": 60,
+              "startTime": 5170,
+              "duration": 89,
               "name": "self"
             },
             {
-              "startTime": 3295,
-              "duration": 90,
-              "name": "self"
-            },
-            {
-              "startTime": 3925,
-              "duration": 129,
-              "name": "self"
-            },
-            {
-              "startTime": 4097,
-              "duration": 123,
-              "name": "self"
-            },
-            {
-              "startTime": 4474,
-              "duration": 118,
-              "name": "self"
-            },
-            {
-              "startTime": 4707,
-              "duration": 144,
-              "name": "self"
-            },
-            {
-              "startTime": 4862,
-              "duration": 146,
+              "startTime": 5342,
+              "duration": 84,
               "name": "self"
             }
           ]
@@ -962,9 +912,9 @@
       "coldContext": true,
       "navigationError": null,
       "root": {
-        "firstContentfulPaintMs": 572,
-        "populatedScoreboardMs": 1531,
-        "domContentLoadedMs": 972,
+        "firstContentfulPaintMs": 532,
+        "populatedScoreboardMs": 1443,
+        "domContentLoadedMs": 994,
         "loadEventMs": 0,
         "leagueGroups": 5,
         "populatedLeagueGroups": 5,
@@ -973,35 +923,25 @@
         "path": "/",
         "resources": {
           "count": 14,
-          "transferBytes": 104476,
-          "encodedBytes": 100576,
-          "decodedBytes": 100576,
+          "transferBytes": 104965,
+          "encodedBytes": 101065,
+          "decodedBytes": 101065,
           "critical": [
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 221,
-              "durationMs": 624,
-              "responseEndMs": 845,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
-            },
-            {
-              "name": "/assets/css/app.css",
-              "initiatorType": "link",
-              "startTimeMs": 224,
-              "durationMs": 4391,
-              "responseEndMs": 4615,
-              "transferBytes": 314015,
-              "encodedBytes": 313715,
-              "decodedBytes": 313715
+              "startTimeMs": 218,
+              "durationMs": 679,
+              "responseEndMs": 897,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/js/style-loader.js",
               "initiatorType": "script",
-              "startTimeMs": 226,
-              "durationMs": 200,
+              "startTimeMs": 221,
+              "durationMs": 206,
               "responseEndMs": 427,
               "transferBytes": 1631,
               "encodedBytes": 1331,
@@ -1010,9 +950,9 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 229,
-              "durationMs": 674,
-              "responseEndMs": 903,
+              "startTimeMs": 225,
+              "durationMs": 733,
+              "responseEndMs": 958,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -1020,8 +960,8 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 232,
-              "durationMs": 204,
+              "startTimeMs": 225,
+              "durationMs": 211,
               "responseEndMs": 436,
               "transferBytes": 2828,
               "encodedBytes": 2528,
@@ -1030,9 +970,9 @@
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 233,
-              "durationMs": 546,
-              "responseEndMs": 779,
+              "startTimeMs": 226,
+              "durationMs": 561,
+              "responseEndMs": 787,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -1040,9 +980,9 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 935,
-              "durationMs": 249,
-              "responseEndMs": 1184,
+              "startTimeMs": 971,
+              "durationMs": 239,
+              "responseEndMs": 1211,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
@@ -1050,9 +990,9 @@
             {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 937,
-              "durationMs": 271,
-              "responseEndMs": 1207,
+              "startTimeMs": 972,
+              "durationMs": 238,
+              "responseEndMs": 1211,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -1060,9 +1000,9 @@
             {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 940,
-              "durationMs": 229,
-              "responseEndMs": 1169,
+              "startTimeMs": 974,
+              "durationMs": 207,
+              "responseEndMs": 1181,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -1070,9 +1010,9 @@
             {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 944,
-              "durationMs": 226,
-              "responseEndMs": 1169,
+              "startTimeMs": 975,
+              "durationMs": 267,
+              "responseEndMs": 1242,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
@@ -1080,19 +1020,19 @@
             {
               "name": "/assets/js/data.js",
               "initiatorType": "link",
-              "startTimeMs": 947,
-              "durationMs": 2095,
-              "responseEndMs": 3042,
-              "transferBytes": 82082,
-              "encodedBytes": 81782,
-              "decodedBytes": 81782
+              "startTimeMs": 977,
+              "durationMs": 2650,
+              "responseEndMs": 3627,
+              "transferBytes": 83314,
+              "encodedBytes": 83014,
+              "decodedBytes": 83014
             },
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 949,
-              "durationMs": 425,
-              "responseEndMs": 1373,
+              "startTimeMs": 979,
+              "durationMs": 465,
+              "responseEndMs": 1444,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
@@ -1100,9 +1040,9 @@
             {
               "name": "/assets/js/live.js",
               "initiatorType": "link",
-              "startTimeMs": 950,
-              "durationMs": 1320,
-              "responseEndMs": 2269,
+              "startTimeMs": 981,
+              "durationMs": 1411,
+              "responseEndMs": 2392,
               "transferBytes": 35070,
               "encodedBytes": 34770,
               "decodedBytes": 34770
@@ -1110,9 +1050,9 @@
             {
               "name": "/assets/js/match-center.js",
               "initiatorType": "link",
-              "startTimeMs": 951,
-              "durationMs": 1042,
-              "responseEndMs": 1993,
+              "startTimeMs": 982,
+              "durationMs": 1109,
+              "responseEndMs": 2092,
               "transferBytes": 23832,
               "encodedBytes": 23532,
               "decodedBytes": 23532
@@ -1120,9 +1060,9 @@
             {
               "name": "/assets/js/matchday-live.js",
               "initiatorType": "link",
-              "startTimeMs": 953,
-              "durationMs": 1300,
-              "responseEndMs": 2253,
+              "startTimeMs": 983,
+              "durationMs": 1544,
+              "responseEndMs": 2527,
               "transferBytes": 32244,
               "encodedBytes": 31944,
               "decodedBytes": 31944
@@ -1130,9 +1070,9 @@
             {
               "name": "/assets/js/predict-game.js",
               "initiatorType": "link",
-              "startTimeMs": 956,
-              "durationMs": 920,
-              "responseEndMs": 1876,
+              "startTimeMs": 985,
+              "durationMs": 1575,
+              "responseEndMs": 2560,
               "transferBytes": 11678,
               "encodedBytes": 11378,
               "decodedBytes": 11378
@@ -1140,9 +1080,9 @@
             {
               "name": "/assets/js/ui.js",
               "initiatorType": "link",
-              "startTimeMs": 961,
-              "durationMs": 2582,
-              "responseEndMs": 3542,
+              "startTimeMs": 986,
+              "durationMs": 3324,
+              "responseEndMs": 4310,
               "transferBytes": 65816,
               "encodedBytes": 65516,
               "decodedBytes": 65516
@@ -1150,9 +1090,9 @@
             {
               "name": "/assets/js/ui-stage.js",
               "initiatorType": "link",
-              "startTimeMs": 963,
-              "durationMs": 2710,
-              "responseEndMs": 3673,
+              "startTimeMs": 988,
+              "durationMs": 3540,
+              "responseEndMs": 4527,
               "transferBytes": 68385,
               "encodedBytes": 68085,
               "decodedBytes": 68085
@@ -1160,12 +1100,12 @@
             {
               "name": "/assets/js/ui-runtime.js",
               "initiatorType": "link",
-              "startTimeMs": 964,
-              "durationMs": 2905,
-              "responseEndMs": 3869,
-              "transferBytes": 77523,
-              "encodedBytes": 77223,
-              "decodedBytes": 77223
+              "startTimeMs": 989,
+              "durationMs": 3689,
+              "responseEndMs": 4677,
+              "transferBytes": 77365,
+              "encodedBytes": 77065,
+              "decodedBytes": 77065
             }
           ],
           "criticalCapturedAt": "post-app-boot-transition",
@@ -1173,59 +1113,59 @@
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 949,
-              "durationMs": 425,
-              "responseEndMs": 1373,
+              "startTimeMs": 979,
+              "durationMs": 465,
+              "responseEndMs": 1444,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
             },
             {
-              "name": "/assets/fragments/news-match.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 937,
-              "durationMs": 271,
-              "responseEndMs": 1207,
-              "transferBytes": 3067,
-              "encodedBytes": 2767,
-              "decodedBytes": 2767
-            },
-            {
-              "name": "/assets/fragments/account-auth.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 935,
-              "durationMs": 249,
-              "responseEndMs": 1184,
-              "transferBytes": 2841,
-              "encodedBytes": 2541,
-              "decodedBytes": 2541
-            },
-            {
-              "name": "/assets/fragments/mobile.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 940,
-              "durationMs": 229,
-              "responseEndMs": 1169,
-              "transferBytes": 900,
-              "encodedBytes": 600,
-              "decodedBytes": 600
-            },
-            {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 944,
-              "durationMs": 226,
-              "responseEndMs": 1169,
+              "startTimeMs": 975,
+              "durationMs": 267,
+              "responseEndMs": 1242,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
             },
             {
+              "name": "/assets/fragments/account-auth.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 971,
+              "durationMs": 239,
+              "responseEndMs": 1211,
+              "transferBytes": 2841,
+              "encodedBytes": 2541,
+              "decodedBytes": 2541
+            },
+            {
+              "name": "/assets/fragments/news-match.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 972,
+              "durationMs": 238,
+              "responseEndMs": 1211,
+              "transferBytes": 3067,
+              "encodedBytes": 2767,
+              "decodedBytes": 2767
+            },
+            {
+              "name": "/assets/fragments/mobile.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 974,
+              "durationMs": 207,
+              "responseEndMs": 1181,
+              "transferBytes": 900,
+              "encodedBytes": 600,
+              "decodedBytes": 600
+            },
+            {
               "name": "/assets/css/football-controls-v236.css",
               "initiatorType": "link",
-              "startTimeMs": 435,
-              "durationMs": 506,
-              "responseEndMs": 942,
+              "startTimeMs": 434,
+              "durationMs": 636,
+              "responseEndMs": 1070,
               "transferBytes": 12390,
               "encodedBytes": 12090,
               "decodedBytes": 12090
@@ -1233,9 +1173,9 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 229,
-              "durationMs": 674,
-              "responseEndMs": 903,
+              "startTimeMs": 225,
+              "durationMs": 733,
+              "responseEndMs": 958,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -1243,19 +1183,19 @@
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 221,
-              "durationMs": 624,
-              "responseEndMs": 845,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
+              "startTimeMs": 218,
+              "durationMs": 679,
+              "responseEndMs": 897,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 233,
-              "durationMs": 546,
-              "responseEndMs": 779,
+              "startTimeMs": 226,
+              "durationMs": 561,
+              "responseEndMs": 787,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -1263,9 +1203,9 @@
             {
               "name": "/api/football/home",
               "initiatorType": "fetch",
-              "startTimeMs": 568,
-              "durationMs": 182,
-              "responseEndMs": 750,
+              "startTimeMs": 535,
+              "durationMs": 159,
+              "responseEndMs": 694,
               "transferBytes": 6478,
               "encodedBytes": 6178,
               "decodedBytes": 6178
@@ -1273,9 +1213,9 @@
             {
               "name": "/assets/js/compliance.js",
               "initiatorType": "script",
-              "startTimeMs": 228,
-              "durationMs": 428,
-              "responseEndMs": 656,
+              "startTimeMs": 224,
+              "durationMs": 423,
+              "responseEndMs": 647,
               "transferBytes": 2682,
               "encodedBytes": 2382,
               "decodedBytes": 2382
@@ -1283,8 +1223,8 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 232,
-              "durationMs": 204,
+              "startTimeMs": 225,
+              "durationMs": 211,
               "responseEndMs": 436,
               "transferBytes": 2828,
               "encodedBytes": 2528,
@@ -1293,8 +1233,8 @@
             {
               "name": "/assets/js/style-loader.js",
               "initiatorType": "script",
-              "startTimeMs": 226,
-              "durationMs": 200,
+              "startTimeMs": 221,
+              "durationMs": 206,
               "responseEndMs": 427,
               "transferBytes": 1631,
               "encodedBytes": 1331,
@@ -1303,9 +1243,9 @@
             {
               "name": "/css2",
               "initiatorType": "link",
-              "startTimeMs": 216,
-              "durationMs": 17,
-              "responseEndMs": 233,
+              "startTimeMs": 213,
+              "durationMs": 12,
+              "responseEndMs": 225,
               "transferBytes": 0,
               "encodedBytes": 0,
               "decodedBytes": 0
@@ -1316,7 +1256,7 @@
       "transition": {
         "triggered": true,
         "path": "/premier-league",
-        "populatedOverviewMs": 521,
+        "populatedOverviewMs": 397,
         "overviewVisible": true,
         "overviewTitle": "Premier League",
         "standingsRows": 1,
@@ -1355,37 +1295,37 @@
             "phase": "root",
             "method": "GET",
             "path": "/api/football/home",
-            "atMs": 661
+            "atMs": 603
           },
           {
             "phase": "root",
             "method": "GET",
             "path": "/api/football/live?league=all",
-            "atMs": 4002
+            "atMs": 4784
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/live?league=premier-league",
-            "atMs": 4284
+            "atMs": 4987
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/season?league=premier-league",
-            "atMs": 4285
+            "atMs": 4988
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/leaders?league=premier-league",
-            "atMs": 5014
+            "atMs": 5413
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/weekly-awards?league=premier-league",
-            "atMs": 5015
+            "atMs": 5413
           }
         ],
         "responses": [
@@ -1393,167 +1333,153 @@
             "phase": "root",
             "status": 200,
             "path": "/api/football/home",
-            "atMs": 757
+            "atMs": 703
           },
           {
             "phase": "root",
             "status": 200,
             "path": "/api/football/live?league=all",
-            "atMs": 4198
+            "atMs": 4925
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/live?league=premier-league",
-            "atMs": 4372
+            "atMs": 5058
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/season?league=premier-league",
-            "atMs": 4405
+            "atMs": 5110
+          },
+          {
+            "phase": "transition",
+            "status": 200,
+            "path": "/api/football/leaders?league=premier-league",
+            "atMs": 5490
           }
         ],
         "criticalViolations": []
       },
       "longTasks": {
         "root": {
-          "count": 10,
-          "totalDurationMs": 939,
-          "maximumDurationMs": 124,
+          "count": 8,
+          "totalDurationMs": 646,
+          "maximumDurationMs": 103,
           "entries": [
             {
-              "startTime": 434,
-              "duration": 110,
+              "startTime": 433,
+              "duration": 86,
               "name": "self"
             },
             {
-              "startTime": 559,
-              "duration": 97,
+              "startTime": 527,
+              "duration": 69,
               "name": "self"
             },
             {
-              "startTime": 1006,
-              "duration": 124,
+              "startTime": 1012,
+              "duration": 103,
               "name": "self"
             },
             {
-              "startTime": 1218,
-              "duration": 51,
+              "startTime": 1243,
+              "duration": 89,
               "name": "self"
             },
             {
-              "startTime": 1293,
-              "duration": 101,
+              "startTime": 3643,
+              "duration": 64,
               "name": "self"
             },
             {
-              "startTime": 3067,
-              "duration": 80,
+              "startTime": 3793,
+              "duration": 63,
               "name": "self"
             },
             {
-              "startTime": 3186,
-              "duration": 57,
+              "startTime": 4685,
+              "duration": 93,
               "name": "self"
             },
             {
-              "startTime": 3252,
-              "duration": 92,
-              "name": "self"
-            },
-            {
-              "startTime": 3880,
-              "duration": 120,
-              "name": "self"
-            },
-            {
-              "startTime": 4042,
-              "duration": 107,
+              "startTime": 4807,
+              "duration": 79,
               "name": "self"
             }
           ]
         },
         "transition": {
           "count": 2,
-          "totalDurationMs": 231,
-          "maximumDurationMs": 125,
+          "totalDurationMs": 165,
+          "maximumDurationMs": 84,
           "entries": [
             {
-              "startTime": 4409,
-              "duration": 125,
+              "startTime": 5108,
+              "duration": 84,
               "name": "self"
             },
             {
-              "startTime": 4667,
-              "duration": 106,
+              "startTime": 5276,
+              "duration": 81,
               "name": "self"
             }
           ]
         },
         "all": {
-          "count": 12,
-          "totalDurationMs": 1170,
-          "maximumDurationMs": 125,
+          "count": 10,
+          "totalDurationMs": 811,
+          "maximumDurationMs": 103,
           "entries": [
             {
-              "startTime": 434,
-              "duration": 110,
+              "startTime": 433,
+              "duration": 86,
               "name": "self"
             },
             {
-              "startTime": 559,
-              "duration": 97,
+              "startTime": 527,
+              "duration": 69,
               "name": "self"
             },
             {
-              "startTime": 1006,
-              "duration": 124,
+              "startTime": 1012,
+              "duration": 103,
               "name": "self"
             },
             {
-              "startTime": 1218,
-              "duration": 51,
+              "startTime": 1243,
+              "duration": 89,
               "name": "self"
             },
             {
-              "startTime": 1293,
-              "duration": 101,
+              "startTime": 3643,
+              "duration": 64,
               "name": "self"
             },
             {
-              "startTime": 3067,
-              "duration": 80,
+              "startTime": 3793,
+              "duration": 63,
               "name": "self"
             },
             {
-              "startTime": 3186,
-              "duration": 57,
+              "startTime": 4685,
+              "duration": 93,
               "name": "self"
             },
             {
-              "startTime": 3252,
-              "duration": 92,
+              "startTime": 4807,
+              "duration": 79,
               "name": "self"
             },
             {
-              "startTime": 3880,
-              "duration": 120,
+              "startTime": 5108,
+              "duration": 84,
               "name": "self"
             },
             {
-              "startTime": 4042,
-              "duration": 107,
-              "name": "self"
-            },
-            {
-              "startTime": 4409,
-              "duration": 125,
-              "name": "self"
-            },
-            {
-              "startTime": 4667,
-              "duration": 106,
+              "startTime": 5276,
+              "duration": 81,
               "name": "self"
             }
           ]
@@ -1565,9 +1491,9 @@
       "coldContext": true,
       "navigationError": null,
       "root": {
-        "firstContentfulPaintMs": 584,
-        "populatedScoreboardMs": 1593,
-        "domContentLoadedMs": 994,
+        "firstContentfulPaintMs": 540,
+        "populatedScoreboardMs": 1440,
+        "domContentLoadedMs": 988,
         "loadEventMs": 0,
         "leagueGroups": 5,
         "populatedLeagueGroups": 5,
@@ -1576,36 +1502,26 @@
         "path": "/",
         "resources": {
           "count": 14,
-          "transferBytes": 104476,
-          "encodedBytes": 100576,
-          "decodedBytes": 100576,
+          "transferBytes": 104965,
+          "encodedBytes": 101065,
+          "decodedBytes": 101065,
           "critical": [
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 231,
-              "durationMs": 636,
-              "responseEndMs": 866,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
-            },
-            {
-              "name": "/assets/css/app.css",
-              "initiatorType": "link",
-              "startTimeMs": 232,
-              "durationMs": 4406,
-              "responseEndMs": 4638,
-              "transferBytes": 314015,
-              "encodedBytes": 313715,
-              "decodedBytes": 313715
+              "startTimeMs": 211,
+              "durationMs": 662,
+              "responseEndMs": 873,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/js/style-loader.js",
               "initiatorType": "script",
-              "startTimeMs": 236,
-              "durationMs": 212,
-              "responseEndMs": 448,
+              "startTimeMs": 214,
+              "durationMs": 221,
+              "responseEndMs": 435,
               "transferBytes": 1631,
               "encodedBytes": 1331,
               "decodedBytes": 1331
@@ -1613,9 +1529,9 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 239,
-              "durationMs": 690,
-              "responseEndMs": 929,
+              "startTimeMs": 216,
+              "durationMs": 733,
+              "responseEndMs": 949,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -1623,9 +1539,9 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 240,
-              "durationMs": 220,
-              "responseEndMs": 460,
+              "startTimeMs": 217,
+              "durationMs": 228,
+              "responseEndMs": 445,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
@@ -1633,9 +1549,9 @@
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 243,
-              "durationMs": 561,
-              "responseEndMs": 804,
+              "startTimeMs": 222,
+              "durationMs": 573,
+              "responseEndMs": 795,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -1643,9 +1559,9 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 961,
-              "durationMs": 252,
-              "responseEndMs": 1213,
+              "startTimeMs": 962,
+              "durationMs": 236,
+              "responseEndMs": 1199,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
@@ -1653,9 +1569,9 @@
             {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 962,
+              "startTimeMs": 964,
               "durationMs": 251,
-              "responseEndMs": 1213,
+              "responseEndMs": 1214,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -1663,9 +1579,9 @@
             {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 963,
+              "startTimeMs": 965,
               "durationMs": 219,
-              "responseEndMs": 1183,
+              "responseEndMs": 1184,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -1673,9 +1589,9 @@
             {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 965,
-              "durationMs": 218,
-              "responseEndMs": 1183,
+              "startTimeMs": 966,
+              "durationMs": 265,
+              "responseEndMs": 1231,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
@@ -1683,19 +1599,19 @@
             {
               "name": "/assets/js/data.js",
               "initiatorType": "link",
-              "startTimeMs": 971,
-              "durationMs": 2100,
-              "responseEndMs": 3070,
-              "transferBytes": 82082,
-              "encodedBytes": 81782,
-              "decodedBytes": 81782
+              "startTimeMs": 969,
+              "durationMs": 2666,
+              "responseEndMs": 3634,
+              "transferBytes": 83314,
+              "encodedBytes": 83014,
+              "decodedBytes": 83014
             },
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 973,
-              "durationMs": 401,
-              "responseEndMs": 1374,
+              "startTimeMs": 970,
+              "durationMs": 449,
+              "responseEndMs": 1419,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
@@ -1703,9 +1619,9 @@
             {
               "name": "/assets/js/live.js",
               "initiatorType": "link",
-              "startTimeMs": 975,
-              "durationMs": 1306,
-              "responseEndMs": 2281,
+              "startTimeMs": 972,
+              "durationMs": 1429,
+              "responseEndMs": 2402,
               "transferBytes": 35070,
               "encodedBytes": 34770,
               "decodedBytes": 34770
@@ -1713,9 +1629,9 @@
             {
               "name": "/assets/js/match-center.js",
               "initiatorType": "link",
-              "startTimeMs": 976,
-              "durationMs": 1074,
-              "responseEndMs": 2050,
+              "startTimeMs": 974,
+              "durationMs": 1091,
+              "responseEndMs": 2066,
               "transferBytes": 23832,
               "encodedBytes": 23532,
               "decodedBytes": 23532
@@ -1723,9 +1639,9 @@
             {
               "name": "/assets/js/matchday-live.js",
               "initiatorType": "link",
-              "startTimeMs": 978,
-              "durationMs": 1278,
-              "responseEndMs": 2256,
+              "startTimeMs": 976,
+              "durationMs": 1544,
+              "responseEndMs": 2520,
               "transferBytes": 32244,
               "encodedBytes": 31944,
               "decodedBytes": 31944
@@ -1733,9 +1649,9 @@
             {
               "name": "/assets/js/predict-game.js",
               "initiatorType": "link",
-              "startTimeMs": 979,
-              "durationMs": 902,
-              "responseEndMs": 1881,
+              "startTimeMs": 977,
+              "durationMs": 1576,
+              "responseEndMs": 2553,
               "transferBytes": 11678,
               "encodedBytes": 11378,
               "decodedBytes": 11378
@@ -1743,9 +1659,9 @@
             {
               "name": "/assets/js/ui.js",
               "initiatorType": "link",
-              "startTimeMs": 980,
-              "durationMs": 2570,
-              "responseEndMs": 3550,
+              "startTimeMs": 978,
+              "durationMs": 3342,
+              "responseEndMs": 4320,
               "transferBytes": 65816,
               "encodedBytes": 65516,
               "decodedBytes": 65516
@@ -1753,9 +1669,9 @@
             {
               "name": "/assets/js/ui-stage.js",
               "initiatorType": "link",
-              "startTimeMs": 981,
-              "durationMs": 2719,
-              "responseEndMs": 3700,
+              "startTimeMs": 980,
+              "durationMs": 3524,
+              "responseEndMs": 4503,
               "transferBytes": 68385,
               "encodedBytes": 68085,
               "decodedBytes": 68085
@@ -1763,12 +1679,12 @@
             {
               "name": "/assets/js/ui-runtime.js",
               "initiatorType": "link",
-              "startTimeMs": 985,
-              "durationMs": 2903,
-              "responseEndMs": 3887,
-              "transferBytes": 77523,
-              "encodedBytes": 77223,
-              "decodedBytes": 77223
+              "startTimeMs": 981,
+              "durationMs": 3704,
+              "responseEndMs": 4685,
+              "transferBytes": 77365,
+              "encodedBytes": 77065,
+              "decodedBytes": 77065
             }
           ],
           "criticalCapturedAt": "post-app-boot-transition",
@@ -1776,59 +1692,59 @@
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 973,
-              "durationMs": 401,
-              "responseEndMs": 1374,
+              "startTimeMs": 970,
+              "durationMs": 449,
+              "responseEndMs": 1419,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
             },
             {
-              "name": "/assets/fragments/account-auth.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 961,
-              "durationMs": 252,
-              "responseEndMs": 1213,
-              "transferBytes": 2841,
-              "encodedBytes": 2541,
-              "decodedBytes": 2541
-            },
-            {
-              "name": "/assets/fragments/news-match.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 962,
-              "durationMs": 251,
-              "responseEndMs": 1213,
-              "transferBytes": 3067,
-              "encodedBytes": 2767,
-              "decodedBytes": 2767
-            },
-            {
-              "name": "/assets/fragments/mobile.html",
-              "initiatorType": "fetch",
-              "startTimeMs": 963,
-              "durationMs": 219,
-              "responseEndMs": 1183,
-              "transferBytes": 900,
-              "encodedBytes": 600,
-              "decodedBytes": 600
-            },
-            {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 965,
-              "durationMs": 218,
-              "responseEndMs": 1183,
+              "startTimeMs": 966,
+              "durationMs": 265,
+              "responseEndMs": 1231,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
             },
             {
+              "name": "/assets/fragments/news-match.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 964,
+              "durationMs": 251,
+              "responseEndMs": 1214,
+              "transferBytes": 3067,
+              "encodedBytes": 2767,
+              "decodedBytes": 2767
+            },
+            {
+              "name": "/assets/fragments/account-auth.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 962,
+              "durationMs": 236,
+              "responseEndMs": 1199,
+              "transferBytes": 2841,
+              "encodedBytes": 2541,
+              "decodedBytes": 2541
+            },
+            {
+              "name": "/assets/fragments/mobile.html",
+              "initiatorType": "fetch",
+              "startTimeMs": 965,
+              "durationMs": 219,
+              "responseEndMs": 1184,
+              "transferBytes": 900,
+              "encodedBytes": 600,
+              "decodedBytes": 600
+            },
+            {
               "name": "/assets/css/football-controls-v236.css",
               "initiatorType": "link",
-              "startTimeMs": 458,
-              "durationMs": 502,
-              "responseEndMs": 960,
+              "startTimeMs": 443,
+              "durationMs": 616,
+              "responseEndMs": 1059,
               "transferBytes": 12390,
               "encodedBytes": 12090,
               "decodedBytes": 12090
@@ -1836,9 +1752,9 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 239,
-              "durationMs": 690,
-              "responseEndMs": 929,
+              "startTimeMs": 216,
+              "durationMs": 733,
+              "responseEndMs": 949,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -1846,19 +1762,19 @@
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 231,
-              "durationMs": 636,
-              "responseEndMs": 866,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
+              "startTimeMs": 211,
+              "durationMs": 662,
+              "responseEndMs": 873,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 243,
-              "durationMs": 561,
-              "responseEndMs": 804,
+              "startTimeMs": 222,
+              "durationMs": 573,
+              "responseEndMs": 795,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -1866,9 +1782,9 @@
             {
               "name": "/api/football/home",
               "initiatorType": "fetch",
-              "startTimeMs": 585,
-              "durationMs": 188,
-              "responseEndMs": 773,
+              "startTimeMs": 544,
+              "durationMs": 163,
+              "responseEndMs": 707,
               "transferBytes": 6478,
               "encodedBytes": 6178,
               "decodedBytes": 6178
@@ -1876,9 +1792,9 @@
             {
               "name": "/assets/js/compliance.js",
               "initiatorType": "script",
-              "startTimeMs": 239,
-              "durationMs": 433,
-              "responseEndMs": 672,
+              "startTimeMs": 215,
+              "durationMs": 440,
+              "responseEndMs": 655,
               "transferBytes": 2682,
               "encodedBytes": 2382,
               "decodedBytes": 2382
@@ -1886,9 +1802,9 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 240,
-              "durationMs": 220,
-              "responseEndMs": 460,
+              "startTimeMs": 217,
+              "durationMs": 228,
+              "responseEndMs": 445,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
@@ -1896,9 +1812,9 @@
             {
               "name": "/assets/js/style-loader.js",
               "initiatorType": "script",
-              "startTimeMs": 236,
-              "durationMs": 212,
-              "responseEndMs": 448,
+              "startTimeMs": 214,
+              "durationMs": 221,
+              "responseEndMs": 435,
               "transferBytes": 1631,
               "encodedBytes": 1331,
               "decodedBytes": 1331
@@ -1906,9 +1822,9 @@
             {
               "name": "/css2",
               "initiatorType": "link",
-              "startTimeMs": 227,
-              "durationMs": 17,
-              "responseEndMs": 244,
+              "startTimeMs": 204,
+              "durationMs": 4,
+              "responseEndMs": 208,
               "transferBytes": 0,
               "encodedBytes": 0,
               "decodedBytes": 0
@@ -1919,7 +1835,7 @@
       "transition": {
         "triggered": true,
         "path": "/premier-league",
-        "populatedOverviewMs": 504,
+        "populatedOverviewMs": 428,
         "overviewVisible": true,
         "overviewTitle": "Premier League",
         "standingsRows": 1,
@@ -1958,37 +1874,37 @@
             "phase": "root",
             "method": "GET",
             "path": "/api/football/home",
-            "atMs": 683
+            "atMs": 615
           },
           {
             "phase": "root",
             "method": "GET",
             "path": "/api/football/live?league=all",
-            "atMs": 4031
+            "atMs": 4798
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/live?league=premier-league",
-            "atMs": 4303
+            "atMs": 5070
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/season?league=premier-league",
-            "atMs": 4304
+            "atMs": 5070
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/leaders?league=premier-league",
-            "atMs": 5023
+            "atMs": 5519
           },
           {
             "phase": "transition",
             "method": "GET",
             "path": "/api/football/weekly-awards?league=premier-league",
-            "atMs": 5023
+            "atMs": 5519
           }
         ],
         "responses": [
@@ -1996,172 +1912,147 @@
             "phase": "root",
             "status": 200,
             "path": "/api/football/home",
-            "atMs": 782
+            "atMs": 716
           },
           {
             "phase": "root",
             "status": 200,
             "path": "/api/football/live?league=all",
-            "atMs": 4216
+            "atMs": 4990
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/live?league=premier-league",
-            "atMs": 4382
+            "atMs": 5146
           },
           {
             "phase": "transition",
             "status": 200,
             "path": "/api/football/season?league=premier-league",
-            "atMs": 4415
+            "atMs": 5189
           }
         ],
         "criticalViolations": []
       },
       "longTasks": {
         "root": {
-          "count": 10,
-          "totalDurationMs": 953,
-          "maximumDurationMs": 127,
+          "count": 8,
+          "totalDurationMs": 688,
+          "maximumDurationMs": 110,
           "entries": [
             {
-              "startTime": 457,
-              "duration": 102,
+              "startTime": 442,
+              "duration": 82,
               "name": "self"
             },
             {
-              "startTime": 574,
-              "duration": 103,
+              "startTime": 535,
+              "duration": 76,
               "name": "self"
             },
             {
-              "startTime": 1104,
-              "duration": 119,
+              "startTime": 1009,
+              "duration": 93,
               "name": "self"
             },
             {
-              "startTime": 1246,
-              "duration": 50,
+              "startTime": 1231,
+              "duration": 92,
               "name": "self"
             },
             {
-              "startTime": 1322,
-              "duration": 122,
+              "startTime": 3652,
+              "duration": 65,
               "name": "self"
             },
             {
-              "startTime": 3092,
-              "duration": 81,
+              "startTime": 3808,
+              "duration": 70,
               "name": "self"
             },
             {
-              "startTime": 3212,
-              "duration": 62,
+              "startTime": 4694,
+              "duration": 100,
               "name": "self"
             },
             {
-              "startTime": 3288,
-              "duration": 91,
-              "name": "self"
-            },
-            {
-              "startTime": 3899,
-              "duration": 127,
-              "name": "self"
-            },
-            {
-              "startTime": 4069,
-              "duration": 96,
+              "startTime": 4837,
+              "duration": 110,
               "name": "self"
             }
           ]
         },
         "transition": {
           "count": 2,
-          "totalDurationMs": 230,
-          "maximumDurationMs": 126,
+          "totalDurationMs": 189,
+          "maximumDurationMs": 98,
           "entries": [
             {
-              "startTime": 4412,
-              "duration": 126,
+              "startTime": 5189,
+              "duration": 98,
               "name": "self"
             },
             {
-              "startTime": 4669,
-              "duration": 104,
+              "startTime": 5374,
+              "duration": 91,
               "name": "self"
             }
           ]
         },
         "all": {
-          "count": 13,
-          "totalDurationMs": 1367,
-          "maximumDurationMs": 184,
+          "count": 10,
+          "totalDurationMs": 877,
+          "maximumDurationMs": 110,
           "entries": [
             {
-              "startTime": 457,
-              "duration": 102,
+              "startTime": 442,
+              "duration": 82,
               "name": "self"
             },
             {
-              "startTime": 574,
-              "duration": 103,
+              "startTime": 535,
+              "duration": 76,
               "name": "self"
             },
             {
-              "startTime": 1104,
-              "duration": 119,
+              "startTime": 1009,
+              "duration": 93,
               "name": "self"
             },
             {
-              "startTime": 1246,
-              "duration": 50,
+              "startTime": 1231,
+              "duration": 92,
               "name": "self"
             },
             {
-              "startTime": 1322,
-              "duration": 122,
+              "startTime": 3652,
+              "duration": 65,
               "name": "self"
             },
             {
-              "startTime": 3092,
-              "duration": 81,
+              "startTime": 3808,
+              "duration": 70,
               "name": "self"
             },
             {
-              "startTime": 3212,
-              "duration": 62,
+              "startTime": 4694,
+              "duration": 100,
               "name": "self"
             },
             {
-              "startTime": 3288,
+              "startTime": 4837,
+              "duration": 110,
+              "name": "self"
+            },
+            {
+              "startTime": 5189,
+              "duration": 98,
+              "name": "self"
+            },
+            {
+              "startTime": 5374,
               "duration": 91,
-              "name": "self"
-            },
-            {
-              "startTime": 3899,
-              "duration": 127,
-              "name": "self"
-            },
-            {
-              "startTime": 4069,
-              "duration": 96,
-              "name": "self"
-            },
-            {
-              "startTime": 4412,
-              "duration": 126,
-              "name": "self"
-            },
-            {
-              "startTime": 4669,
-              "duration": 104,
-              "name": "self"
-            },
-            {
-              "startTime": 4792,
-              "duration": 184,
               "name": "self"
             }
           ]
@@ -2176,11 +2067,11 @@
       "navigationError": null,
       "direct": {
         "path": "/super-lig",
-        "firstContentfulPaintMs": 600,
-        "shellVisibleMs": 740,
-        "populatedOverviewMs": 1497,
-        "domContentLoadedMs": 977,
-        "loadEventMs": 4929,
+        "firstContentfulPaintMs": 532,
+        "shellVisibleMs": 625,
+        "populatedOverviewMs": 1410,
+        "domContentLoadedMs": 981,
+        "loadEventMs": 6068,
         "overviewVisible": true,
         "overviewTitle": "Süper Lig",
         "standingsRows": 1,
@@ -2190,19 +2081,29 @@
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 211,
-              "durationMs": 610,
-              "responseEndMs": 821,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
+              "startTimeMs": 219,
+              "durationMs": 643,
+              "responseEndMs": 863,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
+            },
+            {
+              "name": "/assets/css/app.css",
+              "initiatorType": "link",
+              "startTimeMs": 221,
+              "durationMs": 5822,
+              "responseEndMs": 6043,
+              "transferBytes": 314015,
+              "encodedBytes": 313715,
+              "decodedBytes": 313715
             },
             {
               "name": "/assets/js/style-loader.js",
               "initiatorType": "script",
-              "startTimeMs": 212,
-              "durationMs": 238,
-              "responseEndMs": 450,
+              "startTimeMs": 222,
+              "durationMs": 203,
+              "responseEndMs": 425,
               "transferBytes": 1631,
               "encodedBytes": 1331,
               "decodedBytes": 1331
@@ -2210,29 +2111,19 @@
             {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 214,
-              "durationMs": 701,
-              "responseEndMs": 915,
+              "startTimeMs": 224,
+              "durationMs": 717,
+              "responseEndMs": 940,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
             },
             {
-              "name": "/assets/css/app.css",
-              "initiatorType": "link",
-              "startTimeMs": 249,
-              "durationMs": 4366,
-              "responseEndMs": 4615,
-              "transferBytes": 314015,
-              "encodedBytes": 313715,
-              "decodedBytes": 313715
-            },
-            {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 254,
-              "durationMs": 196,
-              "responseEndMs": 451,
+              "startTimeMs": 224,
+              "durationMs": 211,
+              "responseEndMs": 435,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
@@ -2240,9 +2131,9 @@
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 255,
-              "durationMs": 538,
-              "responseEndMs": 793,
+              "startTimeMs": 229,
+              "durationMs": 555,
+              "responseEndMs": 784,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -2250,9 +2141,9 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 943,
-              "durationMs": 255,
-              "responseEndMs": 1198,
+              "startTimeMs": 956,
+              "durationMs": 233,
+              "responseEndMs": 1189,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
@@ -2260,9 +2151,9 @@
             {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 945,
-              "durationMs": 253,
-              "responseEndMs": 1198,
+              "startTimeMs": 957,
+              "durationMs": 246,
+              "responseEndMs": 1203,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -2270,9 +2161,9 @@
             {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 946,
-              "durationMs": 222,
-              "responseEndMs": 1168,
+              "startTimeMs": 958,
+              "durationMs": 215,
+              "responseEndMs": 1173,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -2280,9 +2171,9 @@
             {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 947,
-              "durationMs": 221,
-              "responseEndMs": 1168,
+              "startTimeMs": 959,
+              "durationMs": 277,
+              "responseEndMs": 1236,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
@@ -2290,19 +2181,19 @@
             {
               "name": "/assets/js/data.js",
               "initiatorType": "link",
-              "startTimeMs": 952,
-              "durationMs": 2101,
-              "responseEndMs": 3053,
-              "transferBytes": 82082,
-              "encodedBytes": 81782,
-              "decodedBytes": 81782
+              "startTimeMs": 962,
+              "durationMs": 2680,
+              "responseEndMs": 3642,
+              "transferBytes": 83314,
+              "encodedBytes": 83014,
+              "decodedBytes": 83014
             },
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 956,
-              "durationMs": 406,
-              "responseEndMs": 1361,
+              "startTimeMs": 964,
+              "durationMs": 437,
+              "responseEndMs": 1401,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
@@ -2310,9 +2201,9 @@
             {
               "name": "/assets/js/live.js",
               "initiatorType": "link",
-              "startTimeMs": 957,
-              "durationMs": 1311,
-              "responseEndMs": 2268,
+              "startTimeMs": 965,
+              "durationMs": 1399,
+              "responseEndMs": 2364,
               "transferBytes": 35070,
               "encodedBytes": 34770,
               "decodedBytes": 34770
@@ -2320,9 +2211,9 @@
             {
               "name": "/assets/js/match-center.js",
               "initiatorType": "link",
-              "startTimeMs": 959,
-              "durationMs": 1047,
-              "responseEndMs": 2005,
+              "startTimeMs": 967,
+              "durationMs": 1109,
+              "responseEndMs": 2075,
               "transferBytes": 23832,
               "encodedBytes": 23532,
               "decodedBytes": 23532
@@ -2330,9 +2221,9 @@
             {
               "name": "/assets/js/matchday-live.js",
               "initiatorType": "link",
-              "startTimeMs": 961,
-              "durationMs": 1305,
-              "responseEndMs": 2265,
+              "startTimeMs": 969,
+              "durationMs": 1524,
+              "responseEndMs": 2493,
               "transferBytes": 32244,
               "encodedBytes": 31944,
               "decodedBytes": 31944
@@ -2340,9 +2231,9 @@
             {
               "name": "/assets/js/predict-game.js",
               "initiatorType": "link",
-              "startTimeMs": 962,
-              "durationMs": 927,
-              "responseEndMs": 1889,
+              "startTimeMs": 970,
+              "durationMs": 1578,
+              "responseEndMs": 2548,
               "transferBytes": 11678,
               "encodedBytes": 11378,
               "decodedBytes": 11378
@@ -2350,9 +2241,9 @@
             {
               "name": "/assets/js/ui.js",
               "initiatorType": "link",
-              "startTimeMs": 964,
-              "durationMs": 2586,
-              "responseEndMs": 3550,
+              "startTimeMs": 971,
+              "durationMs": 3335,
+              "responseEndMs": 4307,
               "transferBytes": 65816,
               "encodedBytes": 65516,
               "decodedBytes": 65516
@@ -2360,9 +2251,9 @@
             {
               "name": "/assets/js/ui-stage.js",
               "initiatorType": "link",
-              "startTimeMs": 965,
-              "durationMs": 2722,
-              "responseEndMs": 3687,
+              "startTimeMs": 973,
+              "durationMs": 3520,
+              "responseEndMs": 4492,
               "transferBytes": 68385,
               "encodedBytes": 68085,
               "decodedBytes": 68085
@@ -2370,12 +2261,12 @@
             {
               "name": "/assets/js/ui-runtime.js",
               "initiatorType": "link",
-              "startTimeMs": 967,
-              "durationMs": 2905,
-              "responseEndMs": 3872,
-              "transferBytes": 77523,
-              "encodedBytes": 77223,
-              "decodedBytes": 77223
+              "startTimeMs": 974,
+              "durationMs": 3686,
+              "responseEndMs": 4660,
+              "transferBytes": 77365,
+              "encodedBytes": 77065,
+              "decodedBytes": 77065
             }
           ],
           "criticalCapturedAt": "post-app-boot"
@@ -2410,25 +2301,25 @@
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/season?league=super-lig",
-            "atMs": 746
+            "atMs": 631
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/live?league=super-lig",
-            "atMs": 4033
+            "atMs": 4769
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/leaders?league=super-lig",
-            "atMs": 4233
+            "atMs": 4917
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/weekly-awards?league=super-lig",
-            "atMs": 4233
+            "atMs": 4917
           }
         ],
         "responses": [
@@ -2436,78 +2327,83 @@
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/season?league=super-lig",
-            "atMs": 935
+            "atMs": 746
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/live?league=super-lig",
-            "atMs": 4254
+            "atMs": 4930
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/leaders?league=super-lig",
-            "atMs": 4303
+            "atMs": 4991
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/weekly-awards?league=super-lig",
-            "atMs": 4310
+            "atMs": 4992
           }
         ],
         "criticalViolations": []
       },
       "longTasks": {
         "all": {
-          "count": 9,
-          "totalDurationMs": 973,
-          "maximumDurationMs": 162,
+          "count": 10,
+          "totalDurationMs": 832,
+          "maximumDurationMs": 135,
           "entries": [
             {
-              "startTime": 464,
-              "duration": 104,
+              "startTime": 432,
+              "duration": 76,
               "name": "self"
             },
             {
-              "startTime": 581,
-              "duration": 159,
+              "startTime": 519,
+              "duration": 106,
               "name": "self"
             },
             {
-              "startTime": 1108,
-              "duration": 162,
+              "startTime": 985,
+              "duration": 135,
               "name": "self"
             },
             {
-              "startTime": 1370,
-              "duration": 86,
+              "startTime": 1289,
+              "duration": 78,
               "name": "self"
             },
             {
-              "startTime": 3076,
-              "duration": 66,
+              "startTime": 3658,
+              "duration": 50,
               "name": "self"
             },
             {
-              "startTime": 3239,
-              "duration": 66,
+              "startTime": 3776,
+              "duration": 56,
               "name": "self"
             },
             {
-              "startTime": 3880,
-              "duration": 147,
+              "startTime": 4668,
+              "duration": 96,
               "name": "self"
             },
             {
-              "startTime": 4099,
-              "duration": 83,
+              "startTime": 4817,
+              "duration": 61,
               "name": "self"
             },
             {
-              "startTime": 4308,
-              "duration": 100,
+              "startTime": 4991,
+              "duration": 89,
+              "name": "self"
+            },
+            {
+              "startTime": 5739,
+              "duration": 85,
               "name": "self"
             }
           ]
@@ -2520,11 +2416,11 @@
       "navigationError": null,
       "direct": {
         "path": "/super-lig",
-        "firstContentfulPaintMs": 560,
-        "shellVisibleMs": 701,
-        "populatedOverviewMs": 1508,
-        "domContentLoadedMs": 1028,
-        "loadEventMs": 4635,
+        "firstContentfulPaintMs": 512,
+        "shellVisibleMs": 621,
+        "populatedOverviewMs": 1416,
+        "domContentLoadedMs": 1012,
+        "loadEventMs": 6050,
         "overviewVisible": true,
         "overviewTitle": "Süper Lig",
         "standingsRows": 1,
@@ -2534,39 +2430,39 @@
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 206,
-              "durationMs": 677,
-              "responseEndMs": 883,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
-            },
-            {
-              "name": "/assets/js/style-loader.js",
-              "initiatorType": "script",
-              "startTimeMs": 208,
-              "durationMs": 221,
-              "responseEndMs": 428,
-              "transferBytes": 1631,
-              "encodedBytes": 1331,
-              "decodedBytes": 1331
+              "startTimeMs": 203,
+              "durationMs": 687,
+              "responseEndMs": 891,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/css/app.css",
               "initiatorType": "link",
-              "startTimeMs": 248,
-              "durationMs": 4347,
-              "responseEndMs": 4595,
+              "startTimeMs": 205,
+              "durationMs": 5820,
+              "responseEndMs": 6025,
               "transferBytes": 314015,
               "encodedBytes": 313715,
               "decodedBytes": 313715
             },
             {
+              "name": "/assets/js/style-loader.js",
+              "initiatorType": "script",
+              "startTimeMs": 206,
+              "durationMs": 202,
+              "responseEndMs": 408,
+              "transferBytes": 1631,
+              "encodedBytes": 1331,
+              "decodedBytes": 1331
+            },
+            {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 254,
-              "durationMs": 660,
-              "responseEndMs": 914,
+              "startTimeMs": 208,
+              "durationMs": 730,
+              "responseEndMs": 938,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -2574,9 +2470,9 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 255,
-              "durationMs": 185,
-              "responseEndMs": 440,
+              "startTimeMs": 214,
+              "durationMs": 204,
+              "responseEndMs": 418,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
@@ -2584,9 +2480,9 @@
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 256,
-              "durationMs": 518,
-              "responseEndMs": 774,
+              "startTimeMs": 215,
+              "durationMs": 552,
+              "responseEndMs": 767,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -2594,9 +2490,9 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 1000,
-              "durationMs": 252,
-              "responseEndMs": 1252,
+              "startTimeMs": 986,
+              "durationMs": 232,
+              "responseEndMs": 1218,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
@@ -2604,9 +2500,9 @@
             {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 1002,
-              "durationMs": 250,
-              "responseEndMs": 1252,
+              "startTimeMs": 988,
+              "durationMs": 230,
+              "responseEndMs": 1218,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -2614,9 +2510,9 @@
             {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 1003,
-              "durationMs": 218,
-              "responseEndMs": 1221,
+              "startTimeMs": 989,
+              "durationMs": 198,
+              "responseEndMs": 1187,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -2624,9 +2520,9 @@
             {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 1004,
-              "durationMs": 218,
-              "responseEndMs": 1222,
+              "startTimeMs": 990,
+              "durationMs": 239,
+              "responseEndMs": 1229,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
@@ -2634,19 +2530,19 @@
             {
               "name": "/assets/js/data.js",
               "initiatorType": "link",
-              "startTimeMs": 1007,
-              "durationMs": 2087,
-              "responseEndMs": 3094,
-              "transferBytes": 82082,
-              "encodedBytes": 81782,
-              "decodedBytes": 81782
+              "startTimeMs": 993,
+              "durationMs": 2650,
+              "responseEndMs": 3642,
+              "transferBytes": 83314,
+              "encodedBytes": 83014,
+              "decodedBytes": 83014
             },
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 1008,
-              "durationMs": 423,
-              "responseEndMs": 1431,
+              "startTimeMs": 995,
+              "durationMs": 443,
+              "responseEndMs": 1438,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
@@ -2654,9 +2550,9 @@
             {
               "name": "/assets/js/live.js",
               "initiatorType": "link",
-              "startTimeMs": 1010,
-              "durationMs": 1317,
-              "responseEndMs": 2327,
+              "startTimeMs": 997,
+              "durationMs": 1360,
+              "responseEndMs": 2357,
               "transferBytes": 35070,
               "encodedBytes": 34770,
               "decodedBytes": 34770
@@ -2664,9 +2560,9 @@
             {
               "name": "/assets/js/match-center.js",
               "initiatorType": "link",
-              "startTimeMs": 1011,
-              "durationMs": 1050,
-              "responseEndMs": 2062,
+              "startTimeMs": 998,
+              "durationMs": 1073,
+              "responseEndMs": 2071,
               "transferBytes": 23832,
               "encodedBytes": 23532,
               "decodedBytes": 23532
@@ -2674,9 +2570,9 @@
             {
               "name": "/assets/js/matchday-live.js",
               "initiatorType": "link",
-              "startTimeMs": 1014,
-              "durationMs": 1282,
-              "responseEndMs": 2296,
+              "startTimeMs": 1000,
+              "durationMs": 1526,
+              "responseEndMs": 2526,
               "transferBytes": 32244,
               "encodedBytes": 31944,
               "decodedBytes": 31944
@@ -2684,9 +2580,9 @@
             {
               "name": "/assets/js/predict-game.js",
               "initiatorType": "link",
-              "startTimeMs": 1016,
-              "durationMs": 928,
-              "responseEndMs": 1944,
+              "startTimeMs": 1002,
+              "durationMs": 1556,
+              "responseEndMs": 2558,
               "transferBytes": 11678,
               "encodedBytes": 11378,
               "decodedBytes": 11378
@@ -2694,9 +2590,9 @@
             {
               "name": "/assets/js/ui.js",
               "initiatorType": "link",
-              "startTimeMs": 1018,
-              "durationMs": 2609,
-              "responseEndMs": 3627,
+              "startTimeMs": 1003,
+              "durationMs": 3288,
+              "responseEndMs": 4291,
               "transferBytes": 65816,
               "encodedBytes": 65516,
               "decodedBytes": 65516
@@ -2704,9 +2600,9 @@
             {
               "name": "/assets/js/ui-stage.js",
               "initiatorType": "link",
-              "startTimeMs": 1020,
-              "durationMs": 2708,
-              "responseEndMs": 3728,
+              "startTimeMs": 1004,
+              "durationMs": 3520,
+              "responseEndMs": 4524,
               "transferBytes": 68385,
               "encodedBytes": 68085,
               "decodedBytes": 68085
@@ -2714,12 +2610,12 @@
             {
               "name": "/assets/js/ui-runtime.js",
               "initiatorType": "link",
-              "startTimeMs": 1021,
-              "durationMs": 2906,
-              "responseEndMs": 3927,
-              "transferBytes": 77523,
-              "encodedBytes": 77223,
-              "decodedBytes": 77223
+              "startTimeMs": 1005,
+              "durationMs": 3654,
+              "responseEndMs": 4660,
+              "transferBytes": 77365,
+              "encodedBytes": 77065,
+              "decodedBytes": 77065
             }
           ],
           "criticalCapturedAt": "post-app-boot"
@@ -2754,25 +2650,25 @@
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/season?league=super-lig",
-            "atMs": 708
+            "atMs": 626
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/live?league=super-lig",
-            "atMs": 4067
+            "atMs": 4762
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/leaders?league=super-lig",
-            "atMs": 4249
+            "atMs": 4903
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/weekly-awards?league=super-lig",
-            "atMs": 4249
+            "atMs": 4903
           }
         ],
         "responses": [
@@ -2780,25 +2676,25 @@
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/season?league=super-lig",
-            "atMs": 814
+            "atMs": 744
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/live?league=super-lig",
-            "atMs": 4269
+            "atMs": 4918
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/leaders?league=super-lig",
-            "atMs": 4327
+            "atMs": 4971
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/weekly-awards?league=super-lig",
-            "atMs": 4328
+            "atMs": 4982
           }
         ],
         "criticalViolations": []
@@ -2806,52 +2702,52 @@
       "longTasks": {
         "all": {
           "count": 9,
-          "totalDurationMs": 929,
-          "maximumDurationMs": 155,
+          "totalDurationMs": 769,
+          "maximumDurationMs": 125,
           "entries": [
             {
-              "startTime": 437,
-              "duration": 106,
+              "startTime": 415,
+              "duration": 84,
               "name": "self"
             },
             {
-              "startTime": 559,
-              "duration": 142,
+              "startTime": 507,
+              "duration": 114,
               "name": "self"
             },
             {
-              "startTime": 1037,
-              "duration": 155,
+              "startTime": 1015,
+              "duration": 125,
               "name": "self"
             },
             {
-              "startTime": 1386,
-              "duration": 83,
-              "name": "self"
-            },
-            {
-              "startTime": 3110,
-              "duration": 64,
-              "name": "self"
-            },
-            {
-              "startTime": 3269,
-              "duration": 68,
-              "name": "self"
-            },
-            {
-              "startTime": 3941,
-              "duration": 120,
-              "name": "self"
-            },
-            {
-              "startTime": 4120,
+              "startTime": 1308,
               "duration": 75,
               "name": "self"
             },
             {
-              "startTime": 4326,
-              "duration": 116,
+              "startTime": 3779,
+              "duration": 50,
+              "name": "self"
+            },
+            {
+              "startTime": 4668,
+              "duration": 90,
+              "name": "self"
+            },
+            {
+              "startTime": 4805,
+              "duration": 61,
+              "name": "self"
+            },
+            {
+              "startTime": 4980,
+              "duration": 89,
+              "name": "self"
+            },
+            {
+              "startTime": 5734,
+              "duration": 81,
               "name": "self"
             }
           ]
@@ -2864,11 +2760,11 @@
       "navigationError": null,
       "direct": {
         "path": "/super-lig",
-        "firstContentfulPaintMs": 564,
-        "shellVisibleMs": 707,
-        "populatedOverviewMs": 1534,
-        "domContentLoadedMs": 1000,
-        "loadEventMs": 4624,
+        "firstContentfulPaintMs": 532,
+        "shellVisibleMs": 638,
+        "populatedOverviewMs": 1466,
+        "domContentLoadedMs": 992,
+        "loadEventMs": 6100,
         "overviewVisible": true,
         "overviewTitle": "Süper Lig",
         "standingsRows": 1,
@@ -2878,39 +2774,39 @@
             {
               "name": "/assets/css/football-hub.css",
               "initiatorType": "link",
-              "startTimeMs": 203,
-              "durationMs": 644,
-              "responseEndMs": 847,
-              "transferBytes": 46693,
-              "encodedBytes": 46393,
-              "decodedBytes": 46393
-            },
-            {
-              "name": "/assets/js/style-loader.js",
-              "initiatorType": "script",
-              "startTimeMs": 206,
-              "durationMs": 220,
-              "responseEndMs": 426,
-              "transferBytes": 1631,
-              "encodedBytes": 1331,
-              "decodedBytes": 1331
+              "startTimeMs": 220,
+              "durationMs": 735,
+              "responseEndMs": 954,
+              "transferBytes": 47182,
+              "encodedBytes": 46882,
+              "decodedBytes": 46882
             },
             {
               "name": "/assets/css/app.css",
               "initiatorType": "link",
-              "startTimeMs": 238,
-              "durationMs": 4358,
-              "responseEndMs": 4595,
+              "startTimeMs": 221,
+              "durationMs": 5852,
+              "responseEndMs": 6073,
               "transferBytes": 314015,
               "encodedBytes": 313715,
               "decodedBytes": 313715
             },
             {
+              "name": "/assets/js/style-loader.js",
+              "initiatorType": "script",
+              "startTimeMs": 223,
+              "durationMs": 202,
+              "responseEndMs": 425,
+              "transferBytes": 1631,
+              "encodedBytes": 1331,
+              "decodedBytes": 1331
+            },
+            {
               "name": "/assets/js/football-early.js",
               "initiatorType": "script",
-              "startTimeMs": 240,
-              "durationMs": 653,
-              "responseEndMs": 893,
+              "startTimeMs": 228,
+              "durationMs": 726,
+              "responseEndMs": 954,
               "transferBytes": 14196,
               "encodedBytes": 13896,
               "decodedBytes": 13896
@@ -2918,9 +2814,9 @@
             {
               "name": "/assets/js/initial-route.js",
               "initiatorType": "script",
-              "startTimeMs": 243,
-              "durationMs": 192,
-              "responseEndMs": 435,
+              "startTimeMs": 229,
+              "durationMs": 205,
+              "responseEndMs": 434,
               "transferBytes": 2828,
               "encodedBytes": 2528,
               "decodedBytes": 2528
@@ -2928,9 +2824,9 @@
             {
               "name": "/assets/js/app-boot.js",
               "initiatorType": "script",
-              "startTimeMs": 243,
-              "durationMs": 524,
-              "responseEndMs": 767,
+              "startTimeMs": 230,
+              "durationMs": 553,
+              "responseEndMs": 783,
               "transferBytes": 7164,
               "encodedBytes": 6864,
               "decodedBytes": 6864
@@ -2938,9 +2834,9 @@
             {
               "name": "/assets/fragments/account-auth.html",
               "initiatorType": "fetch",
-              "startTimeMs": 962,
-              "durationMs": 261,
-              "responseEndMs": 1223,
+              "startTimeMs": 970,
+              "durationMs": 226,
+              "responseEndMs": 1196,
               "transferBytes": 2841,
               "encodedBytes": 2541,
               "decodedBytes": 2541
@@ -2948,9 +2844,9 @@
             {
               "name": "/assets/fragments/news-match.html",
               "initiatorType": "fetch",
-              "startTimeMs": 966,
-              "durationMs": 257,
-              "responseEndMs": 1223,
+              "startTimeMs": 971,
+              "durationMs": 232,
+              "responseEndMs": 1203,
               "transferBytes": 3067,
               "encodedBytes": 2767,
               "decodedBytes": 2767
@@ -2958,9 +2854,9 @@
             {
               "name": "/assets/fragments/mobile.html",
               "initiatorType": "fetch",
-              "startTimeMs": 969,
-              "durationMs": 219,
-              "responseEndMs": 1188,
+              "startTimeMs": 972,
+              "durationMs": 201,
+              "responseEndMs": 1173,
               "transferBytes": 900,
               "encodedBytes": 600,
               "decodedBytes": 600
@@ -2968,9 +2864,9 @@
             {
               "name": "/assets/fragments/chat.html",
               "initiatorType": "fetch",
-              "startTimeMs": 971,
-              "durationMs": 236,
-              "responseEndMs": 1207,
+              "startTimeMs": 973,
+              "durationMs": 278,
+              "responseEndMs": 1251,
               "transferBytes": 1219,
               "encodedBytes": 919,
               "decodedBytes": 919
@@ -2978,19 +2874,19 @@
             {
               "name": "/assets/js/data.js",
               "initiatorType": "link",
-              "startTimeMs": 974,
-              "durationMs": 2137,
-              "responseEndMs": 3111,
-              "transferBytes": 82082,
-              "encodedBytes": 81782,
-              "decodedBytes": 81782
+              "startTimeMs": 975,
+              "durationMs": 2649,
+              "responseEndMs": 3624,
+              "transferBytes": 83314,
+              "encodedBytes": 83014,
+              "decodedBytes": 83014
             },
             {
               "name": "/assets/js/analytics.js",
               "initiatorType": "link",
-              "startTimeMs": 975,
-              "durationMs": 419,
-              "responseEndMs": 1395,
+              "startTimeMs": 977,
+              "durationMs": 445,
+              "responseEndMs": 1422,
               "transferBytes": 2387,
               "encodedBytes": 2087,
               "decodedBytes": 2087
@@ -2998,9 +2894,9 @@
             {
               "name": "/assets/js/live.js",
               "initiatorType": "link",
-              "startTimeMs": 977,
-              "durationMs": 1351,
-              "responseEndMs": 2327,
+              "startTimeMs": 979,
+              "durationMs": 1378,
+              "responseEndMs": 2358,
               "transferBytes": 35070,
               "encodedBytes": 34770,
               "decodedBytes": 34770
@@ -3008,9 +2904,9 @@
             {
               "name": "/assets/js/match-center.js",
               "initiatorType": "link",
-              "startTimeMs": 979,
-              "durationMs": 1049,
-              "responseEndMs": 2027,
+              "startTimeMs": 981,
+              "durationMs": 1110,
+              "responseEndMs": 2091,
               "transferBytes": 23832,
               "encodedBytes": 23532,
               "decodedBytes": 23532
@@ -3019,8 +2915,8 @@
               "name": "/assets/js/matchday-live.js",
               "initiatorType": "link",
               "startTimeMs": 982,
-              "durationMs": 1279,
-              "responseEndMs": 2261,
+              "durationMs": 1526,
+              "responseEndMs": 2508,
               "transferBytes": 32244,
               "encodedBytes": 31944,
               "decodedBytes": 31944
@@ -3028,9 +2924,9 @@
             {
               "name": "/assets/js/predict-game.js",
               "initiatorType": "link",
-              "startTimeMs": 985,
-              "durationMs": 909,
-              "responseEndMs": 1894,
+              "startTimeMs": 983,
+              "durationMs": 1592,
+              "responseEndMs": 2575,
               "transferBytes": 11678,
               "encodedBytes": 11378,
               "decodedBytes": 11378
@@ -3038,9 +2934,9 @@
             {
               "name": "/assets/js/ui.js",
               "initiatorType": "link",
-              "startTimeMs": 987,
-              "durationMs": 2590,
-              "responseEndMs": 3577,
+              "startTimeMs": 984,
+              "durationMs": 3324,
+              "responseEndMs": 4308,
               "transferBytes": 65816,
               "encodedBytes": 65516,
               "decodedBytes": 65516
@@ -3048,9 +2944,9 @@
             {
               "name": "/assets/js/ui-stage.js",
               "initiatorType": "link",
-              "startTimeMs": 989,
-              "durationMs": 2722,
-              "responseEndMs": 3711,
+              "startTimeMs": 985,
+              "durationMs": 3522,
+              "responseEndMs": 4507,
               "transferBytes": 68385,
               "encodedBytes": 68085,
               "decodedBytes": 68085
@@ -3058,12 +2954,12 @@
             {
               "name": "/assets/js/ui-runtime.js",
               "initiatorType": "link",
-              "startTimeMs": 991,
-              "durationMs": 2903,
-              "responseEndMs": 3894,
-              "transferBytes": 77523,
-              "encodedBytes": 77223,
-              "decodedBytes": 77223
+              "startTimeMs": 986,
+              "durationMs": 3689,
+              "responseEndMs": 4675,
+              "transferBytes": 77365,
+              "encodedBytes": 77065,
+              "decodedBytes": 77065
             }
           ],
           "criticalCapturedAt": "post-app-boot"
@@ -3098,25 +2994,25 @@
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/season?league=super-lig",
-            "atMs": 715
+            "atMs": 643
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/live?league=super-lig",
-            "atMs": 4026
+            "atMs": 4783
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/leaders?league=super-lig",
-            "atMs": 4198
+            "atMs": 4941
           },
           {
             "phase": "direct-super-lig",
             "method": "GET",
             "path": "/api/football/weekly-awards?league=super-lig",
-            "atMs": 4198
+            "atMs": 4941
           }
         ],
         "responses": [
@@ -3124,25 +3020,25 @@
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/season?league=super-lig",
-            "atMs": 829
+            "atMs": 761
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/live?league=super-lig",
-            "atMs": 4220
+            "atMs": 4957
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/leaders?league=super-lig",
-            "atMs": 4267
+            "atMs": 5021
           },
           {
             "phase": "direct-super-lig",
             "status": 200,
             "path": "/api/football/weekly-awards?league=super-lig",
-            "atMs": 4279
+            "atMs": 5023
           }
         ],
         "criticalViolations": []
@@ -3150,52 +3046,52 @@
       "longTasks": {
         "all": {
           "count": 9,
-          "totalDurationMs": 983,
-          "maximumDurationMs": 181,
+          "totalDurationMs": 777,
+          "maximumDurationMs": 125,
           "entries": [
             {
-              "startTime": 433,
-              "duration": 110,
+              "startTime": 431,
+              "duration": 86,
               "name": "self"
             },
             {
-              "startTime": 558,
-              "duration": 150,
-              "name": "self"
-            },
-            {
-              "startTime": 1005,
-              "duration": 181,
-              "name": "self"
-            },
-            {
-              "startTime": 1392,
-              "duration": 90,
-              "name": "self"
-            },
-            {
-              "startTime": 3140,
-              "duration": 61,
-              "name": "self"
-            },
-            {
-              "startTime": 3293,
-              "duration": 75,
-              "name": "self"
-            },
-            {
-              "startTime": 3905,
+              "startTime": 524,
               "duration": 114,
               "name": "self"
             },
             {
-              "startTime": 4065,
-              "duration": 85,
+              "startTime": 1069,
+              "duration": 125,
               "name": "self"
             },
             {
-              "startTime": 4274,
-              "duration": 117,
+              "startTime": 1363,
+              "duration": 72,
+              "name": "self"
+            },
+            {
+              "startTime": 3764,
+              "duration": 51,
+              "name": "self"
+            },
+            {
+              "startTime": 4683,
+              "duration": 96,
+              "name": "self"
+            },
+            {
+              "startTime": 4833,
+              "duration": 68,
+              "name": "self"
+            },
+            {
+              "startTime": 5021,
+              "duration": 82,
+              "name": "self"
+            },
+            {
+              "startTime": 5747,
+              "duration": 83,
               "name": "self"
             }
           ]

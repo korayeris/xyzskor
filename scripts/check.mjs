@@ -645,7 +645,7 @@ assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 
 assert.doesNotMatch(multisportSource, /skiPortalHTML|data-ski-discipline|americanFootball|australianFootball|\brugby\b|\bbaseball\b|\bhandball\b|\bhockey\b/, 'Emekli spor dallarinin erişilemez renderer kodu bundle icinde kalmamali.');
 assert.doesNotMatch(appCss, /ski-hero-v1|field-hero-v1|data-sport=["']ski/, 'Emekli Kayak renderer ve kullanilmayan kahraman gorselleri CSS icinde kalmamali.');
 assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
-assert.match(sportBranchesSource, /\["football", "Ana Sayfa", "\/"\]/, 'Spor menüsünün ilk öğesi açık bir Ana Sayfa bağlantısı olmalı.');
+assert.match(sportBranchesSource, /\["football", "Futbol", "\/"\]/, 'Spor menüsünün ilk öğesi genel ana sayfa gibi davranmamalı; futbol kapsamını açıkça belirtmeli.');
 assert.match(motorsportsSource, /href="\/ufc\/">UFC/, 'Motor sporları kabuğu UFC geçişini kaybetmemeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');

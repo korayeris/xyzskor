@@ -1,6 +1,6 @@
 (() => {
   const primary = [
-    ["football", "Ana Sayfa", "/"],
+    ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
     ["motorsports", "Motor Sporları", "/motorsports/"],
