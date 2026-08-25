@@ -2073,7 +2073,7 @@ function footballTeamOfWeekHTML(team){
   if(!team?.players?.length) return '<p class="football-weekly-empty">Geçerli 11 için tamamlanmış ve pozisyonu doğrulanmış oyuncu havuzu bekleniyor.</p>';
   const order={goalkeeper:0,defender:1,midfielder:2,forward:3};
   const rows=[...team.players].sort((a,b)=>(order[a.position]??9)-(order[b.position]??9)||b.score-a.score);
-  return `<div class="football-weekly-pitch" role="list" aria-label="${escapeHTML(team.formation)} haftanın takımı">${['forward','midfielder','defender','goalkeeper'].map(position=>`<div class="pitch-line">${rows.filter(player=>player.position===position).map(player=>`<article role="listitem"><span>${safeExternalURL(player.playerImage)?`<img src="${escapeHTML(player.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><strong>${escapeHTML(player.playerName)}</strong><b>${escapeHTML(Number(player.score).toFixed(1))}</b></article>`).join('')}</div>`).join('')}</div>`;
+  return `<div class="football-weekly-pitch" role="list" aria-label="${escapeHTML(team.formation)} haftanın takımı">${['forward','midfielder','defender','goalkeeper'].map(position=>`<div class="pitch-line pitch-line-${position}" data-position="${position}">${rows.filter(player=>player.position===position).map(player=>`<article role="listitem"><span>${safeExternalURL(player.playerImage)?`<img src="${escapeHTML(player.playerImage)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><strong>${escapeHTML(player.playerName)}</strong><b>${escapeHTML(Number(player.score).toFixed(1))}</b></article>`).join('')}</div>`).join('')}</div>`;
 }
 function renderFootballWeeklyFeatures(){
   const root=document.getElementById('footballWeeklyFeatures'); if(!root) return;

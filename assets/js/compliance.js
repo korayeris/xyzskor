@@ -60,21 +60,9 @@
     root.querySelectorAll?.('a[href]').forEach(protectLink);
   }
 
-  function addSourceNotice(){
-    if(document.getElementById('complianceSourceNotice')) return;
-    const anchor=document.getElementById('dataStatusLine') || document.querySelector('.live-ticker');
-    if(!anchor) return;
-    const notice=document.createElement('div');
-    notice.id='complianceSourceNotice';
-    notice.className='compliance-source-notice';
-    notice.innerHTML='<strong>Kaynak şeffaflığı</strong><span>Skor ve istatistikler sağlayıcı API kayıtlarından gelir. Sağlayıcı etiketi ve güncellenme zamanı bulunan kayıtlar gösterilir; lisansı belirsiz medya kullanılmaz.</span>';
-    anchor.insertAdjacentElement('afterend',notice);
-  }
-
   document.documentElement.dataset.complianceMode='safe-beta';
   document.addEventListener('DOMContentLoaded',()=>{
     scan(document);
-    addSourceNotice();
     const observer=new MutationObserver((changes)=>{
       changes.forEach((change)=>{
         change.addedNodes.forEach((node)=>scan(node));

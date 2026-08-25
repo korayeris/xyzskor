@@ -322,7 +322,7 @@ assert.match(functionSource('clubLineupHTML'), /İsim uydurulmuyor/, 'Sağlayıc
 assert.match(functionSource('clubDirectionsURL'), /google\.com\/maps\/dir/, 'Stadyum kartı yol tarifi bağlantısı üretmeli.');
 assert.match(appSource, /CLUB_INTELLIGENCE_2026_27/, 'Kulüp değeri ve teknik direktör referans verisi bulunmalı.');
 assert.match(html, /id="editorialDesk"/, 'Ana sayfada profesyonel haber merkezi bulunmalı.');
-assert.match(html, /id="youtubeMediaGrid"/, 'Ana sayfada YouTube canlı ve program paneli bulunmalı.');
+assert.doesNotMatch(html, /id="youtubeMediaGrid"|id="instagramDesk"/, 'Veri sahibi olmayan yayın ve Instagram modülleri production DOMunda sonsuz skeleton bırakmamalı.');
 assert.match(liveFunctionSource('renderEditorialNews'), /contextualEditorialEntries|editorialNewsEntries/, 'Haber merkezi yayımlanmış ve kaynaklı kayıtlardan beslenmeli.');
 assert.match(liveFunctionSource('renderEditorialNews'), /editorial-portrait-shell/, 'Haber merkezi oyuncu görsellerini kesmeden dairesel portre içinde göstermeli.');
 assert.match(liveFunctionSource('renderEditorialNews'), /editorialMatchVisualHTML/, 'Görseli olmayan açılış maçı haberi gerçek maç eşleşmesiyle görselleştirilmeli.');
@@ -333,7 +333,8 @@ assert.match(appCss, /club-coach-portrait\{[^}]*overflow:hidden[^}]*border-radiu
 assert.match(appCss, /editorial-match-visual\{[^}]*grid-template-columns/s, 'Açılış maçı için iki kulüplü görsel kompozisyon bulunmalı.');
 assert.doesNotMatch(liveFunctionSource('renderEditorialNews'), /EDITORIAL_NEWS_CACHE\.slice\(0,3\).*filter\(item=>item\.image\)/s, 'Manşet haberi başka haberlerin ilgisiz oyuncu görsellerini ödünç almamalı.');
 assert.match(functionSource('editorialNewsEntries'), /imageType:editorialPhoto\?'photo':playerPortrait\?'portrait':'none'/, 'Editoryal fotoğraf ile oyuncu portresi ayrıştırılmalı.');
-assert.match(functionSource('renderYouTubeMedia'), /\/api\/media\/youtube/, 'YouTube paneli sunucu adaptörünü kullanmalı.');
+assert.match(functionSource('footballTeamOfWeekHTML'), /pitch-line-\$\{position\}/, 'Haftanın takımı pozisyon satırlarını saha katmanlarıyla işaretlemeli.');
+assert.match(footballHubCss, /football-weekly-pitch::after[\s\S]*border-radius:50%/, 'Haftanın takımı sahasında orta yuvarlak ve saha çizgileri bulunmalı.');
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');
