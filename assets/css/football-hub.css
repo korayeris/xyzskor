@@ -526,7 +526,6 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .league-overview-transfer-list article b { grid-column:2; grid-row:1/3; padding:6px 8px; border-radius:999px; background:rgba(78,224,174,.09); }
 .football-weekly-pitch strong { width:100%; overflow:hidden; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
 .football-weekly-pitch b { padding:4px 6px; border-radius:999px; background:#43d5a4; color:#092019; font:900 10px/1 var(--mono); }
-.weekly-player-team-crest { box-sizing:border-box; padding:4px; border:1px solid #46515a; border-radius:50%; background:#eef2f4; object-fit:contain !important; }
 
 .sport-branch-nav-compact { border:0 !important; background:#0d1115 !important; }
 .sport-branch-nav-compact .sport-branch-button { border:0 !important; border-radius:999px !important; background:transparent !important; transition:background-color .18s ease,color .18s ease,transform .18s ease; }
