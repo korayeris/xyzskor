@@ -335,6 +335,8 @@ assert.doesNotMatch(liveFunctionSource('renderEditorialNews'), /EDITORIAL_NEWS_C
 assert.match(functionSource('editorialNewsEntries'), /imageType:editorialPhoto\?'photo':playerPortrait\?'portrait':'none'/, 'Editoryal fotoğraf ile oyuncu portresi ayrıştırılmalı.');
 assert.match(functionSource('footballTeamOfWeekHTML'), /pitch-line-\$\{position\}/, 'Haftanın takımı pozisyon satırlarını saha katmanlarıyla işaretlemeli.');
 assert.match(footballHubCss, /football-weekly-pitch::after[\s\S]*border-radius:50%/, 'Haftanın takımı sahasında orta yuvarlak ve saha çizgileri bulunmalı.');
+assert.match(functionSource('footballWeeklyCategoryPlayers'), /Haftanın kalecisi[\s\S]*Haftanın savunmacısı[\s\S]*Haftanın orta sahası[\s\S]*Haftanın forveti[\s\S]*Haftanın golcüsü[\s\S]*Haftanın asistçisi/, 'Haftalık oyuncular pozisyon ve katkı kategorilerine ayrılmalı.');
+assert.match(functionSource('authErrTR'), /email address not authorized[\s\S]*rate limit/, 'Üyelik e-postası SMTP yetki ve kota hatalarını açık anlatmalı.');
 assert.match(appSource, /let xClubPostsRequest=null/, 'Tarayıcı aynı X akışını eşzamanlı olarak tekrar sorgulamamalı.');
 assert.doesNotMatch(appSource, /platform\.(?:x|twitter)\.com\/widgets\.js/, 'Tarayıcı engeline açık X widget betiği kullanılmamalı.');
 assert.doesNotMatch(html, /Akışı göster/i, 'X akışında gereksiz izin düğmesi bulunmamalı.');

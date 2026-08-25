@@ -466,6 +466,20 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .football-weekly-star details p,.football-weekly-empty,.football-weekly-status { color:#8d9aa3; line-height:1.6; }
 .football-weekly-status { min-height:90px; display:grid; place-items:center; margin:0; }
 .football-weekly-status.is-error { color:#ef8997; }
+.football-weekly-categories { margin:30px 0 34px; }
+.football-weekly-categories>header small { color:#ef7082; font:800 10px/1.2 var(--mono); letter-spacing:.13em; }
+.football-weekly-categories>header h2 { margin:7px 0 16px; font-size:25px; letter-spacing:-.03em; }
+.football-weekly-category-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; overflow:hidden; border-radius:14px; background:#293138; }
+.football-weekly-category { min-width:0; padding:16px; background:#11171b; }
+.football-weekly-category>small { display:block; margin-bottom:12px; color:#8d9aa3; font:800 9px/1.25 var(--mono); letter-spacing:.09em; text-transform:uppercase; }
+.football-weekly-category>div { display:grid; grid-template-columns:44px minmax(0,1fr) auto; align-items:center; gap:11px; }
+.football-weekly-category span { display:grid; width:44px; height:44px; overflow:hidden; place-items:center; border-radius:50%; background:#20282e; }
+.football-weekly-category img { width:100%; height:100%; object-fit:cover; }
+.football-weekly-category p { min-width:0; margin:0; }
+.football-weekly-category strong,.football-weekly-category em { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.football-weekly-category strong { color:#f2f5f6; font-size:12px; }
+.football-weekly-category em { margin-top:4px; color:#7f8c95; font-size:9px; font-style:normal; }
+.football-weekly-category b { color:#4ee0ae; font:900 14px/1 var(--mono); white-space:nowrap; }
 .football-team-week { margin-top:30px; }
 .football-team-week>header a { min-height:44px; display:flex; align-items:center; color:#73d9b6; font-size:11px; }
 .football-weekly-pitch { position:relative; isolation:isolate; display:grid; gap:24px; min-height:520px; margin-top:18px; padding:42px 24px; overflow:hidden; border:2px solid rgba(225,255,242,.28); border-radius:18px; background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 12.5%,transparent 12.5%,transparent 25%),linear-gradient(155deg,#14543f,#0b392d); }
@@ -545,6 +559,7 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .football-weekly-features { margin-block:24px; padding-block:22px; }
   .football-weekly-head,.football-team-week>header { align-items:flex-start; flex-direction:column; }
   .football-weekly-grid { grid-template-columns:1fr; gap:18px; }
+  .football-weekly-category-grid { grid-template-columns:1fr; }
   .football-weekly-pitch { gap:14px; padding-inline:8px; }
   .football-weekly-pitch article { width:min(78px,21vw); }
   .football-weekly-pitch article>span { width:38px; height:38px; }

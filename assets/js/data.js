@@ -1529,6 +1529,8 @@ async function loadAllData(){
 /* ===================== AUTH ===================== */
 function authErrTR(error){
   const m = error.message || '';
+  if(/email address not authorized/i.test(m)) return 'Bu proje henüz üretim SMTP servisine bağlı değil; doğrulama e-postası yalnız proje ekibi adreslerine gönderilebilir.';
+  if(/rate limit|too many requests|email rate limit exceeded/i.test(m)) return 'E-posta gönderim sınırı doldu. Üretim SMTP bağlantısı kurulmadan yeni doğrulama e-postası gönderilemiyor.';
   if(m.includes('already registered') || m.includes('already exists')) return 'Bu e-posta zaten kayıtlı.';
   if(m.includes('Password') || m.includes('password')) return 'Şifre en az 6 karakter olmalı.';
   if(m.includes('duplicate') || m.includes('username')) return 'Bu kullanıcı adı alınmış.';
