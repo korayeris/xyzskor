@@ -100,7 +100,8 @@ try{
   assert.ok(semantics.bodyOverflow<=1,`390px görünüm body taşırmamalı: ${semantics.bodyOverflow}px`);
   assert.equal(semantics.overviewColumns,1,'Mobil iki kolonlu merkez tek kolona inmeli.');
   assert.equal(semantics.heroFont,32,'Mobil voleybol başlığı futbol/basketbol ailesi ölçeğini kullanmalı.');
-  assert.doesNotMatch(semantics.heroBackground,/arena-hero|url\(/i,'Voleybol hero sentetik arena fotoğrafı kullanmamalı.');
+  assert.match(semantics.heroBackground,/volleyball-match-free-v2\.jpg/i,'Voleybol hero yerel ve telifsiz gerçek maç fotoğrafını kullanmalı.');
+  assert.doesNotMatch(semantics.heroBackground,/arena-hero-v1/i,'Voleybol hero eski sentetik arena görseline dönmemeli.');
   assert.equal(semantics.decorativeLogos,true,'Bitişik takım metni olan logolar adı tekrarlamamalı.');
   assert.equal(semantics.tables,0,'Günlük program verisinden sahte puan tablosu üretilmemeli.');
   assert.deepEqual(semantics.metrics,['2','1','0','4'],'Metrikler yalnız doğrulanmış seçili lig programından hesaplanmalı.');

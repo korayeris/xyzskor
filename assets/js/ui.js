@@ -1912,6 +1912,19 @@ function filterFootballHomeMatches(filter,button){
   const empty=root.querySelector('#scoreboardFilterEmpty');
   if(empty) empty.hidden=[...root.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);
 }
+function footballHomeLiveSpotlight(match){
+  if(!match || footballHomeMatchState(match).key!=='live') return '';
+  const state=footballHomeMatchState(match);
+  const leagueKey=match.league_key||competitionSlug(competitionName(match));
+  const leagueLabel=competitionLabelBySlug(leagueKey)||competitionName(match)||'Canlı lig';
+  return `<button class="football-live-spotlight" type="button" data-live-home-spotlight data-home-fixture="${escapeHTML(String(match.id))}" onclick="openMatchCenter('${escapeHTML(String(match.id))}')" aria-label="${escapeHTML(leagueLabel)} ${escapeHTML(match.ev)} ${escapeHTML(match.konuk)} canlı maç merkezini aç">
+    <span class="football-live-spotlight-state"><i aria-hidden="true"></i>${escapeHTML(leagueLabel)} · ${escapeHTML(state.label)}</span>
+    <span class="football-live-spotlight-team home">${crestHTML(match.ev,'sm')}<b>${escapeHTML(match.ev)}</b></span>
+    <strong>${escapeHTML(state.score||'CANLI')}</strong>
+    <span class="football-live-spotlight-team away"><b>${escapeHTML(match.konuk)}</b>${crestHTML(match.konuk,'sm')}</span>
+    <em>Maç merkezini aç →</em>
+  </button>`;
+}
 function footballHomeMiniStandings(leagueKey){
   const rows=Array.isArray(FOOTBALL_HOME_STANDINGS?.[leagueKey])?FOOTBALL_HOME_STANDINGS[leagueKey]:[];
   if(!rows.length) return '<p class="scoreboard-mini-empty">Puan tablosu sağlayıcıdan bekleniyor.</p>';
@@ -2001,11 +2014,12 @@ function renderFootballScoreboardHome(){
   const leagueKeys=['super-lig','premier-league','la-liga','bundesliga','serie-a'];
   const grouped=leagueKeys.map(key=>({key,label:competitionLabelBySlug(key),available:FOOTBALL_HOME_AVAILABILITY?.[key]!==false,matches:MATCHES.filter(match=>(match.league_key||competitionSlug(competitionName(match)))===key)}));
   const eligibleFeatured=MATCHES.filter(match=>footballHomeMatchState(match).key!=='unavailable');
-  const featured=eligibleFeatured.find(match=>footballHomeMatchState(match).key==='live') || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='upcoming') || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='finished') || null;
+  const liveSpotlight=eligibleFeatured.find(match=>footballHomeMatchState(match).key==='live') || null;
+  const featured=liveSpotlight || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='upcoming') || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='finished') || null;
   const featuredState=featured?footballHomeMatchState(featured):null;
   const tableLeague=featured?.league_key&&leagueKeys.includes(featured.league_key)?featured.league_key:'super-lig';
-  if(syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableLeague})) return;
-  root.innerHTML=`<div class="scoreboard-shell">
+  if(!liveSpotlight&&syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableLeague})) return;
+  root.innerHTML=`${footballHomeLiveSpotlight(liveSpotlight)}<div class="scoreboard-shell">
     <aside class="scoreboard-leagues"><div class="scoreboard-kicker">FUTBOL</div><h1>Ligler</h1><p>Bir lig seç ve tüm ayrıntılara geç.</p><nav>${grouped.map(group=>`<button type="button" onclick="selectFootballLeague('${group.key}')" aria-label="${escapeHTML(group.label)} lig merkezini aç"><span>${escapeHTML(group.label)}</span><b>→</b></button>`).join('')}</nav></aside>
     <main class="scoreboard-fixtures"><header><div><span class="scoreboard-live-dot"></span> Bugün ve yaklaşan maçlar</div><span>${new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'})}</span></header>
       <div class="scoreboard-filters"><button data-scoreboard-filter="all" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('all',this)">Tümü</button><button data-scoreboard-filter="live" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('live',this)">Canlı</button><button data-scoreboard-filter="finished" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('finished',this)">Biten</button><button data-scoreboard-filter="upcoming" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('upcoming',this)">Yaklaşan</button></div>

@@ -27,6 +27,7 @@ const matchCenterSource = await readFile(new URL('../assets/js/match-center.js',
 const matchdaySource = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 const indexHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const appLateCss = await readFile(new URL('../assets/css/app-late.css', import.meta.url), 'utf8');
+const footballHubCss = await readFile(new URL('../assets/css/football-hub.css', import.meta.url), 'utf8');
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const failures = [];
@@ -577,6 +578,30 @@ console.log('\n=== 7) Logo ve Futbol sekmesi kanonik köke gider ===');
   check(
     () => assert.ok(/\["football",\s*"Futbol",\s*"\/"\]/.test(sportBranchesSource)),
     'Futbol branş girişi kanonik `/` rotasını gösterir.',
+  );
+}
+
+console.log('\n=== 8) Canlı maç vitrini ve yapısal çizgi temizliği korunur ===');
+{
+  check(
+    () => assert.match(uiSource, /function footballHomeLiveSpotlight[\s\S]*footballHomeMatchState\(match\)\.key\s*!==\s*'live'[\s\S]*data-live-home-spotlight/),
+    'Dikdörtgen maç vitrini yalnız doğrulanmış canlı karşılaşmada üretilir.',
+  );
+  check(
+    () => assert.match(uiSource, /liveSpotlight\s*=\s*eligibleFeatured\.find[\s\S]*footballHomeLiveSpotlight\(liveSpotlight\)/),
+    'Tüm ligler görünümü ilk canlı maçı öncelikli vitrine yerleştirir.',
+  );
+  check(
+    () => assert.match(footballHubCss, /\.football-live-spotlight\s*\{[\s\S]*grid-template-columns:[^;]+;[\s\S]*border-radius:\s*14px/),
+    'Canlı maç vitrini geniş dikdörtgen ve mobil uyumlu bir karttır.',
+  );
+  check(
+    () => assert.match(appLateCss, /\.global-header,\.sport-branch-nav[\s\S]*border-bottom:\s*0!important/),
+    'Tam genişlikteki dekoratif header/branş çizgileri kaldırılmıştır.',
+  );
+  check(
+    () => assert.match(appLateCss, /\.football-live-module,\s*\.football-live-module \.live-shell\s*\{[\s\S]*background:\s*#101419!important/),
+    'Canlı maç merkezi beyaz kabuk yerine koyu ürün yüzeyi kullanır.',
   );
 }
 

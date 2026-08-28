@@ -7,16 +7,16 @@
     { id: 'stock-car', label: 'Stock car', menuLabel: 'STOCK CAR', kind: 'Seri', series: ['nascar'] },
   ];
   const series = {
-    'formula-1': { label: 'Formula 1', accent: '#ef4557', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', mark: 'F1' },
-    'formula-e': { label: 'Formula E', accent: '#42b7ff', discipline: 'Elektrik', category: 'single-seater', classification: 'Elektrikli şampiyona serisi', mark: 'FE' },
-    indycar: { label: 'IndyCar', accent: '#229bdd', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', mark: 'INDY' },
-    motogp: { label: 'MotoGP', accent: '#ff793d', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Premier sınıf', mark: 'GP' },
-    moto2: { label: 'Moto2', accent: '#ef914a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Orta sınıf', mark: 'M2' },
-    moto3: { label: 'Moto3', accent: '#efb04a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Hafif sınıf', mark: 'M3' },
-    wrc: { label: 'WRC', accent: '#6bd690', discipline: 'Ralli', category: 'rally', classification: 'Dünya ralli serisi', mark: 'WRC' },
-    wec: { label: 'WEC', accent: '#947cff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık serisi', mark: 'WEC' },
-    'le-mans': { label: 'Le Mans', accent: '#a58bff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık yarışı', mark: 'LM' },
-    nascar: { label: 'NASCAR Cup Series', accent: '#e9c94f', discipline: 'Stock car', category: 'stock-car', classification: 'Cup serisi', mark: 'NASCAR' },
+    'formula-1': { label: 'Formula 1', accent: '#ef4557', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', pickerMeta: 'Grand Prix · hibrit', mark: 'F1' },
+    'formula-e': { label: 'Formula E', accent: '#42b7ff', discipline: 'Elektrik', category: 'single-seater', classification: 'Elektrikli şampiyona serisi', pickerMeta: 'Elektrik · şehir pisti', mark: 'FE' },
+    indycar: { label: 'IndyCar', accent: '#229bdd', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', pickerMeta: 'Oval · yol pisti', mark: 'INDY' },
+    motogp: { label: 'MotoGP', accent: '#ff793d', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Premier sınıf', pickerMeta: 'Prototip motosiklet', mark: 'GP' },
+    moto2: { label: 'Moto2', accent: '#ef914a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Orta sınıf', pickerMeta: '765 cc · ara sınıf', mark: 'M2' },
+    moto3: { label: 'Moto3', accent: '#efb04a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Hafif sınıf', pickerMeta: '250 cc · gelişim', mark: 'M3' },
+    wrc: { label: 'WRC', accent: '#6bd690', discipline: 'Ralli', category: 'rally', classification: 'Dünya ralli serisi', pickerMeta: 'Toprak · asfalt · kar', mark: 'WRC' },
+    wec: { label: 'WEC', accent: '#947cff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık serisi', pickerMeta: '6–24 saat yarış', mark: 'WEC' },
+    'le-mans': { label: 'Le Mans', accent: '#a58bff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık yarışı', pickerMeta: '24 saat klasiği', mark: 'LM' },
+    nascar: { label: 'NASCAR Cup Series', accent: '#e9c94f', discipline: 'Stock car', category: 'stock-car', classification: 'Cup serisi', pickerMeta: 'Stok otomobil · oval', mark: 'NASCAR' },
   };
   const groups = categories.map((category) => [category.menuLabel, category.series.map((slug) => [series[slug].label, slug])]);
   const categoryById = Object.fromEntries(categories.map((category) => [category.id, category]));
@@ -220,7 +220,7 @@
 
   function seriesPickerHTML(slug) {
     const selectedView = slug ? viewFromLocation(slug) : 'overview';
-    return `<header><div><strong>SERİLER</strong><span>Şampiyonayı seç, tüm veri kapsamını aç</span></div><em>10 MERKEZ</em></header><div><a data-classification-key="all" data-mark="MS" data-category="all" style="--series-accent:#f3f6f7" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tüm seriler</b><small>Motor sporları merkezi</small></a>${Object.entries(series).map(([key, config]) => `<a data-classification-key="${escapeHTML(key)}" data-mark="${escapeHTML(config.mark)}" data-category="${escapeHTML(config.category)}" style="--series-accent:${escapeHTML(config.accent)}" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(categoryById[config.category].label)}</small></a>`).join('')}</div>`;
+    return `<header><div><strong>SERİLER</strong><span>Şampiyonayı seç, tüm veri kapsamını aç</span></div><em>10 MERKEZ</em></header><div><a data-classification-key="all" data-mark="◉" data-category="all" style="--series-accent:#f3f6f7" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tüm seriler</b><small>Takvim · sıralama · pilot</small></a>${Object.entries(series).map(([key, config]) => `<a data-classification-key="${escapeHTML(key)}" data-mark="${escapeHTML(config.mark)}" data-category="${escapeHTML(config.category)}" style="--series-accent:${escapeHTML(config.accent)}" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(config.pickerMeta)}</small></a>`).join('')}</div>`;
   }
 
   function viewsFor(slug) {
@@ -234,7 +234,7 @@
     return `<main class="xms-shell xms-center-shell" style="--xms-accent:${config.accent}">
       <section class="xms-center" data-xms-center>
         <header class="xms-center-identity">
-          <span class="xms-center-mark" aria-hidden="true"><b>${escapeHTML(config.mark)}</b></span>
+          <span class="xms-center-mark ${detail ? '' : 'is-wheel'}" aria-hidden="true"><b>${escapeHTML(config.mark)}</b></span>
           <div><small>XYZSKOR · MOTOR SPORLARI ${detail ? 'SERİ' : 'LİG'} MERKEZİ</small><h1 data-classification-title>${escapeHTML(config.label)}</h1><p data-xms-center-meta>${detail ? `${escapeHTML(category.label)} · ${escapeHTML(config.classification)} · güncel sezon` : `${MOTORSPORT_TAGLINE} Formula, motosiklet, ralli, dayanıklılık ve stock car.`}</p></div>
           <span class="xms-center-data-state" data-xms-data-state>VERİ KAPSAMI HAZIRLANIYOR</span>
         </header>

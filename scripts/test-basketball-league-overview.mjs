@@ -123,8 +123,9 @@ try{
   assert.equal(semantics.tableScrollable,true,'Mobil tablo body taşırmadan yatay kaydırılabilmeli.');
   assert.equal(semantics.decorativeTeamLogos,true,'Bitişik takım metni olan logolar ekran okuyucuda adı tekrarlamamalı.');
   assert.equal(semantics.heroFont,32,'390px basketbol hero başlığı yeni mobil tipografi değerini kullanmalı.');
-  assert.equal(semantics.heroPaddingTop,18,'390px basketbol hero padding değeri eski important kuralına yenilmemeli.');
-  assert.doesNotMatch(semantics.heroBackground,/arena-hero|url\(/i,'Basketbol hero sentetik arena fotoğrafı kullanmamalı.');
+  assert.equal(semantics.heroPaddingTop,26,'390px basketbol hero fotoğrafı rahat ve dengeli iç boşluğu korumalı.');
+  assert.match(semantics.heroBackground,/basketball-arena-free-v2\.webp/i,'Basketbol hero yerel ve telifsiz gerçek arena fotoğrafını kullanmalı.');
+  assert.doesNotMatch(semantics.heroBackground,/arena-hero-v1/i,'Basketbol hero eski sentetik arena görseline dönmemeli.');
   assert.equal(semantics.fixtures,1,'Seçili lig yalnız kendi fikstürünü göstermeli.');
   assert.equal(await page.locator('.basketball-fixture-row.is-live').count(),0,'Not Started durumu canlı olarak işaretlenmemeli.');
 
