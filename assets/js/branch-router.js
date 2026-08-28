@@ -155,12 +155,15 @@
 
   function ensureBranchStyles(pathname) {
     var product = normalize(pathname).split("/").filter(Boolean)[0] || "";
-    if (!LEGACY_STYLE_PRODUCTS[product] || typeof window.ensureXYZLegacyStyles !== "function") {
+    if (!LEGACY_STYLE_PRODUCTS[product] || (typeof window.ensureXYZBranchStyles !== "function" && typeof window.ensureXYZLegacyStyles !== "function")) {
       return Promise.resolve();
     }
     document.documentElement.classList.add("xyz-branch-css-pending");
     try {
-      return Promise.resolve(window.ensureXYZLegacyStyles()).then(function () {
+      var stylePromise = typeof window.ensureXYZBranchStyles === "function"
+        ? window.ensureXYZBranchStyles(product)
+        : window.ensureXYZLegacyStyles();
+      return Promise.resolve(stylePromise).then(function () {
         document.documentElement.classList.remove("xyz-branch-css-pending");
       }, function () {
         document.documentElement.classList.remove("xyz-branch-css-pending");

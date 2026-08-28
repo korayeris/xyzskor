@@ -21,8 +21,20 @@ for (const key of ['SPORTMONKS_API_TOKEN','API_SPORTS_KEY','CITO_API_KEY','OCBLA
 assert.match(documentHtmlRaw, /football-hub\.css\?v=314/, 'The route-scoped football stylesheet must use the v314 cache key.');
 assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=314/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
 assert.match(documentHtmlRaw, /id="xyzCoreStyleTemplate"[\s\S]*app\.css\?v=314/, 'The heavy core stylesheet must remain inert on the static general landing page.');
+for (const [templateId, fileName] of [
+  ['xyzVolleyballCenterStyleTemplate', 'volleyball-center.css'],
+  ['xyzUfcCenterStyleTemplate', 'ufc-center.css'],
+  ['xyzMotorsportsCenterStyleTemplate', 'motorsports-center.css'],
+]) {
+  assert.match(documentHtmlRaw, new RegExp(`id="${templateId}"[\\s\\S]*${fileName.replace('.', '\\.')}\\?v=314`), `${fileName} yalnız ilgili branş istediğinde yüklenebilen inert bir şablonda kalmalı.`);
+}
 assert.match(documentHtmlRaw, /xyz-branch-css-pending[\s\S]*body>:not\(\.global-header\)[\s\S]*visibility:hidden!important/, 'Branş stili hazır olmadan eski futbol DOM’u ilk boyamada görünmemeli.');
 assert.match(styleLoaderSource, /isBranchRoute[\s\S]*xyz-branch-css-pending[\s\S]*link\.media = "all"[\s\S]*xyz-branch-css-ready/, 'Branş stili ilk geçişte görünürlük kapısını güvenli biçimde açmalı.');
+assert.match(styleLoaderSource, /productStyles[\s\S]*voleybol[\s\S]*ufc[\s\S]*motorsports[\s\S]*ensureXYZProductStyles[\s\S]*ensureXYZBranchStyles/, 'Branş merkezleri ortak CSS hazırlık kapısından geçmeli.');
+const legacyStyleLoaderBlock = styleLoaderSource.slice(styleLoaderSource.indexOf('window.ensureXYZLegacyStyles'), styleLoaderSource.indexOf('window.ensureXYZProductStyles'));
+const combinedStyleLoaderBlock = styleLoaderSource.slice(styleLoaderSource.indexOf('window.ensureXYZBranchStyles'));
+assert.doesNotMatch(legacyStyleLoaderBlock, /classList\.remove\("xyz-branch-css-pending"\)/, 'Legacy CSS tek başına branş görünürlük kapısını açmamalı.');
+assert.match(combinedStyleLoaderBlock, /function finish[\s\S]*classList\.remove\("xyz-branch-css-pending"\)[\s\S]*branchStylePending\[key\] = Promise\.all\(styles\)\.then[\s\S]*finish\(/, 'Branş kapısı yalnız legacy ve ürün CSS istekleri birlikte sonuçlandıktan sonra açılmalı.');
 assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
 assert.match(footballHubCss, /route-scoped football home and league overview[\s\S]*\.scoreboard-shell[\s\S]*\.league-overview-layout/i, 'Canonical football routes need their independent stylesheet.');
 assert.match(footballHubCss, /v316[\s\S]*\.agenda-track[\s\S]*\.league-overview-switch[\s\S]*scrollbar-width:none\s*!important[\s\S]*::-webkit-scrollbar[\s\S]*height:0\s*!important/i, 'Yatay kontrol raylari kaydirma islevini korurken native scrollbar cizgilerini gizlemeli.');
@@ -38,6 +50,7 @@ const branchNavSource = await readFile(new URL('../assets/js/sport-branches.js',
 assert.match(documentHtmlRaw, /ui\.js\?v=314[\s\S]*id="xyzUiExtrasTemplate"[\s\S]*ui-extras\.js\?v=314[\s\S]*app-boot\.js\?v=314/, 'Core UI, inert extras and mandatory boot must keep their load order.');
 assert.match(appBootSource, /productionCoreChunks[\s\S]*primeChunkDownloads\(productionCoreChunks[\s\S]*loadSequence\(productionCoreChunks\.slice\(0, 2\), true\)[\s\S]*fragmentsPrepared[\s\S]*then\(hydrateCanonicalFragments\)[\s\S]*loadSequence\(productionCoreChunks\.slice\(2\), true\)/, 'The mandatory bootstrap must warm downloads, then hydrate required DOM between dependency stages.');
 assert.match(appBootSource, /var appBootPromise = generalHome[\s\S]*Promise\.resolve\(true\)[\s\S]*ensureProductionRuntime\(\)[\s\S]*\.then\(nextTask\)[\s\S]*\.then\(start\)/, 'The static landing fast path must skip football boot while product routes start in their own task.');
+assert.match(appBootSource, /var initialBranchStylesReady = branchStylesForProduct\(path\)[\s\S]*Promise\.resolve\(initialBranchStylesReady\)[\s\S]*loadSequence\(routePostChunks, true\)/, 'Doğrudan açılan branşın JS paketleri ürün stili hazır olmadan çalışmamalı.');
 assert.match(appBootSource, /canonicalFragmentSpecs[\s\S]*hydrateCanonicalFragments[\s\S]*__XYZ_CANONICAL_FRAGMENTS_READY__[\s\S]*__XYZ_APP_BOOT_READY__/, 'Canonical late DOM and the complete application boot need observable readiness contracts.');
 assert.match(appBootSource, /if \(spec\[3\]\) throw error;[\s\S]*Ikincil UI parcasi devre disi/, 'Optional canonical fragments must not block the required football boot.');
 assert.match(appBootSource, /football-league-overview-mode[\s\S]*footballLeagueOverview[\s\S]*footballScoreboardHome/, 'Fatal canonical boot errors must render in the visible route surface.');
@@ -61,6 +74,10 @@ const migrationFiles = (await readdir(new URL('../supabase/migrations/', import.
 const migrationVersions = migrationFiles.map((file) => file.split('_')[0]);
 assert.equal(new Set(migrationVersions).size, migrationVersions.length, 'Supabase migration sürüm numaraları benzersiz olmalı.');
 const buildScript = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
+for (const fileName of ['volleyball-center.css', 'ufc-center.css', 'motorsports-center.css']) {
+  const occurrences = buildScript.split(`"${fileName}"`).length - 1;
+  assert.ok(occurrences >= 2, `${fileName} hem immutable asset parmak izine hem production CSS minify listesine girmeli.`);
+}
 const workerSource = await readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
 const weeklyMigration = await readFile(new URL('../supabase/migrations/20260825130000_weekly_football_awards.sql', import.meta.url), 'utf8');
 const memberAdminHardeningMigration = await readFile(new URL('../supabase/migrations/20260825150000_member_admin_hardening.sql', import.meta.url), 'utf8');

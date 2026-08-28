@@ -163,8 +163,36 @@ function mockFor(url) {
     ] } }, 200];
     return [{ error:'invalid_sport' },400];
   }
-  if (url.includes('/api/ufc/')) return [{ data:[] }, 200];
-  if (url.includes('/api/motorsports')) return [{ source:'mock', sport:'formula1', resource:'events', data:[] }, 200];
+  if (url.includes('/api/ufc/')) {
+    const path = new URL(url).pathname.replace(/^\/api\/ufc\//, '');
+    const fighters = [
+      { slug:'petr-yan', fighterName:'Petr Yan', division:'Bantamweight', recordText:'20-5-0', championStatus:'champion' },
+      { slug:'umar-nurmagomedov', fighterName:'Umar Nurmagomedov', division:'Bantamweight', recordText:'20-1-0' },
+      { slug:'song-yadong', fighterName:'Song Yadong', division:'Bantamweight', recordText:'23-9-1' },
+    ];
+    const event = { id:'ufc-responsive', slug:'ufc-responsive', title:'UFC Fight Night', startsAt:new Date(Date.now()+864e5).toISOString(), locationText:'Shanghai, China', dataAvailability:{bouts:'available'} };
+    const bouts = [{ id:'bout-responsive', weightClass:'Bantamweight', fighters:[{...fighters[1],corner:'red'},{...fighters[2],corner:'blue'}] }];
+    let data = [];
+    if (MODE === 'withdata' && path === 'events/upcoming') data = [event];
+    else if (MODE === 'withdata' && path === 'events/ufc-responsive') data = {...event,bouts};
+    else if (MODE === 'withdata' && path === 'rankings') data = [{...fighters[0],rankText:'C',isChampion:true},{...fighters[1],rank:1,rankText:'1'},{...fighters[2],rank:2,rankText:'2'}];
+    else if (MODE === 'withdata' && path === 'fighters') data = fighters;
+    return [{ source:'citoapi', route:path, updatedAt:iso, data:{ success:true, data } }, 200];
+  }
+  if (url.includes('/api/motorsports')) {
+    const parsed = new URL(url);
+    const sport = parsed.searchParams.get('sport') || 'formula-1';
+    const resource = parsed.searchParams.get('resource') || 'events';
+    const data = MODE !== 'withdata' ? []
+      : resource === 'standings-drivers' ? [
+        { position:1, name:'Lando Norris', number:4, team:'McLaren', points:275 },
+        { position:2, name:'Oscar Piastri', number:81, team:'McLaren', points:266 },
+        { position:3, name:'Max Verstappen', number:1, team:'Red Bull Racing', points:241 },
+      ]
+      : resource === 'teams' ? [{ position:1, name:'McLaren', points:541 },{ position:2, name:'Ferrari', points:312 }]
+      : [];
+    return [{ source:'mock', sport, resource, updatedAt:iso, liveSupported:false, data }, 200];
+  }
   return [{ error: 'not_mocked' }, 503];
 }
 
@@ -306,6 +334,7 @@ async function main() {
           tickerText: document.getElementById('liveTicker')?.innerText?.trim() || '',
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
           multisportMetricsText: document.querySelector('.basketball-overview-metrics')?.innerText || document.getElementById('multiSportMetrics')?.innerText || '',
+          branchCenterText: document.querySelector('#ufcxContent, [data-xms-center]')?.innerText || '',
           canonicalRuntime: {
             hubReady: document.getElementById('xyzFootballHubStyle')?.media === 'all',
             legacyStylesPresent: Boolean(document.getElementById('xyzLegacyStylesheet')),
@@ -400,9 +429,11 @@ async function main() {
         ok(requestedApiPaths.every((path)=>path.startsWith('/api/ufc/')), `${tag}: UFC sayfasi baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));
         const duplicateUfcPaths=[...new Set(requestedApiPaths.filter((path,index)=>requestedApiPaths.indexOf(path)!==index))];
         ok(duplicateUfcPaths.length===0, `${tag}: UFC ayni provider endpointini iki kez istemiyor`, duplicateUfcPaths.join(' | '));
+        if(MODE==='withdata') ok(/UFC Fight Night|Brandon Moreno|Bantamweight/i.test(metrics.branchCenterText), `${tag}: UFC etkinlik ve siralama verisi gorunur`, metrics.branchCenterText.slice(0,240));
       }
       if(route.name === 'formula-1'){
         ok(requestedApiPaths.every((path)=>path.startsWith('/api/motorsports')), `${tag}: Motor Sporlari baska spor API ailesine dokunmuyor`, requestedApiPaths.join(' | '));
+        if(MODE==='withdata') ok(/Lando Norris|McLaren/i.test(metrics.branchCenterText), `${tag}: Motor Sporlari siralama verisi gorunur`, metrics.branchCenterText.slice(0,240));
       }
       let chatSmoke = null;
       if(MODE === 'withdata' && route.name === 'anasayfa' && viewport.width === 390){

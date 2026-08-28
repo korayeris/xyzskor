@@ -486,6 +486,68 @@ async function main() {
     ok(responses.every((response) => response.status === 200), 'UFC upcoming ve motorspor proxy paralel cold-miss yanitlari basarili');
     ok(calls.ufc === 1 && calls.motorsports === 1, 'UFC ve motorspor cold-missleri de scope basina tek upstream kullanir', JSON.stringify(calls));
   }
+  {
+    const quotaEnv = { ...ENV, CITO_API_KEY:'cito-key', OCBLACKTOP_API_KEY:'blacktop-key' };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    SCENARIO = async (u) => {
+      if (u.hostname === 'api.citoapi.com') return json({ success:false, error:'provider_quota_exhausted' });
+      throw new Error('unexpected_ufc_application_error_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/ufc/events/upcoming'), quotaEnv, ctx);
+    ok(response.status === 502, 'UFC HTTP 200 uygulama hatasi bos basari olarak cachelenmez', `status=${response.status}`);
+  }
+  {
+    const quotaEnv = { ...ENV, CITO_API_KEY:'cito-key', OCBLACKTOP_API_KEY:'blacktop-key' };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    SCENARIO = async (u) => {
+      if (u.hostname === 'api.ocblacktop.com') return json({ success:false, error:'provider_quota_exhausted' });
+      throw new Error('unexpected_motorsport_application_error_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/motorsports?sport=formula-e&resource=drivers'), quotaEnv, ctx);
+    ok(response.status === 502, 'Motor sporları HTTP 200 uygulama hatasi bos basari olarak cachelenmez', `status=${response.status}`);
+  }
+  {
+    const quotaEnv = { ...ENV, CITO_API_KEY:'cito-key', OCBLACKTOP_API_KEY:'blacktop-key' };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    let calls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname !== 'api.citoapi.com') throw new Error('unexpected_ufc_schema_path:' + u.toString());
+      calls += 1;
+      return calls === 1 ? json({ unexpected:true }) : json({ success:true, data:[{ id:'ufc-recovered' }] });
+    };
+    const first = await worker.fetch(new Request('http://localhost/api/ufc/events/recent?limit=37'), quotaEnv, ctx);
+    const second = await worker.fetch(new Request('http://localhost/api/ufc/events/recent?limit=37'), quotaEnv, ctx);
+    ok(first.status === 502, 'UFC tanimsiz 2xx semasi bos basari yerine 502 olur', `status=${first.status}`);
+    ok(second.status === 200 && calls === 2, 'UFC bozuk semasi cachelenmez; sonraki gecerli yanit iyilesir', `status=${second.status} calls=${calls}`);
+  }
+  {
+    const quotaEnv = { ...ENV, CITO_API_KEY:'cito-key' };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    SCENARIO = async (u) => {
+      if (u.hostname === 'api.citoapi.com') {
+        return json({ success:true, data:{ strikingAccuracy:55, sigStrikeDefense:61, takedownAccuracy:44 } });
+      }
+      throw new Error('unexpected_ufc_stats_schema_path:' + u.toString());
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/ufc/fighters/schema-test/stats'), quotaEnv, ctx);
+    const payload = await response.json();
+    ok(response.status === 200 && payload?.data?.data?.strikingAccuracy === 55,
+      'UFC dogrudan sporcu istatistik semasi gecerli provider verisi olarak korunur', `status=${response.status}`);
+  }
+  {
+    const quotaEnv = { ...ENV, CITO_API_KEY:'cito-key', OCBLACKTOP_API_KEY:'blacktop-key' };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    let calls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname !== 'api.ocblacktop.com') throw new Error('unexpected_motorsport_schema_path:' + u.toString());
+      calls += 1;
+      return calls === 1 ? json({ unexpected:true }) : json({ teams:[{ id:'team-recovered' }] });
+    };
+    const first = await worker.fetch(new Request('http://localhost/api/motorsports?sport=formula-e&resource=teams&season=2099'), quotaEnv, ctx);
+    const second = await worker.fetch(new Request('http://localhost/api/motorsports?sport=formula-e&resource=teams&season=2099'), quotaEnv, ctx);
+    ok(first.status === 502, 'Motor sporlari tanimsiz 2xx semasi bos basari yerine 502 olur', `status=${first.status}`);
+    ok(second.status === 200 && calls === 2, 'Motor sporlari bozuk semasi cachelenmez; sonraki gecerli yanit iyilesir', `status=${second.status} calls=${calls}`);
+  }
 
   console.log('\n=== 12b) Basketbol standings scope ve normalize sozlesmesi ===');
   {

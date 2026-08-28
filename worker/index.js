@@ -4021,6 +4021,56 @@ const CITO_UFC_RESOURCES = Object.freeze({
   fighters: "fighters", live: "live"
 });
 
+const INVALID_PROVIDER_PAYLOAD = Symbol("invalid-provider-payload");
+
+function providerPayloadHasApplicationError(payload) {
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") return false;
+  if (payload.success === false || payload.ok === false || String(payload.status || "").toLowerCase() === "error") return true;
+  if (payload.error) return true;
+  if (Array.isArray(payload.errors) && payload.errors.length) return true;
+  return Boolean(payload.errors && typeof payload.errors === "object" && Object.keys(payload.errors).length);
+}
+
+function unwrapThirdPartyPayload(payload) {
+  let value = payload;
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (value == null || providerPayloadHasApplicationError(value)) return INVALID_PROVIDER_PAYLOAD;
+    if (Array.isArray(value) || typeof value !== "object") return value;
+    const envelopeKey = ["data", "response", "results", "items"].find((key) => Object.hasOwn(value, key));
+    if (!envelopeKey) return value;
+    value = value[envelopeKey];
+  }
+  return value;
+}
+
+function validThirdPartyCollectionPayload(payload, collectionKeys, entityKeys = []) {
+  const value = unwrapThirdPartyPayload(payload);
+  if (value === INVALID_PROVIDER_PAYLOAD) return false;
+  if (Array.isArray(value)) return true;
+  if (!value || typeof value !== "object" || providerPayloadHasApplicationError(value)) return false;
+  if (collectionKeys.some((key) => Array.isArray(value[key]))) return true;
+  return entityKeys.some((key) => value[key] !== null && value[key] !== undefined);
+}
+
+function validCitoUfcPayload(payload, route = "") {
+  const normalizedRoute = String(route || "").toLowerCase();
+  const collections = ["events", "fighters", "athletes", "rankings", "divisions", "bouts", "fights", "odds", "markets", "bookmakers", "rounds", "results", "items"];
+  const entityKeys = normalizedRoute.includes("/stats") || normalizedRoute.includes("/rounds")
+    ? [
+        "id", "boutId", "fightId", "fighterId", "stats", "statistics", "totals", "rounds",
+        "strikingAccuracy", "sigStrikeDefense", "takedownAccuracy", "takedownDefense",
+        "sigStrikesLandedPerMin", "sigStrikesAbsorbedPerMin", "takedownAvgPer15Min",
+        "submissionAvgPer15Min", "knockdowns", "significantStrikes", "totalStrikes",
+        "takedowns", "submissionAttempts", "controlTime",
+      ]
+    : normalizedRoute.includes("/odds")
+      ? ["id", "boutId", "fightId", "eventId", "odds", "markets", "bookmakers"]
+      : normalizedRoute === "sync/status" || normalizedRoute.endsWith("/health")
+        ? ["status", "updatedAt", "lastSync", "healthy"]
+        : ["id", "slug", "eventId", "boutId", "fighterId", "name", "title", "bouts", "fighters"];
+  return validThirdPartyCollectionPayload(payload, collections, entityKeys);
+}
+
 async function fetchCitoUfc(env, resourceKey, query = new URLSearchParams()) {
   if (!env.CITO_API_KEY) throw new Error("cito_api_not_configured");
   const resource = CITO_UFC_RESOURCES[resourceKey];
@@ -4031,7 +4081,7 @@ async function fetchCitoUfc(env, resourceKey, query = new URLSearchParams()) {
   }
   const response = await fetchWithDemandTimeout(upstream, { headers: { "x-api-key": env.CITO_API_KEY, Accept: "application/json" } });
   const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload) throw new Error(`cito_ufc_unavailable_${response.status}`);
+  if (!response.ok || !validCitoUfcPayload(payload, resource)) throw new Error(`cito_ufc_unavailable_${response.status}`);
   return payload;
 }
 
@@ -4041,7 +4091,7 @@ async function handleCitoUfc(request, env, context) {
   const resource = input.searchParams.get("resource") || "upcoming";
   if (!CITO_UFC_RESOURCES[resource]) return jsonResponse({ error: "invalid_ufc_resource" }, 400, { "Cache-Control": "no-store" });
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/ufc/cache/${resource}?${input.searchParams}`, request.url));
+  const cacheKey = new Request(new URL(`/api/ufc/cache/v2/${resource}?${input.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const ttl = resource === "live" ? 15 : resource === "upcoming" ? 21600 : resource === "rankings" ? 86400 : 604800;
@@ -4059,7 +4109,7 @@ async function handleCitoUfc(request, env, context) {
       provider:"citoapi",
       ttlSeconds:ttl,
       staleSeconds:resource === "live" ? 60 : Math.max(86400, ttl),
-      validatePayload:(payload) => Boolean(payload && payload.resource === resource && payload.data != null),
+      validatePayload:(payload) => Boolean(payload && payload.resource === resource && validCitoUfcPayload(payload.data, resource)),
       fetchPayload:async () => ({
         source:"citoapi",
         resource,
@@ -4100,7 +4150,7 @@ async function handleCitoUfcProxy(request, env, context) {
   const live = route.startsWith("live");
   const ttl = live ? 15 : route.includes("/odds") ? 300 : route.includes("/stats") || route.includes("/rounds") ? 1800 : route.includes("upcoming") ? 21600 : route.includes("rankings") ? 86400 : route.includes("fighters/") ? 604800 : 21600;
   const cache = edgeCache();
-  const cacheKey = new Request(new URL(`/api/ufc/proxy-cache/${route}?${upstream.searchParams}`, request.url));
+  const cacheKey = new Request(new URL(`/api/ufc/proxy-cache/v2/${route}?${upstream.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const identity = `${route}?${upstream.searchParams}`;
@@ -4112,11 +4162,11 @@ async function handleCitoUfcProxy(request, env, context) {
       provider:"citoapi",
       ttlSeconds:ttl,
       staleSeconds:live ? 60 : Math.max(86400, ttl),
-      validatePayload:(payload) => Boolean(payload && payload.route === route && payload.data != null),
+      validatePayload:(payload) => Boolean(payload && payload.route === route && validCitoUfcPayload(payload.data, route)),
       fetchPayload:async () => {
         const response = await fetchWithDemandTimeout(upstream, { headers:{ "x-api-key":env.CITO_API_KEY, Accept:"application/json" } });
         const data = await response.json().catch(() => null);
-        if (!response.ok || data == null) {
+        if (!response.ok || !validCitoUfcPayload(data, route)) {
           const error = new Error("cito_ufc_upstream_unavailable");
           error.status = response.status;
           throw error;
@@ -4556,6 +4606,22 @@ const MOTORSPORT_RESOURCES = Object.freeze({
   "standings-teams": "standings/teams", standings: "standings", live: "live/timing"
 });
 
+const MOTORSPORT_RESOURCE_COLLECTIONS = Object.freeze({
+  events:["events"],
+  drivers:["drivers"],
+  teams:["teams"],
+  seasons:["seasons"],
+  circuits:["circuits"],
+  "standings-drivers":["standings", "drivers", "rows", "groups", "value"],
+  "standings-teams":["standings", "teams", "rows", "groups", "value"],
+  standings:["standings", "drivers", "teams", "rows", "groups", "value"],
+  live:["timing", "entries", "drivers", "cars", "classification", "rows"],
+});
+
+function validMotorsportPayload(payload, resourceKey) {
+  return validThirdPartyCollectionPayload(payload, MOTORSPORT_RESOURCE_COLLECTIONS[resourceKey] || []);
+}
+
 async function handleMotorsportData(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405, { Allow: "GET" });
   if (!env.OCBLACKTOP_API_KEY) return jsonResponse({ error: "motorsport_api_not_configured" }, 503, { "Cache-Control": "no-store" });
@@ -4573,7 +4639,7 @@ async function handleMotorsportData(request, env, context) {
   }
   const cache = edgeCache();
   const live = resourceKey === "live";
-  const cacheKey = new Request(new URL(`/api/motorsports/cache/${sport}/${resourceKey}?${upstream.searchParams}`, request.url));
+  const cacheKey = new Request(new URL(`/api/motorsports/cache/v2/${sport}/${resourceKey}?${upstream.searchParams}`, request.url));
   const cached = await readEdgeCache(cache, cacheKey);
   if (isUsableJsonCache(cached)) return cached;
   const identity = `${sport}/${resourceKey}?${upstream.searchParams}`;
@@ -4586,11 +4652,11 @@ async function handleMotorsportData(request, env, context) {
       provider:"orange-cat-blacktop",
       ttlSeconds:sharedTtl,
       staleSeconds:live ? 120 : resourceKey === "events" ? 3600 : 1209600,
-      validatePayload:(payload) => Boolean(payload && payload.sport === sport && payload.resource === resourceKey && payload.data != null),
+      validatePayload:(payload) => Boolean(payload && payload.sport === sport && payload.resource === resourceKey && validMotorsportPayload(payload.data, resourceKey)),
       fetchPayload:async () => {
         const response = await fetchWithDemandTimeout(upstream, { headers:{ "x-api-key":env.OCBLACKTOP_API_KEY, Accept:"application/json" } });
         const data = await response.json().catch(() => null);
-        if (!response.ok || data == null) {
+        if (!response.ok || !validMotorsportPayload(data, resourceKey)) {
           const error = new Error("motorsport_upstream_unavailable");
           error.status = response.status;
           throw error;

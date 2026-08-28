@@ -201,6 +201,14 @@
     return [chatChunk, branchChunk];
   }
 
+  function branchStylesForProduct(productOrPath) {
+    var product = String(productOrPath || "").replace(/^\/+|\/+$/g, "").split("/")[0].toLowerCase();
+    if (!["basketbol", "voleybol", "motorsports", "ufc"].includes(product)) return Promise.resolve();
+    if (typeof window.ensureXYZBranchStyles === "function") return window.ensureXYZBranchStyles(product);
+    if (typeof window.ensureXYZLegacyStyles === "function") return window.ensureXYZLegacyStyles();
+    return Promise.resolve();
+  }
+
   window.ensureXYZBranchModule = function (product) {
     var key = String(product || "").replace(/^\/+|\/+$/g, "").split("/")[0].toLowerCase();
     // Geliştirme sunucusu tüm zinciri statik olarak sunar; template yoksa
@@ -208,10 +216,7 @@
     if (!document.getElementById("xyzChatTemplate")) return Promise.resolve(true);
     var chunks = chunksForProduct(key);
     primeChunkDownloads(chunks);
-    var stylesReady = ["basketbol", "voleybol", "motorsports", "ufc"].includes(key)
-      && typeof window.ensureXYZLegacyStyles === "function"
-      ? window.ensureXYZLegacyStyles()
-      : Promise.resolve();
+    var stylesReady = branchStylesForProduct(key);
     return Promise.resolve(stylesReady)
       .then(function () { return loadSequence(chunks, false); })
       .then(function () { return true; })
@@ -272,11 +277,14 @@
       // These modules stay available, but never collapse into the first
       // football paint's single adjacent-defer long task.
       var routePostChunks = postChunksForRoute();
+      var initialBranchStylesReady = branchStylesForProduct(path);
       primeChunkDownloads(routePostChunks);
       var loadPostModules = function () {
-        loadSequence(routePostChunks, true).catch(function (error) {
-          console.error("[XYZSkor] Ikincil uygulama modulu yuklenemedi:", error);
-        });
+        Promise.resolve(initialBranchStylesReady)
+          .then(function () { return loadSequence(routePostChunks, true); })
+          .catch(function (error) {
+            console.error("[XYZSkor] Ikincil uygulama modulu yuklenemedi:", error);
+          });
       };
       if (typeof requestIdleCallback === "function") requestIdleCallback(loadPostModules, { timeout:1500 });
       else setTimeout(loadPostModules, 100);

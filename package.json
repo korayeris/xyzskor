@@ -39,7 +39,11 @@
     "qa:metadata": "node scripts/test-site-metadata.mjs",
     "qa:a11y": "node scripts/test-branch-fallback-auth-a11y.mjs",
     "qa:focus": "node scripts/test-mini-goal-focus.mjs",
-    "qa:basketball": "node scripts/test-basketball-league-overview.mjs"
+    "qa:style-gate": "node scripts/test-branch-style-gate.mjs",
+    "qa:basketball": "node scripts/test-basketball-league-overview.mjs",
+    "qa:volleyball": "node scripts/test-volleyball-center.mjs",
+    "qa:ufc-center": "node scripts/test-ufc-center.mjs",
+    "qa:motorsports-center": "node scripts/test-motorsports-center.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

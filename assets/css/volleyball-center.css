@@ -1,0 +1,779 @@
+/* Voleybol lig merkezi. Yalnız /voleybol/ ürün yüzeyini kapsar. */
+.multisport-hub[data-sport="volleyball"] {
+  width: min(1240px, calc(100% - 32px));
+  max-width: 1240px;
+  padding: 24px 0 72px;
+  --volleyball-accent: #37d2ae;
+  --volleyball-accent-soft: #8ae9d2;
+  --volleyball-panel: #10181a;
+}
+
+.multisport-hub[data-sport="volleyball"] #multiSportMetrics {
+  display: none;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-hero {
+  min-height: 146px;
+  padding: 26px 4px;
+  border: 0;
+  border-radius: 0;
+  background-position: center 58%;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-hero::after {
+  background: linear-gradient(90deg, #070b0ff8 0%, #07100ece 48%, #07110d42 82%, transparent);
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-hero h1 {
+  margin-top: 7px;
+  font-size: 42px;
+  letter-spacing: -.045em;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-hero > b {
+  border: 0;
+  background: rgba(55, 210, 174, .12);
+  color: var(--volleyball-accent-soft);
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip {
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a5a1;
+  text-align: center;
+  transition: background-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip button:hover {
+  background: #172320;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip button.active {
+  border: 0;
+  background: #17493e;
+  color: #fff;
+  box-shadow: none;
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip button:focus-visible,
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav button:focus-visible,
+.volleyball-error-state button:focus-visible {
+  outline: 2px solid var(--volleyball-accent);
+  outline-offset: 3px;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav {
+  gap: 22px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav button {
+  position: relative;
+  min-width: 0;
+  min-height: 50px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #8e9d99;
+  box-shadow: none;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav button::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav button:hover,
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav button.active {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  box-shadow: none;
+}
+
+.multisport-hub[data-sport="volleyball"] .multisport-view-nav button.active::after {
+  background: var(--volleyball-accent);
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-event-grid {
+  display: block;
+  margin-top: 0;
+}
+
+.volleyball-league-center {
+  color: #f3f7f6;
+  animation: volleyball-surface-in .22s ease-out both;
+}
+
+@keyframes volleyball-surface-in {
+  from { opacity: .35; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+.volleyball-league-identity {
+  display: flex;
+  min-height: 106px;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 4px 22px;
+}
+
+.volleyball-league-logo {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 50%;
+  background: #14201e;
+  color: var(--volleyball-accent);
+  font: 900 25px/1 var(--font-display);
+}
+
+.volleyball-league-logo img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.volleyball-league-identity > div {
+  min-width: 0;
+}
+
+.volleyball-league-identity small,
+.volleyball-overview-panel > header small,
+.volleyball-feature > header small,
+.volleyball-source-note > small,
+.volleyball-error-state > small,
+.volleyball-verified-empty > small {
+  color: var(--volleyball-accent);
+  font: 800 9px/1.2 var(--font-mono);
+  letter-spacing: .14em;
+}
+
+.volleyball-league-identity h2 {
+  margin: 6px 0 3px;
+  font-size: clamp(25px, 3.4vw, 34px);
+  letter-spacing: -.035em;
+}
+
+.volleyball-league-identity h2:focus-visible {
+  outline: 2px solid var(--volleyball-accent);
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+
+.volleyball-league-identity p {
+  margin: 0;
+  color: #8a9a96;
+  font-size: 12px;
+}
+
+.volleyball-data-state {
+  margin-left: auto;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #15362f;
+  color: #8fe6d0;
+  font: 800 9px/1 var(--font-mono);
+  white-space: nowrap;
+}
+
+.volleyball-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(310px, .75fr);
+  gap: 28px;
+  margin-top: 8px;
+}
+
+.volleyball-overview-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.volleyball-overview-panel > header {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 0 12px;
+}
+
+.volleyball-overview-panel > header h3,
+.volleyball-feature > header h3 {
+  margin: 5px 0 0;
+  font-size: 19px;
+  letter-spacing: -.02em;
+}
+
+.volleyball-overview-panel > header > span {
+  color: #758680;
+  font: 700 9px/1 var(--font-mono);
+}
+
+.volleyball-program-scroll {
+  max-height: 590px;
+  overflow: auto;
+  border-radius: 14px;
+  background: var(--volleyball-panel);
+  scrollbar-width: thin;
+  scrollbar-color: #29413b transparent;
+}
+
+.volleyball-program-scroll:focus-visible {
+  outline: 2px solid var(--volleyball-accent);
+  outline-offset: 3px;
+}
+
+.volleyball-fixture-list {
+  display: grid;
+}
+
+.volleyball-fixture-row {
+  display: grid;
+  grid-template-columns: 52px minmax(100px, 1fr) 48px minmax(100px, 1fr);
+  min-height: 64px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  animation: volleyball-row-in .24s ease-out both;
+}
+
+.volleyball-fixture-row:nth-child(2),
+.volleyball-team-pool li:nth-child(2) { animation-delay: 45ms; }
+.volleyball-fixture-row:nth-child(3),
+.volleyball-team-pool li:nth-child(3) { animation-delay: 90ms; }
+.volleyball-fixture-row:nth-child(4),
+.volleyball-team-pool li:nth-child(4) { animation-delay: 135ms; }
+.volleyball-fixture-row:nth-child(5),
+.volleyball-team-pool li:nth-child(5) { animation-delay: 180ms; }
+.volleyball-fixture-row:nth-child(n + 6),
+.volleyball-team-pool li:nth-child(n + 6) { animation-delay: 225ms; }
+
+@keyframes volleyball-row-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
+}
+
+.volleyball-fixture-row:nth-child(even) {
+  background: rgba(255, 255, 255, .022);
+}
+
+.volleyball-fixture-row.is-live {
+  box-shadow: inset 3px 0 var(--volleyball-accent);
+  background: linear-gradient(90deg, rgba(55, 210, 174, .115), transparent);
+}
+
+.volleyball-fixture-row.is-finished {
+  box-shadow: inset 3px 0 #68a798;
+}
+
+.volleyball-fixture-state {
+  color: #83928e;
+  font: 800 8px/1.2 var(--font-mono);
+}
+
+.volleyball-fixture-row.is-live .volleyball-fixture-state {
+  color: #70e4c8;
+}
+
+.volleyball-fixture-team {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.volleyball-fixture-team.home {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.volleyball-fixture-team img {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  object-fit: contain;
+  border-radius: 50%;
+  background: #edf4f2;
+}
+
+.volleyball-fixture-team strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.volleyball-fixture-row > b {
+  color: #8ce8d2;
+  font: 900 11px/1 var(--font-mono);
+  text-align: center;
+}
+
+.volleyball-fixture-venue {
+  grid-column: 2 / -1;
+  margin-top: -8px;
+  overflow: hidden;
+  color: #65756f;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.volleyball-teams-body {
+  min-height: 190px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--volleyball-panel);
+}
+
+.volleyball-team-pool {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.volleyball-team-pool li {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 13px;
+  animation: volleyball-row-in .24s ease-out both;
+}
+
+.volleyball-team-pool li:nth-child(even) {
+  background: rgba(255, 255, 255, .022);
+}
+
+.volleyball-team-pool img {
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  object-fit: contain;
+  border-radius: 50%;
+  background: #edf4f2;
+}
+
+.volleyball-team-pool span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.volleyball-team-pool strong,
+.volleyball-team-pool small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.volleyball-team-pool strong {
+  font-size: 10px;
+}
+
+.volleyball-team-pool small {
+  color: #71817c;
+  font-size: 8px;
+}
+
+.volleyball-verified-empty {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px 24px;
+}
+
+.volleyball-verified-empty h4 {
+  margin: 9px 0 8px;
+  color: #edf4f2;
+  font-size: 15px;
+}
+
+.volleyball-verified-empty p {
+  max-width: 62ch;
+  margin: 0;
+  color: #879792;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.volleyball-verified-empty > span {
+  margin-top: 16px;
+  color: #65756f;
+  font-size: 8px;
+}
+
+.volleyball-overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin: 26px 0;
+}
+
+.volleyball-overview-metrics article {
+  display: grid;
+  min-height: 100px;
+  align-content: center;
+  padding: 16px;
+  border-radius: 14px;
+  background: #111a1c;
+}
+
+.volleyball-overview-metrics article > span {
+  color: #778782;
+  font: 750 8px/1.2 var(--font-mono);
+  letter-spacing: .08em;
+}
+
+.volleyball-overview-metrics article > b {
+  margin: 10px 0 5px;
+  color: #f2f7f5;
+  font: 900 24px/1 var(--font-display);
+}
+
+.volleyball-overview-metrics article > b.is-live {
+  color: #5bdfbf;
+}
+
+.volleyball-overview-metrics article > small {
+  color: #7c8c87;
+  font-size: 9px;
+}
+
+.volleyball-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, .55fr);
+  gap: 28px;
+}
+
+.volleyball-feature,
+.volleyball-source-note {
+  min-width: 0;
+  padding: 22px;
+  border-radius: 18px;
+  background: #111a1c;
+}
+
+.volleyball-feature > header {
+  margin-bottom: 18px;
+}
+
+.volleyball-feature-match {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px minmax(0, 1fr);
+  min-height: 160px;
+  align-items: center;
+  gap: 16px;
+}
+
+.volleyball-feature-match figure {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: 10px;
+  margin: 0;
+  text-align: center;
+}
+
+.volleyball-feature-match figure img {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  border-radius: 20px;
+  background: #edf4f2;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .22);
+}
+
+.volleyball-feature-match figcaption {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 850;
+}
+
+.volleyball-feature-match > div {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.volleyball-feature-match > div small {
+  color: #66e0c2;
+  font: 850 9px/1 var(--font-mono);
+}
+
+.volleyball-feature-match > div strong {
+  color: #94ead6;
+  font: 900 23px/1 var(--font-mono);
+}
+
+.volleyball-feature-match > div span {
+  color: #7c8b86;
+  font-size: 9px;
+}
+
+.volleyball-feature-empty {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  color: #83938e;
+  text-align: center;
+}
+
+.volleyball-source-note {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.volleyball-source-note h3,
+.volleyball-error-state h3 {
+  margin: 8px 0 10px;
+  font-size: 20px;
+}
+
+.volleyball-source-note p,
+.volleyball-error-state p {
+  margin: 0;
+  color: #8a9a95;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.volleyball-source-note > span {
+  margin-top: 18px;
+  color: #697973;
+  font-size: 9px;
+}
+
+.volleyball-fixture-skeleton,
+.volleyball-team-skeleton {
+  display: grid;
+  gap: 7px;
+  padding: 7px;
+  border-radius: 14px;
+  background: var(--volleyball-panel);
+}
+
+.volleyball-fixture-skeleton i,
+.volleyball-team-skeleton i {
+  display: block;
+  height: 54px;
+  border-radius: 9px;
+  background: linear-gradient(100deg, #111a1b 20%, #263b36 45%, #111a1b 70%);
+  background-size: 240% 100%;
+  animation: volleyball-shimmer 1.05s linear infinite;
+  animation-delay: calc(var(--volleyball-skeleton-index) * -70ms);
+}
+
+.volleyball-team-skeleton i {
+  height: 47px;
+}
+
+@keyframes volleyball-shimmer {
+  to { background-position: -240% 0; }
+}
+
+.volleyball-loading-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.volleyball-error-state {
+  max-width: 720px;
+  margin: 22px 0;
+  padding: 32px;
+  border-radius: 18px;
+  background: #111a1c;
+}
+
+.volleyball-error-state button {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  margin: 15px 0 0;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 999px;
+  background: #195344;
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+@media (max-width: 980px) {
+  .volleyball-overview-layout,
+  .volleyball-lower {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .volleyball-overview-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .volleyball-program-scroll {
+    max-height: 540px;
+  }
+}
+
+@media (max-width: 640px) {
+  .multisport-hub[data-sport="volleyball"] {
+    width: calc(100% - 20px);
+    padding-top: 10px;
+  }
+
+  .multisport-hub[data-sport="volleyball"] .multisport-hero {
+    min-height: 124px;
+    padding: 18px 2px !important;
+  }
+
+  .multisport-hub[data-sport="volleyball"] .multisport-hero h1 {
+    font-size: 32px !important;
+  }
+
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip {
+    padding-right: 4px;
+  }
+
+  .multisport-hub[data-sport="volleyball"] .multisport-view-nav {
+    gap: 15px;
+  }
+
+  .multisport-hub[data-sport="volleyball"] .multisport-view-nav button {
+    min-height: 48px;
+  }
+
+  .volleyball-league-identity {
+    align-items: flex-start;
+    padding: 16px 2px 18px;
+  }
+
+  .volleyball-league-logo {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+
+  .volleyball-league-logo img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .volleyball-data-state {
+    display: none;
+  }
+
+  .volleyball-overview-layout {
+    margin-top: 0;
+  }
+
+  .volleyball-overview-panel > header {
+    padding-inline: 2px;
+  }
+
+  .volleyball-fixture-row {
+    grid-template-columns: 40px minmax(65px, 1fr) 38px minmax(65px, 1fr);
+    gap: 4px;
+    padding-inline: 7px;
+  }
+
+  .volleyball-fixture-team img {
+    display: none;
+  }
+
+  .volleyball-fixture-venue {
+    display: none;
+  }
+
+  .volleyball-feature,
+  .volleyball-source-note {
+    padding: 18px;
+  }
+
+  .volleyball-feature-match {
+    grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .volleyball-feature-match figure img {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+
+  .volleyball-overview-metrics {
+    gap: 7px;
+    margin-block: 18px;
+  }
+
+  .volleyball-overview-metrics article {
+    min-height: 88px;
+    padding: 13px;
+  }
+
+  .volleyball-verified-empty {
+    min-height: 170px;
+    padding: 23px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .volleyball-league-center {
+    animation: none;
+  }
+
+  .volleyball-fixture-row,
+  .volleyball-team-pool li {
+    animation: none;
+  }
+
+  .volleyball-fixture-skeleton i,
+  .volleyball-team-skeleton i {
+    animation: none;
+    background: #1b2a27;
+  }
+
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip button {
+    transition: none;
+    transform: none;
+  }
+}

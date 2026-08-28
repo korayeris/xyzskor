@@ -21,6 +21,7 @@
   let basketballStandingsEpoch = 0;
   let pendingViewFocus = '';
   let pendingBasketballHubFocus = false;
+  let pendingVolleyballHubFocus = false;
   const MULTISPORT_PAYLOAD_TTL_MS = 15 * 60 * 1000;
   const BASKETBALL_STANDINGS_TTL_MS = 30 * 60 * 1000;
   const SPORT_LEAGUE_CATALOG = {
@@ -80,6 +81,7 @@
     hubRequestEpoch += 1;
     pendingViewFocus='';
     pendingBasketballHubFocus=false;
+    pendingVolleyballHubFocus=false;
     feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
     feedControllers.clear();
     abortBasketballStandings();
@@ -479,14 +481,183 @@
     }
   }
 
-  function volleyballPortalHTML(items, leagueNames){
-    const schedule=items.slice(0,10).map(cardHTML).join('');
-    const leagues=leagueNames.map(name=>{
-      const count=items.filter(item=>(item.league||item.category)===name).length;
-      return `<button type="button" data-volley-league="${escapeHTML(name)}"><span>${escapeHTML(name)}</span><b>${count?`${count} maç`:'Program bekleniyor'}</b></button>`;
-    }).join('');
-    return `<section class="volley-command"><div><span>VOLEYBOL MERKEZİ</span><h2>Ligler ve güncel program</h2><p>Yalnızca sağlayıcının doğruladığı karşılaşmalar gösterilir.</p></div><button type="button" data-volley-view="leagues">Tüm ligler →</button></section>
-      <section class="volley-layout"><aside class="volley-leagues"><header><span>LİGLER</span><h3>Organizasyon seç</h3></header>${leagues}</aside><div class="volley-schedule">${schedule||compactEmptyHTML('Doğrulanmış voleybol programı bulunmuyor.','Lig seçimi kullanılabilir; sağlayıcı maç verisi döndürdüğünde program otomatik dolar.',null,'Voleybol')}</div></section>`;
+  const volleyballStatusText = (item) => String(item?.status || '').trim().toLowerCase();
+  const volleyballIsLive = (item) => {
+    const status=volleyballStatusText(item);
+    if(!status || /\bnot started\b|\bscheduled\b|\bpostponed\b|\bcancell?ed\b|\bfinished\b|\bended\b/.test(status)) return false;
+    return /\blive\b|\bin progress\b|\bin play\b|\bset\s*[1-5]\b|\b(?:1st|2nd|3rd|4th|5th) set\b|\bperiod\s*\d+\b|\bbreak time\b|\bhalf(?: |-)?time\b/.test(status);
+  };
+  const volleyballIsFinished = (item) => /\bfinished\b|\bended\b|\bafter\b|^(?:ft|aet)$/i.test(volleyballStatusText(item));
+
+  function volleyballLeagueDescriptors(items){
+    const leagues=new Map();
+    items.forEach((item)=>{
+      const name=item?.league||item?.category;
+      if(!name) return;
+      const id=item?.leagueId??item?.league_id??item?.league?.id??'';
+      const season=item?.season!=null?String(item.season):'';
+      const country=item?.country||'';
+      const identity=id!==''?`id:${id}:${season}`:`name:${name}:${country}:${season}`;
+      if(!leagues.has(identity)) leagues.set(identity,{
+        identity,
+        key:name,
+        name,
+        id:id!==''?String(id):'',
+        logo:item?.leagueLogo||'',
+        country,
+        season,
+        events:[],
+      });
+      const league=leagues.get(identity);
+      if(!league.logo&&item?.leagueLogo) league.logo=item.leagueLogo;
+      if(!league.country&&item?.country) league.country=item.country;
+      if(!league.season&&item?.season!=null) league.season=String(item.season);
+      league.events.push(item);
+    });
+    const list=[...leagues.values()];
+    const nameCounts=new Map();
+    list.forEach((league)=>nameCounts.set(league.name,(nameCounts.get(league.name)||0)+1));
+    list.forEach((league)=>{
+      if((nameCounts.get(league.name)||0)>1) league.key=`scope:${league.identity}`;
+    });
+    return list;
+  }
+
+  function volleyballSortEvents(items){
+    return [...items].sort((first,second)=>{
+      const phase=(item)=>volleyballIsLive(item)?0:volleyballIsFinished(item)?2:1;
+      const phaseDiff=phase(first)-phase(second);
+      if(phaseDiff) return phaseDiff;
+      const timeDiff=basketballEventTime(first)-basketballEventTime(second);
+      return volleyballIsFinished(first)?-timeDiff:timeDiff;
+    });
+  }
+
+  function volleyballStatusLabel(item){
+    const status=volleyballStatusText(item);
+    if(volleyballIsLive(item)) return 'CANLI';
+    if(volleyballIsFinished(item)) return 'BİTTİ';
+    if(/postponed/.test(status)) return 'ERTELENDİ';
+    if(/cancell?ed/.test(status)) return 'İPTAL';
+    return item?.time||'YAKLAŞAN';
+  }
+
+  function volleyballVerifiedEmptyHTML(payload, scopeLabel){
+    const updated=lastUpdatedLabel(payload);
+    return `<div class="volleyball-verified-empty" role="status">
+      <small>DOĞRULANMIŞ BOŞ SONUÇ</small>
+      <h4>Seçili kapsamda güncel maç programı yok.</h4>
+      <p>API-Sports bu lig ve tarih için karşılaşma yayımlamadı. Yeni veri geldiğinde bu alan otomatik dolar.</p>
+      <span>${escapeHTML([scopeLabel?`Kapsam: ${scopeLabel}`:'',updated?`Son güncelleme: ${updated}`:'Güncelleme saati sağlayıcıdan bekleniyor'].filter(Boolean).join(' · '))}</span>
+    </div>`;
+  }
+
+  function volleyballScheduleHTML(items, payload, scopeLabel){
+    const rows=volleyballSortEvents(items).slice(0,10);
+    if(!rows.length) return volleyballVerifiedEmptyHTML(payload,scopeLabel);
+    return `<div class="volleyball-fixture-list" role="list">${rows.map((item)=>{
+      const first=item.first||item.home||{},second=item.second||item.away||{};
+      const live=volleyballIsLive(item),finished=volleyballIsFinished(item);
+      return `<article class="volleyball-fixture-row ${live?'is-live':finished?'is-finished':'is-upcoming'}" role="listitem">
+        <span class="volleyball-fixture-state">${escapeHTML(volleyballStatusLabel(item))}</span>
+        <span class="volleyball-fixture-team home"><strong>${escapeHTML(first.name||'TBA')}</strong>${visual(first.name,imageOf(first),'')}</span>
+        <b>${escapeHTML(scoreText(item.score))}</b>
+        <span class="volleyball-fixture-team away">${visual(second.name,imageOf(second),'')}<strong>${escapeHTML(second.name||'TBA')}</strong></span>
+        ${item?.venue?`<small class="volleyball-fixture-venue">${escapeHTML(item.venue)}</small>`:''}
+      </article>`;
+    }).join('')}</div>`;
+  }
+
+  function volleyballTeamPoolHTML(items, payload, scopeLabel){
+    const teams=new Map();
+    items.forEach((item)=>[item.first||item.home,item.second||item.away].forEach((team)=>{
+      if(!team?.name) return;
+      const current=teams.get(team.name)||{team,count:0};
+      current.count+=1;
+      if(!imageOf(current.team)&&imageOf(team)) current.team=team;
+      teams.set(team.name,current);
+    }));
+    if(!teams.size) return volleyballVerifiedEmptyHTML(payload,scopeLabel);
+    return `<ul class="volleyball-team-pool">${[...teams.values()].slice(0,16).map(({team,count})=>`<li>
+      ${visual(team.name,imageOf(team),'')}
+      <span><strong>${escapeHTML(team.name)}</strong><small>${count} doğrulanmış maç kapsamı</small></span>
+    </li>`).join('')}</ul>`;
+  }
+
+  function volleyballFeaturedHTML(item){
+    if(!item) return '<div class="volleyball-feature-empty">Günün vitrini için doğrulanmış karşılaşma bekleniyor.</div>';
+    const first=item.first||item.home||{},second=item.second||item.away||{};
+    return `<div class="volleyball-feature-match">
+      <figure>${visual(first.name,imageOf(first),'')}<figcaption>${escapeHTML(first.name||'TBA')}</figcaption></figure>
+      <div><small>${escapeHTML(volleyballStatusLabel(item))}</small><strong>${escapeHTML(scoreText(item.score))}</strong><span>${escapeHTML(item.time||item.feedDate||item.date||'')}</span></div>
+      <figure>${visual(second.name,imageOf(second),'')}<figcaption>${escapeHTML(second.name||'TBA')}</figcaption></figure>
+    </div>`;
+  }
+
+  function volleyballPortalHTML(items, league, payload){
+    const sorted=volleyballSortEvents(items);
+    const featured=sorted[0]||null;
+    const teams=new Map();
+    items.forEach((item)=>[item.first||item.home,item.second||item.away].forEach((team)=>{if(team?.name&&!teams.has(team.name))teams.set(team.name,team);}));
+    const live=items.filter(volleyballIsLive).length;
+    const finished=items.filter(volleyballIsFinished).length;
+    const scopeLabel=league?.name||'Tüm ligler';
+    const updated=lastUpdatedLabel(payload);
+    const identityMeta=[league?.country,league?.season||'Güncel günlük program'].filter(Boolean).join(' · ');
+    return `<section class="volleyball-league-center" data-volleyball-league-center data-volleyball-scope="${escapeHTML(scopeLabel)}">
+      <header class="volleyball-league-identity">
+        <span class="volleyball-league-logo">${league?.logo?visual(league.name,league.logo,''):'<b aria-hidden="true">V</b>'}</span>
+        <div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2>${escapeHTML(league?.name||'Voleybol')}</h2><p>${escapeHTML(identityMeta)}</p></div>
+        <span class="volleyball-data-state">${payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
+      </header>
+      <div class="volleyball-overview-layout">
+        <section class="volleyball-overview-panel volleyball-program-panel" aria-labelledby="volleyballProgramTitle">
+          <header><div><small>MAÇ AKIŞI</small><h3 id="volleyballProgramTitle">Sonuçlar ve fikstür</h3></div><span>${items.length} maç</span></header>
+          <div class="volleyball-program-scroll" tabindex="0" role="region" aria-labelledby="volleyballProgramTitle">${volleyballScheduleHTML(items,payload,scopeLabel)}</div>
+        </section>
+        <aside class="volleyball-overview-panel volleyball-teams-panel" aria-labelledby="volleyballTeamsTitle">
+          <header><div><small>GÜNLÜK KAPSAM</small><h3 id="volleyballTeamsTitle">Programdaki takımlar</h3></div><span>${teams.size} takım</span></header>
+          <div class="volleyball-teams-body">${volleyballTeamPoolHTML(items,payload,scopeLabel)}</div>
+        </aside>
+      </div>
+      <section class="volleyball-overview-metrics" aria-label="Seçili lig özeti">
+        <article><span>GÜNLÜK PROGRAM</span><b>${items.length}</b><small>doğrulanmış maç</small></article>
+        <article><span>CANLI</span><b class="is-live">${live}</b><small>devam eden</small></article>
+        <article><span>TAMAMLANAN</span><b>${finished}</b><small>sonuçlanan</small></article>
+        <article><span>TAKIM</span><b>${teams.size}</b><small>günlük kapsam</small></article>
+      </section>
+      <section class="volleyball-lower">
+        <article class="volleyball-feature">
+          <header><div><small>GÜNÜN VİTRİNİ</small><h3>${escapeHTML(featured?.league||league?.name||'Voleybol')}</h3></div></header>
+          ${volleyballFeaturedHTML(featured)}
+        </article>
+        <article class="volleyball-source-note">
+          <small>VERİ KAPSAMI</small><h3>Doğrulanmış günlük kapsam</h3>
+          <p>Bu görünüm puan tablosu üretmez; program, sonuç ve takım kapsamı yalnız API-Sports günlük karşılaşmalarından oluşur.</p>
+          <span>${escapeHTML(updated?'Son güncelleme: '+updated:'Güncelleme zamanı sağlayıcıdan bekleniyor')}</span>
+        </article>
+      </section>
+    </section>`;
+  }
+
+  function volleyballLoadingHTML(){
+    const fixtureSkeleton=Array.from({length:7},(_,index)=>`<i style="--volleyball-skeleton-index:${index}"></i>`).join('');
+    const teamSkeleton=Array.from({length:8},(_,index)=>`<i style="--volleyball-skeleton-index:${index}"></i>`).join('');
+    return `<section class="volleyball-league-center volleyball-loading-shell" aria-busy="true">
+      <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2>Lig merkezi hazırlanıyor</h2><p>Günlük program ve takım kapsamı</p></div></header>
+      <div class="volleyball-overview-layout">
+        <section class="volleyball-overview-panel volleyball-program-panel"><header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div></header><div class="volleyball-fixture-skeleton">${fixtureSkeleton}</div></section>
+        <aside class="volleyball-overview-panel volleyball-teams-panel"><header><div><small>GÜNLÜK KAPSAM</small><h3>Programdaki takımlar</h3></div></header><div class="volleyball-team-skeleton">${teamSkeleton}</div></aside>
+      </div>
+      <p class="volleyball-loading-label" role="status">Voleybol merkezi hazırlanıyor</p>
+    </section>`;
+  }
+
+  function volleyballErrorHTML(){
+    return `<section class="volleyball-league-center">
+      <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2>Voleybol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
+      <div class="volleyball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>Voleybol verisi şu anda alınamadı.</h3><p>Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve takım kapsamı yeniden yüklenecek.</p><button type="button" data-volleyball-hub-retry>Yeniden dene</button></div>
+    </section>`;
   }
 
   function render(payload){
@@ -530,6 +701,7 @@
       viewNav.after(leagueStrip);
     }
     const basketballLeagues=activeSport==='basketball'?basketballLeagueDescriptors(allItems):[];
+    const volleyballLeagues=activeSport==='volleyball'?volleyballLeagueDescriptors(allItems):[];
     const leagueNames = [...new Set([...(SPORT_LEAGUE_CATALOG[activeSport]||[]),...allItems.map(item => item.league || item.category).filter(Boolean)])];
     if(activeSport==='basketball'&&activeLeague!=='all'&&!basketballLeagues.some((league)=>league.key===activeLeague)){
       activeLeague=activeView==='home'&&basketballLeagues.length?basketballLeagues[0].key:'all';
@@ -537,16 +709,32 @@
     if(activeSport==='basketball'&&activeView==='home'&&activeLeague==='all'&&basketballLeagues.length){
       activeLeague=basketballLeagues[0].key;
     }
-    if(activeSport==='basketball'&&activeView==='home') viewNav.before(leagueStrip);
+    if(activeSport==='volleyball'&&activeLeague!=='all'&&!volleyballLeagues.some((league)=>league.key===activeLeague)&&!leagueNames.includes(activeLeague)){
+      activeLeague=activeView==='home'&&volleyballLeagues.length?volleyballLeagues[0].key:'all';
+    }
+    if(activeSport==='volleyball'&&activeView==='home'&&activeLeague==='all'&&volleyballLeagues.length){
+      activeLeague=volleyballLeagues[0].key;
+    }
+    if((activeSport==='basketball'||activeSport==='volleyball')&&activeView==='home') viewNav.before(leagueStrip);
     else viewNav.after(leagueStrip);
     const basketballChoices=basketballLeagues.slice(0,14).map((league)=>{
       const duplicate=basketballLeagues.some((candidate)=>candidate!==league&&candidate.name===league.name);
       const qualifier=league.country||league.season||league.id;
       return [league.key,duplicate&&qualifier?`${league.name} · ${qualifier}`:league.name,[league.name,league.country,league.season].filter(Boolean).join(', ')];
     });
+    const volleyballChoices=volleyballLeagues.slice(0,14).map((league)=>{
+      const duplicate=volleyballLeagues.some((candidate)=>candidate!==league&&candidate.name===league.name);
+      const qualifier=league.country||league.season||league.id;
+      return [league.key,duplicate&&qualifier?`${league.name} · ${qualifier}`:league.name,[league.name,league.country,league.season].filter(Boolean).join(', ')];
+    });
+    for(const name of (SPORT_LEAGUE_CATALOG.volleyball||[])){
+      if(!volleyballLeagues.some((league)=>league.name===name)) volleyballChoices.push([name,name,name]);
+    }
     const leagueChoices=activeSport==='basketball'
       ? (activeView==='home'?basketballChoices:[['all','Tümü','Tüm ligler'],...basketballChoices])
-      : [['all','Tümü','Tüm ligler'],...leagueNames.slice(0,14).map((name)=>[name,name,name])];
+      : activeSport==='volleyball'
+        ? (activeView==='home'?volleyballChoices:[['all','Tümü','Tüm ligler'],...volleyballChoices])
+        : [['all','Tümü','Tüm ligler'],...leagueNames.slice(0,14).map((name)=>[name,name,name])];
     leagueStrip.hidden = !leagueChoices.length;
     leagueStrip.innerHTML = leagueChoices.map(([key,label,accessibleLabel])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}" aria-label="${escapeHTML(accessibleLabel)}" aria-pressed="${key===activeLeague?'true':'false'}">${escapeHTML(label)}</button>`).join('');
     leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{
@@ -556,11 +744,16 @@
         .find((candidate)=>candidate.dataset.league===activeLeague)?.focus());
     }));
     const selectedBasketballLeague=activeSport==='basketball'?basketballLeagues.find((item)=>item.key===activeLeague)||null:null;
+    const selectedVolleyballLeague=activeSport==='volleyball'
+      ? volleyballLeagues.find((item)=>item.key===activeLeague)||(activeLeague!=='all'?{key:activeLeague,name:activeLeague,logo:'',country:'',season:'',events:[]}:null)
+      : null;
     const items = activeLeague === 'all'
       ? allItems
       : selectedBasketballLeague
         ? selectedBasketballLeague.events
-        : allItems.filter(item => (item.league || item.category) === activeLeague);
+        : selectedVolleyballLeague
+          ? selectedVolleyballLeague.events
+          : allItems.filter(item => (item.league || item.category) === activeLeague);
     if(activeSport === 'basketball' && activeView === 'home'){
       const league=selectedBasketballLeague||basketballLeagues[0]||null;
       grid.innerHTML = basketballLeaguePortalHTML(items,league,payload);
@@ -573,9 +766,12 @@
       return;
     }
     if(activeSport === 'volleyball' && activeView === 'home'){
-      grid.innerHTML=volleyballPortalHTML(items,leagueNames);
-      grid.querySelectorAll('[data-volley-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.volleyLeague;render(payload)}));
-      grid.querySelector('[data-volley-view]')?.addEventListener('click',()=>openHub(activeSport,'leagues',true));
+      grid.innerHTML=volleyballPortalHTML(items,selectedVolleyballLeague,payload);
+      if(pendingVolleyballHubFocus){
+        const heading=grid.querySelector('.volleyball-league-identity h2');
+        if(heading){heading.tabIndex=-1;requestAnimationFrame(()=>heading.focus());}
+        pendingVolleyballHubFocus=false;
+      }
       return;
     }
     if(activeView === 'leagues'){
@@ -659,6 +855,7 @@
     const requestedSport = activeSport;
     const requestedView = activeView;
     if(requestedSport!=='basketball') pendingBasketballHubFocus=false;
+    if(requestedSport!=='volleyball') pendingVolleyballHubFocus=false;
     const requestEpoch = ++hubRequestEpoch;
     if(requestedSport!=='basketball'||requestedView!=='home') abortBasketballStandings();
     feedControllers.forEach((controller,scope)=>{
@@ -684,7 +881,9 @@
     grid.setAttribute('aria-busy','true');
     if(!warm) grid.innerHTML = requestedSport==='basketball'&&requestedView==='home'
       ? basketballLoadingHTML()
-      : '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canlı program hazırlanıyor</span></div>';
+      : requestedSport==='volleyball'&&requestedView==='home'
+        ? volleyballLoadingHTML()
+        : '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canlı program hazırlanıyor</span></div>';
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.toggle('active', button.dataset.multiSport === activeSport));
     try{
       const payload = await load(requestedSport);
@@ -707,6 +906,18 @@
         if(pendingBasketballHubFocus){
           requestAnimationFrame(()=>grid.querySelector('[data-basketball-hub-retry]')?.focus());
           pendingBasketballHubFocus=false;
+        }
+      }else if(requestedSport==='volleyball'&&requestedView==='home'){
+        grid.innerHTML=volleyballErrorHTML();
+        grid.querySelector('[data-volleyball-hub-retry]')?.addEventListener('click',()=>{
+          pendingVolleyballHubFocus=true;
+          sharedPayloads.delete(requestedSport);
+          payloadReceivedAt.delete(requestedSport);
+          openHub(requestedSport,requestedView,false);
+        });
+        if(pendingVolleyballHubFocus){
+          requestAnimationFrame(()=>grid.querySelector('[data-volleyball-hub-retry]')?.focus());
+          pendingVolleyballHubFocus=false;
         }
       }else{
         grid.innerHTML = compactEmptyHTML(`${branchLabel} verisi şu anda alınamadı.`,'Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Bağlantı düzeldiğinde program otomatik yenilenir.',null,branchLabel);
@@ -772,6 +983,7 @@
         hubRequestEpoch += 1;
         pendingViewFocus='';
         pendingBasketballHubFocus=false;
+        pendingVolleyballHubFocus=false;
         feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
         feedControllers.clear();
         abortBasketballStandings();
@@ -792,6 +1004,7 @@
           hubRequestEpoch += 1;
           pendingViewFocus='';
           pendingBasketballHubFocus=false;
+          pendingVolleyballHubFocus=false;
           feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
           feedControllers.clear();
           abortBasketballStandings();

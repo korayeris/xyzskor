@@ -19,10 +19,14 @@ const sourceHtml = await readFile(resolve(root, "index.html"), "utf8");
 // sunabiliyordu. Liste tek yere alınarak bu sınıf hata tekrarlanamaz hale getirildi.
 const CLIENT_JS_FILES = ["style-loader.js", "initial-route.js", "branch-router.js", "general-home.js", "football-early.js", "data.js", "analytics.js", "live.js", "match-center.js", "matchday-live.js", "predict-game.js", "ui.js", "app-boot.js", "ui-extras.js", "chat.js", "multisport.js", "sport-branches.js", "motorsports.js", "ufc-hub.js", "compliance.js"];
 const clientFingerprintSources = await Promise.all([
+  resolve(root, "assets", "data", "motorsports-snapshot.json"),
   resolve(root, "assets", "css", "app.css"),
   resolve(root, "assets", "css", "app-late.css"),
   resolve(root, "assets", "css", "football-controls-v236.css"),
   resolve(root, "assets", "css", "football-hub.css"),
+  resolve(root, "assets", "css", "volleyball-center.css"),
+  resolve(root, "assets", "css", "ufc-center.css"),
+  resolve(root, "assets", "css", "motorsports-center.css"),
   ...CLIENT_JS_FILES.map((file) => resolve(root, "assets", "js", file)),
 ].map((file) => readFile(file, "utf8")));
 const buildVersion = createHash("sha256").update([sourceHtml, ...clientFingerprintSources].join("\n")).digest("hex").slice(0, 10);
@@ -283,10 +287,18 @@ for (const file of CLIENT_JS_FILES) {
   const sourcePath = resolve(root, "assets", "js", file);
   const targetPath = resolve(dist, "client", "assets", "js", file);
   const source = await readFile(sourcePath, "utf8");
-  const productionSource = source.replace(
+  let productionSource = source.replace(
     /\s*\/\* PRODUCTION_STRIP_LEGACY_JS_START \*\/[\s\S]*?\/\* PRODUCTION_STRIP_LEGACY_JS_END \*\/\s*/g,
     "\n",
   );
+  if (file === "motorsports.js") {
+    const snapshotPath = "/assets/data/motorsports-snapshot.json";
+    const versionedSnapshotPath = `${snapshotPath}?v=${buildVersion}`;
+    productionSource = productionSource.replace(snapshotPath, versionedSnapshotPath);
+    if (!productionSource.includes(versionedSnapshotPath)) {
+      throw new Error("Motor sporları snapshot URL'si build sürümüyle eşleşmedi.");
+    }
+  }
   if (productionSource.includes("PRODUCTION_STRIP_LEGACY")) {
     throw new Error(`${file} production temizleme işaretleri eşleşmedi.`);
   }
@@ -328,7 +340,7 @@ for (const file of CLIENT_JS_FILES) {
 
 // CSS minify. Üç katmanlı stil ayrımı cascade sırasını korurken tarayıcının
 // 600+ KB stili tek uzun ana-thread görevinde ayrıştırmasını önler.
-for (const cssFile of ["football-hub.css", "app.css", "app-late.css"]) {
+for (const cssFile of ["football-hub.css", "app.css", "app-late.css", "volleyball-center.css", "ufc-center.css", "motorsports-center.css"]) {
   const cssSource = await readFile(resolve(root, "assets", "css", cssFile), "utf8");
   const cssOut = minifyEnabled
     ? (await transform(cssSource, { loader: "css", minify: true, legalComments: "none" })).code
@@ -345,7 +357,7 @@ await cp(resolve(root, "site.webmanifest"), resolve(dist, "client", "site.webman
 // paylaşılabilir ürün ve lig URL'lerini fiziksel giriş sayfaları olarak üretiriz.
 const leagues = ["super-lig", "la-liga", "premier-league", "bundesliga", "serie-a", "all"];
 const leagueSections = ["matches", "agenda", "clubs", "transfers", "standings"];
-const routeDirectories = ["predict", "futbol", "basketbol", "basketbol/maclar", "basketbol/ligler", "basketbol/takimlar", "basketbol/predict", "ufc", "ufc/live", "ufc/events", "ufc/fighters", "ufc/rankings", "ufc/bouts", "ufc/maclar", "ufc/ligler", "ufc/predict", "voleybol", "voleybol/ligler", "motorsports", "motorsports/formula-1", "motorsports/formula-e", "motorsports/indycar", "motorsports/motogp", "motorsports/moto2", "motorsports/moto3", "motorsports/wrc", "motorsports/wec", "motorsports/le-mans", "motorsports/nascar", ...leagues.flatMap((league) => [
+const routeDirectories = ["predict", "futbol", "basketbol", "basketbol/maclar", "basketbol/ligler", "basketbol/takimlar", "basketbol/predict", "ufc", "ufc/live", "ufc/events", "ufc/fighters", "ufc/rankings", "ufc/bouts", "ufc/maclar", "ufc/ligler", "ufc/predict", "voleybol", "voleybol/maclar", "voleybol/ligler", "voleybol/takimlar", "voleybol/predict", "motorsports", "motorsports/formula-1", "motorsports/formula-e", "motorsports/indycar", "motorsports/motogp", "motorsports/moto2", "motorsports/moto3", "motorsports/wrc", "motorsports/wec", "motorsports/le-mans", "motorsports/nascar", ...leagues.flatMap((league) => [
   league,
   ...leagueSections.map((section) => `${league}/${section}`),
   `${league}/transfers/talks`,

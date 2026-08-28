@@ -37,7 +37,7 @@ try{
 
   for(const [path, expected] of [['/basketbol/', 'Basketbol'], ['/voleybol/', 'Voleybol']]){
     await page.goto(BASE + path, { waitUntil:'domcontentloaded' });
-    await page.waitForFunction(() => document.querySelector('#multiSportGrid .multi-event-empty, #multiSportGrid .basketball-error-state'));
+    await page.waitForFunction(() => document.querySelector('#multiSportGrid .multi-event-empty, #multiSportGrid .basketball-error-state, #multiSportGrid .volleyball-error-state'));
     const headings = await page.locator('#multiSportHub h1:visible').allTextContents();
     assert.deepEqual(headings.map((text) => text.trim()), [expected], `${path} hata görünümü branş H1'ini korumalı.`);
     assert.match(await page.locator('#multiSportGrid').innerText(), new RegExp(expected), `${path} hata metni branşı adlandırmalı.`);
