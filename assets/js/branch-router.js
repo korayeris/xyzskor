@@ -34,9 +34,28 @@
     ufc: true,
     motorsports: true
   };
+  // Bu ürünler yüklenirken location.pathname'e göre tek seferlik DOM ve
+  // event sahipleri kurar. Bunlardan kayıtlı bir CLIENT yüzeyine (örneğin
+  // Basketbol/Voleybol) doğrudan mount yapılırsa eski ürün kabuğu görünür
+  // kalır. Ürün dışına çıkışları her zaman yeni belgeyle tamamla.
+  var DOCUMENT_BOUND_SOURCE_PRODUCTS = {
+    ufc: true,
+    motorsports: true,
+    predict: true
+  };
 
   function normalize(pathname) {
     return String(pathname || "").replace(/\/+$/, "") || "/";
+  }
+
+  function routeProduct(pathname) {
+    return normalize(pathname).split("/").filter(Boolean)[0] || "football";
+  }
+
+  function requiresManagedDeparture(targetPathname) {
+    var sourceProduct = routeProduct(location.pathname);
+    var targetProduct = routeProduct(targetPathname);
+    return sourceProduct !== targetProduct && DOCUMENT_BOUND_SOURCE_PRODUCTS[sourceProduct] === true;
   }
 
   var LEAGUE_LABELS = {
@@ -311,6 +330,22 @@
     var token = ++navToken;
     abortPendingBranchWork();
     var stylesReady = ensureBranchStyles(target.pathname);
+
+    // UFC/motor/Predict belgeleri hedef CLIENT yüzeyini mount ederek güvenli
+    // biçimde unmount edilemez. Eski kabuğu aynı DOM'da bırakmak yerine mevcut
+    // içeriği progress boyunca koru, hedefi prefetch et ve belgeyi tek noktadan
+    // değiştir. Böylece URL değişip ekranda UFC kalması mümkün olmaz.
+    if (requiresManagedDeparture(target.pathname)) {
+      showProgress(settings.label || "Yükleniyor");
+      return stylesReady.then(function () {
+        if (token !== navToken) return false;
+        return prefetch(target.href).then(function () {
+          if (token !== navToken) return false;
+          commitNavigation(target.href);
+          return true;
+        });
+      });
+    }
 
     // Hedef branşın JS paketi henüz yüklü değilse önce onu indir. Paket hazır
     // olursa geçiş belge yenilemeden istemcide yapılır; olmazsa denetimli

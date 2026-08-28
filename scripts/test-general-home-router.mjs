@@ -289,6 +289,25 @@ console.log('\n=== 5c) İstemci geçişi önce eski branş işini iptal eder ===
   check(() => assert.equal(harness.assignments.length, 0), 'İstemci yüzeyi geçişi belge navigasyonuna düşmez.');
 }
 
+console.log('\n=== 5c.0) UFC belgesinden CLIENT branşına geçiş eski UFC kabuğunu bırakamaz ===');
+for (const target of ['/basketbol/', '/voleybol/']) {
+  const harness = createRouterHarness(async () => ({ ok:true, text:async () => '' }), '/ufc/');
+  let mounted = 0;
+  harness.window.XYZBranchRouter.register({
+    key: `ufc-departure-${target}`,
+    matches: (pathname) => pathname === target,
+    mount: () => { mounted += 1; },
+  });
+  const result = await harness.window.XYZBranchRouter.navigate(target, { label:'Branş' });
+  check(() => assert.equal(result, true), `UFC → ${target} kontrollü belge geçişini tamamlar.`);
+  check(() => assert.equal(mounted, 0), `UFC → ${target} hedefi eski UFC DOM'u içinde mount etmez.`);
+  check(() => assert.equal(harness.pushes.length, 0), `UFC → ${target} URL'yi UFC belgesi üzerinde pushState ile değiştirmez.`);
+  check(
+    () => assert.deepEqual(harness.assignments, [`https://xyzskor.test${target}`]),
+    `UFC → ${target} hedef belgeyi tek commit noktasından açar.`,
+  );
+}
+
 console.log('\n=== 5c.1) SPA geçişleri route metadata bilgisini eşzamanlar ===');
 {
   const harness = createRouterHarness(async () => response(''), '/');
