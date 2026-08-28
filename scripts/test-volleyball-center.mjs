@@ -162,7 +162,9 @@ try{
     if(url.pathname==='/api/sports/today'){
       todayAttempts+=1;
       if(todayAttempts===1){
-        await route.fulfill({status:503,contentType:'application/json; charset=utf-8',body:JSON.stringify({error:'api_sports_upstream_unavailable'})});
+        // Retry-After/cooldown davranışı recovery paketinde ayrı sınanır. Bu
+        // senaryo yalnız manuel retry sonrası odak restorasyonunu doğrular.
+        await route.fulfill({status:400,contentType:'application/json; charset=utf-8',body:JSON.stringify({error:'temporary_test_error'})});
       }else{
         await route.fulfill({status:200,contentType:'application/json; charset=utf-8',body:JSON.stringify(todayPayload)});
       }

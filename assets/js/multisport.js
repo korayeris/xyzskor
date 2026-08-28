@@ -14,6 +14,10 @@
   const basketballStandingsPayloads = new Map();
   const basketballStandingsPromises = new Map();
   const basketballStandingsControllers = new Map();
+  const branchAutoRetryTimers = new Map();
+  const branchAutoRetryUsed = new Set();
+  const branchRetryCooldowns = new Map();
+  const trustedBranchPayloads = new WeakSet();
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
@@ -24,8 +28,17 @@
   let pendingLeagueFocus = '';
   let pendingBasketballHubFocus = false;
   let pendingVolleyballHubFocus = false;
+  let observedMultisportDate = '';
   const MULTISPORT_PAYLOAD_TTL_MS = 15 * 60 * 1000;
   const BASKETBALL_STANDINGS_TTL_MS = 30 * 60 * 1000;
+  const LAST_VERIFIED_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  const LAST_VERIFIED_BRANCH_MAX_BYTES = 128 * 1024;
+  const LAST_VERIFIED_STANDINGS_MAX_BYTES = 64 * 1024;
+  const LAST_VERIFIED_STANDINGS_MAX_SCOPES = 12;
+  const LAST_VERIFIED_BRANCH_PREFIX = 'xyzskor:last-verified:multisport:v1:';
+  const LAST_VERIFIED_STANDINGS_PREFIX = 'xyzskor:last-verified:basketball-standings:v1:';
+  const LAST_VERIFIED_STANDINGS_INDEX = `${LAST_VERIFIED_STANDINGS_PREFIX}index`;
+  const AUTO_RETRY_DEFAULT_SECONDS = 30;
   const SPORT_LEAGUE_CATALOG = {
     volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi']
   };
@@ -33,6 +46,283 @@
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+
+  const boundedText = (value, max = 240) => value == null ? '' : String(value).slice(0, max);
+  const multisportDate = (value = new Date()) => {
+    try{return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(value);}
+    catch(_error){return new Date(value.getTime()+3*60*60*1000).toISOString().slice(0,10);}
+  };
+  const storageByteLength = (value) => {
+    const text=String(value||'');
+    if(typeof TextEncoder!=='undefined') return new TextEncoder().encode(text).byteLength;
+    let bytes=0;
+    for(let index=0;index<text.length;index+=1){
+      const code=text.charCodeAt(index);
+      if(code<0x80) bytes+=1;
+      else if(code<0x800) bytes+=2;
+      else if(code>=0xd800&&code<=0xdbff&&index+1<text.length&&text.charCodeAt(index+1)>=0xdc00&&text.charCodeAt(index+1)<=0xdfff){bytes+=4;index+=1;}
+      else bytes+=3;
+    }
+    return bytes;
+  };
+  const boundedNumber = (value) => {
+    const number=Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const validStoredAt = (value) => {
+    const savedAt=Number(value);
+    return Number.isFinite(savedAt)
+      && savedAt <= Date.now() + 5 * 60 * 1000
+      && Date.now() - savedAt <= LAST_VERIFIED_MAX_AGE_MS;
+  };
+  const validPayloadDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+  const retryableProviderError = (error) => error?.name !== 'AbortError'
+    && (error?.networkFailure === true || error?.status === 429 || Number(error?.status) >= 500
+      || (error?.status===409&&error?.code==='basketball_standings_scope_not_discovered'));
+  const retryAfterSeconds = (raw) => {
+    let seconds=raw==null||String(raw).trim()===''?Number.NaN:Number(raw);
+    if(!Number.isFinite(seconds)){
+      const timestamp=Date.parse(String(raw || ''));
+      seconds=Number.isFinite(timestamp) ? Math.ceil((timestamp-Date.now())/1000) : AUTO_RETRY_DEFAULT_SECONDS;
+    }
+    if(!Number.isFinite(seconds)) seconds=AUTO_RETRY_DEFAULT_SECONDS;
+    return Math.max(15,Math.min(120,Math.ceil(seconds)));
+  };
+
+  function safeStorageGet(key){
+    try{return localStorage.getItem(key);}catch(_error){return null;}
+  }
+
+  function safeStorageRemove(key){
+    try{localStorage.removeItem(key);}catch(_error){}
+  }
+
+  function safeStorageSet(key, value, maxBytes){
+    if(typeof value!=='string'||storageByteLength(value)>maxBytes) return false;
+    try{localStorage.setItem(key,value);return true;}catch(_error){return false;}
+  }
+
+  function trustedCachedBranchPayload(sport){
+    const payload=sharedPayloads.get(sport);
+    if(!payload) return null;
+    if(typeof payload!=='object'||!trustedBranchPayloads.has(payload)){
+      sharedPayloads.delete(sport);
+      payloadReceivedAt.delete(sport);
+      return null;
+    }
+    return payload;
+  }
+
+  function cacheTrustedBranchPayload(sport, payload){
+    if(!payload||typeof payload!=='object') return false;
+    trustedBranchPayloads.add(payload);
+    sharedPayloads.set(sport,payload);
+    payloadReceivedAt.set(sport,Date.now());
+    return true;
+  }
+
+  function storedSide(side){
+    if(!side||typeof side!=='object') return {name:null,logo:null,winner:null};
+    return {
+      name:boundedText(side.name,160)||null,
+      logo:boundedText(imageOf(side),2048)||null,
+      winner:typeof side.winner==='boolean'?side.winner:null,
+    };
+  }
+
+  function storedBranchItem(item, sport){
+    if(!item||typeof item!=='object'||item.sport!==sport||item.id==null||item.id==='') return null;
+    const timestamp=boundedNumber(item.timestamp);
+    const score=['string','number'].includes(typeof item.score)?boundedText(item.score,80):null;
+    return {
+      sport,
+      provider:boundedText(item.provider,80)||null,
+      id:boundedText(item.id,120),
+      league:boundedText(item.league,180)||null,
+      leagueLogo:boundedText(item.leagueLogo,2048)||null,
+      leagueId:item.leagueId==null?null:boundedText(item.leagueId,40),
+      season:item.season==null?null:boundedText(item.season,40),
+      standingsProof:boundedText(item.standingsProof,512)||null,
+      country:boundedText(item.country,120)||null,
+      venue:boundedText(item.venue,240)||null,
+      date:boundedText(item.date,80)||null,
+      category:boundedText(item.category,160)||null,
+      time:boundedText(item.time,40)||null,
+      timestamp,
+      status:boundedText(item.status,120)||null,
+      score,
+      first:storedSide(item.first||item.home),
+      second:storedSide(item.second||item.away),
+      feedDate:boundedText(item.feedDate||item.date,80)||null,
+      archived:Boolean(item.archived),
+    };
+  }
+
+  function branchPayloadForStorage(payload, sport){
+    if(!['basketball','volleyball'].includes(sport)||!payload||typeof payload!=='object'||!validPayloadDate(payload.date)) return null;
+    const branchKeys=Object.keys(payload.sports||{});
+    if(branchKeys.length!==1||branchKeys[0]!==sport||!Array.isArray(payload.sports[sport])) return null;
+    const items=payload.sports[sport].slice(0,60).map((item)=>storedBranchItem(item,sport));
+    if(items.some((item)=>!item)) return null;
+    return {
+      source:boundedText(payload.source,120)||'api-sports',
+      date:String(payload.date),
+      updatedAt:boundedText(payload.updatedAt||payload.updated_at,80)||null,
+      sports:{[sport]:items},
+      coverage:{[sport]:items.length},
+    };
+  }
+
+  function normalizedNetworkBranchPayload(payload, sport, serverStale, retrySeconds){
+    const clean={...payload};
+    delete clean.browser_last_verified;
+    delete clean.lastVerifiedSavedAt;
+    delete clean.reason;
+    delete clean.retryAfterSeconds;
+    clean.sports={
+      [sport]:payload.sports[sport].slice(0,60).map((item)=>{
+        const normalized={...item};
+        delete normalized.browser_last_verified;
+        delete normalized.lastVerifiedSavedAt;
+        delete normalized.reason;
+        delete normalized.retryAfterSeconds;
+        normalized.archived=Boolean(serverStale||item?.archived);
+        return normalized;
+      }),
+    };
+    clean.stale=Boolean(serverStale);
+    clean.degraded=Boolean(serverStale);
+    clean.archived=Boolean(serverStale);
+    if(serverStale) clean.retryAfterSeconds=retryAfterSeconds(retrySeconds);
+    return clean;
+  }
+
+  function persistLastVerifiedBranch(payload, sport){
+    if(payload?.browser_last_verified) return false;
+    const storedPayload=branchPayloadForStorage(payload,sport);
+    if(!storedPayload) return false;
+    const serialized=JSON.stringify({version:1,sport,savedAt:Date.now(),payload:storedPayload});
+    return safeStorageSet(`${LAST_VERIFIED_BRANCH_PREFIX}${sport}`,serialized,LAST_VERIFIED_BRANCH_MAX_BYTES);
+  }
+
+  function readLastVerifiedBranch(sport){
+    const key=`${LAST_VERIFIED_BRANCH_PREFIX}${sport}`;
+    const raw=safeStorageGet(key);
+    if(!raw) return null;
+    if(storageByteLength(raw)>LAST_VERIFIED_BRANCH_MAX_BYTES){safeStorageRemove(key);return null;}
+    try{
+      const stored=JSON.parse(raw);
+      if(stored?.version!==1||stored?.sport!==sport||!validStoredAt(stored?.savedAt)) throw new Error('invalid_last_verified');
+      const payload=branchPayloadForStorage(stored.payload,sport);
+      if(!payload) throw new Error('invalid_last_verified_payload');
+      payload.sports[sport]=payload.sports[sport].map((item)=>({...item,feedDate:item.feedDate||payload.date,archived:true}));
+      return {
+        ...payload,
+        stale:true,
+        degraded:true,
+        archived:true,
+        browser_last_verified:true,
+        lastVerifiedSavedAt:new Date(stored.savedAt).toISOString(),
+      };
+    }catch(_error){
+      safeStorageRemove(key);
+      return null;
+    }
+  }
+
+  function storedStandingRow(row){
+    const position=boundedNumber(row?.position);
+    const teamName=boundedText(row?.team?.name,160);
+    if(!Number.isFinite(position)||!teamName) return null;
+    return {
+      position,
+      group:boundedText(row.group,160)||null,
+      team:{id:row?.team?.id==null?null:boundedText(row.team.id,80),name:teamName,logo:boundedText(imageOf(row.team),2048)||null},
+      played:boundedNumber(row.played)??0,
+      won:boundedNumber(row.won)??0,
+      lost:boundedNumber(row.lost)??0,
+      pointsFor:boundedNumber(row.pointsFor)??0,
+      pointsAgainst:boundedNumber(row.pointsAgainst)??0,
+      pointDifference:boundedNumber(row.pointDifference)??0,
+      percentage:boundedNumber(row.percentage),
+      form:boundedText(row.form,20)||null,
+    };
+  }
+
+  function standingsPayloadForStorage(payload, leagueId, season){
+    if(!payload||payload.sport!=='basketball'||String(payload.leagueId)!==String(leagueId)
+      ||String(payload.season)!==String(season)||!Array.isArray(payload.standings)) return null;
+    const standings=payload.standings.slice(0,40).map(storedStandingRow);
+    if(standings.some((row)=>!row)) return null;
+    return {
+      source:boundedText(payload.source,120)||'api-sports-basketball',
+      provider:boundedText(payload.provider,80)||'api-sports',
+      sport:'basketball',
+      leagueId:String(leagueId),
+      season:String(season),
+      updatedAt:boundedText(payload.updatedAt||payload.updated_at,80)||null,
+      standings,
+      coverage:{standings:standings.length,groups:new Set(standings.map((row)=>row.group).filter(Boolean)).size},
+    };
+  }
+
+  function standingsStorageKey(scope){
+    return `${LAST_VERIFIED_STANDINGS_PREFIX}${encodeURIComponent(scope)}`;
+  }
+
+  function updateStandingsStorageIndex(key, savedAt){
+    let entries=[];
+    try{
+      const raw=safeStorageGet(LAST_VERIFIED_STANDINGS_INDEX)||'[]';
+      if(storageByteLength(raw)>16*1024){safeStorageRemove(LAST_VERIFIED_STANDINGS_INDEX);throw new Error('standings_index_too_large');}
+      const parsed=JSON.parse(raw);
+      if(Array.isArray(parsed)) entries=parsed.filter((entry)=>entry&&typeof entry.key==='string'
+        &&entry.key.startsWith(LAST_VERIFIED_STANDINGS_PREFIX)&&entry.key!==LAST_VERIFIED_STANDINGS_INDEX&&Number.isFinite(Number(entry.savedAt)));
+    }catch(_error){}
+    entries=entries.filter((entry)=>entry.key!==key);
+    entries.push({key,savedAt});
+    entries.sort((first,second)=>Number(second.savedAt)-Number(first.savedAt));
+    const removed=entries.splice(LAST_VERIFIED_STANDINGS_MAX_SCOPES);
+    removed.forEach((entry)=>safeStorageRemove(entry.key));
+    safeStorageSet(LAST_VERIFIED_STANDINGS_INDEX,JSON.stringify(entries),16*1024);
+  }
+
+  function persistLastVerifiedStandings(payload, leagueId, season){
+    if(payload?.browser_last_verified) return false;
+    const storedPayload=standingsPayloadForStorage(payload,leagueId,season);
+    if(!storedPayload) return false;
+    const scope=`${leagueId}:${season}`;
+    const key=standingsStorageKey(scope);
+    const savedAt=Date.now();
+    const stored=safeStorageSet(key,JSON.stringify({version:1,scope,savedAt,payload:storedPayload}),LAST_VERIFIED_STANDINGS_MAX_BYTES);
+    if(stored) updateStandingsStorageIndex(key,savedAt);
+    return stored;
+  }
+
+  function readLastVerifiedStandings(leagueId, season){
+    const scope=`${leagueId}:${season}`;
+    const key=standingsStorageKey(scope);
+    const raw=safeStorageGet(key);
+    if(!raw) return null;
+    if(storageByteLength(raw)>LAST_VERIFIED_STANDINGS_MAX_BYTES){safeStorageRemove(key);return null;}
+    try{
+      const stored=JSON.parse(raw);
+      if(stored?.version!==1||stored?.scope!==scope||!validStoredAt(stored?.savedAt)) throw new Error('invalid_standings_snapshot');
+      const payload=standingsPayloadForStorage(stored.payload,leagueId,season);
+      if(!payload) throw new Error('invalid_standings_payload');
+      return {
+        ...payload,
+        stale:true,
+        degraded:true,
+        archived:true,
+        browser_last_verified:true,
+        lastVerifiedSavedAt:new Date(stored.savedAt).toISOString(),
+      };
+    }catch(_error){
+      safeStorageRemove(key);
+      return null;
+    }
+  }
 
   const sportSlug = (sport) => ({basketball:'basketbol',mma:'ufc',volleyball:'voleybol'}[sport] || 'basketbol');
   const visualFallback = (name, sport = activeSport) => {
@@ -138,8 +428,71 @@
     });
   }
 
+  function cancelBranchAutoRetries(sport = '', clearCooldown = false){
+    branchAutoRetryTimers.forEach((timer,scope)=>{
+      if(sport&&scope!==sport) return;
+      clearTimeout(timer);
+      branchAutoRetryTimers.delete(scope);
+    });
+    if(clearCooldown){
+      if(sport) branchRetryCooldowns.delete(sport);
+      else branchRetryCooldowns.clear();
+    }
+  }
+
+  function activeBranchCooldown(sport){
+    const cooldown=branchRetryCooldowns.get(sport);
+    if(!cooldown) return null;
+    if(Number(cooldown.until)>Date.now()) return cooldown;
+    branchRetryCooldowns.delete(sport);
+    return null;
+  }
+
+  function scheduleBranchAutoRetry(sport, seconds, error = null){
+    if(!['basketball','volleyball'].includes(sport)) return false;
+    const requestedDelay=retryAfterSeconds(seconds);
+    let cooldown=activeBranchCooldown(sport);
+    if(error&&retryableProviderError(error)&&!cooldown){
+      cooldown={error,until:Date.now()+requestedDelay*1000};
+      branchRetryCooldowns.set(sport,cooldown);
+    }
+    if(branchAutoRetryUsed.has(sport)||branchAutoRetryTimers.has(sport)) return false;
+    const delayMs=cooldown?Math.max(0,cooldown.until-Date.now()):requestedDelay*1000;
+    const timer=window.setTimeout(()=>{
+      branchAutoRetryTimers.delete(sport);
+      branchRetryCooldowns.delete(sport);
+      if(activeSport!==sport||!document.body.classList.contains('multisport-open')) return;
+      branchAutoRetryUsed.add(sport);
+      sharedPayloads.delete(sport);
+      payloadReceivedAt.delete(sport);
+      openHub(sport,activeView,false,activeLeagueRoute);
+    },delayMs);
+    branchAutoRetryTimers.set(sport,timer);
+    return true;
+  }
+
+  function refreshVisibleRollover(){
+    if(document.visibilityState!=='visible') return;
+    const today=multisportDate();
+    const dateChanged=Boolean(observedMultisportDate&&today&&observedMultisportDate!==today);
+    observedMultisportDate=today;
+    if(!document.body.classList.contains('multisport-open')||!['basketball','volleyball'].includes(activeSport)) return;
+    const sport=activeSport;
+    const cached=trustedCachedBranchPayload(sport);
+    const cachedDateChanged=Boolean(cached&&!cached.browser_last_verified&&today&&cached.date!==today);
+    if(!dateChanged&&!cachedDateChanged) return;
+    cancelBranchAutoRetries(sport,true);
+    feedControllers.get(sport)?.abort();
+    feedControllers.delete(sport);
+    feedPromises.delete(sport);
+    sharedPayloads.delete(sport);
+    payloadReceivedAt.delete(sport);
+    openHub(sport,activeView,false,activeLeagueRoute);
+  }
+
   function closeHub(){
     hubRequestEpoch += 1;
+    cancelBranchAutoRetries();
     pendingViewFocus='';
     pendingLeagueFocus='';
     pendingBasketballHubFocus=false;
@@ -254,10 +607,11 @@
     const first = item.first || item.home || {};
     const second = item.second || item.away || {};
     const score = scoreText(item.score);
-    return `<article class="multi-event-card sport-${activeSport}">
+    const stateLabel=item?.archived?`ARŞİV · ${item.feedDate||item.date||'SON KAYIT'}`:(item.status||'Yaklaşan');
+    return `<article class="multi-event-card sport-${activeSport}${item?.archived?' is-archived':''}">
       <header><span>${item.leagueLogo ? `<img class="multi-league-logo" src="${escapeHTML(item.leagueLogo)}" alt="">` : ''}${escapeHTML(item.league || item.category || SPORT_LABELS[activeSport])}</span><time>${escapeHTML(item.feedDate || item.date || item.time || '')}</time></header>
       <div class="multi-event-side"><span>${visual(first.name, imageOf(first))}</span><strong>${escapeHTML(first.name || 'TBA')}</strong></div>
-      <div class="multi-event-score"><b>${escapeHTML(score)}</b><small>${escapeHTML(item.status || 'Yaklasan') + (item.archived ? ' · Son gerceklesen' : '')}</small></div>
+      <div class="multi-event-score"><b>${escapeHTML(score)}</b><small>${escapeHTML(stateLabel)}</small></div>
       <div class="multi-event-side away"><strong>${escapeHTML(second.name || 'TBA')}</strong><span>${visual(second.name, imageOf(second))}</span></div>
     </article>`;
   }
@@ -266,15 +620,17 @@
     const ticker = document.getElementById('liveTicker');
     if(!ticker || !activeSport || activeSport === 'football') return;
     const labels = {basketball:'SIRADAKI BASKETBOL MACI',volleyball:'SIRADAKI VOLEYBOL MACI',mma:'SIRADAKI UFC ETKINLIGI'};
-    const next = items.find((item) => !/finished|ended|after|ft/i.test(item.status || '')) || items[0];
+    const archived=Boolean(items.length&&items.every((item)=>item?.archived));
+    const next = archived ? items[0] : items.find((item) => !/finished|ended|after|ft/i.test(item.status || '')) || items[0];
     if(!next){ ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">Program verisi bekleniyor</span>`; return; }
     const first = next.first || next.home || {};
     const second = next.second || next.away || {};
-    ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">${escapeHTML(first.name || 'TBA')} — ${escapeHTML(second.name || 'TBA')}</span><span class="ticker-time mono">${escapeHTML(next.time || next.feedDate || next.date || '')}</span>`;
+    ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${archived?'SON DOĞRULANMIŞ KAYIT':labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">${escapeHTML(first.name || 'TBA')} — ${escapeHTML(second.name || 'TBA')}</span><span class="ticker-time mono">${escapeHTML(next.feedDate || next.date || next.time || '')}</span>`;
   }
 
   const basketballStatusText = (item) => String(item?.status || '').trim().toLowerCase();
   const basketballIsLive = (item) => {
+    if(item?.archived) return false;
     const status=basketballStatusText(item);
     if(!status || /\bnot started\b|\bscheduled\b|\bpostponed\b|\bcancelled\b|\b(?:game\s+)?finished\b/.test(status)) return false;
     return /\blive\b|\bin progress\b|\bhalf(?: |-)?time\b|\bbreak time\b|\bover ?time\b|\bquarter\s*[1-4]\b|\bq[1-4]\b|\bperiod\s*\d+\b/.test(status);
@@ -300,6 +656,7 @@
         name,
         id,
         season,
+        standingsProof:item?.standingsProof||'',
         routeKey:'',
         logo:item?.leagueLogo || '',
         country:item?.country || '',
@@ -308,6 +665,7 @@
       const league = leagues.get(key);
       if(!league.id && item?.leagueId != null) league.id=String(item.leagueId);
       if(!league.season && item?.season != null) league.season=String(item.season);
+      if(!league.standingsProof && item?.standingsProof) league.standingsProof=String(item.standingsProof);
       if(!league.logo && item?.leagueLogo) league.logo=item.leagueLogo;
       if(!league.country && item?.country) league.country=item.country;
       league.events.push(item);
@@ -328,6 +686,7 @@
   }
 
   function basketballStatusLabel(item){
+    if(item?.archived) return `ARŞİV · ${item?.feedDate||item?.time||'SON KAYIT'}`;
     if(basketballIsLive(item)) return 'CANLI';
     if(basketballIsFinished(item)) return 'BİTTİ';
     return item?.time || 'YAKLAŞAN';
@@ -339,7 +698,7 @@
     return rows.map((item) => {
       const first=item.first||item.home||{},second=item.second||item.away||{};
       const live=basketballIsLive(item),finished=basketballIsFinished(item);
-      return `<article class="basketball-fixture-row ${live?'is-live':finished?'is-finished':'is-upcoming'}">
+      return `<article class="basketball-fixture-row ${item?.archived?'is-archived':live?'is-live':finished?'is-finished':'is-upcoming'}">
         <span class="basketball-fixture-state">${escapeHTML(basketballStatusLabel(item))}</span>
         <span class="basketball-fixture-team home"><strong>${escapeHTML(first.name||'TBA')}</strong>${visual(first.name,imageOf(first),'')}</span>
         <b>${escapeHTML(scoreText(item.score))}</b>
@@ -457,10 +816,10 @@
     </section>`;
   }
 
-  function basketballErrorHTML(){
+  function basketballErrorHTML(rateLimited = false, autoRetryAvailable = true){
     return `<section class="basketball-league-center">
       <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2 data-classification-title>Basketbol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
-      <div class="basketball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>Basketbol verisi şu anda alınamadı.</h3><p>Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve puan tablosu yeniden yüklenecek.</p><button type="button" data-basketball-hub-retry>Yeniden dene</button></div>
+      <div class="basketball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>${rateLimited?'Basketbol sağlayıcısı geçici kota beklemesinde.':'Basketbol verisi şu anda alınamadı.'}</h3><p>${rateLimited?(autoRetryAvailable?'Bu doğrulanmış boş sonuç değil. Sağlayıcının bildirdiği bekleme süresi dolunca bir kez otomatik yeniden denenecek.':'Otomatik deneme kullanıldı. Sağlayıcının bekleme süresi dolduktan sonra yeniden deneyebilirsiniz.'):'Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve puan tablosu yeniden yüklenecek.'}</p><button type="button" data-basketball-hub-retry>Yeniden dene</button></div>
     </section>`;
   }
 
@@ -473,15 +832,22 @@
     if(basketballStandingsPromises.has(scope)) return basketballStandingsPromises.get(scope);
     const controller=typeof AbortController!=='undefined'?new AbortController():null;
     if(controller) basketballStandingsControllers.set(scope,controller);
-    const request=fetch(`/api/sports/basketball/standings?league=${encodeURIComponent(league.id)}&season=${encodeURIComponent(league.season)}`,{
-      cache:'no-store',
-      headers:{Accept:'application/json','Cache-Control':'no-cache'},
-      signal:controller?.signal,
-    }).then(async(response)=>{
+    const endpoint=`/api/sports/basketball/standings?league=${encodeURIComponent(league.id)}&season=${encodeURIComponent(league.season)}&proof=${encodeURIComponent(league.standingsProof||'')}`;
+    const request=(async()=>{
+      let response;
+      try{
+        response=await fetch(endpoint,{headers:{Accept:'application/json'},signal:controller?.signal});
+      }catch(error){
+        if(error?.name!=='AbortError') error.networkFailure=true;
+        throw error;
+      }
       const payload=await response.json().catch(()=>({}));
       if(!response.ok){
         const error=new Error(payload?.error||'basketball_standings_unavailable');
+        error.code=payload?.error||'basketball_standings_unavailable';
         error.status=response.status;
+        error.retryable=response.status===429||response.status>=500;
+        error.retryAfterSeconds=retryAfterSeconds(response.headers.get('retry-after'));
         throw error;
       }
       if(payload?.sport!=='basketball'||String(payload?.leagueId)!==String(league.id)||String(payload?.season)!==String(league.season)||!Array.isArray(payload?.standings)){
@@ -489,7 +855,17 @@
       }
       payload.stale=response.headers.get('x-data-stale')==='true'||Boolean(payload.stale);
       basketballStandingsPayloads.set(scope,{payload,receivedAt:Date.now()});
+      persistLastVerifiedStandings(payload,league.id,league.season);
       return payload;
+    })().catch((error)=>{
+      if(!retryableProviderError(error)) throw error;
+      const fallback=readLastVerifiedStandings(league.id,league.season);
+      if(!fallback) throw error;
+      return {
+        ...fallback,
+        reason:error?.status===429?'provider_rate_limited':'provider_unavailable',
+        retryAfterSeconds:retryAfterSeconds(error?.retryAfterSeconds),
+      };
     }).finally(()=>{
       if(basketballStandingsPromises.get(scope)===request) basketballStandingsPromises.delete(scope);
       if(basketballStandingsControllers.get(scope)===controller) basketballStandingsControllers.delete(scope);
@@ -554,12 +930,13 @@
       }
       body.innerHTML='';
       status.setAttribute('role','status');
-      status.textContent=payload.stale?'Son doğrulanmış puan tablosu yükleniyor…':'Takımlar sıralamaya yerleştiriliyor…';
+      const archivedLabel=payload.browser_last_verified?'Tarayıcıda saklanan son doğrulanmış puan tablosu':'Son doğrulanmış puan tablosu';
+      status.textContent=payload.stale?`${archivedLabel} yükleniyor…`:'Takımlar sıralamaya yerleştiriliyor…';
       const reduced=Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
       if(reduced){
         body.innerHTML=rows.map(basketballStandingRowHTML).join('');
         table.setAttribute('aria-busy','false');
-        status.textContent=`${rows.length} takım · ${payload.stale?'Son doğrulanmış tablo':'API-Sports resmî sıralaması'}`;
+        status.textContent=`${rows.length} takım · ${payload.stale?archivedLabel:'API-Sports resmî sıralaması'}`;
         return;
       }
       let index=0;
@@ -569,7 +946,7 @@
         index+=1;
         if(index<rows.length){ setTimeout(appendNext,55); return; }
         table.setAttribute('aria-busy','false');
-        status.textContent=`${rows.length} takım · ${payload.stale?'Son doğrulanmış tablo':'API-Sports resmî sıralaması'}`;
+        status.textContent=`${rows.length} takım · ${payload.stale?archivedLabel:'API-Sports resmî sıralaması'}`;
       };
       appendNext();
     }catch(error){
@@ -583,6 +960,7 @@
 
   const volleyballStatusText = (item) => String(item?.status || '').trim().toLowerCase();
   const volleyballIsLive = (item) => {
+    if(item?.archived) return false;
     const status=volleyballStatusText(item);
     if(!status || /\bnot started\b|\bscheduled\b|\bpostponed\b|\bcancell?ed\b|\bfinished\b|\bended\b/.test(status)) return false;
     return /\blive\b|\bin progress\b|\bin play\b|\bset\s*[1-5]\b|\b(?:1st|2nd|3rd|4th|5th) set\b|\bperiod\s*\d+\b|\bbreak time\b|\bhalf(?: |-)?time\b/.test(status);
@@ -636,6 +1014,7 @@
   }
 
   function volleyballStatusLabel(item){
+    if(item?.archived) return `ARŞİV · ${item?.feedDate||item?.time||'SON KAYIT'}`;
     const status=volleyballStatusText(item);
     if(volleyballIsLive(item)) return 'CANLI';
     if(volleyballIsFinished(item)) return 'BİTTİ';
@@ -660,7 +1039,7 @@
     return `<div class="volleyball-fixture-list" role="list">${rows.map((item)=>{
       const first=item.first||item.home||{},second=item.second||item.away||{};
       const live=volleyballIsLive(item),finished=volleyballIsFinished(item);
-      return `<article class="volleyball-fixture-row ${live?'is-live':finished?'is-finished':'is-upcoming'}" role="listitem">
+      return `<article class="volleyball-fixture-row ${item?.archived?'is-archived':live?'is-live':finished?'is-finished':'is-upcoming'}" role="listitem">
         <span class="volleyball-fixture-state">${escapeHTML(volleyballStatusLabel(item))}</span>
         <span class="volleyball-fixture-team home"><strong>${escapeHTML(first.name||'TBA')}</strong>${visual(first.name,imageOf(first),'')}</span>
         <b>${escapeHTML(scoreText(item.score))}</b>
@@ -758,10 +1137,10 @@
     </section>`;
   }
 
-  function volleyballErrorHTML(){
+  function volleyballErrorHTML(rateLimited = false, autoRetryAvailable = true){
     return `<section class="volleyball-league-center">
       <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2 data-classification-title>Voleybol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
-      <div class="volleyball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>Voleybol verisi şu anda alınamadı.</h3><p>Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve takım kapsamı yeniden yüklenecek.</p><button type="button" data-volleyball-hub-retry>Yeniden dene</button></div>
+      <div class="volleyball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>${rateLimited?'Voleybol sağlayıcısı geçici kota beklemesinde.':'Voleybol verisi şu anda alınamadı.'}</h3><p>${rateLimited?(autoRetryAvailable?'Bu doğrulanmış boş sonuç değil. Sağlayıcının bildirdiği bekleme süresi dolunca bir kez otomatik yeniden denenecek.':'Otomatik deneme kullanıldı. Sağlayıcının bekleme süresi dolduktan sonra yeniden deneyebilirsiniz.'):'Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve takım kapsamı yeniden yüklenecek.'}</p><button type="button" data-volleyball-hub-retry>Yeniden dene</button></div>
     </section>`;
   }
 
@@ -783,8 +1162,10 @@
     updateBranchTicker(allItems);
     hub.dataset.sport = activeSport;
     grid.dataset.sport = activeSport;
-    updateBranchIdentity(activeSport, payload?.degraded||payload?.stale
-      ? 'Son doğrulanmış program · API-Sports'
+    updateBranchIdentity(activeSport, payload?.browser_last_verified
+      ? `Tarayıcıdaki son doğrulanmış program · ${payload.date} · güncel veri değil`
+      : payload?.degraded||payload?.stale
+        ? 'Son doğrulanmış program · API-Sports'
       : `${payload?.date || ''} programı · API-Sports verisi`);
     const viewNav = document.getElementById('multiSportViews');
     const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma&#231;lar'],['leagues','Organizasyonlar'],['teams','Dovusculer'],['predict','Predict']] : [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']];
@@ -897,8 +1278,9 @@
         groups.get(name).push(item);
       });
       grid.innerHTML = groups.size ? [...groups.entries()].map(([name, events]) => {
-        const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || '')).length;
-        return '<article class="multi-league-card"><span>LIG / ORGANIZASYON</span><h3>'+escapeHTML(name)+'</h3><div><b>'+events.length+'</b><small>gunluk etkinlik</small></div><em class="'+(live ? 'is-live' : '')+'">'+(live ? live+' canli' : 'program aktif')+'</em></article>';
+        const live = events.filter((item) => !item?.archived&&/live|quarter|period|halftime|in progress/i.test(item.status || '')).length;
+        const archivedOnly=events.length>0&&events.every((item)=>item?.archived);
+        return '<article class="multi-league-card"><span>LIG / ORGANIZASYON</span><h3>'+escapeHTML(name)+'</h3><div><b>'+events.length+'</b><small>'+(archivedOnly?'arşiv kaydı':'günlük etkinlik')+'</small></div><em class="'+(live ? 'is-live' : '')+'">'+(live ? live+' canlı' : archivedOnly?'son doğrulanmış kayıt':'program aktif')+'</em></article>';
       }).join('') : compactEmptyHTML('Doğrulanmış lig programı bulunmuyor.','Sağlayıcı bugün için bu branşta organizasyon programı döndürmedi.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
       return;
     }    if(activeView === 'teams'){
@@ -908,7 +1290,9 @@
       return;
     }
     if(activeView === 'predict'){
-      grid.innerHTML = items.length ? items.slice(0,10).map(predictCardHTML).join('') : compactEmptyHTML('Bugün tahmine açık etkinlik yok.','Bu doğrulanmış boş bir sonuçtur; yeni program geldiğinde tahmin kartları açılır.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
+      const predictableItems=items.filter((item)=>!item?.archived);
+      const archivedOnly=items.length>0&&predictableItems.length===0&&items.every((item)=>item?.archived);
+      grid.innerHTML = predictableItems.length ? predictableItems.slice(0,10).map(predictCardHTML).join('') : compactEmptyHTML(archivedOnly?'Son doğrulanmış arşiv tahmine açılmaz.':'Bugün tahmine açık etkinlik yok.',archivedOnly?'Güncel sağlayıcı bağlantısı kurulunca yeni programdaki karşılaşmalar tahmine açılır.':'Bu doğrulanmış boş bir sonuçtur; yeni program geldiğinde tahmin kartları açılır.',payload,activeLeague==='all'?'Tüm ligler':activeLeague);
       grid.querySelectorAll('[data-predict-key] button').forEach((button) => button.addEventListener('click', () => {
         const card = button.closest('[data-predict-key]');
         try{ localStorage.setItem(card.dataset.predictKey, button.dataset.pick); }catch(_error){}
@@ -921,33 +1305,67 @@
 
   async function load(sport){
     const requestedSport=sport || activeSport;
-    const cached=sharedPayloads.get(requestedSport);
+    const cached=trustedCachedBranchPayload(requestedSport);
     const receivedAt=payloadReceivedAt.get(requestedSport)||0;
-    let today='';
-    try{ today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(_error){}
-    if(cached&&Date.now()-receivedAt<MULTISPORT_PAYLOAD_TTL_MS&&(!today||cached.date===today)){
+    const today=multisportDate();
+    if(cached&&(cached.browser_last_verified||(Date.now()-receivedAt<MULTISPORT_PAYLOAD_TTL_MS&&cached.date===today))){
       if(typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:multisport-payload',{detail:{sport:requestedSport,payload:cached}}));
       return cached;
     }
     if(cached){ sharedPayloads.delete(requestedSport); payloadReceivedAt.delete(requestedSport); }
+    const cooldown=activeBranchCooldown(requestedSport);
+    if(cooldown) throw cooldown.error;
     if(!feedPromises.has(requestedSport)){
       const controller=typeof AbortController!=='undefined'?new AbortController():null;
       if(controller) feedControllers.set(requestedSport,controller);
-      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v11`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' }, signal:controller?.signal })
-        .then(async (response) => {
+      const request = (async()=>{
+        let response;
+        try{
+          const dateNamespace=`&date=${encodeURIComponent(today)}`;
+          response=await fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v11${dateNamespace}`, { headers:{Accept:'application/json'}, signal:controller?.signal });
+        }catch(error){
+          if(error?.name!=='AbortError') error.networkFailure=true;
+          throw error;
+        }
           const payload = await response.json().catch(() => ({}));
           if(!response.ok){
             const error=new Error(payload.error || 'sports_unavailable');
             error.status=response.status;
+            error.retryable=response.status===429||response.status>=500;
+            error.retryAfterSeconds=retryAfterSeconds(response.headers.get('retry-after'));
             throw error;
           }
-          const branchKeys=Object.keys(payload?.sports||{});
-          if(branchKeys.length!==1 || branchKeys[0]!==requestedSport) throw new Error('sports_branch_mismatch');
-          payload.sports[requestedSport]=(Array.isArray(payload.sports[requestedSport])?payload.sports[requestedSport]:[])
-            .filter((item)=>!item?.sport || item.sport===requestedSport);
-          payload.stale=response.headers.get('x-data-stale')==='true'||Boolean(payload.stale);
-          sharedPayloads.set(requestedSport,payload);
-          payloadReceivedAt.set(requestedSport,Date.now());
+          if(!branchPayloadForStorage(payload,requestedSport)) throw new Error('sports_branch_mismatch');
+          const responseToday=multisportDate();
+          if(payload.date!==responseToday){
+            const error=new Error('sports_payload_date_mismatch');
+            error.code='sports_payload_date_mismatch';
+            error.status=502;
+            error.retryable=true;
+            error.retryAfterSeconds=retryAfterSeconds(response.headers.get('retry-after'));
+            throw error;
+          }
+          const serverStale=response.headers.get('x-data-stale')==='true'||payload.stale===true||payload.degraded===true;
+          const normalizedPayload=normalizedNetworkBranchPayload(payload,requestedSport,serverStale,response.headers.get('retry-after'));
+          branchRetryCooldowns.delete(requestedSport);
+          if(!serverStale){
+            cancelBranchAutoRetries(requestedSport,true);
+            branchAutoRetryUsed.delete(requestedSport);
+          }
+          cacheTrustedBranchPayload(requestedSport,normalizedPayload);
+          persistLastVerifiedBranch(normalizedPayload,requestedSport);
+          if(typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:multisport-payload',{detail:{sport:requestedSport,payload:normalizedPayload}}));
+          return normalizedPayload;
+        })().catch((error)=>{
+          if(!retryableProviderError(error)) throw error;
+          const fallback=readLastVerifiedBranch(requestedSport);
+          if(!fallback) throw error;
+          const payload={
+            ...fallback,
+            reason:error?.status===429?'provider_rate_limited':'provider_unavailable',
+            retryAfterSeconds:retryAfterSeconds(error?.retryAfterSeconds),
+          };
+          cacheTrustedBranchPayload(requestedSport,payload);
           if(typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:multisport-payload',{detail:{sport:requestedSport,payload}}));
           return payload;
         }).finally(()=>{
@@ -966,6 +1384,7 @@
     }
     const sportChanged=Boolean(sport&&sport!==activeSport);
     if(sportChanged){
+      cancelBranchAutoRetries();
       activeLeague='all';
       activeLeagueRoute='';
       pendingLeagueFocus='';
@@ -1005,9 +1424,9 @@
     if(hub.dataset) hub.dataset.sport = requestedSport;
     if(grid.dataset) grid.dataset.sport = requestedSport;
     updateBranchIdentity(requestedSport, 'Günün programı hazırlanıyor');
-    const cachedPayload=sharedPayloads.get(requestedSport);
+    const cachedPayload=trustedCachedBranchPayload(requestedSport);
     const cachedAt=payloadReceivedAt.get(requestedSport)||0;
-    const warm=Boolean(cachedPayload&&Date.now()-cachedAt<MULTISPORT_PAYLOAD_TTL_MS);
+    const warm=Boolean(cachedPayload&&(cachedPayload.browser_last_verified||Date.now()-cachedAt<MULTISPORT_PAYLOAD_TTL_MS));
     grid.setAttribute('aria-busy','true');
     if(!warm) grid.innerHTML = requestedSport==='basketball'&&requestedView==='home'
       ? basketballLoadingHTML()
@@ -1019,15 +1438,26 @@
       const payload = await load(requestedSport);
       if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
       render(payload);
+      if(payload?.browser_last_verified||payload?.stale||payload?.degraded){
+        scheduleBranchAutoRetry(requestedSport,payload.retryAfterSeconds);
+      }
     }
-    catch(_error){
+    catch(error){
       if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
       const branchLabel = SPORT_LABELS[requestedSport] || 'Spor';
-      updateBranchIdentity(requestedSport, 'Veri bağlantısı yeniden denenecek');
+      const rateLimited=error?.status===429;
+      const autoRetryAvailable=!branchAutoRetryUsed.has(requestedSport);
+      updateBranchIdentity(requestedSport, rateLimited?(autoRetryAvailable?'Sağlayıcı kotası bekleniyor · otomatik olarak bir kez yeniden denenecek':'Sağlayıcı kotası bekleniyor · otomatik deneme kullanıldı'):'Veri bağlantısı yeniden denenecek');
       grid.setAttribute('aria-busy','false');
       if(requestedSport==='basketball'&&requestedView==='home'){
-        grid.innerHTML=basketballErrorHTML();
-        grid.querySelector('[data-basketball-hub-retry]')?.addEventListener('click',()=>{
+        grid.innerHTML=basketballErrorHTML(rateLimited,autoRetryAvailable);
+        grid.querySelector('[data-basketball-hub-retry]')?.addEventListener('click',(event)=>{
+          if(activeBranchCooldown(requestedSport)||branchAutoRetryTimers.has(requestedSport)){
+            event.currentTarget.textContent='Bekleme süresi dolunca yeniden denenecek';
+            updateBranchIdentity(requestedSport,'Sağlayıcının Retry-After süresi korunuyor');
+            return;
+          }
+          cancelBranchAutoRetries(requestedSport,true);
           pendingBasketballHubFocus=true;
           sharedPayloads.delete(requestedSport);
           payloadReceivedAt.delete(requestedSport);
@@ -1038,8 +1468,14 @@
           pendingBasketballHubFocus=false;
         }
       }else if(requestedSport==='volleyball'&&requestedView==='home'){
-        grid.innerHTML=volleyballErrorHTML();
-        grid.querySelector('[data-volleyball-hub-retry]')?.addEventListener('click',()=>{
+        grid.innerHTML=volleyballErrorHTML(rateLimited,autoRetryAvailable);
+        grid.querySelector('[data-volleyball-hub-retry]')?.addEventListener('click',(event)=>{
+          if(activeBranchCooldown(requestedSport)||branchAutoRetryTimers.has(requestedSport)){
+            event.currentTarget.textContent='Bekleme süresi dolunca yeniden denenecek';
+            updateBranchIdentity(requestedSport,'Sağlayıcının Retry-After süresi korunuyor');
+            return;
+          }
+          cancelBranchAutoRetries(requestedSport,true);
           pendingVolleyballHubFocus=true;
           sharedPayloads.delete(requestedSport);
           payloadReceivedAt.delete(requestedSport);
@@ -1050,8 +1486,9 @@
           pendingVolleyballHubFocus=false;
         }
       }else{
-        grid.innerHTML = compactEmptyHTML(`${branchLabel} verisi şu anda alınamadı.`,'Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Bağlantı düzeldiğinde program otomatik yenilenir.',null,branchLabel);
+        grid.innerHTML = compactEmptyHTML(rateLimited?`${branchLabel} sağlayıcısı geçici kota beklemesinde.`:`${branchLabel} verisi şu anda alınamadı.`,rateLimited?(autoRetryAvailable?'Bu doğrulanmış boş sonuç değildir. Sağlayıcının bekleme süresi dolunca yalnız bir otomatik deneme yapılır.':'Otomatik deneme kullanıldı; bekleme süresi dolduktan sonra yeniden deneyebilirsiniz.'):'Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Bağlantı düzeldiğinde program yeniden denenir.',null,branchLabel);
       }
+      if(retryableProviderError(error)) scheduleBranchAutoRetry(requestedSport,error?.retryAfterSeconds,error);
     }
     window.scrollTo({top:0,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   }
@@ -1062,6 +1499,7 @@
     const primary = document.querySelector('.primary-nav');
     const wrap = document.querySelector('.wrap');
     if(!primary || !wrap || document.getElementById('multiSportHub')) return;
+    observedMultisportDate=multisportDate();
     const buttons = [
       ['basketball','Basketbol'],
       ['mma','UFC'],
@@ -1104,6 +1542,7 @@
     const initial = routeState();
     if(initial) openHub(initial.sport,initial.view,false,initial.leagueRoute);
     window.addEventListener('popstate', () => { const state=routeState(); if(state) openHub(state.sport,state.view,false,state.leagueRoute); else closeHub(); });
+    document.addEventListener('visibilitychange',refreshVisibleRollover);
 
     // Route-aware router entegrasyonu: basketbol ve voleybol yüzeyleri belge
     // yenilenmeden mount/unmount edilebilir. Router geçişte önce abort hook'u
@@ -1111,6 +1550,7 @@
     if(window.XYZBranchRouter){
       window.XYZBranchRouter.registerAbortHook(() => {
         hubRequestEpoch += 1;
+        cancelBranchAutoRetries();
         pendingViewFocus='';
         pendingLeagueFocus='';
         pendingBasketballHubFocus=false;
@@ -1136,6 +1576,7 @@
         },
         unmount:()=>{
           hubRequestEpoch += 1;
+          cancelBranchAutoRetries();
           pendingViewFocus='';
           pendingLeagueFocus='';
           pendingBasketballHubFocus=false;

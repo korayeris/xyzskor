@@ -566,7 +566,14 @@ async function main() {
       })) });
     };
     const discovery = await worker.fetch(new Request('http://localhost/api/sports/today?sport=basketball'), quotaEnv, ctx);
+    const discoveryPayload = await discovery.clone().json();
+    const discoveredItems = discoveryPayload?.sports?.basketball || [];
+    const standingsProof = discoveredItems.find((item) => String(item?.leagueId) === '12' && item?.season === '2026-2027')?.standingsProof;
     ok(discovery.status === 200, 'standings scope once bugunun dogrulanmis basketbol feedinden kesfedilir', `status=${discovery.status}`);
+    ok(discoveredItems.length === 3 && discoveredItems.every((item) => /^bsp1\.\d{4}-\d{2}-\d{2}\.\d{1,10}\.\d{4}(?:-\d{4})?\.[A-Za-z0-9_-]{43}$/.test(item?.standingsProof || '')),
+      'today yaniti her gercek basketbol lig+sezon scopeunu surumlu standings proof ile tasir', JSON.stringify(discoveredItems));
+    ok(!JSON.stringify(discoveryPayload).includes(quotaEnv.API_SPORTS_KEY) && !String(standingsProof || '').includes(quotaEnv.API_SPORTS_KEY),
+      'HMAC proof API-Sports secretini acik veya payload icinde sizdirmaz');
 
     let upstreamCalls = 0;
     SCENARIO = async (u) => {
@@ -587,6 +594,52 @@ async function main() {
     ok(payload.standings.every((row) => Math.abs(Number(row.percentage) - 0.6667) < 0.0001), '66.67, 66.67% ve 0.6667 ayni 0..1 yuzde birimine normalize edilir', payload.standings.map((row) => row.percentage).join(','));
     ok(payload.standings[0]?.pointDifference === 30 && upstreamCalls === 1, 'puan farki hesaplanir ve tek scope tek upstream kullanir', `difference=${payload.standings[0]?.pointDifference} calls=${upstreamCalls}`);
     ok(payload.standings.map((row)=>row.team.name).join(',') === 'A1,A2,B1,B2', 'coklu grup bloklari global pozisyon siralamasiyla ic ice gecmez', payload.standings.map((row)=>row.team.name).join(','));
+
+    const isolatedWorker = (await import(`../worker/index.js?basketball-proof-isolate=${Date.now()}`)).default;
+    let proofUpstreamCalls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname !== 'v1.basketball.api-sports.io' || u.pathname !== '/standings') throw new Error('unexpected_cross_isolate_proof_path:' + u.toString());
+      proofUpstreamCalls += 1;
+      return json({ errors:{}, response:[] });
+    };
+    const proofResponse = await isolatedWorker.fetch(new Request(`http://localhost/api/sports/basketball/standings?league=12&season=2026-2027&proof=${encodeURIComponent(standingsProof)}`), quotaEnv, ctx);
+    ok(proofResponse.status === 200 && proofUpstreamCalls === 1,
+      'gecerli proof bos discovery ile yeni isolate icinde dogrudan standings providerina gecer', `status=${proofResponse.status} calls=${proofUpstreamCalls}`);
+
+    const proofParts = String(standingsProof || '').split('.');
+    const signature = proofParts.at(-1) || '';
+    const tamperedProof = [...proofParts.slice(0, -1), `${signature[0] === 'A' ? 'B' : 'A'}${signature.slice(1)}`].join('.');
+    const rejectedProofCases = [
+      ['yanlis lig', `league=112&season=2026-2027&proof=${encodeURIComponent(standingsProof)}`],
+      ['yanlis sezon', `league=12&season=2025-2026&proof=${encodeURIComponent(standingsProof)}`],
+      ['degistirilmis imza', `league=12&season=2026-2027&proof=${encodeURIComponent(tamperedProof)}`],
+      ['yanlis surum', `league=12&season=2026-2027&proof=${encodeURIComponent(String(standingsProof || '').replace(/^bsp1\./, 'bsp2.'))}`],
+      ['bozuk token', 'league=12&season=2026-2027&proof=not-a-proof'],
+    ];
+    let rejectedProofUpstreamCalls = 0;
+    SCENARIO = async () => {
+      rejectedProofUpstreamCalls += 1;
+      return json({ errors:{}, response:[] });
+    };
+    for (const [label, query] of rejectedProofCases) {
+      const rejected = await isolatedWorker.fetch(new Request(`http://localhost/api/sports/basketball/standings?${query}`), quotaEnv, ctx);
+      const rejectedPayload = await rejected.json();
+      ok(rejected.status === 409 && rejectedPayload?.error === 'basketball_standings_scope_not_discovered',
+        `${label} proof discovery bosken fail-closed reddedilir`, `status=${rejected.status} body=${JSON.stringify(rejectedPayload)}`);
+    }
+    const wrongSecret = await isolatedWorker.fetch(
+      new Request(`http://localhost/api/sports/basketball/standings?league=12&season=2026-2027&proof=${encodeURIComponent(standingsProof)}`),
+      { ...quotaEnv, API_SPORTS_KEY:'different-api-sports-secret' },
+      ctx,
+    );
+    ok(wrongSecret.status === 409, 'proof yalniz onu ureten API-Sports secret anahtariyla dogrulanir', `status=${wrongSecret.status}`);
+    ok(rejectedProofUpstreamCalls === 0, 'yanlis/tahrif edilmis proof standings provider kotasi harcamaz', `fetches=${rejectedProofUpstreamCalls}`);
+
+    SCENARIO = async () => { throw new Error('health_proof_test_should_not_fetch'); };
+    const health = await isolatedWorker.fetch(new Request('http://localhost/api/health'), quotaEnv, ctx);
+    const healthText = await health.text();
+    ok(health.status === 200 && !healthText.includes(quotaEnv.API_SPORTS_KEY) && !healthText.includes(String(standingsProof || '')),
+      'API-Sports secret ve standings proof health yanitina sizmaz', healthText.slice(0, 200));
 
     let undiscoveredFetches = 0;
     SCENARIO = async () => { undiscoveredFetches += 1; return json({ errors:{}, response:[] }); };

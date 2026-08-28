@@ -29,7 +29,9 @@
       hub.querySelector(".multisport-switcher")?.before(metrics);
     }
     const events = (payload?.sports?.[sport] || []).filter((item) => !item?.sport || item.sport === sport);
-    const live = events.filter((item) => /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
+    // Arşiv/son doğrulanmış kayıtlar eski sağlayıcı durumunu koruyabilir; bu
+    // kayıtları güncel canlı karşılaşma gibi saymak kullanıcıyı yanıltır.
+    const live = events.filter((item) => !item?.archived && /live|quarter|period|halftime|in progress/i.test(item.status || "")).length;
     const ended = events.filter((item) => /finished|after|ended|ft/i.test(item.status || "")).length;
     const leagues = new Set(events.map((item) => item.league || item.category).filter(Boolean)).size;
     metrics.innerHTML = `<span><b>${events.length}</b><small>Gunluk etkinlik</small></span><span class="is-live"><b>${live}</b><small>Canli</small></span><span><b>${ended}</b><small>Tamamlanan</small></span><span><b>${leagues}</b><small>Lig / organizasyon</small></span>`;

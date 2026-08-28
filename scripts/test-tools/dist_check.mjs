@@ -179,8 +179,11 @@ function matchdayPayload(url) {
 
 function basketballTodayPayload() {
   const now = Date.now();
+  const istanbulDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(now));
   return {
-    source: 'mock', date: new Date(now).toISOString().slice(0, 10), updatedAt: new Date(now).toISOString(),
+    source: 'mock', date: istanbulDate, updatedAt: new Date(now).toISOString(),
     sports: { basketball: [
       {
         id: 'basket-12-01', sport: 'basketball', league: 'Basketbol Süper Ligi', leagueId: 12,

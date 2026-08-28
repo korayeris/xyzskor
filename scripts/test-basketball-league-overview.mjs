@@ -25,10 +25,11 @@ async function waitForServer(){
   throw new Error(`Test sunucusu başlamadı. ${serverError}`);
 }
 
+const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const todayPayload={
   source:'mock',
-  date:'2026-08-28',
-  updatedAt:'2026-08-28T09:00:00.000Z',
+  date:today,
+  updatedAt:`${today}T09:00:00.000Z`,
   sports:{basketball:[
     {id:'bsl-1',sport:'basketball',league:'Basketbol Süper Ligi',leagueId:12,season:'2026-2027',country:'Türkiye',status:'Not Started',time:'20:30',timestamp:1787949000,first:{name:'Anadolu Efes'},second:{name:'Fenerbahçe Beko'}},
     {id:'euro-1',sport:'basketball',league:'EuroLeague',leagueId:99,season:'2026-2027',country:'Avrupa',status:'Quarter 1',score:'61 - 58',time:'CANLI',timestamp:1787940000,first:{name:'Olympiacos'},second:{name:'Real Madrid'}},
@@ -43,7 +44,7 @@ const teamNames=['Anadolu Efes','Fenerbahçe Beko','Beşiktaş','Türk Telekom',
 function standingsPayload(leagueId,season,names=teamNames){
   return {
     source:'api-sports-basketball',provider:'api-sports',sport:'basketball',leagueId,season,
-    updatedAt:'2026-08-28T09:01:00.000Z',
+    updatedAt:`${today}T09:01:00.000Z`,
     standings:names.map((name,index)=>({
       position:index+1,group:'Normal Sezon',team:{id:index+1,name},played:8,won:8-index,lost:index,
       pointsFor:720-index*9,pointsAgainst:610+index*8,pointDifference:110-index*17,percentage:(8-index)/8,form:'WWLWW',
@@ -200,7 +201,9 @@ try{
     if(url.pathname==='/api/sports/today'){
       todayAttempts+=1;
       if(todayAttempts===1){
-        await route.fulfill({status:503,contentType:'application/json; charset=utf-8',body:JSON.stringify({error:'api_sports_upstream_unavailable'})});
+        // Retry-After/cooldown davranışı recovery paketinde ayrı sınanır. Bu
+        // senaryo yalnız manuel retry sonrası odak restorasyonunu doğrular.
+        await route.fulfill({status:400,contentType:'application/json; charset=utf-8',body:JSON.stringify({error:'temporary_test_error'})});
       }else{
         await route.fulfill({status:200,contentType:'application/json; charset=utf-8',body:JSON.stringify(todayPayload)});
       }

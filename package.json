@@ -40,6 +40,7 @@
     "qa:a11y": "node scripts/test-branch-fallback-auth-a11y.mjs",
     "qa:focus": "node scripts/test-mini-goal-focus.mjs",
     "qa:style-gate": "node scripts/test-branch-style-gate.mjs",
+    "qa:multisport-recovery": "node scripts/test-multisport-last-verified.mjs",
     "qa:basketball": "node scripts/test-basketball-league-overview.mjs",
     "qa:volleyball": "node scripts/test-volleyball-center.mjs",
     "qa:ufc-center": "node scripts/test-ufc-center.mjs",

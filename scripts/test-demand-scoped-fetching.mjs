@@ -278,6 +278,7 @@ console.log('\n=== Multisport SPA switch abort ===');
 {
   const pending = [];
   const renders = [];
+  const multisportDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const elements = {
     multiSportHub: { hidden: true },
     multiSportGrid: { innerHTML: '', setAttribute() {} },
@@ -291,11 +292,12 @@ console.log('\n=== Multisport SPA switch abort ===');
     DOMException,
     CustomEvent: class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
     URL,
+    TextEncoder,
     encodeURIComponent,
     console,
     location: { pathname: '/basketbol/', assign() {} },
     history: { pushState() {} },
-    localStorage: { setItem() {} },
+    localStorage: { getItem:() => null, setItem() {}, removeItem() {} },
     document: {
       body: { classList: { add() {}, remove() {} } },
       getElementById: (id) => elements[id] || null,
@@ -331,16 +333,16 @@ console.log('\n=== Multisport SPA switch abort ===');
   check(() => assert.deepEqual(
     pending.map((item) => item.url),
     [
-      '/api/sports/today?sport=basketball&client=v11',
-      '/api/sports/today?sport=volleyball&client=v11',
+      `/api/sports/today?sport=basketball&client=v11&date=${multisportDate}`,
+      `/api/sports/today?sport=volleyball&client=v11&date=${multisportDate}`,
     ],
   ), 'Basketbol-volleyball gecisi yalniz iki gorunur scope istegi baslatmali.');
   check(() => assert.ok(pending[0].init.signal instanceof AbortSignal), 'Multisport istegi iptal edilebilir bir signal tasimali.');
   check(() => assert.equal(pending[0].init.signal?.aborted, true), 'Volleyball secilince pending basketbol istegi iptal edilmeli.');
 
-  pending[1].resolve(response({ sports: { volleyball: [{ id: 'v1', sport: 'volleyball' }] } }));
+  pending[1].resolve(response({ source:'mock',date:multisportDate,updatedAt:new Date().toISOString(),sports: { volleyball: [{ id: 'v1', sport: 'volleyball' }] } }));
   if (!pending[0].init.signal?.aborted) {
-    pending[0].resolve(response({ sports: { basketball: [{ id: 'b1', sport: 'basketball' }] } }));
+    pending[0].resolve(response({ source:'mock',date:multisportDate,updatedAt:new Date().toISOString(),sports: { basketball: [{ id: 'b1', sport: 'basketball' }] } }));
   }
   await Promise.allSettled([basketball, volleyball]);
   check(() => assert.deepEqual(renders.map((payload) => Object.keys(payload.sports)[0]), ['volleyball']), 'Eski basketbol cevabi volleyball DOMuna uygulanmamali.');

@@ -95,6 +95,8 @@ const DEMAND_PROVIDER_LOCK_SECONDS = 15;
 const MULTISPORT_SHARED_TTL_SECONDS = 900;
 const MULTISPORT_SHARED_STALE_SECONDS = 21600;
 const BASKETBALL_SCOPE_MEMORY_TTL_MS = MULTISPORT_SHARED_STALE_SECONDS * 1000;
+const BASKETBALL_STANDINGS_PROOF_VERSION = "bsp1";
+const BASKETBALL_STANDINGS_PROOF_DOMAIN = "xyzskor:basketball-standings-scope";
 const FOOTBALL_LEADERS_TTL_SECONDS = 2700;
 const FOOTBALL_LEADERS_STALE_SECONDS = 86400;
 const FOOTBALL_WEEKLY_TTL_SECONDS = 21600;
@@ -4275,13 +4277,16 @@ async function fetchMultisportTodayProviderResponse(request, env, context, deman
       .map((item) => ({ ...item, sport, provider: item?.provider || "api-sports" }))
       .filter((item) => item.sport === sport)
   ]);
-  const payload = {
+  const unsignedPayload = {
     source: env.CITO_API_KEY ? "api-sports-and-citoapi" : "api-sports-free",
     date,
     updatedAt: new Date().toISOString(),
     sports: Object.fromEntries(isolatedEntries),
     coverage: Object.fromEntries(isolatedEntries.map(([sport, items]) => [sport, items.length]))
   };
+  const payload = requestedSport === "basketball"
+    ? await withBasketballStandingProofs(unsignedPayload, env)
+    : unsignedPayload;
   const response = jsonResponse(payload, 200, {
     "Cache-Control":fallbackMeta ? "no-store" : "public, max-age=0, s-maxage=900, stale-while-revalidate=21600",
     "X-Data-Stale":fallbackMeta ? "true" : "false",
@@ -4304,6 +4309,142 @@ function validSharedMultisportPayload(payload, sport, date) {
     && Array.isArray(items)
     && items.every((item) => item?.sport === sport)
   );
+}
+
+function validBasketballStandingProofScope(leagueId, season) {
+  return /^\d{1,10}$/.test(String(leagueId || ""))
+    && /^\d{4}(?:-\d{4})?$/.test(String(season || ""));
+}
+
+function basketballStandingProofMessage(date, leagueId, season) {
+  return [
+    BASKETBALL_STANDINGS_PROOF_DOMAIN,
+    BASKETBALL_STANDINGS_PROOF_VERSION,
+    date,
+    leagueId,
+    season,
+  ].join("\n");
+}
+
+function basketballStandingProofBase64Url(bytes) {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function decodeBasketballStandingProofSignature(value) {
+  // SHA-256 HMAC her zaman 32 bayt / 43 canonical base64url karakteridir.
+  // Canonical yeniden kodlama, son karakterin kullanilmayan padding bitleriyle
+  // ayni imzaya birden fazla metinsel token verilmesini de reddeder.
+  if (!/^[A-Za-z0-9_-]{43}$/.test(value)) return null;
+  try {
+    const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=";
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    if (bytes.length !== 32 || basketballStandingProofBase64Url(bytes) !== value) return null;
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+async function basketballStandingProofCryptoKey(env, usages) {
+  const secret = String(env?.API_SPORTS_KEY || "");
+  if (!secret || !globalThis.crypto?.subtle) return null;
+  try {
+    return await globalThis.crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name:"HMAC", hash:"SHA-256" },
+      false,
+      usages,
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function signBasketballStandingScope(key, date, leagueId, season) {
+  const message = new TextEncoder().encode(basketballStandingProofMessage(date, leagueId, season));
+  const signature = new Uint8Array(await globalThis.crypto.subtle.sign("HMAC", key, message));
+  return `${BASKETBALL_STANDINGS_PROOF_VERSION}.${date}.${leagueId}.${season}.${basketballStandingProofBase64Url(signature)}`;
+}
+
+async function withBasketballStandingProofs(payload, env) {
+  const items = payload?.sports?.basketball;
+  const date = String(payload?.date || "");
+  if (!Array.isArray(items) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return payload;
+  const key = await basketballStandingProofCryptoKey(env, ["sign"]);
+  if (!key) return payload;
+
+  const proofPromises = new Map();
+  let changed = false;
+  let decoratedItems;
+  try {
+    decoratedItems = await Promise.all(items.map(async (item) => {
+      if (!item || typeof item !== "object") return item;
+      const leagueId = String(item.leagueId || "");
+      const season = String(item.season || "");
+      if (!validBasketballStandingProofScope(leagueId, season)) {
+        if (!Object.hasOwn(item, "standingsProof")) return item;
+        const { standingsProof: _discardedProof, ...safeItem } = item;
+        changed = true;
+        return safeItem;
+      }
+      const scope = basketballStandingScopeKey(leagueId, season);
+      if (!proofPromises.has(scope)) {
+        proofPromises.set(scope, signBasketballStandingScope(key, date, leagueId, season));
+      }
+      const standingsProof = await proofPromises.get(scope);
+      if (item.standingsProof === standingsProof) return item;
+      changed = true;
+      return { ...item, standingsProof };
+    }));
+  } catch {
+    // WebCrypto arizasi halinde sahte/yarim token yayinlama. Eski discovery
+    // dogrulamasi calismaya devam eder ve standings kapsami fail-closed kalir.
+    return payload;
+  }
+
+  if (!changed) return payload;
+  return {
+    ...payload,
+    sports:{ ...payload.sports, basketball:decoratedItems },
+  };
+}
+
+async function verifyBasketballStandingProof(env, proof, leagueId, season) {
+  if (typeof proof !== "string" || proof.length > 128) return false;
+  const match = proof.match(/^bsp1\.(\d{4}-\d{2}-\d{2})\.(\d{1,10})\.(\d{4}(?:-\d{4})?)\.([A-Za-z0-9_-]{43})$/);
+  if (!match) return false;
+  const [, date, proofLeagueId, proofSeason, encodedSignature] = match;
+  if (date !== multisportDate() || proofLeagueId !== leagueId || proofSeason !== season) return false;
+  const signature = decodeBasketballStandingProofSignature(encodedSignature);
+  if (!signature) return false;
+  const key = await basketballStandingProofCryptoKey(env, ["verify"]);
+  if (!key) return false;
+  try {
+    const message = new TextEncoder().encode(basketballStandingProofMessage(date, leagueId, season));
+    // WebCrypto verify, MAC karsilastirmasini JavaScript string esitligine
+    // birakmadan runtime'in kriptografik dogrulamasinda gerceklestirir.
+    return await globalThis.crypto.subtle.verify("HMAC", key, signature, message);
+  } catch {
+    return false;
+  }
+}
+
+function responseWithJsonPayload(response, payload) {
+  const headers = new Headers(response.headers);
+  for (const name of ["Content-Length", "Content-Encoding", "Content-MD5", "Content-Digest", "Digest", "ETag", "Last-Modified"]) {
+    headers.delete(name);
+  }
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(payload), {
+    status:response.status,
+    statusText:response.statusText,
+    headers,
+  });
 }
 
 function basketballStandingScopeKey(leagueId, season) {
@@ -4375,7 +4516,11 @@ async function handleMultisportToday(request, env, context) {
   if (isUsableJsonCache(cached)) {
     if (requestedSport === "basketball") {
       const payload = await cached.clone().json().catch(() => null);
-      if (validSharedMultisportPayload(payload, requestedSport, date)) rememberBasketballStandingScopes(payload);
+      if (validSharedMultisportPayload(payload, requestedSport, date)) {
+        const proofPayload = await withBasketballStandingProofs(payload, env);
+        rememberBasketballStandingScopes(proofPayload);
+        if (proofPayload !== payload) return responseWithJsonPayload(cached, proofPayload);
+      }
     }
     return cached;
   }
@@ -4410,23 +4555,29 @@ async function handleMultisportToday(request, env, context) {
         return payload;
       },
     });
-    const response = jsonResponse(result.payload, 200, {
+    const responsePayload = requestedSport === "basketball"
+      ? await withBasketballStandingProofs(result.payload, env)
+      : result.payload;
+    const response = jsonResponse(responsePayload, 200, {
       "Cache-Control":result.stale
         ? "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
         : "public, max-age=0, s-maxage=900, stale-while-revalidate=21600",
       "X-Data-Cache":result.source,
       "X-Data-Stale":result.stale ? "true" : "false",
     });
-    if (requestedSport === "basketball") rememberBasketballStandingScopes(result.payload);
+    if (requestedSport === "basketball") rememberBasketballStandingScopes(responsePayload);
     writeEdgeCache(cache, cacheKey, response, context);
     return response;
   } catch (error) {
     const locked = error?.message === "provider_refresh_in_progress";
     const rateLimited = error?.status === 429;
     if (error?.fallbackPayload && validSharedMultisportPayload(error.fallbackPayload, requestedSport, date)) {
-      if (requestedSport === "basketball") rememberBasketballStandingScopes(error.fallbackPayload);
+      const fallbackPayload = requestedSport === "basketball"
+        ? await withBasketballStandingProofs(error.fallbackPayload, env)
+        : error.fallbackPayload;
+      if (requestedSport === "basketball") rememberBasketballStandingScopes(fallbackPayload);
       return jsonResponse({
-        ...error.fallbackPayload,
+        ...fallbackPayload,
         stale:true,
         degraded:true,
         reason:rateLimited ? "provider_rate_limited" : "provider_unavailable",
@@ -4466,7 +4617,11 @@ async function handleBasketballStandings(request, env, context) {
     return jsonResponse({ error:"invalid_basketball_standings_scope" }, 400, { "Cache-Control":"no-store" });
   }
   if (!env.API_SPORTS_KEY) return jsonResponse({ error:"api_sports_not_configured" }, 503, { "Cache-Control":"no-store" });
-  if (!(await basketballStandingScopeDiscovered(request, env, leagueId, season))) {
+  const proof = input.searchParams.get("proof") || "";
+  const proofVerified = proof
+    ? await verifyBasketballStandingProof(env, proof, leagueId, season)
+    : false;
+  if (!proofVerified && !(await basketballStandingScopeDiscovered(request, env, leagueId, season))) {
     return jsonResponse({ error:"basketball_standings_scope_not_discovered" }, 409, { "Cache-Control":"no-store" });
   }
 
