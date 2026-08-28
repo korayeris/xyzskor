@@ -600,8 +600,16 @@ console.log('\n=== 8) Canlı maç vitrini ve yapısal çizgi temizliği korunur 
     'Tam genişlikteki dekoratif header/branş çizgileri kaldırılmıştır.',
   );
   check(
-    () => assert.match(appLateCss, /\.football-live-module,\s*\.football-live-module \.live-shell\s*\{[\s\S]*background:\s*#101419!important/),
+    () => assert.match(appLateCss, /\.football-live-module,\s*\.football-live-module \.live-shell\s*\{[\s\S]*background:\s*#101419/),
     'Canlı maç merkezi beyaz kabuk yerine koyu ürün yüzeyi kullanır.',
+  );
+  check(
+    () => assert.match(footballHubCss, /\.scoreboard-filters\s*\{[^}]*grid-template-columns:\s*repeat\(4,[^}]*width:\s*min\(100%,390px\)[^}]*border-radius:\s*12px/),
+    'Maç filtreleri dört eşit hücreli, kesişmeyen bir kontrol rayıdır.',
+  );
+  check(
+    () => assert.match(footballHubCss, /@media\s*\(max-width:640px\)[\s\S]*\.scoreboard-filters\s*\{[^}]*grid-template-columns:\s*repeat\(4,minmax\(0,1fr\)\)[^}]*width:\s*100%[\s\S]*\.scoreboard-filters button\s*\{[^}]*min-height:\s*44px/),
+    'Mobil filtre rayı ekrana sığar ve dokunma hedefleri 44px kalır.',
   );
 }
 
