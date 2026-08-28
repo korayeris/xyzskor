@@ -81,6 +81,7 @@ try{
     bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
     overviewColumns:getComputedStyle(document.querySelector('.volleyball-overview-layout')).gridTemplateColumns.split(' ').filter(Boolean).length,
     heroFont:parseFloat(getComputedStyle(document.querySelector('.multisport-hero h1')).fontSize),
+    heroBackground:getComputedStyle(document.querySelector('.multisport-hero')).backgroundImage,
     decorativeLogos:[...document.querySelectorAll('.volleyball-league-center img')].every((image)=>image.alt===''),
     tables:document.querySelectorAll('.volleyball-league-center table').length,
     metrics:[...document.querySelectorAll('.volleyball-overview-metrics article > b')].map((node)=>node.textContent.trim()),
@@ -99,6 +100,7 @@ try{
   assert.ok(semantics.bodyOverflow<=1,`390px görünüm body taşırmamalı: ${semantics.bodyOverflow}px`);
   assert.equal(semantics.overviewColumns,1,'Mobil iki kolonlu merkez tek kolona inmeli.');
   assert.equal(semantics.heroFont,32,'Mobil voleybol başlığı futbol/basketbol ailesi ölçeğini kullanmalı.');
+  assert.doesNotMatch(semantics.heroBackground,/arena-hero|url\(/i,'Voleybol hero sentetik arena fotoğrafı kullanmamalı.');
   assert.equal(semantics.decorativeLogos,true,'Bitişik takım metni olan logolar adı tekrarlamamalı.');
   assert.equal(semantics.tables,0,'Günlük program verisinden sahte puan tablosu üretilmemeli.');
   assert.deepEqual(semantics.metrics,['2','1','0','4'],'Metrikler yalnız doğrulanmış seçili lig programından hesaplanmalı.');

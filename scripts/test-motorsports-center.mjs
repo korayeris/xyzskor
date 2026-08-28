@@ -17,6 +17,7 @@ assert.match(buildSource, /motorsports-snapshot\.json[\s\S]{0,500}?versionedSnap
 assert.match(source, /xms-center-identity[\s\S]*MOTOR SPORLARI[\s\S]*xms-center-data-state/, 'Seri kimliği ve veri durumu korunmalı.');
 assert.match(source, /const categories = \[[\s\S]*single-seater[\s\S]*motorcycle[\s\S]*rally[\s\S]*endurance[\s\S]*stock-car/, 'Motor sporları gerçek yarış aileleriyle sınıflandırılmalı.');
 assert.match(source, /seriesPickerHTML[\s\S]*SERİLER[\s\S]*data-classification-key="all"[\s\S]*aria-current/, 'Seri rayı Tümü ve doğrudan seçilebilir gerçek seri bağlantıları sunmalı.');
+assert.match(source, /data-mark="MS"[\s\S]*data-mark="\$\{escapeHTML\(config\.mark\)\}"[\s\S]*--series-accent/, 'Her seri gerçek kimliğini büyük yayın işareti ve kendi renk koduyla göstermeli.');
 assert.match(source, /data-classification-title/, 'Seçili merkez başlığı ortak sınıflandırma hookunu taşımalı.');
 assert.match(source, /data-sport-classification',\s*'series'/, 'Seri rayı ortak sınıflandırma hookunu taşımalı.');
 assert.match(source, /seriesHref[\s\S]*view[\s\S]*updateRouteQuery[\s\S]*history\[replace \? 'replaceState' : 'pushState'\]/, 'Seri görünümü paylaşılabilir URL sorgusunda korunmalı.');
@@ -41,6 +42,7 @@ assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.65fr\)\s*minmax\(330
 assert.match(css, /@keyframes xmsShimmer[\s\S]*xms-center-skeleton-row/, 'Soğuk yüklemede shimmer animasyonu bulunmalı.');
 assert.match(css, /animation-delay:\s*calc\(var\(--xms-row-index/, 'Gerçek satırlar kademeli yüklenmeli.');
 assert.match(css, /xms-center-series-picker\s*>\s*div[\s\S]*overflow-x:\s*auto[\s\S]*overscroll-behavior-inline:\s*contain/, 'Seri rayı dar ekran ve dokunmatik kullanımda yatay kaydırılabilmeli.');
+assert.match(css, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)[\s\S]*content:\s*attr\(data-mark\)[\s\S]*border-top:\s*3px solid var\(--series-accent\)/, 'Masaüstü seri atlası büyük, renk kodlu ve görsel olarak ayırt edilebilir kartlar kullanmalı.');
 assert.match(css, /:focus-visible[\s\S]*outline:/, 'Klavye odağı görünür olmalı.');
 assert.match(css, /@media \(max-width:\s*980px\)[\s\S]*grid-template-columns:\s*1fr/, 'Dar ekranda iki kolon tek kolona düşmeli.');
 assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\s*none/, 'Hareket azaltma tercihi desteklenmeli.');

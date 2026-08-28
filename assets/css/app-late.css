@@ -3940,3 +3940,23 @@ a.scoreboard-match-main,a.scoreboard-predict,a.scoreboard-open{text-decoration:n
   .basketball-standing-skeleton i,.basketball-fixture-skeleton i{animation:none;background:#1b252c}
   .multisport-hub[data-sport="basketball"] .multi-league-strip :is(button,a){transition:none;transform:none}
 }
+
+/* Basketbol: sentetik arena fotoğrafı yerine sakin yayın grafiği. */
+.multisport-hub[data-sport="basketball"] .multisport-hero{
+  background-image:radial-gradient(circle at 82% 48%,#ff9a351d 0 3px,transparent 4px),linear-gradient(118deg,#111820 0%,#10161c 58%,#22170d 100%)!important;
+}
+.multisport-hub[data-sport="basketball"] .multisport-hero::before{
+  content:""!important;display:block!important;position:absolute;z-index:0;right:4%;top:18%;width:210px;height:64%;
+  border:1px solid #ff9a3528;border-right:0;border-radius:90px 0 0 90px;background-image:none!important;opacity:.9;
+}
+.multisport-hub[data-sport="basketball"] .multisport-hero::after{background:linear-gradient(90deg,#090e13 0%,#090e13ed 48%,#090e1366 78%,transparent)!important;}
+.multisport-hub[data-sport="basketball"] :is(.basketball-league-logo,.basketball-standing-team>img,.basketball-fixture-team img,.basketball-feature-match figure img){background:transparent;box-shadow:none;border-radius:0;filter:saturate(.8) contrast(.95);}
+.multisport-hub[data-sport="basketball"] .basketball-feature-match figure img{width:58px;height:58px;}
+.multisport-hub[data-sport="basketball"] .multi-team-card{min-height:132px!important;background:#11181d!important;box-shadow:none!important;}
+.multisport-hub[data-sport="basketball"] .multi-team-card::before,.multisport-hub[data-sport="basketball"] .multi-team-card::after{content:none!important;background-image:none!important;}
+.multisport-hub[data-sport="basketball"] .multi-team-card>span{width:54px!important;height:54px!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;backdrop-filter:none;}
+.multisport-hub[data-sport="basketball"] .multi-team-card img{width:46px!important;height:46px!important;filter:saturate(.8);}
+
+@media(max-width:640px){
+  .multisport-hub[data-sport="basketball"] .multisport-hero::before{right:-56px;width:180px;opacity:.6;}
+}

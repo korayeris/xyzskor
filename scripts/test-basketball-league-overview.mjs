@@ -106,6 +106,7 @@ try{
     decorativeTeamLogos:[...document.querySelectorAll('.basketball-standing-row img')].every((image)=>image.alt===''),
     heroFont:parseFloat(getComputedStyle(document.querySelector('.multisport-hero h1')).fontSize),
     heroPaddingTop:parseFloat(getComputedStyle(document.querySelector('.multisport-hero')).paddingTop),
+    heroBackground:getComputedStyle(document.querySelector('.multisport-hero')).backgroundImage,
     fixtures:document.querySelectorAll('.basketball-fixture-row').length,
   }));
   assert.deepEqual(semantics.h1,['Basketbol'],'Basketbol rotası tek görünür branş H1 kullanmalı.');
@@ -123,6 +124,7 @@ try{
   assert.equal(semantics.decorativeTeamLogos,true,'Bitişik takım metni olan logolar ekran okuyucuda adı tekrarlamamalı.');
   assert.equal(semantics.heroFont,32,'390px basketbol hero başlığı yeni mobil tipografi değerini kullanmalı.');
   assert.equal(semantics.heroPaddingTop,18,'390px basketbol hero padding değeri eski important kuralına yenilmemeli.');
+  assert.doesNotMatch(semantics.heroBackground,/arena-hero|url\(/i,'Basketbol hero sentetik arena fotoğrafı kullanmamalı.');
   assert.equal(semantics.fixtures,1,'Seçili lig yalnız kendi fikstürünü göstermeli.');
   assert.equal(await page.locator('.basketball-fixture-row.is-live').count(),0,'Not Started durumu canlı olarak işaretlenmemeli.');
 

@@ -220,7 +220,7 @@
 
   function seriesPickerHTML(slug) {
     const selectedView = slug ? viewFromLocation(slug) : 'overview';
-    return `<strong>SERİLER</strong><div><a data-classification-key="all" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tümü</b><small>Tüm kategoriler</small></a>${Object.entries(series).map(([key, config]) => `<a data-classification-key="${escapeHTML(key)}" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(categoryById[config.category].label)}</small></a>`).join('')}</div>`;
+    return `<header><div><strong>SERİLER</strong><span>Şampiyonayı seç, tüm veri kapsamını aç</span></div><em>10 MERKEZ</em></header><div><a data-classification-key="all" data-mark="MS" data-category="all" style="--series-accent:#f3f6f7" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tüm seriler</b><small>Motor sporları merkezi</small></a>${Object.entries(series).map(([key, config]) => `<a data-classification-key="${escapeHTML(key)}" data-mark="${escapeHTML(config.mark)}" data-category="${escapeHTML(config.category)}" style="--series-accent:${escapeHTML(config.accent)}" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(categoryById[config.category].label)}</small></a>`).join('')}</div>`;
   }
 
   function viewsFor(slug) {
