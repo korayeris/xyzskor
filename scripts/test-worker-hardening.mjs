@@ -487,6 +487,71 @@ async function main() {
     ok(calls.ufc === 1 && calls.motorsports === 1, 'UFC ve motorspor cold-missleri de scope basina tek upstream kullanir', JSON.stringify(calls));
   }
 
+  console.log('\n=== 12b) Basketbol standings scope ve normalize sozlesmesi ===');
+  {
+    const quotaEnv = { ...ENV };
+    delete quotaEnv.SUPABASE_SERVICE_ROLE_KEY;
+    SCENARIO = async (u) => {
+      if (u.hostname !== 'v1.basketball.api-sports.io' || u.pathname !== '/games') throw new Error('unexpected_basketball_discovery_path:' + u.toString());
+      const leagues = [
+        { id:12, name:'Basketbol Super Ligi', season:'2026-2027' },
+        { id:13, name:'Schema Test Ligi', season:'2026' },
+        { id:14, name:'Bos Sonuc Ligi', season:'2026' },
+      ];
+      return json({ errors:{}, response:leagues.map((league,index)=>({
+        id:900+index, league, country:{name:'Test'}, date:new Date().toISOString(), time:'20:00',
+        status:{long:'Not Started'}, teams:{home:{name:`Home ${index}`},away:{name:`Away ${index}`}}, scores:{home:null,away:null},
+      })) });
+    };
+    const discovery = await worker.fetch(new Request('http://localhost/api/sports/today?sport=basketball'), quotaEnv, ctx);
+    ok(discovery.status === 200, 'standings scope once bugunun dogrulanmis basketbol feedinden kesfedilir', `status=${discovery.status}`);
+
+    let upstreamCalls = 0;
+    SCENARIO = async (u) => {
+      if (u.hostname !== 'v1.basketball.api-sports.io' || u.pathname !== '/standings') throw new Error('unexpected_basketball_standings_path:' + u.toString());
+      upstreamCalls += 1;
+      ok(u.searchParams.get('league') === '12' && u.searchParams.get('season') === '2026-2027', 'standings upstream yalniz dogrulanmis lig+sezon scope kullanir', u.search);
+      return json({ errors:{}, response:[[
+        { position:1, group:{name:'Grup A'}, team:{id:1,name:'A1'}, games:{played:3,win:{total:2,percentage:'66.67'},lose:{total:1}}, points:{for:240,against:210}, form:'WWL' },
+        { position:2, group:{name:'Grup A'}, team:{id:2,name:'A2'}, games:{played:3,win:{total:2,percentage:'66.67%'},lose:{total:1}}, points:{for:232,against:214}, form:'WLW' },
+      ],[
+        { position:1, group:{name:'Grup B'}, team:{id:3,name:'B1'}, games:{played:3,win:{total:2,percentage:0.6667},lose:{total:1}}, points:{for:225,against:218}, form:'LWW' },
+        { position:2, group:{name:'Grup B'}, team:{id:4,name:'B2'}, games:{played:3,win:{total:2,percentage:'66.67'},lose:{total:1}}, points:{for:220,against:219}, form:'WLW' },
+      ]] });
+    };
+    const response = await worker.fetch(new Request('http://localhost/api/sports/basketball/standings?league=12&season=2026-2027'), quotaEnv, ctx);
+    const payload = await response.json();
+    ok(response.status === 200 && payload?.sport === 'basketball' && payload?.standings?.length === 4, 'nested standings gruplari normalize edilerek yayinlanir', JSON.stringify(payload));
+    ok(payload.standings.every((row) => Math.abs(Number(row.percentage) - 0.6667) < 0.0001), '66.67, 66.67% ve 0.6667 ayni 0..1 yuzde birimine normalize edilir', payload.standings.map((row) => row.percentage).join(','));
+    ok(payload.standings[0]?.pointDifference === 30 && upstreamCalls === 1, 'puan farki hesaplanir ve tek scope tek upstream kullanir', `difference=${payload.standings[0]?.pointDifference} calls=${upstreamCalls}`);
+    ok(payload.standings.map((row)=>row.team.name).join(',') === 'A1,A2,B1,B2', 'coklu grup bloklari global pozisyon siralamasiyla ic ice gecmez', payload.standings.map((row)=>row.team.name).join(','));
+
+    let undiscoveredFetches = 0;
+    SCENARIO = async () => { undiscoveredFetches += 1; return json({ errors:{}, response:[] }); };
+    const undiscovered = await worker.fetch(new Request('http://localhost/api/sports/basketball/standings?league=999&season=2026'), quotaEnv, ctx);
+    const undiscoveredPayload = await undiscovered.json();
+    ok(undiscovered.status === 409 && undiscoveredPayload?.error === 'basketball_standings_scope_not_discovered', 'bicimsel gecerli ama gunluk feedde kesfedilmemis scope upstream oncesi reddedilir', JSON.stringify(undiscoveredPayload));
+    ok(undiscoveredFetches === 0, 'kesfedilmemis scope API-Sports kotasi harcamaz', `fetches=${undiscoveredFetches}`);
+
+    let schemaFetches = 0;
+    SCENARIO = async (u) => { schemaFetches += 1; return json({ errors:{}, response:[{ unexpected:true }] }); };
+    const schemaMismatch = await worker.fetch(new Request('http://localhost/api/sports/basketball/standings?league=13&season=2026'), quotaEnv, ctx);
+    ok(schemaMismatch.status === 502 && schemaFetches === 1, 'normalize edilemeyen dolu provider semasi dogrulanmis bos olarak cachelenmez', `status=${schemaMismatch.status} fetches=${schemaFetches}`);
+
+    SCENARIO = async () => json({ errors:{}, response:[] });
+    const verifiedEmpty = await worker.fetch(new Request('http://localhost/api/sports/basketball/standings?league=14&season=2026'), quotaEnv, ctx);
+    const verifiedEmptyPayload = await verifiedEmpty.json();
+    ok(verifiedEmpty.status === 200 && Array.isArray(verifiedEmptyPayload?.standings) && verifiedEmptyPayload.standings.length === 0, 'gercek response bos sonucu sahte hata veya satira cevrilmez', JSON.stringify(verifiedEmptyPayload));
+  }
+  {
+    let fetches = 0;
+    SCENARIO = async () => { fetches += 1; return json({ response:[] }); };
+    const invalid = await worker.fetch(new Request('http://localhost/api/sports/basketball/standings?league=12x&season=2026/27'), ENV, ctx);
+    const payload = await invalid.json();
+    ok(invalid.status === 400 && payload?.error === 'invalid_basketball_standings_scope', 'gecersiz lig/sezon upstream oncesi 400 ile reddedilir', JSON.stringify(payload));
+    ok(fetches === 0, 'gecersiz standings scope provider kredisi harcamaz', `fetches=${fetches}`);
+  }
+
   console.log('\n=== 13) JSON hata siniri ve bayt limiti ===');
   {
     for (const path of ['/api/analytics/event', '/api/predict-game/session']) {

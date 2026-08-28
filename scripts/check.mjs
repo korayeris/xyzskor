@@ -686,6 +686,13 @@ const sportBranchesSource = await readFile(new URL('../assets/js/sport-branches.
 const motorsportsSource = await readFile(new URL('../assets/js/motorsports.js', import.meta.url), 'utf8');
 assert.match(multisportSource, /SPORT_LEAGUE_CATALOG[\s\S]*Sultanlar Ligi[\s\S]*Efeler Ligi/, 'Voleybol merkezi lig secimi sunmali.');
 assert.match(multisportSource, /volleyballPortalHTML/, 'Voleybol ana gorunumu ayri lig ve program yerlesimi kullanmali.');
+assert.match(multisportSource, /basketballLeaguePortalHTML[\s\S]*basketball-standings-table[\s\S]*basketball-overview-layout/, 'Basketbol ana gorunumu futbol lig merkeziyle uyumlu standings + fikstur yerlesimi kullanmali.');
+assert.match(multisportSource, /basketballStandingsSkeletonHTML[\s\S]*hydrateBasketballStandings[\s\S]*55/, 'Basketbol puan tablosu soguk istekte shimmer ve kademeli satir yuklemesi sunmali.');
+assert.match(multisportSource, /api\/sports\/basketball\/standings\?league=[\s\S]*basketballStandingsScope/, 'Basketbol standings yalniz secili lig+sezon scope ile istenmeli.');
+assert.doesNotMatch(multisportSource, /function basketballPortalHTML/, 'Eski uc kolonlu basketbol portal renderer bundle icinde kalmamali.');
+assert.match(workerSource, /handleBasketballStandings[\s\S]*v1\.basketball\.api-sports\.io\/standings[\s\S]*normalizeBasketballStanding/, 'Worker gercek API-Sports basketbol standings verisini scope edip normalize etmeli.');
+assert.match(workerSource, /basketballStandingScopeDiscovered[\s\S]*basketball_standings_scope_not_discovered/, 'Basketbol standings rastgele scope ile provider kotasi tuketememeli.');
+assert.match(appCss, /v318[\s\S]*basketball-overview-layout[\s\S]*basketball-standings-table[\s\S]*prefers-reduced-motion/, 'Basketbol lig merkezi desktop, mobil ve reduced-motion stil sozlesmesini korumali.');
 assert.doesNotMatch(multisportSource, /ski:\s*'Kayak'|kayak:'ski'/, 'Verisiz Kayak merkezi istemci rotalarinda kalmamali.');
 assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 'Verisiz Amerikan Futbolu merkezi istemci secimlerinde kalmamali.');
 assert.doesNotMatch(multisportSource, /skiPortalHTML|data-ski-discipline|americanFootball|australianFootball|\brugby\b|\bbaseball\b|\bhandball\b|\bhockey\b/, 'Emekli spor dallarinin erişilemez renderer kodu bundle icinde kalmamali.');

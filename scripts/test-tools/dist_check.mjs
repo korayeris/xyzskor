@@ -177,9 +177,48 @@ function matchdayPayload(url) {
   };
 }
 
+function basketballTodayPayload() {
+  const now = Date.now();
+  return {
+    source: 'mock', date: new Date(now).toISOString().slice(0, 10), updatedAt: new Date(now).toISOString(),
+    sports: { basketball: [
+      {
+        id: 'basket-12-01', sport: 'basketball', league: 'Basketbol Süper Ligi', leagueId: 12,
+        season: '2026-2027', country: 'Türkiye', status: 'Live - Q3', score: '61 - 58',
+        time: 'CANLI', timestamp: Math.floor(now / 1000), first: { name: 'Anadolu Efes' }, second: { name: 'Fenerbahçe Beko' },
+      },
+      {
+        id: 'basket-12-02', sport: 'basketball', league: 'Basketbol Süper Ligi', leagueId: 12,
+        season: '2026-2027', country: 'Türkiye', status: 'Scheduled', time: '20:30',
+        timestamp: Math.floor((now + 3_600_000) / 1000), first: { name: 'Beşiktaş' }, second: { name: 'Türk Telekom' },
+      },
+    ] },
+    coverage: { basketball: 2 },
+  };
+}
+
+function basketballStandingsPayload(url) {
+  const parsed = new URL(url);
+  const leagueId = parsed.searchParams.get('league') || '12';
+  const season = parsed.searchParams.get('season') || '2026-2027';
+  const teams = ['Anadolu Efes', 'Fenerbahçe Beko', 'Beşiktaş', 'Türk Telekom', 'Karşıyaka', 'Tofaş', 'Galatasaray', 'Bahçeşehir Koleji'];
+  return {
+    source: 'api-sports-basketball', provider: 'api-sports', sport: 'basketball', leagueId, season,
+    updatedAt: new Date().toISOString(),
+    standings: teams.map((name, index) => ({
+      position: index + 1, group: 'Normal Sezon', team: { id: index + 1, name },
+      played: 8, won: 8 - index, lost: index, pointsFor: 720 - (index * 9),
+      pointsAgainst: 610 + (index * 8), pointDifference: 110 - (index * 17), percentage: (8 - index) / 8,
+    })),
+    coverage: { standings: teams.length, groups: 1 },
+  };
+}
+
 function apiPayload(url, method) {
   const parsed = new URL(url);
   const path = parsed.pathname;
+  if (path === '/api/sports/today' && parsed.searchParams.get('sport') === 'basketball') return [basketballTodayPayload(), 200];
+  if (path === '/api/sports/basketball/standings') return [basketballStandingsPayload(url), 200];
   if (path === '/api/football/home') return [homePayload(), 200];
   if (path === '/api/football/season') return [seasonPayload(leagueFrom(url)), 200];
   if (path === '/api/football/live' || path === '/api/football') {
@@ -383,8 +422,43 @@ async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors
     JSON.stringify(branchState),
   );
   check(branchState.legacyStylesReady, `${scenario}: branch CSS is ready before the client surface is committed`, JSON.stringify(branchState));
+  await page.waitForFunction(() => (
+    document.querySelectorAll('.basketball-standing-row').length === 8
+    && document.querySelector('.basketball-standings-table')?.getAttribute('aria-busy') === 'false'
+  ), null, { timeout: 12_000 });
+  const basketballState = await page.evaluate(() => ({
+    league: document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope || '',
+    rows: document.querySelectorAll('.basketball-standing-row').length,
+    fixtures: document.querySelectorAll('.basketball-fixture-row').length,
+    visibleHeaders: [...document.querySelectorAll('.basketball-standings-table thead th')].filter((node) => getComputedStyle(node).display !== 'none').length,
+    tableCanScroll: (() => {
+      const region = document.querySelector('.basketball-standings-scroll');
+      if (!region) return false;
+      region.scrollLeft = region.scrollWidth;
+      return region.scrollWidth > region.clientWidth && region.scrollLeft > 0;
+    })(),
+    horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  check(
+    basketballState.league === '12:2026-2027' && basketballState.rows === 8 && basketballState.fixtures === 2,
+    `${scenario}: production artifact renders real basketball league center data`,
+    JSON.stringify(basketballState),
+  );
+  check(
+    basketballState.visibleHeaders === 7 && (viewportName !== 'mobile' || basketballState.tableCanScroll),
+    `${scenario}: basketball table keeps every column accessible on reflow`,
+    JSON.stringify(basketballState),
+  );
+  check(basketballState.horizontalOverflow <= 1, `${scenario}: basketball league center has no document overflow`, JSON.stringify(basketballState));
   const branchRequests = requestLog.slice(branchStart).filter((item) => /^\/api\/(football|ufc|motorsports)/.test(item.url));
   check(branchRequests.length === 0, `${scenario}: branch transition leaks no other sport API family`, branchRequests.map((item) => item.url).join(', '));
+  const basketballRequests = requestLog.slice(branchStart).filter((item) => item.url.startsWith('/api/sports/'));
+  check(
+    basketballRequests.filter((item) => item.url.startsWith('/api/sports/today?sport=basketball')).length === 1
+      && basketballRequests.filter((item) => item.url.startsWith('/api/sports/basketball/standings?league=12&season=2026-2027')).length === 1,
+    `${scenario}: basketball production route requests one daily feed and one scoped table`,
+    basketballRequests.map((item) => item.url).join(', '),
+  );
 
   // Predict branch handler must own the click. The old handler forwarded the
   // click to the hidden header, which first started /futbol and then /predict.

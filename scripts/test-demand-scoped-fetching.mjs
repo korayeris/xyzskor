@@ -30,7 +30,7 @@ function sourceBetween(source, startMarker, endMarker) {
 }
 
 function response(payload, ok = true) {
-  return { ok, json: async () => payload };
+  return { ok, headers: { get: () => null }, json: async () => payload };
 }
 
 async function initialRequests(pathname, search = '', { homeCache = null, seasonCache = null } = {}) {
@@ -282,7 +282,7 @@ console.log('\n=== Multisport SPA switch abort ===');
   const renders = [];
   const elements = {
     multiSportHub: { hidden: true },
-    multiSportGrid: { innerHTML: '' },
+    multiSportGrid: { innerHTML: '', setAttribute() {} },
   };
   const windowObject = { scrollTo() {}, dispatchEvent() {}, __XYZ_TEST_RENDERS__: renders };
   const context = vm.createContext({
@@ -333,8 +333,8 @@ console.log('\n=== Multisport SPA switch abort ===');
   check(() => assert.deepEqual(
     pending.map((item) => item.url),
     [
-      '/api/sports/today?sport=basketball&client=v10',
-      '/api/sports/today?sport=volleyball&client=v10',
+      '/api/sports/today?sport=basketball&client=v11',
+      '/api/sports/today?sport=volleyball&client=v11',
     ],
   ), 'Basketbol-volleyball gecisi yalniz iki gorunur scope istegi baslatmali.');
   check(() => assert.ok(pending[0].init.signal instanceof AbortSignal), 'Multisport istegi iptal edilebilir bir signal tasimali.');

@@ -143,11 +143,19 @@ function mockFor(url) {
   if (url.includes('/api/health')) return [{ status: 'ok', checks: {} }, 200];
   if (url.includes('/api/predict-game/session')) return [{ session: { id: '00000000-0000-4000-8000-000000000001', nonce: 'responsive-mock-nonce', reward_eligible: false } }, 200];
   if (url.includes('/api/predict-game/status')) return [{ authenticated: false, reward_eligible: false, training: false }, 200];
+  if (url.includes('/api/sports/basketball/standings')) return [{
+    source:'api-sports-basketball', provider:'api-sports', sport:'basketball', leagueId:'12', season:'2026-2027', updatedAt:iso,
+    standings:['Anadolu Efes','Fenerbahçe Beko','Beşiktaş','Türk Telekom'].map((name,index)=>({
+      position:index+1, group:'Normal Sezon', team:{id:index+1,name}, played:4, won:4-index, lost:index,
+      pointsFor:360-index*8, pointsAgainst:310+index*7, pointDifference:50-index*15, percentage:(4-index)/4,
+    })),
+    coverage:{standings:4,groups:1},
+  }, 200];
   if (url.includes('/api/sports/today')) {
     const sport = new URL(url).searchParams.get('sport');
     if(sport === 'basketball') return [{ source:'mock', date:iso.slice(0,10), sports:{ basketball:[
-      { id:'basket-1', sport:'basketball', league:'Basketbol Süper Ligi', status:'scheduled', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
-      { id:'kirli-football', sport:'football', league:'Süper Lig', status:'finished', first:{name:'Galatasaray'}, second:{name:'Beşiktaş'} },
+      { id:'basket-1', sport:'basketball', league:'Basketbol Süper Ligi', leagueId:12, season:'2026-2027', country:'Türkiye', status:'scheduled', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
+      { id:'kirli-football', sport:'football', league:'Süper Lig', status:'finished', first:{name:'Galatasaray'}, second:{name:'Trabzonspor'} },
     ] } }, 200];
     if(sport === 'volleyball') return [{ source:'mock', date:iso.slice(0,10), sports:{ volleyball:[
       { id:'volley-1', sport:'volleyball', league:'Sultanlar Ligi', status:'scheduled', first:{name:'Eczacıbaşı'}, second:{name:'VakıfBank'} },
@@ -297,7 +305,7 @@ async function main() {
           visibleLeagueOverviewTablists: [...document.querySelectorAll('#footballLeagueOverview > .league-overview-tabs')].filter((el)=>el.offsetWidth||el.offsetHeight).length,
           tickerText: document.getElementById('liveTicker')?.innerText?.trim() || '',
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
-          multisportMetricsText: document.getElementById('multiSportMetrics')?.innerText || '',
+          multisportMetricsText: document.querySelector('.basketball-overview-metrics')?.innerText || document.getElementById('multiSportMetrics')?.innerText || '',
           canonicalRuntime: {
             hubReady: document.getElementById('xyzFootballHubStyle')?.media === 'all',
             legacyStylesPresent: Boolean(document.getElementById('xyzLegacyStylesheet')),
@@ -373,12 +381,12 @@ async function main() {
         ok(!/Fikstür yükleniyor/i.test(metrics.tickerText), `${tag}: veri geldikten sonra yukleniyor mesaji kalmiyor`, metrics.tickerText);
       }
       if(route.name === 'basketbol'){
-        ok(!/Galatasaray|Beşiktaş|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
+        ok(!/Trabzonspor|Futbol/.test(metrics.multisportText), `${tag}: futbol verisi basketbola sizmiyor`, metrics.multisportText.slice(0,240));
         if(MODE==='withdata') ok(/Anadolu Efes|Fenerbahçe Beko/.test(metrics.multisportText), `${tag}: basketbol verisi gorunuyor`, metrics.multisportText.slice(0,240));
         ok(!requestedApiPaths.some((path)=>path.startsWith('/api/football/')), `${tag}: arka planda futbol API'leri yuklenmiyor`, requestedApiPaths.join(' | '));
         const basketballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/sports/today'));
         ok(basketballPaths.length===1&&basketballPaths[0].startsWith('/api/sports/today?sport=basketball'), `${tag}: basketbol verisi yalniz bir kez ve kendi scope'unda isteniyor`, requestedApiPaths.join(' | '));
-        if(MODE==='withdata') ok(/1\s*Gunluk etkinlik/i.test(metrics.multisportMetricsText), `${tag}: basketbol metrikleri ikinci fetch olmadan ortak payload ile doluyor`, metrics.multisportMetricsText);
+        if(MODE==='withdata') ok(/GÜNLÜK PROGRAM[\s\S]*1/i.test(metrics.multisportMetricsText), `${tag}: basketbol metrikleri günlük payload ile doluyor`, metrics.multisportMetricsText);
       }
       if(route.name === 'voleybol'){
         ok(!/Anadolu Efes|Fenerbahçe Beko|Galatasaray|Beşiktaş/.test(metrics.multisportText), `${tag}: futbol ve basketbol verisi voleybola sizmiyor`, metrics.multisportText.slice(0,240));

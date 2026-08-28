@@ -94,6 +94,7 @@ const DEMAND_PROVIDER_TIMEOUT_MS = 10000;
 const DEMAND_PROVIDER_LOCK_SECONDS = 15;
 const MULTISPORT_SHARED_TTL_SECONDS = 900;
 const MULTISPORT_SHARED_STALE_SECONDS = 21600;
+const BASKETBALL_SCOPE_MEMORY_TTL_MS = MULTISPORT_SHARED_STALE_SECONDS * 1000;
 const FOOTBALL_LEADERS_TTL_SECONDS = 2700;
 const FOOTBALL_LEADERS_STALE_SECONDS = 86400;
 const FOOTBALL_WEEKLY_TTL_SECONDS = 21600;
@@ -150,6 +151,7 @@ const footballSeasonRefreshPromises = new Map();
 let footballHomeRefreshPromise = null;
 let footballLiveRefreshPromise = null;
 const providerDemandRefreshPromises = new Map();
+const discoveredBasketballStandingScopes = new Map();
 const X_CLUBS = [
   { team: "Galatasaray", handle: "GalatasaraySK", url: "https://x.com/GalatasaraySK" },
   { team: "Fenerbahçe", handle: "Fenerbahce", url: "https://x.com/Fenerbahce" },
@@ -3918,6 +3920,60 @@ const MULTISPORT_FEEDS = Object.freeze({
   volleyball: { host: "v1.volleyball.api-sports.io", path: "games" },
 });
 
+function flattenBasketballStandings(value, output = []) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => flattenBasketballStandings(item, output));
+    return output;
+  }
+  if (!value || typeof value !== "object") return output;
+  if (value.team && (value.position != null || value.games || value.points)) {
+    output.push(value);
+    return output;
+  }
+  for (const key of ["standings", "groups", "rows", "data", "response"]) {
+    if (value[key] != null) flattenBasketballStandings(value[key], output);
+  }
+  return output;
+}
+
+function basketballStandingNumber(...values) {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function normalizeBasketballStanding(row, index) {
+  const team = row?.team || {};
+  const played = basketballStandingNumber(row?.games?.played, row?.games?.total, row?.played);
+  const won = basketballStandingNumber(row?.games?.win?.total, row?.games?.wins?.total, row?.won, row?.wins);
+  const lost = basketballStandingNumber(row?.games?.lose?.total, row?.games?.loss?.total, row?.games?.lost?.total, row?.lost, row?.losses);
+  const pointsFor = basketballStandingNumber(row?.points?.for, row?.pointsFor, row?.scored);
+  const pointsAgainst = basketballStandingNumber(row?.points?.against, row?.pointsAgainst, row?.conceded);
+  const percentageValue = row?.games?.win?.percentage ?? row?.percentage ?? row?.pct ?? null;
+  const percentageNumber = Number(String(percentageValue ?? "").replace("%", ""));
+  const percentage = percentageValue == null || percentageValue === ""
+    ? (played ? won / played : null)
+    : Number.isFinite(percentageNumber)
+      ? Math.max(0, Math.min(1, percentageNumber / (String(percentageValue).includes("%") || percentageNumber > 1 ? 100 : 1)))
+      : null;
+  if (!team?.name) return null;
+  return {
+    position: basketballStandingNumber(row?.position, row?.rank, index + 1),
+    group: row?.group?.name || row?.group || row?.stage || null,
+    team: { id: team?.id || null, name: team.name, logo: team?.logo || null },
+    played,
+    won,
+    lost,
+    pointsFor,
+    pointsAgainst,
+    pointDifference: pointsFor - pointsAgainst,
+    percentage: Number.isFinite(percentage) ? percentage : null,
+    form: typeof row?.form === "string" ? row.form.slice(-5) : null,
+  };
+}
+
 function multisportDate() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
@@ -4200,6 +4256,60 @@ function validSharedMultisportPayload(payload, sport, date) {
   );
 }
 
+function basketballStandingScopeKey(leagueId, season) {
+  return `${String(leagueId || "")}:${String(season || "")}`;
+}
+
+function rememberBasketballStandingScopes(payload, now = Date.now()) {
+  for (const [scope, expiresAt] of discoveredBasketballStandingScopes) {
+    if (expiresAt <= now) discoveredBasketballStandingScopes.delete(scope);
+  }
+  const items = payload?.sports?.basketball;
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    const leagueId = String(item?.leagueId || "");
+    const season = String(item?.season || "");
+    if (!/^\d{1,10}$/.test(leagueId) || !/^\d{4}(?:-\d{4})?$/.test(season)) continue;
+    discoveredBasketballStandingScopes.set(
+      basketballStandingScopeKey(leagueId, season),
+      now + BASKETBALL_SCOPE_MEMORY_TTL_MS,
+    );
+  }
+  if (discoveredBasketballStandingScopes.size > 256) {
+    const oldest = [...discoveredBasketballStandingScopes.entries()]
+      .sort((first, second) => first[1] - second[1])
+      .slice(0, discoveredBasketballStandingScopes.size - 256);
+    oldest.forEach(([scope]) => discoveredBasketballStandingScopes.delete(scope));
+  }
+}
+
+async function basketballStandingScopeDiscovered(request, env, leagueId, season) {
+  const requestedScope = basketballStandingScopeKey(leagueId, season);
+  const rememberedUntil = discoveredBasketballStandingScopes.get(requestedScope) || 0;
+  if (rememberedUntil > Date.now()) return true;
+  discoveredBasketballStandingScopes.delete(requestedScope);
+
+  const date = multisportDate();
+  const identity = `basketball:${date}`;
+  const cacheKey = new Request(new URL(`/api/sports/today-v12?date=${date}&sport=basketball`, request.url), { method:"GET" });
+  const cached = await readEdgeCache(edgeCache(), cacheKey);
+  if (isUsableJsonCache(cached)) {
+    const payload = await cached.clone().json().catch(() => null);
+    if (validSharedMultisportPayload(payload, "basketball", date)) rememberBasketballStandingScopes(payload);
+    if ((discoveredBasketballStandingScopes.get(requestedScope) || 0) > Date.now()) return true;
+  }
+
+  const sharedScope = `worker:demand:v1:multisport-today:${demandScopeHash(identity)}`;
+  const shared = await readProviderSharedCache(env, sharedScope);
+  const sharedPayload = demandCacheEnvelope(
+    shared,
+    identity,
+    (payload) => validSharedMultisportPayload(payload, "basketball", date),
+  );
+  if (sharedPayload) rememberBasketballStandingScopes(sharedPayload);
+  return (discoveredBasketballStandingScopes.get(requestedScope) || 0) > Date.now();
+}
+
 async function handleMultisportToday(request, env, context) {
   if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
   const requestedSport = new URL(request.url).searchParams.get("sport");
@@ -4212,7 +4322,13 @@ async function handleMultisportToday(request, env, context) {
   const cache = edgeCache();
   const cacheKey = new Request(new URL(`/api/sports/today-v12?date=${date}&sport=${requestedSport}`, request.url), { method:"GET" });
   const cached = await readEdgeCache(cache, cacheKey);
-  if (isUsableJsonCache(cached)) return cached;
+  if (isUsableJsonCache(cached)) {
+    if (requestedSport === "basketball") {
+      const payload = await cached.clone().json().catch(() => null);
+      if (validSharedMultisportPayload(payload, requestedSport, date)) rememberBasketballStandingScopes(payload);
+    }
+    return cached;
+  }
 
   try {
     const identity = `${requestedSport}:${date}`;
@@ -4251,12 +4367,14 @@ async function handleMultisportToday(request, env, context) {
       "X-Data-Cache":result.source,
       "X-Data-Stale":result.stale ? "true" : "false",
     });
+    if (requestedSport === "basketball") rememberBasketballStandingScopes(result.payload);
     writeEdgeCache(cache, cacheKey, response, context);
     return response;
   } catch (error) {
     const locked = error?.message === "provider_refresh_in_progress";
     const rateLimited = error?.status === 429;
     if (error?.fallbackPayload && validSharedMultisportPayload(error.fallbackPayload, requestedSport, date)) {
+      if (requestedSport === "basketball") rememberBasketballStandingScopes(error.fallbackPayload);
       return jsonResponse({
         ...error.fallbackPayload,
         stale:true,
@@ -4270,6 +4388,98 @@ async function handleMultisportToday(request, env, context) {
     }
     return jsonResponse({
       error:locked ? "provider_refresh_in_progress" : rateLimited ? "api_sports_rate_limited" : "api_sports_upstream_unavailable",
+      provider:"api-sports",
+    }, locked ? 503 : rateLimited ? 429 : 502, {
+      "Cache-Control":"no-store",
+      "Retry-After":locked ? "1" : String(Math.max(1, Number(error?.retryAfter) || (rateLimited ? 60 : 10))),
+    });
+  }
+}
+
+function validBasketballStandingsPayload(payload, leagueId, season) {
+  return Boolean(
+    payload
+    && payload.sport === "basketball"
+    && payload.leagueId === leagueId
+    && payload.season === season
+    && Array.isArray(payload.standings)
+    && payload.standings.every((row) => row?.team?.name && Number.isFinite(Number(row?.position)))
+  );
+}
+
+async function handleBasketballStandings(request, env, context) {
+  if (request.method !== "GET") return jsonResponse({ error:"method_not_allowed" }, 405, { Allow:"GET" });
+  const input = new URL(request.url);
+  const leagueId = String(input.searchParams.get("league") || "");
+  const season = String(input.searchParams.get("season") || "");
+  if (!/^\d{1,10}$/.test(leagueId) || !/^\d{4}(?:-\d{4})?$/.test(season)) {
+    return jsonResponse({ error:"invalid_basketball_standings_scope" }, 400, { "Cache-Control":"no-store" });
+  }
+  if (!env.API_SPORTS_KEY) return jsonResponse({ error:"api_sports_not_configured" }, 503, { "Cache-Control":"no-store" });
+  if (!(await basketballStandingScopeDiscovered(request, env, leagueId, season))) {
+    return jsonResponse({ error:"basketball_standings_scope_not_discovered" }, 409, { "Cache-Control":"no-store" });
+  }
+
+  const identity = `${leagueId}:${season}`;
+  const cache = edgeCache();
+  const cacheKey = new Request(new URL(`/api/sports/basketball/standings-v1?league=${leagueId}&season=${season}`, request.url), { method:"GET" });
+  const cached = await readEdgeCache(cache, cacheKey);
+  if (isUsableJsonCache(cached)) return cached;
+
+  try {
+    const result = await singleFlightDemandProvider({
+      env,
+      kind:"basketball-standings",
+      identity,
+      provider:"api-sports",
+      ttlSeconds:1800,
+      staleSeconds:21600,
+      validatePayload:(payload) => validBasketballStandingsPayload(payload, leagueId, season),
+      fetchPayload:async () => {
+        const upstream = new URL("https://v1.basketball.api-sports.io/standings");
+        upstream.searchParams.set("league", leagueId);
+        upstream.searchParams.set("season", season);
+        const response = await fetchWithDemandTimeout(upstream, {
+          headers:{ "x-apisports-key":env.API_SPORTS_KEY, Accept:"application/json" },
+        });
+        const contentType = String(response.headers.get("content-type") || "");
+        const upstreamPayload = /\bjson\b/i.test(contentType) ? await response.json().catch(() => null) : null;
+        if (!response.ok || !upstreamPayload || Object.keys(upstreamPayload.errors || {}).length || !Array.isArray(upstreamPayload.response)) {
+          throw apiSportsUpstreamError(response.status || 502, upstreamPayload, response.headers.get("retry-after"));
+        }
+        const standings = flattenBasketballStandings(upstreamPayload.response)
+          .map(normalizeBasketballStanding)
+          .filter(Boolean)
+          .slice(0, 40);
+        if (upstreamPayload.response.length && !standings.length) {
+          throw apiSportsUpstreamError(502, { reason:"basketball_standings_schema_mismatch" });
+        }
+        return {
+          source:"api-sports-basketball",
+          provider:"api-sports",
+          sport:"basketball",
+          leagueId,
+          season,
+          updatedAt:new Date().toISOString(),
+          standings,
+          coverage:{ standings:standings.length, groups:new Set(standings.map((row) => row.group).filter(Boolean)).size },
+        };
+      },
+    });
+    const output = jsonResponse(result.payload, 200, {
+      "Cache-Control":result.stale
+        ? "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
+        : "public, max-age=300, s-maxage=1800, stale-while-revalidate=21600",
+      "X-Data-Cache":result.source,
+      "X-Data-Stale":result.stale ? "true" : "false",
+    });
+    writeEdgeCache(cache, cacheKey, output, context);
+    return output;
+  } catch (error) {
+    const locked = error?.message === "provider_refresh_in_progress";
+    const rateLimited = error?.status === 429;
+    return jsonResponse({
+      error:locked ? "provider_refresh_in_progress" : rateLimited ? "api_sports_rate_limited" : "basketball_standings_unavailable",
       provider:"api-sports",
     }, locked ? 503 : rateLimited ? 429 : 502, {
       "Cache-Control":"no-store",
@@ -4448,6 +4658,7 @@ export default {
     if (/^\/(super-lig|premier-league|la-liga|bundesliga|serie-a)\/news\/?$/.test(url.pathname)) {
       return Response.redirect(new URL(url.pathname.replace(/\/news\/?$/, "/agenda"), url), 308);
     }
+    if (url.pathname === "/api/sports/basketball/standings") return handleBasketballStandings(request, env, context);
     if (url.pathname === "/api/sports/today") return handleMultisportToday(request, env, context);
     if (url.pathname === "/api/ufc") return handleCitoUfc(request, env, context);
     if (url.pathname.startsWith("/api/ufc/")) return handleCitoUfcProxy(request, env, context);

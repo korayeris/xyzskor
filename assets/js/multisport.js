@@ -10,10 +10,19 @@
   const sharedPayloads = window.__XYZ_MULTISPORT_PAYLOADS__ instanceof Map
     ? window.__XYZ_MULTISPORT_PAYLOADS__
     : (window.__XYZ_MULTISPORT_PAYLOADS__ = new Map());
+  const payloadReceivedAt = new Map();
+  const basketballStandingsPayloads = new Map();
+  const basketballStandingsPromises = new Map();
+  const basketballStandingsControllers = new Map();
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
   let hubRequestEpoch = 0;
+  let basketballStandingsEpoch = 0;
+  let pendingViewFocus = '';
+  let pendingBasketballHubFocus = false;
+  const MULTISPORT_PAYLOAD_TTL_MS = 15 * 60 * 1000;
+  const BASKETBALL_STANDINGS_TTL_MS = 30 * 60 * 1000;
   const SPORT_LEAGUE_CATALOG = {
     volleyball: ['Sultanlar Ligi', 'Efeler Ligi', 'CEV Şampiyonlar Ligi', 'Voleybol Milletler Ligi']
   };
@@ -34,7 +43,8 @@
     if(candidate && typeof candidate === 'object') return candidate.url || candidate.src || candidate.href || '';
     return '';
   };
-  const visual = (name, src) => `<img src="${escapeHTML(src || visualFallback(name))}" data-fallback="${escapeHTML(visualFallback(name))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHTML(name || '')}" loading="lazy">`;  const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
+  const visual = (name, src, alt = name) => `<img src="${escapeHTML(src || visualFallback(name))}" data-fallback="${escapeHTML(visualFallback(name))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHTML(alt || '')}" loading="lazy">`;
+  const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
   const scoreText = (score) => {
     if(score == null || score === '') return 'VS';
     if(typeof score !== 'object') return String(score);
@@ -56,10 +66,23 @@
     return sport ? {sport,view} : null;
   }
 
+  function abortBasketballStandings(exceptScope = ''){
+    basketballStandingsEpoch += 1;
+    basketballStandingsControllers.forEach((controller, scope) => {
+      if(scope === exceptScope) return;
+      controller.abort();
+      basketballStandingsControllers.delete(scope);
+      basketballStandingsPromises.delete(scope);
+    });
+  }
+
   function closeHub(){
     hubRequestEpoch += 1;
+    pendingViewFocus='';
+    pendingBasketballHubFocus=false;
     feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
     feedControllers.clear();
+    abortBasketballStandings();
     // Futbol merkezi artık `/futbol/` altındadır; `/` genel ana sayfadır.
     if(routeState()) {
       if(window.XYZBranchRouter) window.XYZBranchRouter.navigate('/futbol/', {label:'Futbol'});
@@ -164,34 +187,296 @@
     ticker.innerHTML = `<span class="ticker-dot"></span><span class="ticker-label">${labels[activeSport] || 'SIRADAKI ETKINLIK'}</span><span class="ticker-match">${escapeHTML(first.name || 'TBA')} — ${escapeHTML(second.name || 'TBA')}</span><span class="ticker-time mono">${escapeHTML(next.time || next.feedDate || next.date || '')}</span>`;
   }
 
-  function basketballPortalHTML(items, leagueNames){
-    const featured = items[0];
-    const teams = new Map();
-    items.forEach((item) => [item.first || item.home, item.second || item.away].forEach((team) => {
-      if(team?.name && !teams.has(team.name)) teams.set(team.name, team);
-    }));
-    const teamStrip = [...teams.values()].slice(0,10).map((team) => `<button type="button" class="basket-team-chip">${visual(team.name, imageOf(team))}<span>${escapeHTML(team.name)}</span></button>`).join('');
-    const schedule = items.slice(0,8).map((item) => {
-      const first = item.first || item.home || {};
-      const second = item.second || item.away || {};
-      return `<article class="basket-schedule-row"><time>${escapeHTML(item.time || item.feedDate || '--:--')}</time><strong>${escapeHTML(first.name || 'TBA')}</strong><b>${escapeHTML(scoreText(item.score))}</b><strong>${escapeHTML(second.name || 'TBA')}</strong></article>`;
-    }).join('');
-    const featuredHTML = featured ? (() => {
-      const first = featured.first || featured.home || {};
-      const second = featured.second || featured.away || {};
-      return `<article class="basket-feature-card">
-        <span>GUNUN VITRINI</span><h2>${escapeHTML(featured.league || 'Basketbol')}</h2>
-        <div class="basket-feature-match"><figure>${visual(first.name, imageOf(first))}<figcaption>${escapeHTML(first.name || 'TBA')}</figcaption></figure><strong>${escapeHTML(scoreText(featured.score))}</strong><figure>${visual(second.name, imageOf(second))}<figcaption>${escapeHTML(second.name || 'TBA')}</figcaption></figure></div>
-        <p>${escapeHTML(featured.status || 'Programda')} · ${escapeHTML(featured.feedDate || featured.date || featured.time || '')}</p>
+  const basketballStatusText = (item) => String(item?.status || '').trim().toLowerCase();
+  const basketballIsLive = (item) => {
+    const status=basketballStatusText(item);
+    if(!status || /\bnot started\b|\bscheduled\b|\bpostponed\b|\bcancelled\b|\b(?:game\s+)?finished\b/.test(status)) return false;
+    return /\blive\b|\bin progress\b|\bhalf(?: |-)?time\b|\bbreak time\b|\bover ?time\b|\bquarter\s*[1-4]\b|\bq[1-4]\b|\bperiod\s*\d+\b/.test(status);
+  };
+  const basketballIsFinished = (item) => /\b(?:game\s+)?finished\b|\bended\b|\bafter\b|^(?:ft|aet)$/i.test(basketballStatusText(item));
+  const basketballEventTime = (item) => {
+    const timestamp = Number(item?.timestamp);
+    if(Number.isFinite(timestamp) && timestamp > 0) return timestamp * 1000;
+    const parsed = Date.parse(item?.date || item?.feedDate || '');
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  };
+
+  function basketballLeagueDescriptors(items){
+    const leagues = new Map();
+    items.forEach((item) => {
+      const name = item?.league || item?.category;
+      if(!name) return;
+      const id=item?.leagueId != null ? String(item.leagueId) : '';
+      const season=item?.season != null ? String(item.season) : '';
+      const key=id&&season?`scope:${id}:${season}`:`name:${name}`;
+      if(!leagues.has(key)) leagues.set(key, {
+        key,
+        name,
+        id,
+        season,
+        logo:item?.leagueLogo || '',
+        country:item?.country || '',
+        events:[],
+      });
+      const league = leagues.get(key);
+      if(!league.id && item?.leagueId != null) league.id=String(item.leagueId);
+      if(!league.season && item?.season != null) league.season=String(item.season);
+      if(!league.logo && item?.leagueLogo) league.logo=item.leagueLogo;
+      if(!league.country && item?.country) league.country=item.country;
+      league.events.push(item);
+    });
+    return [...leagues.values()];
+  }
+
+  function basketballSortEvents(items){
+    return [...items].sort((first, second) => {
+      const phase = (item) => basketballIsLive(item) ? 0 : basketballIsFinished(item) ? 2 : 1;
+      const phaseDiff = phase(first) - phase(second);
+      if(phaseDiff) return phaseDiff;
+      const timeDiff = basketballEventTime(first) - basketballEventTime(second);
+      return basketballIsFinished(first) ? -timeDiff : timeDiff;
+    });
+  }
+
+  function basketballStatusLabel(item){
+    if(basketballIsLive(item)) return 'CANLI';
+    if(basketballIsFinished(item)) return 'BİTTİ';
+    return item?.time || 'YAKLAŞAN';
+  }
+
+  function basketballScheduleHTML(items){
+    const rows=basketballSortEvents(items).slice(0,9);
+    if(!rows.length) return '<p class="basketball-panel-empty">Seçili lig için doğrulanmış günlük maç programı bulunmuyor.</p>';
+    return rows.map((item) => {
+      const first=item.first||item.home||{},second=item.second||item.away||{};
+      const live=basketballIsLive(item),finished=basketballIsFinished(item);
+      return `<article class="basketball-fixture-row ${live?'is-live':finished?'is-finished':'is-upcoming'}">
+        <span class="basketball-fixture-state">${escapeHTML(basketballStatusLabel(item))}</span>
+        <span class="basketball-fixture-team home"><strong>${escapeHTML(first.name||'TBA')}</strong>${visual(first.name,imageOf(first),'')}</span>
+        <b>${escapeHTML(scoreText(item.score))}</b>
+        <span class="basketball-fixture-team away">${visual(second.name,imageOf(second),'')}<strong>${escapeHTML(second.name||'TBA')}</strong></span>
       </article>`;
-    })() : '<article class="basket-feature-card"><h2>Basketbol vitrini hazırlanıyor</h2></article>';
-    const leagueList = leagueNames.slice(0,8).map((name, index) => `<button type="button" data-basket-league="${escapeHTML(name)}"><i>${index + 1}</i><span>${escapeHTML(name)}</span><b>${items.filter((item) => (item.league || item.category) === name).length}</b></button>`).join('');
-    return `<section class="basket-team-command"><strong>TAKIM GUNDEMI</strong><div>${teamStrip || '<span>Takimlar programla birlikte güncellenir.</span>'}</div></section>
-      <section class="basket-football-layout">
-        <aside class="basket-schedule-panel"><header><span>MAC MERKEZI</span><h3>Canli ve yaklasan maclar</h3></header>${schedule || '<p>Program güncelleniyor.</p>'}</aside>
-        ${featuredHTML}
-        <aside class="basket-league-panel"><header><span>LIGLER</span><h3>Basketbol vitrini</h3></header>${leagueList || '<p>Ligler güncelleniyor.</p>'}</aside>
-      </section>`;
+    }).join('');
+  }
+
+  function basketballStandingsSkeletonHTML(){
+    return Array.from({length:8},(_,index)=>`<tr class="basketball-standing-skeleton" aria-hidden="true" style="--basket-skeleton-index:${index}">
+      <td><i></i></td><th scope="row"><i></i></th><td><i></i></td><td><i></i></td><td><i></i></td><td><i></i></td><td><i></i></td>
+    </tr>`).join('');
+  }
+
+  function basketballStandingsScope(league){
+    return league?.id && league?.season ? `${league.id}:${league.season}` : '';
+  }
+
+  function basketballStandingRowHTML(row){
+    const rawPercentage=Number(row?.percentage);
+    const percentage=Number.isFinite(rawPercentage) ? (rawPercentage>1 ? rawPercentage : rawPercentage*100) : null;
+    const difference=Number(row?.pointDifference||0);
+    const team=row?.team||{};
+    return `<tr class="basketball-standing-row">
+      <td class="rank">${escapeHTML(row?.position||'—')}</td>
+      <th scope="row"><span class="basketball-standing-team">${visual(team.name,imageOf(team),'')}<span><strong>${escapeHTML(team.name||'Takım')}</strong>${row?.group?`<small>${escapeHTML(row.group)}</small>`:''}</span></span></th>
+      <td>${escapeHTML(row?.played??0)}</td>
+      <td>${escapeHTML(row?.won??0)}</td>
+      <td>${escapeHTML(row?.lost??0)}</td>
+      <td>${percentage==null?'—':escapeHTML(percentage.toFixed(1))}</td>
+      <td class="difference">${difference>0?'+':''}${escapeHTML(difference)}</td>
+    </tr>`;
+  }
+
+  function basketballFeaturedHTML(featured){
+    if(!featured) return '<div class="basketball-panel-empty">Günün vitrini için doğrulanmış karşılaşma bekleniyor.</div>';
+    const first=featured.first||featured.home||{},second=featured.second||featured.away||{};
+    return `<div class="basketball-feature-match">
+      <figure>${visual(first.name,imageOf(first),'')}<figcaption>${escapeHTML(first.name||'TBA')}</figcaption></figure>
+      <div><small>${escapeHTML(basketballStatusLabel(featured))}</small><strong>${escapeHTML(scoreText(featured.score))}</strong><span>${escapeHTML(featured.time||featured.feedDate||'')}</span></div>
+      <figure>${visual(second.name,imageOf(second),'')}<figcaption>${escapeHTML(second.name||'TBA')}</figcaption></figure>
+    </div>`;
+  }
+
+  function basketballLeaguePortalHTML(items, league, payload){
+    const sorted=basketballSortEvents(items);
+    const featured=sorted[0]||null;
+    const teams=new Map();
+    items.forEach((item)=>[item.first||item.home,item.second||item.away].forEach((team)=>{if(team?.name&&!teams.has(team.name))teams.set(team.name,team);}));
+    const live=items.filter(basketballIsLive).length;
+    const finished=items.filter(basketballIsFinished).length;
+    const season=league?.season||'Güncel sezon';
+    const scope=basketballStandingsScope(league);
+    const updated=lastUpdatedLabel(payload);
+    return `<section class="basketball-league-center" data-basketball-league-center data-basketball-standings-scope="${escapeHTML(scope)}">
+      <header class="basketball-league-identity">
+        <span class="basketball-league-logo">${league?visual(league.name,league.logo,''):'<b aria-hidden="true">B</b>'}</span>
+        <div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2>${escapeHTML(league?.name||'Basketbol')}</h2><p>${escapeHTML([league?.country,season].filter(Boolean).join(' · '))}</p></div>
+        <span class="basketball-data-state">${payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
+      </header>
+      <div class="basketball-overview-layout">
+        <section class="basketball-overview-panel basketball-standings-panel" aria-labelledby="basketballStandingsTitle">
+          <header><div><small>GÜNCEL SEZON</small><h3 id="basketballStandingsTitle">Puan durumu</h3></div><span>${escapeHTML(season)}</span></header>
+          <div class="basketball-standings-scroll" tabindex="0" role="region" aria-labelledby="basketballStandingsTitle">
+            <table class="basketball-standings-table" aria-busy="true">
+              <caption>${escapeHTML(league?.name||'Basketbol')} puan durumu</caption>
+              <thead><tr><th scope="col">#</th><th scope="col">TAKIM</th><th scope="col">O</th><th scope="col">G</th><th scope="col">M</th><th scope="col">%</th><th scope="col">AV</th></tr></thead>
+              <tbody>${basketballStandingsSkeletonHTML()}</tbody>
+            </table>
+          </div>
+          <footer class="basketball-standings-status" role="status" aria-live="polite">${scope?'Resmî sıralama hazırlanıyor…':'Lig ve sezon kimliği program verisinden bekleniyor.'}</footer>
+        </section>
+        <aside class="basketball-overview-panel basketball-fixtures-panel">
+          <header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div><span>${items.length} maç</span></header>
+          <div class="basketball-fixtures-body">${basketballScheduleHTML(items)}</div>
+        </aside>
+      </div>
+      <section class="basketball-overview-metrics" aria-label="Seçili lig özeti">
+        <article><span>GÜNLÜK PROGRAM</span><b>${items.length}</b><small>doğrulanmış maç</small></article>
+        <article><span>CANLI</span><b class="is-live">${live}</b><small>devam eden</small></article>
+        <article><span>TAMAMLANAN</span><b>${finished}</b><small>sonuçlanan</small></article>
+        <article><span>TAKIM</span><b>${teams.size}</b><small>günlük kapsam</small></article>
+      </section>
+      <section class="basketball-lower">
+        <article class="basketball-feature">
+          <header><div><small>GÜNÜN VİTRİNİ</small><h3>${escapeHTML(featured?.league||league?.name||'Basketbol')}</h3></div></header>
+          ${basketballFeaturedHTML(featured)}
+        </article>
+        <article class="basketball-source-note">
+          <small>VERİ KAPSAMI</small><h3>Şeffaf, lig bazlı görünüm</h3>
+          <p>Maç programı ve puan tablosu yalnız sağlayıcının seçili lig ile sezon için doğruladığı kayıtlardan oluşur.</p>
+          <span>${escapeHTML(updated?'Son güncelleme: '+updated:'Güncelleme zamanı sağlayıcıdan bekleniyor')}</span>
+        </article>
+      </section>
+    </section>`;
+  }
+
+  function basketballLoadingHTML(){
+    return `<section class="basketball-league-center basketball-loading-shell" aria-busy="true">
+      <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2>Lig merkezi hazırlanıyor</h2><p>Günlük program ve sezon sıralaması</p></div></header>
+      <div class="basketball-overview-layout">
+        <section class="basketball-overview-panel basketball-standings-panel"><header><div><small>GÜNCEL SEZON</small><h3>Puan durumu</h3></div></header><div class="basketball-standings-scroll"><table class="basketball-standings-table"><tbody>${basketballStandingsSkeletonHTML()}</tbody></table></div></section>
+        <aside class="basketball-overview-panel basketball-fixtures-panel"><header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div></header><div class="basketball-fixture-skeleton">${Array.from({length:6},()=>'<i></i>').join('')}</div></aside>
+      </div>
+      <p class="basketball-loading-label" role="status">Basketbol merkezi hazırlanıyor</p>
+    </section>`;
+  }
+
+  function basketballErrorHTML(){
+    return `<section class="basketball-league-center">
+      <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2>Basketbol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
+      <div class="basketball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>Basketbol verisi şu anda alınamadı.</h3><p>Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve puan tablosu yeniden yüklenecek.</p><button type="button" data-basketball-hub-retry>Yeniden dene</button></div>
+    </section>`;
+  }
+
+  async function loadBasketballStandings(league, force = false){
+    const scope=basketballStandingsScope(league);
+    if(!scope) throw new Error('basketball_standings_scope_missing');
+    const cached=basketballStandingsPayloads.get(scope);
+    if(!force && cached && Date.now()-cached.receivedAt<BASKETBALL_STANDINGS_TTL_MS) return cached.payload;
+    if(force) basketballStandingsPayloads.delete(scope);
+    if(basketballStandingsPromises.has(scope)) return basketballStandingsPromises.get(scope);
+    const controller=typeof AbortController!=='undefined'?new AbortController():null;
+    if(controller) basketballStandingsControllers.set(scope,controller);
+    const request=fetch(`/api/sports/basketball/standings?league=${encodeURIComponent(league.id)}&season=${encodeURIComponent(league.season)}`,{
+      cache:'no-store',
+      headers:{Accept:'application/json','Cache-Control':'no-cache'},
+      signal:controller?.signal,
+    }).then(async(response)=>{
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok){
+        const error=new Error(payload?.error||'basketball_standings_unavailable');
+        error.status=response.status;
+        throw error;
+      }
+      if(payload?.sport!=='basketball'||String(payload?.leagueId)!==String(league.id)||String(payload?.season)!==String(league.season)||!Array.isArray(payload?.standings)){
+        throw new Error('basketball_standings_scope_mismatch');
+      }
+      payload.stale=response.headers.get('x-data-stale')==='true'||Boolean(payload.stale);
+      basketballStandingsPayloads.set(scope,{payload,receivedAt:Date.now()});
+      return payload;
+    }).finally(()=>{
+      if(basketballStandingsPromises.get(scope)===request) basketballStandingsPromises.delete(scope);
+      if(basketballStandingsControllers.get(scope)===controller) basketballStandingsControllers.delete(scope);
+    });
+    basketballStandingsPromises.set(scope,request);
+    return request;
+  }
+
+  function basketballStandingsEmptyRow(message, kind = 'empty'){
+    return `<tr class="basketball-standings-message is-${escapeHTML(kind)}"><td colspan="7">${escapeHTML(message)}${kind==='error'?'<button type="button" data-basketball-standings-retry>Yeniden dene</button>':''}</td></tr>`;
+  }
+
+  function renderBasketballStandingsUnavailable(root, message, kind = 'empty', league = null){
+    const table=root?.querySelector('.basketball-standings-table');
+    const body=table?.querySelector('tbody');
+    const status=root?.querySelector('.basketball-standings-status');
+    if(!table||!body||!status) return;
+    body.innerHTML=basketballStandingsEmptyRow(message,kind);
+    table.setAttribute('aria-busy','false');
+    status.textContent=message;
+    status.setAttribute('role',kind==='error'?'alert':'status');
+    body.querySelector('[data-basketball-standings-retry]')?.addEventListener('click',(event)=>{
+      event.currentTarget.disabled=true;
+      const region=table.closest('.basketball-standings-scroll');
+      body.innerHTML=basketballStandingsSkeletonHTML();
+      table.setAttribute('aria-busy','true');
+      status.setAttribute('role','status');
+      status.textContent='Resmî sıralama yeniden hazırlanıyor…';
+      region?.focus();
+      hydrateBasketballStandings(root,league,true);
+    });
+  }
+
+  async function hydrateBasketballStandings(root, league, force = false){
+    const scope=basketballStandingsScope(league);
+    if(!root||!scope){
+      renderBasketballStandingsUnavailable(root,'Lig ve sezon kimliği program verisinden bekleniyor.','empty',league);
+      return;
+    }
+    abortBasketballStandings(scope);
+    const hydrationEpoch=basketballStandingsEpoch;
+    const stillCurrent=()=>hydrationEpoch===basketballStandingsEpoch
+      && root.isConnected
+      && root.dataset.basketballStandingsScope===scope
+      && activeSport==='basketball'
+      && activeView==='home';
+    try{
+      const payload=await loadBasketballStandings(league,force);
+      if(!stillCurrent()) return;
+      const table=root.querySelector('.basketball-standings-table');
+      const body=table?.querySelector('tbody');
+      const status=root.querySelector('.basketball-standings-status');
+      if(!table||!body||!status) return;
+      const rows=payload.standings.filter((row)=>row?.team?.name).slice(0,32);
+      if(!rows.length){
+        renderBasketballStandingsUnavailable(root,'Sağlayıcı bu lig ve sezon için doğrulanmış sıralama yayımlamadı.','empty',league);
+        return;
+      }
+      body.innerHTML='';
+      status.setAttribute('role','status');
+      status.textContent=payload.stale?'Son doğrulanmış puan tablosu yükleniyor…':'Takımlar sıralamaya yerleştiriliyor…';
+      const reduced=Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+      if(reduced){
+        body.innerHTML=rows.map(basketballStandingRowHTML).join('');
+        table.setAttribute('aria-busy','false');
+        status.textContent=`${rows.length} takım · ${payload.stale?'Son doğrulanmış tablo':'API-Sports resmî sıralaması'}`;
+        return;
+      }
+      let index=0;
+      const appendNext=()=>{
+        if(!stillCurrent()) return;
+        body.insertAdjacentHTML('beforeend',basketballStandingRowHTML(rows[index]));
+        index+=1;
+        if(index<rows.length){ setTimeout(appendNext,55); return; }
+        table.setAttribute('aria-busy','false');
+        status.textContent=`${rows.length} takım · ${payload.stale?'Son doğrulanmış tablo':'API-Sports resmî sıralaması'}`;
+      };
+      appendNext();
+    }catch(error){
+      if(error?.name==='AbortError'||!stillCurrent()) return;
+      const message=error?.status===429
+        ? 'Puan tablosu sağlayıcı kotası nedeniyle kısa süreliğine bekliyor.'
+        : 'Puan tablosu şu anda sağlayıcıdan alınamadı; günlük fikstür gösterilmeye devam ediyor.';
+      renderBasketballStandingsUnavailable(root,message,'error',league);
+    }
   }
 
   function volleyballPortalHTML(items, leagueNames){
@@ -208,8 +493,8 @@
     const hub = document.getElementById('multiSportHub');
     const grid = document.getElementById('multiSportGrid');
     if(!hub || !grid) return;
+    grid.setAttribute('aria-busy','false');
     const sports = payload?.sports || {};
-    const available = Object.keys(SPORT_LABELS).filter((key) => Array.isArray(sports[key]) && sports[key].length);
     // Never replace the requested branch with another sport's feed.
     // An empty branch must render its own honest empty state.
     document.querySelectorAll('[data-multi-sport]').forEach((button) => {
@@ -222,11 +507,21 @@
     updateBranchTicker(allItems);
     hub.dataset.sport = activeSport;
     grid.dataset.sport = activeSport;
-    updateBranchIdentity(activeSport, `${payload?.date || ''} programı · ücretsiz API-Sports verisi`);
+    updateBranchIdentity(activeSport, payload?.degraded||payload?.stale
+      ? 'Son doğrulanmış program · API-Sports'
+      : `${payload?.date || ''} programı · API-Sports verisi`);
     const viewNav = document.getElementById('multiSportViews');
     const views = activeSport === 'basketball' ? [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']] : activeSport === 'mma' ? [['home','Genel'],['games','Son ma&#231;lar'],['leagues','Organizasyonlar'],['teams','Dovusculer'],['predict','Predict']] : [['home','Genel'],['games','Ma&#231;lar'],['leagues','Ligler'],['teams','Tak&#305;mlar'],['predict','Predict']];
-    viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}">${label}</button>`).join('');
-    viewNav.querySelectorAll('[data-multi-view]').forEach((button) => button.addEventListener('click', () => openHub(activeSport, button.dataset.multiView, true)));
+    viewNav.innerHTML = views.map(([key,label]) => `<button type="button" data-multi-view="${key}" class="${key===activeView?'active':''}" ${key===activeView?'aria-current="page"':''}>${label}</button>`).join('');
+    viewNav.querySelectorAll('[data-multi-view]').forEach((button) => button.addEventListener('click', () => {
+      pendingViewFocus=button.dataset.multiView;
+      openHub(activeSport,button.dataset.multiView,true);
+    }));
+    if(pendingViewFocus===activeView){
+      const focusTarget=viewNav.querySelector(`[data-multi-view="${activeView}"]`);
+      pendingViewFocus='';
+      requestAnimationFrame(()=>focusTarget?.focus());
+    }
     let leagueStrip = document.getElementById('multiLeagueStrip');
     if(!leagueStrip){
       leagueStrip = document.createElement('nav');
@@ -234,17 +529,47 @@
       leagueStrip.className = 'multi-league-strip';
       viewNav.after(leagueStrip);
     }
+    const basketballLeagues=activeSport==='basketball'?basketballLeagueDescriptors(allItems):[];
     const leagueNames = [...new Set([...(SPORT_LEAGUE_CATALOG[activeSport]||[]),...allItems.map(item => item.league || item.category).filter(Boolean)])];
-    leagueStrip.hidden = !leagueNames.length;
-    leagueStrip.innerHTML = leagueNames.length ? [['all','Tumu'],...leagueNames.slice(0,14).map(name=>[name,name])].map(([key,label])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}">${escapeHTML(label)}</button>`).join('') : '';
-    leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{activeLeague=button.dataset.league;render(payload)}));
-    const items = activeLeague === 'all' ? allItems : allItems.filter(item => (item.league || item.category) === activeLeague);
+    if(activeSport==='basketball'&&activeLeague!=='all'&&!basketballLeagues.some((league)=>league.key===activeLeague)){
+      activeLeague=activeView==='home'&&basketballLeagues.length?basketballLeagues[0].key:'all';
+    }
+    if(activeSport==='basketball'&&activeView==='home'&&activeLeague==='all'&&basketballLeagues.length){
+      activeLeague=basketballLeagues[0].key;
+    }
+    if(activeSport==='basketball'&&activeView==='home') viewNav.before(leagueStrip);
+    else viewNav.after(leagueStrip);
+    const basketballChoices=basketballLeagues.slice(0,14).map((league)=>{
+      const duplicate=basketballLeagues.some((candidate)=>candidate!==league&&candidate.name===league.name);
+      const qualifier=league.country||league.season||league.id;
+      return [league.key,duplicate&&qualifier?`${league.name} · ${qualifier}`:league.name,[league.name,league.country,league.season].filter(Boolean).join(', ')];
+    });
+    const leagueChoices=activeSport==='basketball'
+      ? (activeView==='home'?basketballChoices:[['all','Tümü','Tüm ligler'],...basketballChoices])
+      : [['all','Tümü','Tüm ligler'],...leagueNames.slice(0,14).map((name)=>[name,name,name])];
+    leagueStrip.hidden = !leagueChoices.length;
+    leagueStrip.innerHTML = leagueChoices.map(([key,label,accessibleLabel])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}" aria-label="${escapeHTML(accessibleLabel)}" aria-pressed="${key===activeLeague?'true':'false'}">${escapeHTML(label)}</button>`).join('');
+    leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{
+      activeLeague=button.dataset.league;
+      render(payload);
+      requestAnimationFrame(()=>[...document.querySelectorAll('#multiLeagueStrip [data-league]')]
+        .find((candidate)=>candidate.dataset.league===activeLeague)?.focus());
+    }));
+    const selectedBasketballLeague=activeSport==='basketball'?basketballLeagues.find((item)=>item.key===activeLeague)||null:null;
+    const items = activeLeague === 'all'
+      ? allItems
+      : selectedBasketballLeague
+        ? selectedBasketballLeague.events
+        : allItems.filter(item => (item.league || item.category) === activeLeague);
     if(activeSport === 'basketball' && activeView === 'home'){
-      grid.innerHTML = basketballPortalHTML(items, leagueNames);
-      grid.querySelectorAll('[data-basket-league]').forEach((button) => button.addEventListener('click', () => {
-        activeLeague = button.dataset.basketLeague;
-        render(payload);
-      }));
+      const league=selectedBasketballLeague||basketballLeagues[0]||null;
+      grid.innerHTML = basketballLeaguePortalHTML(items,league,payload);
+      if(pendingBasketballHubFocus){
+        const heading=grid.querySelector('.basketball-league-identity h2');
+        if(heading){ heading.tabIndex=-1; requestAnimationFrame(()=>heading.focus()); }
+        pendingBasketballHubFocus=false;
+      }
+      hydrateBasketballStandings(grid.querySelector('[data-basketball-league-center]'),league);
       return;
     }
     if(activeSport === 'volleyball' && activeView === 'home'){
@@ -285,25 +610,37 @@
 
   async function load(sport){
     const requestedSport=sport || activeSport;
-    if(sharedPayloads.has(requestedSport)) return sharedPayloads.get(requestedSport);
+    const cached=sharedPayloads.get(requestedSport);
+    const receivedAt=payloadReceivedAt.get(requestedSport)||0;
+    let today='';
+    try{ today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(_error){}
+    if(cached&&Date.now()-receivedAt<MULTISPORT_PAYLOAD_TTL_MS&&(!today||cached.date===today)){
+      if(typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:multisport-payload',{detail:{sport:requestedSport,payload:cached}}));
+      return cached;
+    }
+    if(cached){ sharedPayloads.delete(requestedSport); payloadReceivedAt.delete(requestedSport); }
     if(!feedPromises.has(requestedSport)){
       const controller=typeof AbortController!=='undefined'?new AbortController():null;
       if(controller) feedControllers.set(requestedSport,controller);
-      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v10`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' }, signal:controller?.signal })
+      const request = fetch(`/api/sports/today?sport=${encodeURIComponent(requestedSport)}&client=v11`, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-cache' }, signal:controller?.signal })
         .then(async (response) => {
           const payload = await response.json().catch(() => ({}));
-          if(!response.ok) throw new Error(payload.error || 'sports_unavailable');
+          if(!response.ok){
+            const error=new Error(payload.error || 'sports_unavailable');
+            error.status=response.status;
+            throw error;
+          }
           const branchKeys=Object.keys(payload?.sports||{});
           if(branchKeys.length!==1 || branchKeys[0]!==requestedSport) throw new Error('sports_branch_mismatch');
           payload.sports[requestedSport]=(Array.isArray(payload.sports[requestedSport])?payload.sports[requestedSport]:[])
             .filter((item)=>!item?.sport || item.sport===requestedSport);
+          payload.stale=response.headers.get('x-data-stale')==='true'||Boolean(payload.stale);
           sharedPayloads.set(requestedSport,payload);
+          payloadReceivedAt.set(requestedSport,Date.now());
           if(typeof CustomEvent!=='undefined') window.dispatchEvent(new CustomEvent('xyz:multisport-payload',{detail:{sport:requestedSport,payload}}));
           return payload;
-        }).catch((error) => {
-          if(feedPromises.get(requestedSport)===request) feedPromises.delete(requestedSport);
-          throw error;
         }).finally(()=>{
+          if(feedPromises.get(requestedSport)===request) feedPromises.delete(requestedSport);
           if(feedControllers.get(requestedSport)===controller) feedControllers.delete(requestedSport);
         });
       feedPromises.set(requestedSport,request);
@@ -321,7 +658,9 @@
     activeView = view;
     const requestedSport = activeSport;
     const requestedView = activeView;
+    if(requestedSport!=='basketball') pendingBasketballHubFocus=false;
     const requestEpoch = ++hubRequestEpoch;
+    if(requestedSport!=='basketball'||requestedView!=='home') abortBasketballStandings();
     feedControllers.forEach((controller,scope)=>{
       if(scope===requestedSport) return;
       controller.abort();
@@ -339,7 +678,13 @@
     if(hub.dataset) hub.dataset.sport = requestedSport;
     if(grid.dataset) grid.dataset.sport = requestedSport;
     updateBranchIdentity(requestedSport, 'Günün programı hazırlanıyor');
-    grid.innerHTML = '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canlı program hazırlanıyor</span></div>';
+    const cachedPayload=sharedPayloads.get(requestedSport);
+    const cachedAt=payloadReceivedAt.get(requestedSport)||0;
+    const warm=Boolean(cachedPayload&&Date.now()-cachedAt<MULTISPORT_PAYLOAD_TTL_MS);
+    grid.setAttribute('aria-busy','true');
+    if(!warm) grid.innerHTML = requestedSport==='basketball'&&requestedView==='home'
+      ? basketballLoadingHTML()
+      : '<div class="multi-event-loading"><i></i><i></i><i></i><span>Canlı program hazırlanıyor</span></div>';
     document.querySelectorAll('.multisport-nav-button').forEach((button) => button.classList.toggle('active', button.dataset.multiSport === activeSport));
     try{
       const payload = await load(requestedSport);
@@ -350,9 +695,24 @@
       if(requestEpoch !== hubRequestEpoch || activeSport !== requestedSport || activeView !== requestedView) return;
       const branchLabel = SPORT_LABELS[requestedSport] || 'Spor';
       updateBranchIdentity(requestedSport, 'Veri bağlantısı yeniden denenecek');
-      grid.innerHTML = compactEmptyHTML(`${branchLabel} verisi şu anda alınamadı.`,'Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Son doğrulanmış program korunur ve bağlantı düzeldiğinde otomatik yenilenir.',null,branchLabel);
+      grid.setAttribute('aria-busy','false');
+      if(requestedSport==='basketball'&&requestedView==='home'){
+        grid.innerHTML=basketballErrorHTML();
+        grid.querySelector('[data-basketball-hub-retry]')?.addEventListener('click',()=>{
+          pendingBasketballHubFocus=true;
+          sharedPayloads.delete(requestedSport);
+          payloadReceivedAt.delete(requestedSport);
+          openHub(requestedSport,requestedView,false);
+        });
+        if(pendingBasketballHubFocus){
+          requestAnimationFrame(()=>grid.querySelector('[data-basketball-hub-retry]')?.focus());
+          pendingBasketballHubFocus=false;
+        }
+      }else{
+        grid.innerHTML = compactEmptyHTML(`${branchLabel} verisi şu anda alınamadı.`,'Bu bir sağlayıcı hatasıdır, doğrulanmış boş sonuç değildir. Bağlantı düzeldiğinde program otomatik yenilenir.',null,branchLabel);
+      }
     }
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   }
 
   window.openMultiSportHub = openHub;
@@ -382,7 +742,7 @@
     hub.innerHTML = `<header class="multisport-hero"><div><span>XYZSKOR MULTISPORT</span><h1 id="multiSportTitle">${escapeHTML(SPORT_LABELS[routeState()?.sport || activeSport] || 'Spor')}</h1><p id="multiSportNote">Günün programı hazırlanıyor</p></div><b>CANLI VERİ</b></header>
       <nav class="multisport-switcher" aria-label="Spor branşı seçimi">${Object.entries(SPORT_LABELS).map(([key,label]) => `<button type="button" data-multi-sport="${key}">${label}</button>`).join('')}</nav>
       <nav class="multisport-view-nav" id="multiSportViews" aria-label="Branş bölümleri"></nav>
-      <section class="multi-event-grid" id="multiSportGrid" aria-live="polite"></section>`;
+      <section class="multi-event-grid" id="multiSportGrid" aria-label="Branş içeriği"></section>`;
     wrap.parentNode.insertBefore(hub, wrap);
     pruneFootballSurface();
     hub.querySelectorAll('[data-multi-sport]').forEach((button) => button.addEventListener('click', () => openHub(button.dataset.multiSport,'home',true)));
@@ -410,8 +770,11 @@
     if(window.XYZBranchRouter){
       window.XYZBranchRouter.registerAbortHook(() => {
         hubRequestEpoch += 1;
+        pendingViewFocus='';
+        pendingBasketballHubFocus=false;
         feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
         feedControllers.clear();
+        abortBasketballStandings();
       });
       window.XYZBranchRouter.register({
         key:'multisport',
@@ -427,8 +790,11 @@
         },
         unmount:()=>{
           hubRequestEpoch += 1;
+          pendingViewFocus='';
+          pendingBasketballHubFocus=false;
           feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
           feedControllers.clear();
+          abortBasketballStandings();
           document.body.classList.remove('multisport-open');
           const hub = document.getElementById('multiSportHub');
           if(hub) hub.hidden = true;

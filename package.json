@@ -38,7 +38,8 @@
     "qa:general-home": "node scripts/test-general-home-router.mjs",
     "qa:metadata": "node scripts/test-site-metadata.mjs",
     "qa:a11y": "node scripts/test-branch-fallback-auth-a11y.mjs",
-    "qa:focus": "node scripts/test-mini-goal-focus.mjs"
+    "qa:focus": "node scripts/test-mini-goal-focus.mjs",
+    "qa:basketball": "node scripts/test-basketball-league-overview.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
