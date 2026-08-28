@@ -622,3 +622,128 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .football-leader-photo-notice { padding:8px 10px; }
   .football-leader-photo-notice span { font-size:10.5px; }
 }
+
+/* v316 — Yatay kontrol rayları kaydırılabilir kalır; yer kaplayan native
+   scrollbar kromu tüm ürün yüzeylerinde görünmez. Veri tabloları ve dikey
+   akışlar bu kapsamın dışındadır. */
+body :is(
+  #footballContextNav,
+  #footballTopLeagueStrip,
+  .primary-nav,
+  .sport-branch-main,
+  .agenda-track,
+  .football-context-nav,
+  .portal-league-list,
+  .portal-team-list,
+  .portal-team-strip,
+  .scoreboard-filters,
+  .scoreboard-leagues nav,
+  .league-overview-switch,
+  .league-overview-tabs,
+  .football-leader-tabs,
+  .multisport-switcher,
+  .multisport-view-nav,
+  .multi-league-strip,
+  .xms-primary,
+  .xms-primary-inner,
+  .xms-series-nav,
+  .xms-class-switch,
+  .xms-series-picker > div,
+  .ufcx-nav,
+  .basket-team-command > div,
+  .leaguesubtabs,
+  .mc-tabs,
+  .matches-hub-filters,
+  .transfer-center-tabs,
+  .matchday-jump,
+  .challenge-levels,
+  .weekly-challenge-missing > div,
+  .club-social-stage,
+  .football-right-column
+) {
+  -ms-overflow-style:none !important;
+  scrollbar-width:none !important;
+}
+body :is(
+  #footballContextNav,
+  #footballTopLeagueStrip,
+  .primary-nav,
+  .sport-branch-main,
+  .agenda-track,
+  .football-context-nav,
+  .portal-league-list,
+  .portal-team-list,
+  .portal-team-strip,
+  .scoreboard-filters,
+  .scoreboard-leagues nav,
+  .league-overview-switch,
+  .league-overview-tabs,
+  .football-leader-tabs,
+  .multisport-switcher,
+  .multisport-view-nav,
+  .multi-league-strip,
+  .xms-primary,
+  .xms-primary-inner,
+  .xms-series-nav,
+  .xms-class-switch,
+  .xms-series-picker > div,
+  .ufcx-nav,
+  .basket-team-command > div,
+  .leaguesubtabs,
+  .mc-tabs,
+  .matches-hub-filters,
+  .transfer-center-tabs,
+  .matchday-jump,
+  .challenge-levels,
+  .weekly-challenge-missing > div,
+  .club-social-stage,
+  .football-right-column
+)::-webkit-scrollbar {
+  width:0 !important;
+  height:0 !important;
+  display:none !important;
+}
+body .agenda-track { scrollbar-gutter:auto !important; }
+
+@media(forced-colors:active){
+  body :is(
+    #footballContextNav,
+    #footballTopLeagueStrip,
+    .primary-nav,
+    .sport-branch-main,
+    .agenda-track,
+    .league-overview-switch,
+    .league-overview-tabs,
+    .football-leader-tabs,
+    .multisport-switcher,
+    .multisport-view-nav,
+    .multi-league-strip,
+    .xms-series-nav,
+    .xms-class-switch,
+    .ufcx-nav,
+    .leaguesubtabs,
+    .mc-tabs,
+    .matches-hub-filters,
+    .transfer-center-tabs
+  ) { -ms-overflow-style:auto !important; scrollbar-width:auto !important; }
+  body :is(
+    #footballContextNav,
+    #footballTopLeagueStrip,
+    .primary-nav,
+    .sport-branch-main,
+    .agenda-track,
+    .league-overview-switch,
+    .league-overview-tabs,
+    .football-leader-tabs,
+    .multisport-switcher,
+    .multisport-view-nav,
+    .multi-league-strip,
+    .xms-series-nav,
+    .xms-class-switch,
+    .ufcx-nav,
+    .leaguesubtabs,
+    .mc-tabs,
+    .matches-hub-filters,
+    .transfer-center-tabs
+  )::-webkit-scrollbar { width:auto !important; height:auto !important; display:block !important; }
+}

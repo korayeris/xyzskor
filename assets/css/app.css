@@ -421,7 +421,6 @@ body{min-height:100vh;background:
   radial-gradient(900px 600px at 90% -10%,rgba(37,161,112,.13),transparent 62%),
   radial-gradient(800px 520px at 7% 8%,rgba(230,188,104,.09),transparent 62%),
   linear-gradient(180deg,#07111d 0%,#091624 48%,#07111d 100%);}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 75%)}
 nav{padding:12px max(20px,calc((100vw - 1240px)/2));min-height:72px;background:rgba(6,16,27,.9);border-color:var(--line);box-shadow:0 12px 40px rgba(0,0,0,.22)}
 .brand-lockup{display:flex;align-items:center;gap:11px;min-width:0}
 .brand-ball{width:43px;height:43px;object-fit:contain;border-radius:13px;background:#fff;padding:4px;box-shadow:0 8px 24px rgba(230,188,104,.18)}

@@ -11,6 +11,7 @@ const appCss = [
 const footballHubCss = await readFile(new URL('../assets/css/football-hub.css', import.meta.url), 'utf8');
 const footballControlsCss = await readFile(new URL('../assets/css/football-controls-v236.css', import.meta.url), 'utf8');
 const styleLoaderSource = await readFile(new URL('../assets/js/style-loader.js', import.meta.url), 'utf8');
+assert.doesNotMatch(appCss, /body::before\s*\{[^}]*background-(?:image|size)[^}]*\}/s, 'Tum sayfaya yayılan dekoratif izgara cizgileri geri gelmemeli.');
 const rootEnvExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
 const workerEnvExample = await readFile(new URL('../worker/.dev.vars.example', import.meta.url), 'utf8');
 for (const key of ['SPORTMONKS_API_TOKEN','API_SPORTS_KEY','CITO_API_KEY','OCBLACKTOP_API_KEY','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY']) {
@@ -24,6 +25,7 @@ assert.match(documentHtmlRaw, /xyz-branch-css-pending[\s\S]*body>:not\(\.global-
 assert.match(styleLoaderSource, /isBranchRoute[\s\S]*xyz-branch-css-pending[\s\S]*link\.media = "all"[\s\S]*xyz-branch-css-ready/, 'Branş stili ilk geçişte görünürlük kapısını güvenli biçimde açmalı.');
 assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
 assert.match(footballHubCss, /route-scoped football home and league overview[\s\S]*\.scoreboard-shell[\s\S]*\.league-overview-layout/i, 'Canonical football routes need their independent stylesheet.');
+assert.match(footballHubCss, /v316[\s\S]*\.agenda-track[\s\S]*\.league-overview-switch[\s\S]*scrollbar-width:none\s*!important[\s\S]*::-webkit-scrollbar[\s\S]*height:0\s*!important/i, 'Yatay kontrol raylari kaydirma islevini korurken native scrollbar cizgilerini gizlemeli.');
 const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'football-early.js', 'style-loader.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
 const dataSource = scriptSources[0];

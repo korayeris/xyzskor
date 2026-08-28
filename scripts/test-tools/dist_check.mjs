@@ -422,23 +422,41 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   }
   await waitForAppBoot(page);
   const fragments = await canonicalFragmentState(page);
-  const state = await page.evaluate(() => ({
-    rootRoute: document.body.classList.contains('football-root-route'),
-    earlyReady: document.getElementById('footballScoreboardHome')?.dataset.earlyHydrated === 'true',
-    fullReady: document.getElementById('footballScoreboardHome')?.dataset.fullHomeHydrated === 'true',
-    groups: document.querySelectorAll('#footballScoreboardHome .scoreboard-league-group').length,
-    matches: document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row').length,
-    legacyPredictDom: Boolean(document.getElementById('page-league')),
-    matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
-    title: document.title,
-    description: document.querySelector('meta[name="description"]')?.content || '',
-  }));
+  const state = await page.evaluate(() => {
+    const railSelectors = ['.sport-branch-main', '.agenda-track', '.scoreboard-filters', '.scoreboard-leagues nav'];
+    const rails = railSelectors.map((selector) => document.querySelector(selector)).filter(Boolean);
+    const overflowingRail = rails.find((rail) => rail.scrollWidth > rail.clientWidth + 1) || null;
+    let railStillScrolls = true;
+    if (overflowingRail) {
+      const previous = overflowingRail.scrollLeft;
+      overflowingRail.scrollLeft = overflowingRail.scrollWidth;
+      railStillScrolls = overflowingRail.scrollLeft > previous;
+      overflowingRail.scrollLeft = previous;
+    }
+    return {
+      rootRoute: document.body.classList.contains('football-root-route'),
+      earlyReady: document.getElementById('footballScoreboardHome')?.dataset.earlyHydrated === 'true',
+      fullReady: document.getElementById('footballScoreboardHome')?.dataset.fullHomeHydrated === 'true',
+      groups: document.querySelectorAll('#footballScoreboardHome .scoreboard-league-group').length,
+      matches: document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row').length,
+      legacyPredictDom: Boolean(document.getElementById('page-league')),
+      matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
+      viewportGrid: getComputedStyle(document.body, '::before').backgroundImage,
+      horizontalScrollbarChromeHidden: rails.every((rail) => getComputedStyle(rail).scrollbarWidth === 'none'),
+      railStillScrolls,
+      title: document.title,
+      description: document.querySelector('meta[name="description"]')?.content || '',
+    };
+  });
   const homeRequests = requestLog.slice(requestStart).filter((item) => item.url === '/api/football/home');
   check(state.rootRoute && state.groups === 5 && state.matches >= 5, `${scenario}: early/canonical football shell ready`, JSON.stringify(state));
   check(homeRequests.length >= 1, `${scenario}: canonical aggregate request observed`, `requests=${homeRequests.length}`);
   check(state.groups === 5, `${scenario}: aggregate home contains five league groups`, `groups=${state.groups}`);
   check(!state.legacyPredictDom, `${scenario}: lean root omits same-DOM Predict surface`);
   check(!state.matchdayCommand, `${scenario}: fixture-less root omits matchday command`);
+  check(state.viewportGrid === 'none', `${scenario}: global decorative viewport grid is absent`);
+  check(state.horizontalScrollbarChromeHidden, `${scenario}: horizontal control rails hide native scrollbar chrome`);
+  check(state.railStillScrolls, `${scenario}: hidden scrollbar chrome does not disable horizontal scrolling`);
   check(state.title === 'Futbol · 5 Lig — XYZSKOR' && /Süper Lig/.test(state.description), `${scenario}: football root metadata is current`, JSON.stringify(state));
   check(fragments.marker && fragments.missing.length === 0, `${scenario}: canonical fragments restored`, fragments.missing.join(', '));
 
