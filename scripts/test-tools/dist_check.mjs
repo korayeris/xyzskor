@@ -306,6 +306,21 @@ async function smokeGeneralHome(context, viewportName, requestLog, runtimeErrors
   check(!state.footballSurfaceVisible, `${scenario}: football surface is not visible on the general shell`);
   check(!state.chatLauncherVisible, `${scenario}: chat launcher stays clear of general-home branch cards`);
   check(!state.overflow, `${scenario}: no horizontal overflow`);
+  await page.focus('#generalHome .gh-card');
+  const cardFocus = await page.evaluate(() => {
+    const style = getComputedStyle(document.activeElement);
+    return {
+      tag: document.activeElement?.tagName || '',
+      width: Number.parseFloat(style.outlineWidth) || 0,
+      style: style.outlineStyle,
+      color: style.outlineColor,
+    };
+  });
+  check(
+    cardFocus.tag === 'A' && cardFocus.width >= 2 && cardFocus.style !== 'none' && !/rgba\([^)]*,\s*0\)$/.test(cardFocus.color),
+    `${scenario}: borderless cards keep a visible keyboard focus ring`,
+    JSON.stringify(cardFocus),
+  );
 
   // En kritik sözleşme: genel ana sayfa açılışı sıfır spor API isteği yapar.
   const sportRequests = requestLog.slice(requestStart).filter((item) => (
@@ -537,16 +552,78 @@ async function smokeLeague(context, viewportName, requestLog, runtimeErrors) {
     && document.querySelectorAll('#footballLeagueOverview [data-league-overview-match]').length > 0
   ), null, { timeout: 12_000 });
   await waitForAppBoot(page);
-  const state = await page.evaluate(() => ({
-    mode: document.body.classList.contains('football-league-overview-mode'),
-    league: document.body.dataset.footballLeague || document.body.dataset.footballLeagueLoading || '',
-    heading: document.querySelector('#footballLeagueOverview h1')?.textContent?.trim() || '',
-    tableRows: document.querySelectorAll('#footballLeagueOverview [data-league-overview-team]').length,
-    fixtures: document.querySelectorAll('#footballLeagueOverview [data-league-overview-match]').length,
-    matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
-  }));
+  await page.evaluate(() => document.querySelector('#footballLeagueOverview .league-overview-lower')?.scrollIntoView({ block:'center' }));
+  await page.waitForSelector('#footballLeagueOverview .league-overview-lower > .league-overview-panel', { state:'attached', timeout:8_000 });
+  await page.waitForSelector('#footballLeagueOverview .league-overview-stories article', { state:'attached', timeout:8_000 });
+  const state = await page.evaluate(() => {
+    const transparent = (color) => color === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(color);
+    const borderIsInvisible = (element) => {
+      if (!element) return false;
+      const style = getComputedStyle(element);
+      return ['Top', 'Right', 'Bottom', 'Left'].every((side) => (
+        Number.parseFloat(style[`border${side}Width`]) === 0
+        || style[`border${side}Style`] === 'none'
+        || transparent(style[`border${side}Color`])
+      ));
+    };
+    const structuralSelectors = [
+      '.league-overview-tabs',
+      '.league-overview-panel > header',
+      '.league-overview-table-scroll',
+      '.league-overview-table th',
+      '.league-overview-table td',
+      '.league-overview-metrics',
+      '.league-overview-metrics article',
+      '.football-weekly-features',
+      '.league-overview-lower > .league-overview-panel',
+    ];
+    const structuralHairlines = Object.fromEntries(structuralSelectors.map((selector) => {
+      const element = document.querySelector(`#footballLeagueOverview ${selector}`);
+      return [selector, { exists:Boolean(element), hidden:borderIsInvisible(element) }];
+    }));
+    const tableRail = document.querySelector('#footballLeagueOverview .league-overview-table-scroll');
+    let tableRailScrolls = true;
+    if (tableRail && tableRail.scrollWidth > tableRail.clientWidth + 1) {
+      const previous = tableRail.scrollLeft;
+      tableRail.scrollLeft = tableRail.scrollWidth;
+      tableRailScrolls = tableRail.scrollLeft > previous;
+      tableRail.scrollLeft = previous;
+    }
+    const formControls = ['authEmail', 'authPass', 'regTeam'].map((id) => document.getElementById(id));
+    const formBordersVisible = formControls.every((element) => {
+      if (!element) return false;
+      const style = getComputedStyle(element);
+      return Number.parseFloat(style.borderTopWidth) > 0
+        && style.borderTopStyle !== 'none'
+        && !transparent(style.borderTopColor);
+    });
+    return {
+      mode: document.body.classList.contains('football-league-overview-mode'),
+      league: document.body.dataset.footballLeague || document.body.dataset.footballLeagueLoading || '',
+      heading: document.querySelector('#footballLeagueOverview h1')?.textContent?.trim() || '',
+      tableRows: document.querySelectorAll('#footballLeagueOverview [data-league-overview-team]').length,
+      fixtures: document.querySelectorAll('#footballLeagueOverview [data-league-overview-match]').length,
+      matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
+      structuralHairlines,
+      lowerPanelShadow: getComputedStyle(document.querySelector('#footballLeagueOverview .league-overview-lower > .league-overview-panel')).boxShadow,
+      storyGridBackground: getComputedStyle(document.querySelector('#footballLeagueOverview .league-overview-stories')).backgroundColor,
+      storyItemBackground: getComputedStyle(document.querySelector('#footballLeagueOverview .league-overview-stories article')).backgroundColor,
+      tableOverflow: tableRail ? getComputedStyle(tableRail).overflowX : '',
+      tableRailScrolls,
+      formBordersVisible,
+    };
+  });
   check(state.mode && state.tableRows > 0 && state.fixtures > 0, `${scenario}: populated league shell`, JSON.stringify(state));
   check(!state.matchdayCommand, `${scenario}: fixture-less league omits matchday command`);
+  check(
+    Object.values(state.structuralHairlines).every((item) => item.exists && item.hidden),
+    `${scenario}: neutral panel, table and section hairlines are invisible`,
+    JSON.stringify(state.structuralHairlines),
+  );
+  check(state.lowerPanelShadow === 'none', `${scenario}: lower panel inset outline is absent`, state.lowerPanelShadow);
+  check(state.storyGridBackground === state.storyItemBackground, `${scenario}: one-pixel story grid separator is not painted`, `${state.storyGridBackground} / ${state.storyItemBackground}`);
+  check(state.tableOverflow === 'auto' && state.tableRailScrolls, `${scenario}: borderless standings table keeps horizontal scrolling`, JSON.stringify({ overflow:state.tableOverflow, scrolls:state.tableRailScrolls }));
+  check(state.formBordersVisible, `${scenario}: form controls retain visible boundaries`);
   const fixturelessRequests = requestLog.slice(requestStart).filter((item) => item.url.startsWith('/api/football/matchday'));
   check(fixturelessRequests.length === 0, `${scenario}: no matchday request without fixture`, fixturelessRequests.map((item) => item.url).join(', '));
   await page.close();

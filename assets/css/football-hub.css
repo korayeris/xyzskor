@@ -747,3 +747,174 @@ body .agenda-track { scrollbar-gutter:auto !important; }
     .transfer-center-tabs
   )::-webkit-scrollbar { width:auto !important; height:auto !important; display:block !important; }
 }
+
+/* v317 structural surfaces: remove neutral 1px chrome without touching form
+   controls, focus rings, active-tab indicators or semantic pitch markings. */
+@media(forced-colors:none){
+  html :is(body,body[class]) > :is(
+    .global-header,
+    .live-ticker,
+    .football-context-nav,
+    .football-league-command,
+    .matchday-command,
+    .sport-branch-nav,
+    .sport-branch-nav-compact,
+    .xms-primary,
+    .legal-footer-links
+  ),
+  body :where(.wrap,#multiSportHub,.multisport-hub,.xms-shell,.ufcx-shell,.general-home) :where(
+    section,
+    article,
+    aside,
+    header,
+    footer,
+    nav,
+    table,
+    thead,
+    tbody,
+    tfoot,
+    tr,
+    th,
+    td,
+    ul,
+    ol,
+    li,
+    dl,
+    dt,
+    dd,
+    [class$="-panel"],
+    [class*="-panel "],
+    [class$="-shell"],
+    [class*="-shell "],
+    [class$="-row"],
+    [class*="-row "],
+    [class$="-module"],
+    [class*="-module "],
+    [class$="-section"],
+    [class*="-section "],
+    [class$="-rail"],
+    [class*="-rail "],
+    [class$="-strip"],
+    [class*="-strip "],
+    [class$="-grid"],
+    [class*="-grid "],
+    [class$="-list"],
+    [class*="-list "],
+    [class$="-stage"],
+    [class*="-stage "],
+    [class$="-toolbar"],
+    [class*="-toolbar "],
+    [class$="-summary"],
+    [class*="-summary "],
+    [class$="-metrics"],
+    [class*="-metrics "],
+    [class$="-hero"],
+    [class*="-hero "],
+    [class$="-head"],
+    [class*="-head "],
+    [class$="-header"],
+    [class*="-header "],
+    [class$="-footer"],
+    [class*="-footer "],
+    [class$="-tabs"],
+    [class*="-tabs "],
+    [class$="-nav"],
+    [class*="-nav "],
+    [class$="-bar"],
+    [class*="-bar "],
+    [class$="-view"],
+    [class*="-view "],
+    [class$="-feed"],
+    [class*="-feed "],
+    [class$="-desk"],
+    [class*="-desk "],
+    [class$="-table"],
+    [class*="-table "],
+    [class$="-layout"],
+    [class*="-layout "]
+  ):not(button):not(input):not(select):not(textarea):not(.ufcx-profile),
+  body :is(
+    .standings-season-card,
+    .historic-standings-shell,
+    .league-overview-table-scroll,
+    .league-overview-source,
+    .league-overview-fixture,
+    .weekly-team-mvp,
+    .multisport-switcher,
+    .multi-event-loading,
+    .multi-event-empty,
+    .basket-team-command,
+    .basket-league-panel > button,
+    .volley-command,
+    .volley-leagues > button,
+    .matches-hub-row,
+    .football-module-full-link,
+    .weekly-challenge-missing > div > button,
+    .ufcx-fighter,
+    .ufcx-card,
+    .ufcx-fight,
+    .ufcx-facts > div,
+    .ufcx-record,
+    .ufcx-targets,
+    .ufcx-history-card,
+    .ufcx-rank-row,
+    .xms-hub-placeholder,
+    .xms-catalog a
+  ) {
+    border-color:transparent !important;
+  }
+
+  /* Legacy theme rules use body-state and id specificity with !important. */
+  html body #matchdayCommand,
+  html body #matchdayCommand .matchday-command__head,
+  html body #matchdayCommand .matchday-live-root {
+    border-color:transparent !important;
+  }
+  html body #matchdayCommand,
+  html body #matchdayCommand .matchday-live-root { box-shadow:none !important; }
+
+  /* These dividers belong to controls, but are only separators between
+     siblings. Their focus/active indicators use outlines or inset accents. */
+  body :is(
+    .multisport-view-nav > button,
+    .transfer-center-tab,
+    .xms-series-nav > a,
+    .xms-series-nav > button
+  ) { border-right-color:transparent !important; }
+
+  /* Preserve deliberate status/identity accents while neutral sides vanish. */
+  .clubs-hero { border-top-color:#6d8cff !important; }
+  .transfer-center-hero { border-top-color:#ef4552 !important; }
+  .standings-hero { border-top-color:#2db36d !important; }
+  .transfer-window-card,
+  .matches-live-status { border-left-color:#c93642 !important; }
+  .news-desk-seal { border-left-color:#2c65a3 !important; }
+  .predict-overview { border-color:transparent !important; border-top-color:var(--accent) !important; }
+  .xms-formula .xms-data-card { border-left:3px solid var(--xms-accent) !important; }
+  .xms-rally .xms-data-card { border-left:4px solid #3fc77a !important; }
+  body[data-motorsport="wrc"] .xms-data-card { border-left:3px solid #77b255 !important; }
+  .ufcx-fight.is-main { border-color:#7d2430 !important; }
+
+  /* Two remaining hairlines are not borders: one is an inset outline and the
+     other is painted by a pseudo element. */
+  .league-overview-lower > .league-overview-panel { box-shadow:none !important; }
+  .sport-branch-nav-compact::before { content:none !important; }
+
+  /* Several legacy grids used a one-pixel colored gap as a separator. Keep
+     their geometry but paint that gap with the same surface color. */
+  :is(.league-overview-stories,.football-weekly-category-grid) { background-color:#11171b !important; }
+  .football-weekly-team-summary dl { background-color:#151c21 !important; }
+  .multisport-metrics { background-color:#171c21 !important; }
+  .ufcx-stat-table { background-color:#111518 !important; }
+  .xms-mega { background-color:#11151a !important; }
+  .xms-catalog { background-color:#10151a !important; }
+  .league-clubs-grid { background-color:#1e2127 !important; }
+  .editorial-desk-grid { background-color:#1a1b1e !important; }
+  .youtube-media-grid { background-color:#17191d !important; }
+  .club-profile-main { background-color:#1a1d22 !important; }
+  .club-coach-copy dl { background-color:#20242b !important; }
+  :is(.club-lineup-list,.club-squad-grid) { background-color:#202329 !important; }
+  .matches-hub-sidebar { background-color:#202328 !important; }
+  .weekly-challenge-status { background-color:#171d22 !important; }
+  .instagram-feed-grid { background-color:#17191e !important; }
+}
