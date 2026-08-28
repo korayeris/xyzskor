@@ -3010,15 +3010,6 @@ function renderAll(){
 }
 async function boot(){
   const productRoot=(location.pathname.split('/').filter(Boolean)[0]||'').toLowerCase();
-  // `/` bagimsiz genel cok sporlu ana sayfadir. Futbol fiksturu, canli akis,
-  // transferler ve sosyal akislar burada baslatilmaz; veri yalnizca kullanici
-  // bir bransa gectiginde o bransin modulu tarafindan istenir.
-  if(!productRoot && !new URLSearchParams(location.search).get('fixture')
-     && !(typeof parseLegacyHash==='function' && parseLegacyHash())){
-    renderNav();
-    if(window.XYZGeneralHome && typeof window.XYZGeneralHome.mount==='function') window.XYZGeneralHome.mount();
-    return;
-  }
   if(['basketbol','voleybol','ufc','motorsports'].includes(productRoot)){
     // Bağımsız branş merkezleri kendi veri katmanını yükler. Burada tüm futbol
     // fikstürü, transferleri ve sosyal akışlarını başlatmak geçişi gereksiz yere

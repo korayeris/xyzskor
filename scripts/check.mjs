@@ -20,7 +20,8 @@ for (const key of ['SPORTMONKS_API_TOKEN','API_SPORTS_KEY','CITO_API_KEY','OCBLA
 }
 assert.match(documentHtmlRaw, /football-hub\.css\?v=314/, 'The route-scoped football stylesheet must use the v314 cache key.');
 assert.match(documentHtmlRaw, /id="xyzLegacyStyleTemplate"[\s\S]*app-late\.css\?v=314/, 'The legacy stylesheet must remain inert until a legacy surface requests it.');
-assert.match(documentHtmlRaw, /id="xyzCoreStyleTemplate"[\s\S]*app\.css\?v=314/, 'The heavy core stylesheet must remain inert on the static general landing page.');
+assert.match(documentHtmlRaw, /id="xyzCoreStyleTemplate"[\s\S]*app\.css\?v=314/, 'The heavy core stylesheet must remain route-gated until the football runtime requests it.');
+assert.doesNotMatch(documentHtmlRaw, /id="generalHome"|general-home\.js|class="[^"]*general-home/, 'The removed multi-sport card landing must not remain in the root document.');
 for (const [templateId, fileName] of [
   ['xyzVolleyballCenterStyleTemplate', 'volleyball-center.css'],
   ['xyzUfcCenterStyleTemplate', 'ufc-center.css'],
@@ -38,7 +39,7 @@ assert.match(combinedStyleLoaderBlock, /function finish[\s\S]*classList\.remove\
 assert.doesNotMatch(documentHtmlRaw, /<script[^>]+src=["']https:\/\/(?:cdn\.jsdelivr\.net|unpkg\.com)\/[^"']*supabase/i, 'Harici Supabase istemcisi futbolun kritik defer zincirini bloke etmemeli.');
 assert.match(footballHubCss, /route-scoped football home and league overview[\s\S]*\.scoreboard-shell[\s\S]*\.league-overview-layout/i, 'Canonical football routes need their independent stylesheet.');
 assert.match(footballHubCss, /v316[\s\S]*\.agenda-track[\s\S]*\.league-overview-switch[\s\S]*scrollbar-width:none\s*!important[\s\S]*::-webkit-scrollbar[\s\S]*height:0\s*!important/i, 'Yatay kontrol raylari kaydirma islevini korurken native scrollbar cizgilerini gizlemeli.');
-assert.match(footballHubCss, /v317[\s\S]*@media\(forced-colors:none\)[\s\S]*body :where\(\.wrap,#multiSportHub,\.multisport-hub,\.xms-shell,\.ufcx-shell,\.general-home\)[\s\S]*:not\(button\):not\(input\):not\(select\):not\(textarea\)[\s\S]*border-color:transparent\s*!important/i, 'Yapisal hairline temizligi tum urun yuzeylerini kapsamali, form ve gercek kontrol sinirlarini korumali.');
+assert.match(footballHubCss, /v317[\s\S]*@media\(forced-colors:none\)[\s\S]*body :where\([^)]*\.wrap[^)]*#multiSportHub[^)]*\.ufcx-shell[^)]*\)[\s\S]*:not\(button\):not\(input\):not\(select\):not\(textarea\)[\s\S]*border-color:transparent\s*!important/i, 'Yapisal hairline temizligi urun yuzeylerini kapsamali, form ve gercek kontrol sinirlarini korumali.');
 assert.match(footballHubCss, /\.league-overview-lower\s*>\s*\.league-overview-panel\s*\{\s*box-shadow:none\s*!important[\s\S]*\.league-overview-stories,\.football-weekly-category-grid[\s\S]*background-color:#11171b\s*!important/i, 'Border disinda cizilen lig paneli inset ve bir piksellik grid ayiricilari da kaldirilmali.');
 const scriptFiles = ['data.js', 'analytics.js', 'live.js', 'match-center.js', 'matchday-live.js', 'predict-game.js', 'ui.js', 'app-boot.js', 'ui-extras.js', 'chat.js', 'football-early.js', 'style-loader.js'];
 const scriptSources = await Promise.all(scriptFiles.map((file) => readFile(new URL(`../assets/js/${file}`, import.meta.url), 'utf8')));
@@ -49,7 +50,8 @@ const uiExtrasSource = await readFile(new URL('../assets/js/ui-extras.js', impor
 const branchNavSource = await readFile(new URL('../assets/js/sport-branches.js', import.meta.url), 'utf8');
 assert.match(documentHtmlRaw, /ui\.js\?v=314[\s\S]*id="xyzUiExtrasTemplate"[\s\S]*ui-extras\.js\?v=314[\s\S]*app-boot\.js\?v=314/, 'Core UI, inert extras and mandatory boot must keep their load order.');
 assert.match(appBootSource, /productionCoreChunks[\s\S]*primeChunkDownloads\(productionCoreChunks[\s\S]*loadSequence\(productionCoreChunks\.slice\(0, 2\), true\)[\s\S]*fragmentsPrepared[\s\S]*then\(hydrateCanonicalFragments\)[\s\S]*loadSequence\(productionCoreChunks\.slice\(2\), true\)/, 'The mandatory bootstrap must warm downloads, then hydrate required DOM between dependency stages.');
-assert.match(appBootSource, /var appBootPromise = generalHome[\s\S]*Promise\.resolve\(true\)[\s\S]*ensureProductionRuntime\(\)[\s\S]*\.then\(nextTask\)[\s\S]*\.then\(start\)/, 'The static landing fast path must skip football boot while product routes start in their own task.');
+assert.doesNotMatch(appBootSource, /\bgeneralHome(?:Path)?\b/, 'The removed static landing fast path must not bypass the football boot.');
+assert.match(appBootSource, /var appBootPromise = ensureProductionRuntime\(\)[\s\S]*\.then\(nextTask\)[\s\S]*\.then\(start\)/, 'The canonical root must run the same production football boot as its aliases.');
 assert.match(appBootSource, /var initialBranchStylesReady = branchStylesForProduct\(path\)[\s\S]*Promise\.resolve\(initialBranchStylesReady\)[\s\S]*loadSequence\(routePostChunks, true\)/, 'Doğrudan açılan branşın JS paketleri ürün stili hazır olmadan çalışmamalı.');
 assert.match(appBootSource, /canonicalFragmentSpecs[\s\S]*hydrateCanonicalFragments[\s\S]*__XYZ_CANONICAL_FRAGMENTS_READY__[\s\S]*__XYZ_APP_BOOT_READY__/, 'Canonical late DOM and the complete application boot need observable readiness contracts.');
 assert.match(appBootSource, /if \(spec\[3\]\) throw error;[\s\S]*Ikincil UI parcasi devre disi/, 'Optional canonical fragments must not block the required football boot.');
@@ -107,13 +109,14 @@ assert.match(legalCss, /--legal-gold:#c93642/, 'Yasal merkez ana portalın kırm
 assert.match(legalScript, /legal-brand-mark/, 'Yasal merkez ana sayfadaki marka kilidini kullanmalı.');
 assert.match(buildScript, /resolve\(root, "legal"\)/, 'Yasal sayfalar production paketine kopyalanmalı.');
 const clientJsFingerprintList = buildScript.match(/const CLIENT_JS_FILES = \[([^\]]+)\];/)?.[1] || '';
-for (const routedClientFile of ['branch-router.js', 'general-home.js']) {
+for (const routedClientFile of ['branch-router.js']) {
   assert.match(
     clientJsFingerprintList,
     new RegExp(`["']${routedClientFile.replace('.', '\\.')}["']`),
     `${routedClientFile} production parmak izi ve minify listesine dahil olmalı.`,
   );
 }
+assert.doesNotMatch(clientJsFingerprintList, /general-home\.js/, 'Kaldirilan genel kart modulu production parmak izine girmemeli.');
 assert.match(workerSource, /handleFootballLeaders[\s\S]*handleFootballWeeklyAwards/, 'Haftalık futbol API uçları worker tarafında bulunmalı.');
 assert.match(workerSource, /XYZ_PERFORMANCE_ALGORITHM_VERSION\s*=\s*"v1"/, 'XYZ performans algoritması sürümlenmeli.');
 assert.match(dataSource, /loadFootballWeeklyFeatures[\s\S]*football\/leaders[\s\S]*football\/weekly-awards/, 'Haftalık modül yalnız kendi iki kapsam ucunu kullanmalı.');
@@ -318,7 +321,7 @@ assert.match(workerSource, /async function resolveFootballHomeBundle[\s\S]*Promi
 assert.match(functionSource('renderFootballScoreboardHome'), /scoreboard-league-group[\s\S]*scoreboard-picks/, 'Futbol ana sayfası lig grupları ve 1-X-2 girişlerini göstermeli.');
 assert.match(functionSource('footballHomeMatchRow'), /scoreboard-predict/, 'Her ana sayfa maçı Predict düğmesi taşımalı.');
 assert.match(functionSource('normalizeClientFootballStatus'), /startsWith\('canl'\)[\s\S]*live[\s\S]*halftime[\s\S]*finished[\s\S]*cancelled[\s\S]*postponed/, 'Sağlayıcı maç durumları tek istemci sözleşmesine normalize edilmeli.');
-assert.match(liveFunctionSource('buildFootballPath'), /safeLeague==='all' \? '\/all'[\s\S]*safeLeague==='all' \? '\/futbol\/' : base/, 'Tüm ligler alt rotaları `/all` kapsamını, futbol ana ürünü ise `/futbol/` kökünü korumalı.');
+assert.match(liveFunctionSource('buildFootballPath'), /safeLeague==='all' \? '\/all'[\s\S]*safeLeague==='all' \? '\/' : base/, 'Tüm ligler alt rotaları `/all` kapsamını, futbol ana ürünü ise kanonik `/` kökünü korumalı.');
 assert.match(functionSource('footballHomeMatchState'), /normalizeClientFootballStatus[\s\S]*status==='live'[\s\S]*status==='finished'/, 'Ana maç vitrini normalize edilmiş canlı ve bitmiş durumlarını kullanmalı.');
 assert.match(dataSource, /payload\.league!==leagueKey/, 'Sportmonks sezon cevabı istenen lig anahtarıyla doğrulanmalı.');
 assert.match(dataSource, /const scopedSuperLig = isStrictSuperLigScope\(\)/, 'Süper Lig Supabase fallback verisi diğer liglere ve tüm ligler kapsamına taşınmamalı.');
@@ -715,8 +718,9 @@ assert.doesNotMatch(multisportSource, /americanFootball:\s*'Amerikan Futbolu'/, 
 assert.doesNotMatch(multisportSource, /skiPortalHTML|data-ski-discipline|americanFootball|australianFootball|\brugby\b|\bbaseball\b|\bhandball\b|\bhockey\b/, 'Emekli spor dallarinin erişilemez renderer kodu bundle icinde kalmamali.');
 assert.doesNotMatch(appCss, /ski-hero-v1|field-hero-v1|data-sport=["']ski/, 'Emekli Kayak renderer ve kullanilmayan kahraman gorselleri CSS icinde kalmamali.');
 assert.doesNotMatch(sportBranchesSource, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'Ana spor navigasyonu yalniz veri destekli branslari gostermeli.');
-// `/` genel çok sporlu ana sayfaya ayrıldı; futbol kapsamı `/futbol/` altındadır.
-assert.match(sportBranchesSource, /\["football", "Futbol", "\/futbol\/"\]/, 'Spor menüsünün ilk öğesi genel ana sayfa gibi davranmamalı; futbol kapsamını açıkça `/futbol/` olarak belirtmeli.');
+// `/` doğrudan futbol ana sayfasıdır; `/futbol/` ve `/all` yalnız takma rotadır.
+assert.match(sportBranchesSource, /\["football", "Futbol", "\/"\]/, 'Spor menüsünün ilk öğesi kanonik futbol köküne (`/`) gitmeli.');
+assert.doesNotMatch(styleLoaderSource, /\bisGeneralHome\b|general-home-route/, 'Kök rota kaldırılan genel kart yüzeyi için stil istisnası taşımamalı.');
 assert.match(motorsportsSource, /href="\/ufc\/">UFC/, 'Motor sporları kabuğu UFC geçişini kaybetmemeli.');
 assert.match(appCss, /body\.multisport-open #matchdayCommand/, 'Brans merkezinde futbol mac merkezi gizlenmeli.');
 assert.doesNotMatch(readme, /Kayak|Amerikan Futbolu|Buz Hokeyi/, 'README kaldirilan verisiz branslari aktif gostermemeli.');

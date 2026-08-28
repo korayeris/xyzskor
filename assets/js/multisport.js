@@ -85,10 +85,10 @@
     feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
     feedControllers.clear();
     abortBasketballStandings();
-    // Futbol merkezi artık `/futbol/` altındadır; `/` genel ana sayfadır.
+    // Futbol merkezi marka kökündedir; branştan çıkış doğrudan ana sayfaya döner.
     if(routeState()) {
-      if(window.XYZBranchRouter) window.XYZBranchRouter.navigate('/futbol/', {label:'Futbol'});
-      else location.assign('/futbol/');
+      if(window.XYZBranchRouter) window.XYZBranchRouter.navigate('/', {label:'Futbol'});
+      else location.assign('/');
       return;
     }
     document.body.classList.remove('multisport-open');
@@ -961,7 +961,7 @@
       document.getElementById(id)?.addEventListener('click', (event) => {
         // Bu capture handler yalnız aktif Basketbol/Voleybol yüzeyinin ürün
         // geçişini sahiplenir. Inline legacy handler'a da izin verilirse önce
-        // `/futbol`, hemen ardından `/predict` çalışıp iki navigasyon yarışır.
+        // Futbol, hemen ardından `/predict` çalışıp iki navigasyon yarışır.
         if(!routeState() && !document.body.classList.contains('multisport-open')) return;
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -969,7 +969,7 @@
         else location.assign(url);
       }, true);
     };
-    bindProductRoute('tabBtnFootball','/futbol/','Futbol');
+    bindProductRoute('tabBtnFootball','/','Futbol');
     bindProductRoute('tabBtnPredict','/predict/','Predict');
     const initial = routeState();
     if(initial) openHub(initial.sport,initial.view,false);

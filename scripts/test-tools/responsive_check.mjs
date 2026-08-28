@@ -29,10 +29,9 @@ const ALL_VIEWPORTS = [
   { name: '1440-masaustu', width: 1440, height: 900 },
 ];
 const ALL_ROUTES = [
-  // `/` bagimsiz genel cok sporlu ana sayfadir; futbol bes lig merkezi
-  // `/futbol/` altindadir.
-  { name: 'genel-anasayfa', path: '/' },
-  { name: 'anasayfa', path: '/futbol/' },
+  // `/` dogrudan bes ligli futbol merkezidir. `/futbol/` ve `/all` takma
+  // rotalari kaynak seviyesindeki route sozlesmesi tarafindan ayrica korunur.
+  { name: 'anasayfa', path: '/' },
   { name: 'super-lig-overview', path: '/super-lig' },
   { name: 'premier-league-overview', path: '/premier-league' },
   { name: 'la-liga-overview', path: '/la-liga' },
@@ -52,7 +51,7 @@ const FOOTBALL_OVERVIEW_ROUTES = new Map([
   ['bundesliga-overview', 'bundesliga'],
   ['serie-a-overview', 'serie-a'],
 ]);
-const TOUCH_TARGET_ROUTES = new Set(['genel-anasayfa', 'anasayfa', ...FOOTBALL_OVERVIEW_ROUTES.keys()]);
+const TOUCH_TARGET_ROUTES = new Set(['anasayfa', ...FOOTBALL_OVERVIEW_ROUTES.keys()]);
 const selectedViewportNames = new Set((process.env.XYZSKOR_TEST_VIEWPORT || '').split(',').map((item) => item.trim()).filter(Boolean));
 const selectedRouteNames = new Set((process.env.XYZSKOR_TEST_ROUTE || '').split(',').map((item) => item.trim()).filter(Boolean));
 const VIEWPORTS = process.env.XYZSKOR_TEST_VIEWPORT
@@ -224,7 +223,18 @@ async function main() {
       const requestedApiPaths = [];
       const requestedResourcePaths = [];
       page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 240)));
-      page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
+      page.on('console', (m) => {
+        if (m.type() !== 'error') return;
+        const message = m.text();
+        // Harici scriptler asagidaki route harness'inda kasitli olarak bos
+        // yanitlanir. Chromium bu bos govdenin SRI hash'i gercek Supabase
+        // paketine uymadigi icin konsola browser-seviyesinde bir hata yazar;
+        // bu uygulama runtime hatasi degildir ve yalniz bu bilinen URL+mesaj
+        // ikilisi icin filtrelenir.
+        if (/Failed to find a valid digest in the 'integrity' attribute/.test(message)
+          && /(?:cdn\.jsdelivr\.net\/npm|unpkg\.com)\/@supabase\/supabase-js@2\.112\.4/.test(message)) return;
+        consoleErrors.push(message.slice(0, 200));
+      });
       // Harici host (CDN, Supabase, gorsel) sandbox'ta yok; bos yanit ver.
       await page.route('**://**', async (r) => {
         const url = r.request().url();
@@ -339,6 +349,9 @@ async function main() {
             hubReady: document.getElementById('xyzFootballHubStyle')?.media === 'all',
             legacyStylesPresent: Boolean(document.getElementById('xyzLegacyStylesheet')),
             uiExtrasPresent: Boolean(document.getElementById('xyzUiExtrasScript')),
+            footballRootRoute: document.body.classList.contains('football-root-route'),
+            removedGeneralHomePresent: Boolean(document.getElementById('generalHome'))
+              || document.body.classList.contains('general-home-route'),
             xmsVisible: (()=>{ const el=document.querySelector('body > .xms-primary'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
             sideChatVisible: (()=>{ const el=document.getElementById('sideChatPrototype'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
             miniGameVisible: (()=>{ const el=document.getElementById('miniGoalGame'); return Boolean(el&&(el.offsetWidth||el.offsetHeight)&&getComputedStyle(el).display!=='none'); })(),
@@ -367,13 +380,9 @@ async function main() {
         ok(!metrics.canonicalRuntime.uiExtrasPresent, `${tag}: istege bagli arayuz modulleri ilk acilista yuklenmiyor`);
         ok(!metrics.canonicalRuntime.xmsVisible&&!metrics.canonicalRuntime.sideChatVisible&&!metrics.canonicalRuntime.miniGameVisible, `${tag}: ilgisiz prototip yuzeyleri futbol merkezine sizmiyor`, JSON.stringify(metrics.canonicalRuntime));
       }
-      // Genel ana sayfa sozlesmesi: statik brans kartlari, sifir spor API'si,
-      // baska brans yuzeyi sizintisi yok.
-      if(route.name === 'genel-anasayfa'){
-        ok(metrics.canonicalRuntime.hubReady, `${tag}: kanonik stil boyamadan once hazir`);
-        ok(!metrics.canonicalRuntime.legacyStylesPresent, `${tag}: agir legacy stil genel kabukta yuklenmiyor`);
-        ok(!metrics.canonicalRuntime.xmsVisible&&!metrics.canonicalRuntime.sideChatVisible&&!metrics.canonicalRuntime.miniGameVisible, `${tag}: ilgisiz prototip yuzeyleri genel ana sayfaya sizmiyor`, JSON.stringify(metrics.canonicalRuntime));
-        ok(requestedApiPaths.filter((path)=>/^\/api\/(football|sports|ufc|motorsports)/.test(path)).length===0, `${tag}: genel ana sayfa hicbir spor API istegi yapmiyor`, requestedApiPaths.join(' | '));
+      if(route.name === 'anasayfa'){
+        ok(metrics.canonicalRuntime.footballRootRoute, `${tag}: marka koku futbol ana rota sinifini tasiyor`);
+        ok(!metrics.canonicalRuntime.removedGeneralHomePresent, `${tag}: kaldirilan genel kart ana sayfasi DOM veya route sinifi olarak yok`);
       }
       if(route.name === 'anasayfa' || FOOTBALL_OVERVIEW_ROUTES.has(route.name) || ['super-lig-maclar','predict'].includes(route.name)){
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/sports/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: futbol/Predict akisi diger spor API ailelerine dokunmuyor`, requestedApiPaths.join(' | '));

@@ -1,10 +1,8 @@
 (function () {
   "use strict";
   var path = location.pathname.replace(/^\/+|\/+$/g, "");
-  var generalHomePath = path === "" || path === "index.html";
   var canonical = new Set(["", "index.html", "futbol", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
   var fixture = new URLSearchParams(location.search).get("fixture");
-  var generalHome = generalHomePath && !fixture;
   var bootScriptSource = document.currentScript && document.currentScript.src ? document.currentScript.src : location.href;
   var assetVersion = new URL(bootScriptSource, location.href).searchParams.get("v") || "";
   var extrasPromise = null;
@@ -183,8 +181,8 @@
 
   // Route-aware geçiş için talep anında branş paketi yükleyici.
   //
-  // Genel ana sayfa ve futbol rotaları bütün spor renderer'larını önden
-  // yüklemez (bu, ilk boyamayı gereksiz yere uzatıyordu). Router bir branşa
+  // Futbol rotaları bütün spor renderer'larını önden yüklemez (bu, ilk boyamayı
+  // gereksiz yere uzatıyordu). Router bir branşa
   // geçmeden önce bu fonksiyonu çağırır; modül hazır olduğunda geçiş belge
   // yenilemeden istemcide yapılabilir. Modül yoksa router denetimli
   // navigasyona düşer. Bu fonksiyon hiçbir spor API'sini çağırmaz; yalnız
@@ -256,24 +254,20 @@
     if (target) target.innerHTML = '<div class="load-error"><p>Uygulama dosyalari yuklenemedi.</p><button type="button" onclick="location.reload()">Yeniden dene</button></div>';
   }
 
-  // The general landing page is a static branch directory. Loading the full
-  // football data/UI/fragment graph here spent more than a megabyte without
-  // owning a single sports API request. Branch-router can still load the
-  // selected branch module on demand through ensureXYZBranchModule.
-  var appBootPromise = generalHome
-    ? Promise.resolve(true)
-    : ensureProductionRuntime()
-      .then(function (productionMode) {
-        if (!canonical.has(path) || fixture) return window.ensureXYZUiExtras().then(function () { return productionMode; });
-        return productionMode;
-      })
-      .then(nextTask)
-      .then(start);
+  // `/`, `/futbol` and `/all` own the same football home runtime. Other sports
+  // still load only their route-scoped renderer after the shared shell boots.
+  var appBootPromise = ensureProductionRuntime()
+    .then(function (productionMode) {
+      if (!canonical.has(path) || fixture) return window.ensureXYZUiExtras().then(function () { return productionMode; });
+      return productionMode;
+    })
+    .then(nextTask)
+    .then(start);
   window.__XYZ_APP_BOOT_READY__ = appBootPromise;
   appBootPromise
     .then(function () {
       window.__XYZ_APP_BOOT_READY__ = true;
-      if (generalHome || !document.getElementById("xyzChatTemplate")) return;
+      if (!document.getElementById("xyzChatTemplate")) return;
       // These modules stay available, but never collapse into the first
       // football paint's single adjacent-defer long task.
       var routePostChunks = postChunksForRoute();

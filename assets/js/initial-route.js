@@ -7,18 +7,13 @@
     if (detailFixture) document.body.classList.add("matchday-detail-open");
     var league = location.pathname.replace(/^\/+|\/+$/g, "");
     var homeLeagues = ["super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"];
-    // `/` artık beş ligli futbol merkezi değil, bağımsız çok sporlu genel
-    // ana sayfadır ve hiçbir spor API'sini çağırmaz. Futbol merkezi `/futbol`
-    // altındadır; `/all` geriye dönük uyumluluk için korunur.
-    var isGeneralHome = !league || league === "index.html";
-    var isFootballRoot = league === "futbol" || league === "all";
+    // Marka kökü doğrudan beş ligli futbol merkezidir. `/futbol` ve `/all`
+    // aynı yüzeyin geriye dönük uyumlu takma rotaları olarak korunur.
+    var isFootballRoot = !league || league === "index.html" || league === "futbol" || league === "all";
     document.body.classList.add("league-theme-all");
-    if (isGeneralHome) {
-      document.body.classList.add("general-home-route");
-      document.body.dataset.xyzRoute = "general-home";
-    }
     if (isFootballRoot) {
       document.body.classList.add("football-root-route");
+      document.body.dataset.xyzRoute = "football-home";
       document.body.dataset.footballLeague = "all";
       document.body.dataset.footballThemeReady = "1";
     }
@@ -64,7 +59,7 @@
     var titleParts = [];
     if (leagueNames[parts[0]]) titleParts.push(leagueNames[parts[0]], sectionNames[parts[1]] || "Futbol");
     else if (productNames[parts[0]]) titleParts.push(productNames[parts[0]]);
-    else if (isGeneralHome) titleParts.push("Çok Sporlu Canlı Skor");
+    else if (isFootballRoot) titleParts.push("Futbol · 5 Lig");
     else titleParts.push("Futbol");
     document.title = titleParts.join(" · ") + " — XYZSKOR";
     if (window.XYZBranchRouter && typeof window.XYZBranchRouter.syncMetadata === "function") {

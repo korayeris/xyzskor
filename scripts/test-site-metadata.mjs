@@ -58,9 +58,8 @@ for (const path of [
 const distRoot = resolve(root, "dist", "client");
 try {
   await access(resolve(distRoot, "index.html"));
-  const routes = ["", "futbol", "predict", "voleybol", "ufc", "motorsports"];
-  const titles = new Set();
-  const descriptions = new Set();
+  const routes = ["", "futbol", "all", "predict", "voleybol", "ufc", "motorsports"];
+  const metadataByRoute = new Map();
   for (const route of routes) {
     const html = await readFile(resolve(distRoot, ...(route ? route.split("/") : []), "index.html"), "utf8");
     const expectedUrl = route ? `${publicOrigin}/${route}/` : `${publicOrigin}/`;
@@ -68,11 +67,23 @@ try {
     assert.equal(canonical, expectedUrl, `${route || "/"} canonical URL'si rotaya özgü olmalı.`);
     assert.equal(metaContent(html, "property", "og:url"), expectedUrl, `${route || "/"} og:url canonical ile eşleşmeli.`);
     assert.equal(metaContent(html, "name", "twitter:card"), "summary_large_image");
-    titles.add(html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || "");
-    descriptions.add(metaContent(html, "name", "description"));
+    metadataByRoute.set(route, {
+      title: html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || "",
+      description: metaContent(html, "name", "description"),
+    });
   }
-  assert.equal(titles.size, routes.length, "Temel ürün rotalarının title değerleri benzersiz olmalı.");
-  assert.equal(descriptions.size, routes.length, "Temel ürün rotalarının açıklamaları benzersiz olmalı.");
+  const rootMetadata = metadataByRoute.get("");
+  assert.match(rootMetadata.title, /XYZSKOR|XYZSkor/i, "Marka kökünün title değeri XYZSKOR'u tanımlamalı.");
+  assert.match(rootMetadata.description, /Süper Lig/i, "Marka kökü beş ligli futbol kapsamını açıklamalı.");
+  assert.doesNotMatch(`${rootMetadata.title}\n${rootMetadata.description}`, /Çok Sporlu|Basketbol|Voleybol/i, "Kök metadata kaldırılan genel spor kart sayfasını tanımlamamalı.");
+
+  // `/futbol` ve `/all` aynı futbol yüzeyinin takma rotalarıdır; bu nedenle
+  // ürünler arası benzersizlik kontrolünde ayrı birer ürün sayılmazlar.
+  const primaryProductRoutes = ["", "predict", "voleybol", "ufc", "motorsports"];
+  const titles = new Set(primaryProductRoutes.map((route) => metadataByRoute.get(route).title));
+  const descriptions = new Set(primaryProductRoutes.map((route) => metadataByRoute.get(route).description));
+  assert.equal(titles.size, primaryProductRoutes.length, "Temel ürün rotalarının title değerleri benzersiz olmalı.");
+  assert.equal(descriptions.size, primaryProductRoutes.length, "Temel ürün rotalarının açıklamaları benzersiz olmalı.");
 } catch (error) {
   if (error?.code !== "ENOENT") throw error;
 }

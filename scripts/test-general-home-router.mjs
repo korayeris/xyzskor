@@ -1,12 +1,11 @@
-// XYZSKOR genel çok sporlu ana sayfa + route-aware branş router sözleşmesi.
+// XYZSKOR kanonik futbol kökü + route-aware branş router sözleşmesi.
 //
 // Bu test EXTERNAL-REVIEW-HANDOFF-2026-08-25 P1.1 ve P1.2 maddelerinin
 // regresyon kapısıdır ve kasıtlı olarak uygulamadan ÖNCE yazılmıştır.
 //
 // Sözleşme:
-//   1. `/` genel spor shell'idir: ilk bootstrap HİÇBİR spor API'sine dokunmaz.
-//   2. Futbol beş lig merkezi `/futbol` altındadır ve yalnız bir /football/home
-//      isteği başlatır. `/all` geriye dönük uyumluluk için aynı davranır.
+//   1. `/` beş ligli futbol merkezidir ve yalnız bir /football/home isteği başlatır.
+//   2. `/futbol` ve `/all` geriye dönük uyumlu takma rotalardır.
 //   3. Tek lig rotası yalnız kendi /season isteğini başlatır.
 //   4. Branş router'ı tam sayfa navigasyon (location.assign) kullanmaz;
 //      eski isteği abort eder ve header'ı yeniden kurmaz.
@@ -166,24 +165,17 @@ function sourceBetween(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
-console.log('\n=== 1) Genel ana sayfa hiçbir spor API çağırmaz ===');
-{
-  const root = await initialRequests('/');
-  check(() => assert.deepEqual(root.requests, []), 'Genel ana sayfa `/` ilk bootstrap\'te sıfır spor API isteği yapar.');
-  check(() => assert.ok(root.classes.has('general-home-route')), '`/` genel ana sayfa route sınıfını işaretler.');
-  check(() => assert.equal(root.classes.has('football-root-route'), false), '`/` artık futbol kökü gibi davranmaz.');
-  check(() => assert.equal(root.context.window.__XYZ_FOOTBALL_HOME_REQUEST__, undefined), '`/` erken futbol home promise\'i kurmaz.');
-}
-
-console.log('\n=== 2) Futbol merkezi /futbol altında ve tek /home isteği yapar ===');
-for (const path of ['/futbol', '/futbol/', '/all']) {
+console.log('\n=== 1) Kök ve takma rotalar tek /home isteğiyle futbol merkezini açar ===');
+for (const path of ['/', '/futbol', '/futbol/', '/all']) {
   const run = await initialRequests(path);
   check(() => assert.deepEqual(run.requests, ['/api/football/home']), `${path} yalnız tek kompakt /football/home isteği başlatır.`);
   check(() => assert.ok(run.classes.has('football-root-route')), `${path} futbol kökü olarak işaretlenir.`);
+  check(() => assert.equal(run.classes.has('general-home-route'), false), `${path} kaldırılan genel kart rotasını işaretlemez.`);
+  check(() => assert.ok(run.context.window.__XYZ_FOOTBALL_HOME_REQUEST__), `${path} erken futbol home promise'ini runtime'a devreder.`);
   check(() => assert.ok(run.context.window.__XYZ_FOOTBALL_HOME_ABORT_CONTROLLER__?.signal), `${path} erken isteği route değişiminde abort edilebilir.`);
 }
 
-console.log('\n=== 3) Tek lig kapsamı korunur ===');
+console.log('\n=== 2) Tek lig kapsamı korunur ===');
 for (const league of ['super-lig', 'premier-league', 'la-liga', 'bundesliga', 'serie-a']) {
   const run = await initialRequests(`/${league}`);
   check(
@@ -192,15 +184,15 @@ for (const league of ['super-lig', 'premier-league', 'la-liga', 'bundesliga', 's
   );
 }
 
-console.log('\n=== 4) Branş rotaları futbol API ailesine dokunmaz ===');
+console.log('\n=== 3) Branş rotaları futbol API ailesine dokunmaz ===');
 for (const product of ['/predict', '/basketbol/', '/voleybol/', '/motorsports/formula-1', '/ufc/']) {
   const run = await initialRequests(product);
   check(() => assert.deepEqual(run.requests, []), `${product} ilk bootstrap'i futbol API ailesine dokunmaz.`);
 }
 
-console.log('\n=== 5) Router tam sayfa navigasyon yapmaz ===');
+console.log('\n=== 4) Router tam sayfa navigasyon yapmaz ===');
 {
-  const routerSource = `${sportBranchesSource}\n${generalHomeSource}\n${branchRouterSource}`;
+  const routerSource = `${sportBranchesSource}\n${branchRouterSource}`;
   check(() => assert.ok(branchRouterSource, 'assets/js/branch-router.js mevcut olmalı.'), 'Branş router modülü mevcut.');
   check(
     () => assert.equal(/location\.assign\(/.test(sportBranchesSource), false),
@@ -300,8 +292,8 @@ console.log('\n=== 5c) İstemci geçişi önce eski branş işini iptal eder ===
 console.log('\n=== 5c.1) SPA geçişleri route metadata bilgisini eşzamanlar ===');
 {
   const harness = createRouterHarness(async () => response(''), '/');
-  check(() => assert.equal(harness.document.title, 'Çok Sporlu Canlı Skor — XYZSKOR'), 'Genel ana sayfanın başlangıç title değeri doğrudur.');
-  check(() => assert.match(harness.metadataNodes.get('meta[name="description"]').content, /basketbol/i), 'Genel ana sayfanın meta description değeri çok spor kapsamını açıklar.');
+  check(() => assert.equal(harness.document.title, 'Futbol · 5 Lig — XYZSKOR'), 'Kanonik kökün başlangıç title değeri futbol ürününü gösterir.');
+  check(() => assert.match(harness.metadataNodes.get('meta[name="description"]').content, /Süper Lig/i), 'Kanonik kökün meta description değeri beş ligli futbol kapsamını açıklar.');
   harness.window.XYZBranchRouter.register({
     key: 'multisport-metadata-test',
     matches: (pathname) => pathname.startsWith('/basketbol'),
@@ -341,8 +333,8 @@ console.log('\n=== 5c.2) Multisport ürün sekmeleri tek hedefli router geçişi
     'Branş navigasyonundaki Predict düğmesi header click zinciri yerine router\'a doğrudan gider.',
   );
   check(
-    () => assert.match(liveSource, /safeSection==='home'\) return safeLeague==='all' \? '\/futbol\/' : base/),
-    'Beş lig futbol kökü Predict dönüşünde genel `/` yerine `/futbol/` olarak commit edilir.',
+    () => assert.match(liveSource, /safeSection==='home'\) return safeLeague==='all' \? '\/' : base/),
+    'Beş lig futbol kökü Predict dönüşünde kanonik `/` olarak commit edilir.',
   );
 }
 
@@ -415,7 +407,30 @@ console.log('\n=== 5d.1) Branş paket yükleyicisi takılırsa belge fallback yo
   );
 }
 
-console.log('\n=== 5d.2) Back, istemci branşından yönetilen futbol belgesine döner ===');
+console.log('\n=== 5d.2) Back, istemci branşından kanonik futbol belgesine döner ===');
+{
+  const harness = createRouterHarness(async () => response(''), '/');
+  const order = [];
+  harness.window.XYZBranchRouter.register({
+    key: 'multisport-test',
+    matches: (pathname) => pathname === '/basketbol/',
+    mount: () => order.push('basketbol-mount'),
+    unmount: () => order.push('basketbol-unmount'),
+  });
+  await harness.window.XYZBranchRouter.navigate('/basketbol/');
+  harness.window.location.pathname = '/';
+  harness.window.location.href = 'https://xyzskor.test/';
+  let propagationStopped = false;
+  harness.listeners.get('popstate')?.({ stopImmediatePropagation() { propagationStopped = true; } });
+  check(
+    () => assert.deepEqual(harness.reloads, ['https://xyzskor.test/']),
+    'Back ile kanonik futbol köküne dönüş hedef belgeyi yeniden yükler.',
+  );
+  check(() => assert.equal(propagationStopped, true), 'Managed Back fallback eski popstate dinleyicilerinin state bozmasini engeller.');
+  check(() => assert.equal(order.includes('basketbol-unmount'), false), 'Belge yuklenirken mevcut brans DOM uzerinde tutulur.');
+}
+
+console.log('\n=== 5d.3) Kaldırılan genel ana sayfa Back yüzeyi olarak kaydedilmez ===');
 {
   const harness = createRouterHarness(async () => response(''), '/futbol');
   const order = [];
@@ -428,40 +443,12 @@ console.log('\n=== 5d.2) Back, istemci branşından yönetilen futbol belgesine 
   await harness.window.XYZBranchRouter.navigate('/basketbol/');
   harness.window.location.pathname = '/futbol';
   harness.window.location.href = 'https://xyzskor.test/futbol';
-  let propagationStopped = false;
-  harness.listeners.get('popstate')?.({ stopImmediatePropagation() { propagationStopped = true; } });
+  harness.listeners.get('popstate')?.({ stopImmediatePropagation() {} });
   check(
-    () => assert.deepEqual(harness.reloads, ['https://xyzskor.test/futbol']),
-    'Back ile kayitsiz managed futbol rotasina donus hedef belgeyi yeniden yukler.',
+    () => assert.deepEqual(order, ['basketbol-mount']),
+    'Takma futbol rotasına dönüş kaldırılan genel kart yüzeyini mount etmez.',
   );
-  check(() => assert.equal(propagationStopped, true), 'Managed Back fallback eski popstate dinleyicilerinin state bozmasini engeller.');
-  check(() => assert.equal(order.includes('basketbol-unmount'), false), 'Belge yuklenirken mevcut brans DOM uzerinde tutulur.');
-}
-
-console.log('\n=== 5d.3) Back, istemci branşından kayıtlı genel ana sayfaya döner ===');
-{
-  const harness = createRouterHarness();
-  const order = [];
-  harness.window.XYZBranchRouter.register({
-    key: 'general-test',
-    matches: (pathname) => pathname === '/',
-    mount: () => order.push('general-mount'),
-  });
-  harness.window.XYZBranchRouter.register({
-    key: 'multisport-test',
-    matches: (pathname) => pathname === '/basketbol/',
-    mount: () => order.push('basketbol-mount'),
-    unmount: () => order.push('basketbol-unmount'),
-  });
-  await harness.window.XYZBranchRouter.navigate('/basketbol/');
-  harness.window.location.pathname = '/';
-  harness.window.location.href = 'https://xyzskor.test/';
-  harness.listeners.get('popstate')?.({});
-  check(
-    () => assert.deepEqual(order, ['basketbol-mount', 'basketbol-unmount', 'general-mount']),
-    'Back ile genel ana sayfaya donus multisport yuzeyini unmount edip genel yuzeyi mount eder.',
-  );
-  check(() => assert.deepEqual(harness.reloads, []), 'Kayitli genel ana sayfa Back gecisinde belge yenilenmez.');
+  check(() => assert.deepEqual(harness.reloads, ['https://xyzskor.test/futbol']), 'Takma futbol rotasına Back geçişi futbol belgesini kontrollü yeniden yükler.');
 }
 
 console.log('\n=== 5d.4) Futbol popstate işleyicisi bağımsız branşları sahiplenmez ===');
@@ -553,28 +540,24 @@ console.log('\n=== 5e) Futbolun kalıcı ve tembel GET akışları tek hook ile 
   );
 }
 
-console.log('\n=== 6) Genel ana sayfa iskeleti statik ve API sahibi değil ===');
+console.log('\n=== 6) Genel kart ana sayfası uygulamadan kaldırıldı ===');
 {
-  check(() => assert.ok(generalHomeSource, 'assets/js/general-home.js mevcut olmalı.'), 'Genel ana sayfa modülü mevcut.');
+  check(() => assert.equal(generalHomeSource, ''), 'Genel kart ana sayfası modülü silindi.');
   check(
-    () => assert.ok(/id="generalHome"/.test(indexHtml)),
-    'index.html genel ana sayfa konteynerini barındırır.',
-  );
-  check(
-    () => assert.equal(/fetch\(/.test(generalHomeSource), false),
-    'Genel ana sayfa modülü kendi başına fetch yapmaz (statik branş kartları).',
+    () => assert.doesNotMatch(indexHtml, /id="generalHome"|general-home\.js|class="[^"]*general-home/),
+    'index.html kaldırılan genel kart konteynerini veya scriptini barındırmaz.',
   );
 }
 
-console.log('\n=== 7) Logo genel ana sayfaya, Futbol sekmesi /futbol\'a gider ===');
+console.log('\n=== 7) Logo ve Futbol sekmesi kanonik köke gider ===');
 {
   check(
     () => assert.ok(/class="brand-lockup"\s+href="\/"/.test(indexHtml)),
-    'Marka logosu genel ana sayfaya (`/`) gider.',
+    'Marka logosu futbol ana sayfasına (`/`) gider.',
   );
   check(
-    () => assert.ok(/\["football",\s*"Futbol",\s*"\/futbol\/"\]/.test(sportBranchesSource)),
-    'Futbol branş girişi ayrı `/futbol/` rotasını gösterir.',
+    () => assert.ok(/\["football",\s*"Futbol",\s*"\/"\]/.test(sportBranchesSource)),
+    'Futbol branş girişi kanonik `/` rotasını gösterir.',
   );
 }
 
@@ -583,4 +566,4 @@ if (failures.length) {
   for (const failure of failures) console.error(` - ${failure}`);
   process.exit(1);
 }
-console.log('\nGenel ana sayfa ve branş router sözleşmesi doğrulandı.');
+console.log('\nKanonik futbol kökü ve branş router sözleşmesi doğrulandı.');

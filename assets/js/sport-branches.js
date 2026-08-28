@@ -1,6 +1,6 @@
 (() => {
   const primary = [
-    ["football", "Futbol", "/futbol/"],
+    ["football", "Futbol", "/"],
     ["basketball", "Basketbol", "/basketbol/"],
     ["volleyball", "Voleybol", "/voleybol/"],
     ["motorsports", "Motor Sporları", "/motorsports/"],
@@ -12,11 +12,11 @@
     voleybol: "volleyball",
     motorsports: "motorsports"
   };
-  const footballRoutes = new Set(["futbol", "all", "football", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
+  const footballRoutes = new Set(["index.html", "futbol", "all", "football", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
   const branchKey = (segment) => routeMap[segment] || (footballRoutes.has(segment) ? "football" : null);
   const firstSegment = location.pathname.split("/").filter(Boolean)[0];
-  // `/` genel çok sporlu ana sayfadır; hiçbir branş sekmesi aktif değildir.
-  const active = firstSegment ? branchKey(firstSegment) : null;
+  // Marka kökü doğrudan futbol ana sayfasıdır.
+  const active = firstSegment ? branchKey(firstSegment) : "football";
 
   function renderMetrics(payload, sport) {
     const hub = document.getElementById("multiSportHub");
@@ -82,7 +82,7 @@
     // Geri/ileri düğmesinde aktif branş vurgusu belge yenilenmeden güncellenir.
     window.addEventListener("popstate", () => {
       const segment = location.pathname.split("/").filter(Boolean)[0];
-      const key = segment ? branchKey(segment) : null;
+      const key = segment ? branchKey(segment) : "football";
       nav.querySelectorAll("[data-branch]").forEach((item) => {
         const isActive = item.dataset.branch === key;
         item.classList.toggle("active", isActive);

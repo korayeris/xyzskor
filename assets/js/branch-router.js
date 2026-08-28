@@ -66,11 +66,7 @@
       title: "Maç Merkezi — XYZSKOR",
       description: "Canlı maç olayları, istatistikler, kadrolar ve ücretsiz tahmin seçenekleri XYZSKOR Maç Merkezi'nde."
     };
-    if (!first || first === "index.html") return {
-      title: "Çok Sporlu Canlı Skor — XYZSKOR",
-      description: "Futbol, basketbol, voleybol, UFC ve motor sporları merkezlerini XYZSKOR'da keşfet; veri yalnız seçtiğin branş için yüklenir."
-    };
-    if (first === "futbol" || first === "all" || first === "football") return {
+    if (!first || first === "index.html" || first === "futbol" || first === "all" || first === "football") return {
       title: "Futbol · 5 Lig — XYZSKOR",
       description: "Süper Lig, Premier League, La Liga, Bundesliga ve Serie A için canlı skor, fikstür ve puan durumu."
     };

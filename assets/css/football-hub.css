@@ -762,7 +762,7 @@ body .agenda-track { scrollbar-gutter:auto !important; }
     .xms-primary,
     .legal-footer-links
   ),
-  body :where(.wrap,#multiSportHub,.multisport-hub,.xms-shell,.ufcx-shell,.general-home) :where(
+  body :where(.wrap,#multiSportHub,.multisport-hub,.xms-shell,.ufcx-shell) :where(
     section,
     article,
     aside,

@@ -66,7 +66,7 @@ function buildFootballPath(league, section, transferTab, clubSlug){
   const safeLeague = validFootballLeagueKey(league);
   const safeSection = ['home','matches','news','clubs','transfers','standings'].includes(section) ? section : 'home';
   const base = safeLeague==='all' ? '/all' : `/${safeLeague}`;
-  if(safeSection==='home') return safeLeague==='all' ? '/futbol/' : base;
+  if(safeSection==='home') return safeLeague==='all' ? '/' : base;
   if(safeSection==='transfers'){
     const safeTransferTab = normalizeTransferRouteTab(transferTab);
     return safeTransferTab==='confirmed' ? `${base}/transfers` : `${base}/transfers/${safeTransferTab}`;
@@ -79,7 +79,7 @@ const FOOTBALL_RETURN_PATH_KEY='xyzskor:football-return-path:v1';
 function rememberFootballReturnPath(){
   const current=(location.pathname||'/').replace(/\/+$/,'')||'/';
   let target='';
-  if(current==='/futbol'||current==='/all') target='/futbol/';
+  if(current==='/'||current==='/index.html'||current==='/futbol'||current==='/all') target='/';
   else if(/^\/(super-lig|premier-league|la-liga|bundesliga|serie-a)(?:\/|$)/.test(current)) target=current;
   else if(current.startsWith('/football')) target=current;
   if(!target) return '';
@@ -89,8 +89,9 @@ function rememberFootballReturnPath(){
 function storedFootballReturnPath(){
   let stored='';
   try{ stored=sessionStorage.getItem(FOOTBALL_RETURN_PATH_KEY)||''; }catch(_error){}
-  if(!/^\/(?:futbol(?:\/|$)|football(?:\/|$)|super-lig(?:\/|$)|premier-league(?:\/|$)|la-liga(?:\/|$)|bundesliga(?:\/|$)|serie-a(?:\/|$))/.test(stored)) return '';
-  return stored==='/futbol' ? '/futbol/' : stored;
+  if(stored==='/') return '/';
+  if(!/^\/(?:futbol(?:\/|$)|all(?:\/|$)|football(?:\/|$)|super-lig(?:\/|$)|premier-league(?:\/|$)|la-liga(?:\/|$)|bundesliga(?:\/|$)|serie-a(?:\/|$))/.test(stored)) return '';
+  return /^\/(?:futbol|all)\/?$/.test(stored) ? '/' : stored;
 }
 if(typeof window!=='undefined') window.rememberXYZFootballReturnPath=rememberFootballReturnPath;
 function buildProductPath(name){
@@ -129,14 +130,13 @@ function parseAppLocation(){
   if(legacy && ['week','match'].includes(legacy.type)) return legacy;
   const pathname = (location.pathname || '/').replace(/\/+$/,'') || '/';
   const segments = pathname.split('/').filter(Boolean);
-  // `/` bagimsiz genel cok sporlu ana sayfadir: futbol verisi yuklenmez.
-  // Futbol bes lig merkezi `/futbol` (ve geriye donuk `/all`) altindadir.
+  // `/`, `/futbol` ve geriye donuk `/all` ayni bes ligli futbol merkezidir.
   if(!segments.length || segments[0]==='index.html'){
     if(legacy?.type==='football-section'){
       return { type:'football-route', league:'super-lig', section:legacy.value, transferTab:legacy.sub || 'confirmed' };
     }
     if(legacy?.type==='product') return legacy;
-    return { type:'general-home' };
+    return { type:'football-route', league:'all', section:'home', transferTab:'confirmed' };
   }
   if(segments[0]==='futbol' || segments[0]==='all'){
     return { type:'football-route', league:'all', section:'home', transferTab:'confirmed' };
@@ -242,14 +242,6 @@ async function loadFootballLeagueSelection(leagueKey){
   }
 }
 async function applyParsedLocation(parsed){
-  // Genel ana sayfa hicbir spor API ailesinin sahibi degildir: futbol lig
-  // secimi, canli akis ve section yukleme burada tetiklenmez.
-  if(parsed && parsed.type==='general-home'){
-    if(mcMatchId) closeMatchCenter(false);
-    if(typeof stopLiveFeed==='function') stopLiveFeed();
-    if(window.XYZGeneralHome && typeof window.XYZGeneralHome.mount==='function') window.XYZGeneralHome.mount();
-    return;
-  }
   if(parsed && parsed.type==='branch-route'){
     if(mcMatchId) closeMatchCenter(false);
     if(typeof stopLiveFeed==='function') stopLiveFeed();
@@ -675,8 +667,6 @@ function footballLiveDemandActive(){
   if(typeof location!=='undefined'){
     const root=(location.pathname||'/').split('/').filter(Boolean)[0]?.toLowerCase()||'';
     if(['predict','basketbol','voleybol','motorsports','ufc'].includes(root)) return false;
-    // Genel cok sporlu ana sayfa canli futbol akisinin sahibi degildir.
-    if(!root || root==='index.html') return false;
     if(/(?:^|[?&])fixture=/.test(location.search||'')) return false;
   }
   const story=document.getElementById('page-story');
@@ -779,7 +769,7 @@ function switchMainTab(name, updateUrl){
   const leaguePage=document.getElementById('page-league');
   const livePage=document.getElementById('page-live');
   if(product==='football'&&updateUrl!==false&&/^\/predict(?:\/|$)/.test(location.pathname||'')){
-    const returnPath=storedFootballReturnPath()||'/futbol/';
+    const returnPath=storedFootballReturnPath()||'/';
     if(window.XYZBranchRouter) window.XYZBranchRouter.navigate(returnPath,{label:'Futbol'});
     else location.assign(returnPath);
     return;

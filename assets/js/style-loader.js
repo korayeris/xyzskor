@@ -4,7 +4,6 @@
   var canonical = new Set(["", "index.html", "futbol", "all", "super-lig", "premier-league", "la-liga", "bundesliga", "serie-a"]);
   var fixture = new URLSearchParams(location.search).get("fixture");
   var isBranchRoute = !canonical.has(path) && !fixture;
-  var isGeneralHome = path === "" || path === "index.html";
   var pending = null;
   var corePending = null;
   var productStylePending = Object.create(null);
@@ -148,5 +147,5 @@
   };
 
   if (!canonical.has(path) || fixture) window.ensureXYZBranchStyles(path);
-  else if (!isGeneralHome) window.ensureXYZCoreStyles(false);
+  else window.ensureXYZCoreStyles(false);
 })();

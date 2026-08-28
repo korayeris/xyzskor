@@ -511,24 +511,22 @@ ile [`legal/data-sources.html`](legal/data-sources.html) içinde açıklanır.
 
 ### İki katmanlı profesyonel futbol bilgi mimarisi (v311)
 
-### Genel çok sporlu ana sayfa ve route-aware branş router'ı (v315)
+### Kök futbol ana sayfası ve route-aware branş router'ı (v316)
 
-`/` artık beş ligli futbol merkezi değildir. Marka logosunun götürdüğü kök rota,
-bağımsız bir **genel çok sporlu ana sayfadır**:
+`/` marka logosunun götürdüğü kanonik **beş ligli futbol merkezidir**:
 
-- İçeriği `assets/js/general-home.js` üretir; modül statiktir ve **kendi başına
-  hiçbir `fetch` yapmaz**. İlk ekran yalnız statik branş kartlarıdır.
-- Kök açılışta **sıfır spor API isteği** yapılır (`/api/football/*`,
-  `/api/sports/*`, `/api/ufc/*`, `/api/motorsports*` hiç çağrılmaz). Veri
-  yalnız kullanıcı bir branş seçtiğinde o branşın modülü tarafından istenir.
-- Futbol beş lig merkezi `/futbol` altına taşındı; `/all` geriye dönük
-  uyumluluk için aynı davranışı korur.
+- Kök açılışta yalnız tek `/api/football/home` isteği yapılır; basketbol,
+  voleybol, UFC ve motor sporları API aileleri çağrılmaz.
+- `/futbol` ve `/all`, eski bağlantıları bozmamak için aynı futbol merkezinin
+  geriye dönük uyumlu takma rotaları olarak korunur.
+- Önceki statik branş kartları ve `assets/js/general-home.js` kaldırılmıştır;
+  marka kökü artık doğrudan futbol fikstürü, canlı skor ve lig görünümünü açar.
 
 Branş geçişleri `assets/js/branch-router.js` üzerinden yürür ve iki modu vardır:
 
 | Mod | Ne zaman | Davranış |
 | --- | --- | --- |
-| `CLIENT` | Hedef yüzey `register()` ile `mount`/`unmount` sunuyorsa (genel ana sayfa, basketbol, voleybol) | `history.pushState` ile belge yenilenmeden geçilir |
+| `CLIENT` | Hedef yüzey `register()` ile `mount`/`unmount` sunuyorsa (basketbol, voleybol) | `history.pushState` ile belge yenilenmeden geçilir |
 | `MANAGED` | Hedef modül yüklenme anında `location.pathname`'e bağlıysa (futbol kökü, UFC, motor sporları) | Eski istek abort edilir → hedef paket `ensureXYZBranchModule()` ile indirilir → hedef belge prefetch edilir → ancak sonra tek `commitNavigation()` noktasından commit edilir |
 
 Her iki modda da: devam eden istekler `registerAbortHook()` üzerinden iptal
@@ -542,12 +540,11 @@ yapıyordu, gizleme `restoreFootballSurface()` ile geri dönüşü mümkün kıl
 görünür DOM sızıntısını aynı şekilde engeller.
 
 Regresyon kapısı: `npm run qa:general-home`
-(`scripts/test-general-home-router.mjs`) — kök rotanın sıfır API sözleşmesini,
-`/futbol` ve `/all` tek `/football/home` kapsamını, router'ın
-`pushState`/abort/`popstate` davranışını ve MANAGED yolun
-abort → prefetch → commit sırasını doğrular. `npm run qa:dist` içindeki
-`smokeGeneralHome` senaryosu aynı sözleşmeyi gerçek tarayıcıda ölçer ve
-geçişin belge yenilemeden yapıldığını (`sameDocument`) kanıtlar.
+(`scripts/test-general-home-router.mjs`) — `/`, `/futbol` ve `/all` rotalarının
+tek `/football/home` kapsamını, kaldırılan kart yüzeyinin Back ile yeniden
+kurulmadığını, router'ın `pushState`/abort/`popstate` davranışını ve MANAGED
+yolun abort → prefetch → commit sırasını doğrular. `npm run qa:dist` aynı
+sözleşmeyi üretim paketi üzerinde gerçek tarayıcıda ölçer.
 
 ### Fotoğraf kapsamı şeffaflığı (v315)
 
@@ -571,9 +568,9 @@ Futbol ürünü iki ayrı ekran sözleşmesine ayrılmıştır:
 
 | Rota | Sorumluluk | Veri kapsamı |
 | --- | --- | --- |
-| `/` | Genel çok sporlu ana sayfa (statik branş kartları) | **Hiçbir spor API'si çağrılmaz** |
-| `/futbol` | Beş liglik futbol maç merkezi | Süper Lig, Premier League, La Liga, Bundesliga ve Serie A |
-| `/all` | `/futbol` ile aynı (geriye dönük uyumluluk) | Beş lig |
+| `/` | Kanonik beş liglik futbol maç merkezi | Süper Lig, Premier League, La Liga, Bundesliga ve Serie A |
+| `/futbol` | `/` ile aynı (geriye dönük uyumluluk) | Beş lig |
+| `/all` | `/` ile aynı (geriye dönük uyumluluk) | Beş lig |
 | `/<lig>` | Seçili ligin genel bakışı | Yalnız URL'deki lig |
 | `/<lig>/matches` | Seçili ligin tam fikstürü | Yalnız URL'deki lig |
 | `/<lig>/standings` | Seçili ligin tam puan durumu | Yalnız URL'deki lig |
