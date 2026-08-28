@@ -396,12 +396,36 @@ async function smokeCanonicalRootToBasketball(context, viewportName, requestLog,
     JSON.stringify(branchState),
   );
   check(branchState.legacyStylesReady, `${scenario}: branch CSS is ready before the client surface is committed`, JSON.stringify(branchState));
+  await page.waitForSelector('#multiLeagueStrip [data-league="scope:12:2026-2027"]', { timeout:12_000 });
+  const aggregateState = await page.evaluate(() => ({
+    title:document.querySelector('[data-classification-title]')?.textContent?.trim() || '',
+    active:document.querySelector('#multiLeagueStrip [aria-current="page"]')?.dataset.classificationKey || '',
+    rows:document.querySelectorAll('.basketball-standing-row').length,
+    fixtures:document.querySelectorAll('.basketball-fixture-row').length,
+  }));
+  check(
+    aggregateState.title === 'Tüm ligler' && aggregateState.active === 'all' && aggregateState.rows === 0 && aggregateState.fixtures === 2,
+    `${scenario}: basketball root is an honest aggregate classification without mixed standings`,
+    JSON.stringify(aggregateState),
+  );
+  check(
+    requestLog.slice(branchStart).filter((item) => item.url.startsWith('/api/sports/basketball/standings')).length === 0,
+    `${scenario}: aggregate basketball classification makes no mixed standings request`,
+    requestLog.slice(branchStart).map((item) => item.url).join(', '),
+  );
+  await page.click('#multiLeagueStrip [data-league="scope:12:2026-2027"]');
+  await page.waitForFunction(() => location.pathname === '/basketbol/lig/basketbol-super-ligi--id-12--sezon-2026-2027/', null, { timeout:12_000 });
   await page.waitForFunction(() => (
     document.querySelectorAll('.basketball-standing-row').length === 8
     && document.querySelector('.basketball-standings-table')?.getAttribute('aria-busy') === 'false'
   ), null, { timeout: 12_000 });
   const basketballState = await page.evaluate(() => ({
+    path:location.pathname,
     league: document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope || '',
+    classification:document.querySelector('#multiLeagueStrip')?.dataset.sportClassification || '',
+    selected:document.querySelector('#multiLeagueStrip [aria-current="page"]')?.dataset.classificationKey || '',
+    title:document.querySelector('[data-classification-title]')?.textContent?.trim() || '',
+    beforeViews:Boolean(document.querySelector('#multiLeagueStrip')?.compareDocumentPosition(document.querySelector('#multiSportViews')) & Node.DOCUMENT_POSITION_FOLLOWING),
     rows: document.querySelectorAll('.basketball-standing-row').length,
     fixtures: document.querySelectorAll('.basketball-fixture-row').length,
     visibleHeaders: [...document.querySelectorAll('.basketball-standings-table thead th')].filter((node) => getComputedStyle(node).display !== 'none').length,
@@ -414,7 +438,14 @@ async function smokeCanonicalRootToBasketball(context, viewportName, requestLog,
     horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   }));
   check(
-    basketballState.league === '12:2026-2027' && basketballState.rows === 8 && basketballState.fixtures === 2,
+    basketballState.path === '/basketbol/lig/basketbol-super-ligi--id-12--sezon-2026-2027/'
+      && basketballState.league === '12:2026-2027'
+      && basketballState.classification === 'leagues'
+      && basketballState.selected === 'basketbol-super-ligi--id-12--sezon-2026-2027'
+      && basketballState.title === 'Basketbol Süper Ligi'
+      && basketballState.beforeViews
+      && basketballState.rows === 8
+      && basketballState.fixtures === 2,
     `${scenario}: production artifact renders real basketball league center data`,
     JSON.stringify(basketballState),
   );

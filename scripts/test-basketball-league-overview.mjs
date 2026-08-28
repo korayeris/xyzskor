@@ -4,6 +4,7 @@ import { launchChromium } from './test-tools/lib/playwright-loader.mjs';
 
 const PORT = Number(process.env.XYZSKOR_TEST_PORT || 4418);
 const BASE = `http://127.0.0.1:${PORT}`;
+const BSL_ROUTE='/basketbol/lig/basketbol-super-ligi--id-12--sezon-2026-2027/';
 const server = spawn(process.execPath, ['scripts/dev-server.mjs'], {
   cwd:new URL('..', import.meta.url),
   env:{ ...process.env, XYZSKOR_DEV_PORT:String(PORT) },
@@ -80,7 +81,7 @@ try{
     await route.fulfill({status:503,contentType:'application/json; charset=utf-8',body:JSON.stringify({error:'not_mocked'})});
   });
 
-  await page.goto(BASE+'/basketbol/',{waitUntil:'domcontentloaded'});
+  await page.goto(BASE+BSL_ROUTE,{waitUntil:'domcontentloaded'});
   await page.waitForSelector('.basketball-loading-shell .basketball-standing-skeleton');
   assert.equal(await page.locator('#multiSportGrid').getAttribute('aria-busy'),'true','Soğuk basketbol açılışı aria-busy olmalı.');
   assert.ok(await page.locator('.basketball-loading-shell .basketball-standing-skeleton').count()>=6,'Soğuk açılış tam tablo shimmerı göstermeli.');
@@ -93,7 +94,10 @@ try{
     h1:[...document.querySelectorAll('#multiSportHub h1')].filter((node)=>node.offsetParent!==null).map((node)=>node.textContent.trim()),
     caption:document.querySelector('.basketball-standings-table caption')?.textContent.trim(),
     rowHeaders:document.querySelectorAll('.basketball-standings-table tbody th[scope="row"]').length,
-    selectedLeague:document.querySelector('#multiLeagueStrip [aria-pressed="true"]')?.textContent.trim(),
+    selectedLeague:document.querySelector('#multiLeagueStrip [aria-current="page"]')?.textContent.trim(),
+    classificationHook:document.querySelector('#multiLeagueStrip')?.dataset.sportClassification,
+    classificationTitle:document.querySelector('[data-classification-title]')?.textContent.trim(),
+    classificationBeforeViews:Boolean(document.querySelector('#multiLeagueStrip')?.compareDocumentPosition(document.querySelector('#multiSportViews'))&Node.DOCUMENT_POSITION_FOLLOWING),
     bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
     tableRegion:document.querySelector('.basketball-standings-scroll')?.getAttribute('role'),
     tableHeaders:[...document.querySelectorAll('.basketball-standings-table thead th')].filter((node)=>getComputedStyle(node).display!=='none').length,
@@ -107,6 +111,10 @@ try{
   assert.equal(semantics.caption,'Basketbol Süper Ligi puan durumu','Puan tablosu erişilebilir caption taşımalı.');
   assert.equal(semantics.rowHeaders,8,'Her takım gerçek satır başlığı olmalı.');
   assert.equal(semantics.selectedLeague,'Basketbol Süper Ligi','İlk doğrulanmış lig seçili açılmalı.');
+  assert.equal(semantics.classificationHook,'leagues','Lig rayı ortak sınıflandırma hook’unu taşımalı.');
+  assert.equal(semantics.classificationTitle,'Basketbol Süper Ligi','Merkez kimliği seçili sınıflandırmayla aynı olmalı.');
+  assert.equal(semantics.classificationBeforeViews,true,'Lig sınıflandırması bölüm sekmelerinden önce görünmeli.');
+  assert.equal(new URL(page.url()).pathname,BSL_ROUTE,'Doğrudan lig URL’si seçili basketbol kapsamını korumalı.');
   assert.ok(semantics.bodyOverflow<=1,`390px görünüm body taşırmamalı: ${semantics.bodyOverflow}px`);
   assert.equal(semantics.tableRegion,'region','Kaydırılabilir tablo adlandırılmış region olmalı.');
   assert.equal(semantics.tableHeaders,7,'Mobil tabloda yüzde ve averaj dahil yedi sütun erişilebilir kalmalı.');
@@ -123,19 +131,33 @@ try{
 
   await page.locator('[data-multi-view="games"]').click();
   await page.waitForFunction(()=>document.activeElement?.dataset?.multiView==='games');
+  assert.equal(new URL(page.url()).pathname,BSL_ROUTE+'maclar/','Bölüm geçişi seçili lig kapsamını URL’de korumalı.');
   await page.locator('[data-multi-view="home"]').click();
   await page.waitForFunction(()=>document.activeElement?.dataset?.multiView==='home'&&document.querySelectorAll('.basketball-standing-row').length===8);
+  assert.equal(new URL(page.url()).pathname,BSL_ROUTE,'Genel görünüm seçili lig URL’sine dönmeli.');
 
   await page.locator('#multiLeagueStrip [data-league="scope:99:2026-2027"]').click();
   await page.waitForFunction(()=>document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope==='99:2026-2027');
   await page.waitForFunction(()=>document.querySelectorAll('.basketball-standing-row').length===8&&document.querySelector('.basketball-standings-table')?.getAttribute('aria-busy')==='false');
   assert.equal(await page.evaluate(()=>document.activeElement?.dataset?.league),'scope:99:2026-2027','Lig değişiminden sonra klavye odağı seçili kontrolde kalmalı.');
   assert.equal(await page.locator('.basketball-fixture-row.is-live').count(),1,'Canlı maç seçili ligde belirgin kalmalı.');
+  const euroRoute='/basketbol/lig/euroleague--id-99--sezon-2026-2027/';
+  assert.equal(new URL(page.url()).pathname,euroRoute,'Lig seçimi paylaşılabilir provider-scope URL üretmeli.');
 
   await page.locator('#multiLeagueStrip [data-league="scope:77:2026-2027"]').click();
   await page.waitForFunction(()=>/doğrulanmış sıralama yayımlamadı/i.test(document.querySelector('.basketball-standings-status')?.textContent||''));
   assert.equal(await page.locator('.basketball-standing-row').count(),0,'Doğrulanmış boş standings sahte satır üretmemeli.');
   assert.match(await page.locator('.basketball-fixtures-body').innerText(),/Boston Celtics/,'Boş standings günlük fikstürü silmemeli.');
+  const nbaRoute='/basketbol/lig/nba--id-77--sezon-2026-2027/';
+  assert.equal(new URL(page.url()).pathname,nbaRoute,'İkinci lig scope’u URL’ye karışmadan yazılmalı.');
+  await page.goBack();
+  await page.waitForFunction(()=>document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope==='99:2026-2027');
+  assert.equal(new URL(page.url()).pathname,euroRoute,'Back seçili EuroLeague kapsamını geri yüklemeli.');
+  assert.match(await page.locator('.basketball-fixtures-body').innerText(),/Olympiacos/,'Back sonrası fikstür de EuroLeague kapsamına dönmeli.');
+  await page.goForward();
+  await page.waitForFunction(()=>document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope==='77:2026-2027');
+  assert.equal(new URL(page.url()).pathname,nbaRoute,'Forward seçili NBA kapsamını geri yüklemeli.');
+  assert.match(await page.locator('.basketball-fixtures-body').innerText(),/Boston Celtics/,'Forward sonrası fikstür NBA kapsamına dönmeli.');
 
   await page.locator('#multiLeagueStrip [data-league="scope:88:2026-2027"]').click();
   await page.waitForSelector('.basketball-standings-message.is-error [data-basketball-standings-retry]');
@@ -157,6 +179,20 @@ try{
   assert.match(await page.locator('.basketball-fixtures-body').innerText(),/Gamma/,'İkinci aynı adlı lig kendi fikstürünü göstermeli.');
   assert.doesNotMatch(await page.locator('.basketball-fixtures-body').innerText(),/Alpha/,'İlk aynı adlı ligin fikstürü ikinci scope’a karışmamalı.');
 
+  const standingsBeforeAll=requested.filter((path)=>path.startsWith('/api/sports/basketball/standings')).length;
+  await page.locator('#multiLeagueStrip [data-classification-key="all"]').click();
+  await page.waitForFunction(()=>document.querySelector('[data-basketball-league-center]')?.dataset.leagueRoute===''&&/toplu görünümde puan tablosu gösterilmez/i.test(document.querySelector('.basketball-standings-status')?.textContent||''));
+  assert.equal(new URL(page.url()).pathname,'/basketbol/','Tümü sınıflandırması kanonik basketbol köküne dönmeli.');
+  assert.equal(await page.locator('[data-classification-title]').innerText(),'Tüm ligler','Toplu görünüm aggregate kimliğini açıkça göstermeli.');
+  assert.equal(await page.locator('.basketball-overview-metrics').getAttribute('aria-label'),'Tüm ligler özeti','Toplu metrikler ekran okuyucuya seçili lig varmış gibi tanıtılmamalı.');
+  assert.match(await page.locator('.basketball-source-note').innerText(),/Günlük toplu kapsam[\s\S]*Lig puan tabloları karıştırılmaz[\s\S]*bir lig seçilmeden sıralama gösterilmez/i,'Toplu veri notu günlük aggregate kapsamı ve standings sınırını dürüstçe açıklamalı.');
+  assert.equal(await page.locator('.basketball-standing-row').count(),0,'Toplu görünüm farklı ligleri tek puan tablosunda karıştırmamalı.');
+  assert.equal(await page.locator('.basketball-fixture-row').count(),6,'Toplu görünüm yalnız doğrulanmış günlük maçları aggregate edebilmeli.');
+  assert.equal(requested.filter((path)=>path.startsWith('/api/sports/basketball/standings')).length,standingsBeforeAll,'Tümü görünümü ligleri karıştıran yeni standings isteği açmamalı.');
+  await page.goBack();
+  await page.waitForFunction(()=>document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope==='112:2026');
+  assert.match(await page.locator('.basketball-fixtures-body').innerText(),/Gamma/,'Back toplu görünümden önceki provider scope’unu geri yüklemeli.');
+
   const retryPage=await browser.newPage({viewport:{width:390,height:844}});
   let todayAttempts=0;
   await retryPage.route('**/api/**',async(route)=>{
@@ -176,7 +212,7 @@ try{
     }
     await route.fulfill({status:503,contentType:'application/json; charset=utf-8',body:JSON.stringify({error:'not_mocked'})});
   });
-  await retryPage.goto(BASE+'/basketbol/',{waitUntil:'domcontentloaded'});
+  await retryPage.goto(BASE+BSL_ROUTE,{waitUntil:'domcontentloaded'});
   await retryPage.waitForSelector('[data-basketball-hub-retry]');
   await retryPage.locator('[data-basketball-hub-retry]').click();
   await retryPage.waitForFunction(()=>document.activeElement?.matches('.basketball-league-identity h2')&&document.querySelectorAll('.basketball-standing-row').length===8);

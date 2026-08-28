@@ -3805,10 +3805,14 @@ a.scoreboard-match-main,a.scoreboard-predict,a.scoreboard-open{text-decoration:n
 .multisport-hub[data-sport="basketball"] .multisport-hero:after{background:linear-gradient(90deg,#070b0ff8 0%,#070b0fce 48%,#070b0f42 82%,transparent)}
 .multisport-hub[data-sport="basketball"] .multisport-hero h1{margin-top:7px;font-size:42px;letter-spacing:-.045em}
 .multisport-hub[data-sport="basketball"] .multisport-hero>b{border:0;background:rgba(255,154,53,.12);color:#ffb35f}
-.multisport-hub[data-sport="basketball"] .multi-league-strip{gap:4px;margin:14px 0 0;padding:0;border:0;border-radius:0;background:transparent}
-.multisport-hub[data-sport="basketball"] .multi-league-strip button{min-width:0;min-height:44px;padding:0 15px;border:0;border-radius:999px;background:transparent;color:#9aa7b1;text-align:center;transition:background-color .18s ease,color .18s ease,transform .18s ease}
-.multisport-hub[data-sport="basketball"] .multi-league-strip button:hover{background:#1b2228;color:#fff;transform:translateY(-1px)}
-.multisport-hub[data-sport="basketball"] .multi-league-strip button.active{border:0;background:#563524;color:#fff;box-shadow:none}
+.multisport-hub[data-sport="basketball"] .multi-league-strip{gap:12px;margin:14px 0 0;padding:0;overflow:hidden;border:0;border-radius:0;background:transparent}
+.multisport-hub[data-sport="basketball"] .multi-league-strip-label{flex:0 0 auto;color:#ff9b55;font:850 9px/1 var(--font-mono);letter-spacing:.16em}
+.multisport-hub[data-sport="basketball"] .multi-league-strip-items{display:flex;min-width:0;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none}
+.multisport-hub[data-sport="basketball"] .multi-league-strip-items::-webkit-scrollbar{display:none}
+.multisport-hub[data-sport="basketball"] .multi-league-strip :is(button,a){display:inline-flex;min-width:0;min-height:44px;flex:0 0 auto;align-items:center;padding:0 15px;border:0;border-radius:999px;background:transparent;color:#9aa7b1;text-align:center;text-decoration:none;white-space:nowrap;cursor:pointer;transition:background-color .18s ease,color .18s ease,transform .18s ease}
+.multisport-hub[data-sport="basketball"] .multi-league-strip :is(button,a):hover{background:#1b2228;color:#fff;transform:translateY(-1px)}
+.multisport-hub[data-sport="basketball"] .multi-league-strip :is(button,a).active{border:0;background:#563524;color:#fff;box-shadow:none}
+.multisport-hub[data-sport="basketball"] .multi-league-strip :is(button,a):focus-visible{outline:2px solid #ff9638;outline-offset:2px}
 .multisport-hub[data-sport="basketball"] .multisport-view-nav{gap:22px;margin:4px 0 0;padding:0;border:0;border-radius:0;background:transparent}
 .multisport-hub[data-sport="basketball"] .multisport-view-nav button{position:relative;min-width:0;min-height:50px;padding:0 2px;border:0;border-radius:0;background:transparent;color:#8e9aa4;box-shadow:none}
 .multisport-hub[data-sport="basketball"] .multisport-view-nav button:after{content:"";position:absolute;right:0;bottom:0;left:0;height:3px;border-radius:3px 3px 0 0;background:transparent}
@@ -3908,6 +3912,7 @@ a.scoreboard-match-main,a.scoreboard-predict,a.scoreboard-open{text-decoration:n
   .multisport-hub[data-sport="basketball"] .multisport-hero{min-height:124px;padding:18px 2px!important}
   .multisport-hub[data-sport="basketball"] .multisport-hero h1{font-size:32px!important}
   .multisport-hub[data-sport="basketball"] .multi-league-strip{padding-right:4px}
+  .multisport-hub[data-sport="basketball"] .multi-league-strip-label{font-size:8px}
   .multisport-hub[data-sport="basketball"] .multisport-view-nav{gap:15px}
   .multisport-hub[data-sport="basketball"] .multisport-view-nav button{min-height:48px}
   .basketball-league-identity{align-items:flex-start;padding:16px 2px 18px}
@@ -3933,5 +3938,5 @@ a.scoreboard-match-main,a.scoreboard-predict,a.scoreboard-open{text-decoration:n
 @media(prefers-reduced-motion:reduce){
   .basketball-league-center,.basketball-standing-row{animation:none}
   .basketball-standing-skeleton i,.basketball-fixture-skeleton i{animation:none;background:#1b252c}
-  .multisport-hub[data-sport="basketball"] .multi-league-strip button{transition:none;transform:none}
+  .multisport-hub[data-sport="basketball"] .multi-league-strip :is(button,a){transition:none;transform:none}
 }

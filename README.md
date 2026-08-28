@@ -131,6 +131,11 @@ Branş merkezleri:
 - Formula 1, Formula E, IndyCar, MotoGP, WRC, WEC, Le Mans ve NASCAR
 - UFC etkinlikleri, dövüş kartları, dövüşçü profilleri ve sıralamalar
 - Basketbol ve voleybol için branşa izole maç, lig ve takım görünümleri
+- Basketbol ve voleybolda `LİGLER` rayı seçili sağlayıcı kapsamını URL, kimlik,
+  fikstür, metrikler ve mevcutsa puan tablosuyla birlikte değiştirir.
+- UFC'de `SIKLETLER`, motor sporlarında `SERİLER` sınıflandırması bölüm
+  sekmelerinden önce yer alır; seçim Back/Forward ve paylaşılabilir URL'lerde
+  korunur. Sağlayıcının doğrulamadığı kapsam için veri üretilmez.
 
 XYZSKOR bahis sitesi değildir. Oranlar yalnızca ücretsiz Predict oyununun istatistiksel girdisi ve karşılaştırma verisi olarak kullanılabilir. Para yatırma, kupon, bahis oynama veya ödeme akışı bulunmaz.
 

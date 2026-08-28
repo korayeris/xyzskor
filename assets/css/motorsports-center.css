@@ -70,11 +70,12 @@ body.motorsport-open > .xms-primary:not(.xms-fallback-primary) {
 }
 
 .xms-center-series-picker a {
-  display: inline-flex !important;
-  min-height: 44px !important;
+  display: inline-grid !important;
+  min-height: 50px !important;
   flex: 0 0 auto !important;
-  align-items: center !important;
+  align-content: center !important;
   justify-content: center !important;
+  gap: 4px !important;
   padding: 0 14px !important;
   border: 0 !important;
   border-radius: 999px !important;
@@ -85,6 +86,29 @@ body.motorsport-open > .xms-primary:not(.xms-fallback-primary) {
   text-decoration: none !important;
   white-space: nowrap !important;
   transition: color .18s ease, background-color .18s ease, transform .18s ease !important;
+}
+
+.xms-center-series-picker a > b,
+.xms-center-series-picker a > small {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xms-center-series-picker a > b {
+  color: inherit;
+  font: inherit;
+}
+
+.xms-center-series-picker a > small {
+  color: #66747d;
+  font: 700 7px/1 var(--font-mono, monospace);
+  letter-spacing: .05em;
+}
+
+.xms-center-series-picker a.active > small {
+  color: color-mix(in srgb, var(--xms-accent, #ef4557) 55%, #fff);
 }
 
 .xms-center-series-picker a:hover {
@@ -186,38 +210,6 @@ body.motorsport-open .xms-center-shell {
 .xms-center-data-state.is-snapshot {
   background: #30291d;
   color: #e9bd75;
-}
-
-.xms-context-switch {
-  display: flex !important;
-  gap: 6px !important;
-  margin: -4px 0 6px !important;
-  padding: 0 !important;
-  overflow-x: auto !important;
-  scrollbar-width: none;
-}
-
-.xms-context-switch::-webkit-scrollbar {
-  display: none;
-}
-
-.xms-context-switch a {
-  display: inline-flex !important;
-  min-height: 44px !important;
-  flex: 0 0 auto;
-  align-items: center;
-  padding: 0 14px !important;
-  border: 0 !important;
-  border-radius: 999px !important;
-  background: #171e23 !important;
-  color: #8e9aa3 !important;
-  font: 800 10px/1 var(--font-display, sans-serif) !important;
-  text-decoration: none;
-}
-
-.xms-context-switch a.active {
-  background: color-mix(in srgb, var(--xms-accent, #ef4557) 26%, #1a2025) !important;
-  color: #fff !important;
 }
 
 .xms-center-tabs {
@@ -848,15 +840,19 @@ body.motorsport-open .xms-center-shell {
   font-size: 20px;
 }
 
-.xms-center-error button {
+.xms-center-error button,
+.xms-center-error > a {
+  display: inline-grid;
   min-height: 44px;
   margin-top: 16px;
   padding: 0 17px;
+  place-items: center;
   border: 0;
   border-radius: 999px;
   background: color-mix(in srgb, var(--xms-accent, #ef4557) 42%, #272e33);
   color: #fff;
   font-weight: 850;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -976,10 +972,6 @@ body.motorsport-open .xms-center-shell {
 
   .xms-center-data-state {
     display: none;
-  }
-
-  .xms-context-switch {
-    margin-bottom: 3px !important;
   }
 
   .xms-center-tabs {

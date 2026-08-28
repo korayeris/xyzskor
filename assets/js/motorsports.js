@@ -1,23 +1,25 @@
 (() => {
-  const groups = [
-    ['FORMULA', [['Formula 1', 'formula-1'], ['Formula E', 'formula-e'], ['IndyCar', 'indycar']]],
-    ['MOTOSİKLET', [['MotoGP', 'motogp'], ['Moto2', 'moto2'], ['Moto3', 'moto3']]],
-    ['RALLİ', [['WRC', 'wrc']]],
-    ['DAYANIKLILIK', [['WEC', 'wec'], ['Le Mans', 'le-mans']]],
-    ['STOCK CAR', [['NASCAR Cup Series', 'nascar']]],
+  const categories = [
+    { id: 'single-seater', label: 'Tek koltuklu', menuLabel: 'TEK KOLTUKLU', kind: 'Seri', series: ['formula-1', 'formula-e', 'indycar'] },
+    { id: 'motorcycle', label: 'Pist motosikleti', menuLabel: 'MOTOSİKLET', kind: 'Sınıf', series: ['motogp', 'moto2', 'moto3'] },
+    { id: 'rally', label: 'Ralli', menuLabel: 'RALLİ', kind: 'Seri', series: ['wrc'] },
+    { id: 'endurance', label: 'Dayanıklılık', menuLabel: 'DAYANIKLILIK', kind: 'Seri / yarış', series: ['wec', 'le-mans'] },
+    { id: 'stock-car', label: 'Stock car', menuLabel: 'STOCK CAR', kind: 'Seri', series: ['nascar'] },
   ];
   const series = {
-    'formula-1': { label: 'Formula 1', accent: '#ef4557', discipline: 'Formula', mark: 'F1' },
-    'formula-e': { label: 'Formula E', accent: '#42b7ff', discipline: 'Elektrik', mark: 'FE' },
-    indycar: { label: 'IndyCar', accent: '#229bdd', discipline: 'Formula', mark: 'INDY' },
-    motogp: { label: 'MotoGP', accent: '#ff793d', discipline: 'Motosiklet', mark: 'GP' },
-    moto2: { label: 'Moto2', accent: '#ef914a', discipline: 'Motosiklet', mark: 'M2' },
-    moto3: { label: 'Moto3', accent: '#efb04a', discipline: 'Motosiklet', mark: 'M3' },
-    wrc: { label: 'WRC', accent: '#6bd690', discipline: 'Ralli', mark: 'WRC' },
-    wec: { label: 'WEC', accent: '#947cff', discipline: 'Dayanıklılık', mark: 'WEC' },
-    'le-mans': { label: 'Le Mans', accent: '#a58bff', discipline: 'Dayanıklılık', mark: 'LM' },
-    nascar: { label: 'NASCAR Cup Series', accent: '#e9c94f', discipline: 'Stock car', mark: 'NASCAR' },
+    'formula-1': { label: 'Formula 1', accent: '#ef4557', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', mark: 'F1' },
+    'formula-e': { label: 'Formula E', accent: '#42b7ff', discipline: 'Elektrik', category: 'single-seater', classification: 'Elektrikli şampiyona serisi', mark: 'FE' },
+    indycar: { label: 'IndyCar', accent: '#229bdd', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', mark: 'INDY' },
+    motogp: { label: 'MotoGP', accent: '#ff793d', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Premier sınıf', mark: 'GP' },
+    moto2: { label: 'Moto2', accent: '#ef914a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Orta sınıf', mark: 'M2' },
+    moto3: { label: 'Moto3', accent: '#efb04a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Hafif sınıf', mark: 'M3' },
+    wrc: { label: 'WRC', accent: '#6bd690', discipline: 'Ralli', category: 'rally', classification: 'Dünya ralli serisi', mark: 'WRC' },
+    wec: { label: 'WEC', accent: '#947cff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık serisi', mark: 'WEC' },
+    'le-mans': { label: 'Le Mans', accent: '#a58bff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık yarışı', mark: 'LM' },
+    nascar: { label: 'NASCAR Cup Series', accent: '#e9c94f', discipline: 'Stock car', category: 'stock-car', classification: 'Cup serisi', mark: 'NASCAR' },
   };
+  const groups = categories.map((category) => [category.menuLabel, category.series.map((slug) => [series[slug].label, slug])]);
+  const categoryById = Object.fromEntries(categories.map((category) => [category.id, category]));
   const viewRegistry = {
     Formula: [['overview', 'Genel'], ['calendar', 'Takvim'], ['results', 'Sonuçlar'], ['standings', 'Sıralama'], ['drivers', 'Pilotlar'], ['teams', 'Takımlar'], ['circuits', 'Pistler'], ['live', 'Canlı']],
     Elektrik: [['overview', 'Genel'], ['calendar', 'Takvim'], ['results', 'Sonuçlar'], ['standings', 'Sıralama'], ['drivers', 'Pilotlar'], ['teams', 'Takımlar'], ['live', 'Canlı']],
@@ -41,12 +43,41 @@
   const MOTORSPORT_TAGLINE = 'Hızın veriye dönüştüğü merkez.';
   const parts = () => location.pathname.split('/').filter(Boolean);
   const isMotor = () => parts()[0] === 'motorsports';
+  const currentQuery = () => new URLSearchParams(location.search);
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+
+  function viewFromLocation(slug) {
+    const requested = currentQuery().get('view') || 'overview';
+    return viewsFor(slug).some(([view]) => view === requested) ? requested : 'overview';
+  }
+
+  function rankingClassFromLocation() {
+    return currentQuery().get('class') || '';
+  }
+
+  function seriesHref(slug, view = 'overview') {
+    const targetView = viewsFor(slug).some(([supportedView]) => supportedView === view) ? view : 'overview';
+    const query = new URLSearchParams();
+    if (targetView !== 'overview') query.set('view', targetView);
+    return `/motorsports/${slug}${query.size ? `?${query}` : ''}`;
+  }
+
+  function updateRouteQuery(view, rankingClass = '', replace = false) {
+    const url = new URL(location.href);
+    if (view && view !== 'overview') url.searchParams.set('view', view);
+    else url.searchParams.delete('view');
+    if (rankingClass && (view === 'overview' || view === 'standings')) url.searchParams.set('class', rankingClass);
+    else url.searchParams.delete('class');
+    const target = `${url.pathname}${url.search}${url.hash}`;
+    if (target === `${location.pathname}${location.search}${location.hash}`) return;
+    history[replace ? 'replaceState' : 'pushState']({ xyzProduct: 'motorsports', view, rankingClass }, '', target);
+    window.XYZBranchRouter?.syncMetadata?.(location.pathname, location.search);
+  }
 
   function rows(value) {
     if (Array.isArray(value)) return value;
@@ -167,7 +198,7 @@
   }
 
   function menuHTML() {
-    return groups.map(([group, items]) => `<section class="xms-mega-group"><strong>${escapeHTML(group)}</strong>${items.map(([label, slug]) => `<a href="/motorsports/${slug}">${escapeHTML(label)}</a>`).join('')}</section>`).join('');
+    return groups.map(([group, items]) => `<section class="xms-mega-group"><strong>${escapeHTML(group)}</strong>${items.map(([label, slug]) => `<a data-classification-key="${escapeHTML(slug)}" href="/motorsports/${slug}">${escapeHTML(label)}</a>`).join('')}</section>`).join('');
   }
 
   function fallbackNavigation() {
@@ -188,15 +219,8 @@
   }
 
   function seriesPickerHTML(slug) {
-    return `<strong>SERİ</strong><div><a class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}>Tümü</a>${Object.entries(series).map(([key, config]) => `<a class="${key === slug ? 'active' : ''}" href="/motorsports/${key}" ${key === slug ? 'aria-current="page"' : ''}>${escapeHTML(config.label)}</a>`).join('')}</div>`;
-  }
-
-  function classSwitchHTML(slug) {
-    const keys = ['motogp', 'moto2', 'moto3'].includes(slug)
-      ? ['motogp', 'moto2', 'moto3']
-      : ['wec', 'le-mans'].includes(slug) ? ['wec', 'le-mans'] : [];
-    if (!keys.length) return '';
-    return `<nav class="xms-context-switch" aria-label="${series[slug].discipline} sınıfı">${keys.map((key) => `<a href="/motorsports/${key}" class="${key === slug ? 'active' : ''}" ${key === slug ? 'aria-current="page"' : ''}>${escapeHTML(series[key].label)}</a>`).join('')}</nav>`;
+    const selectedView = slug ? viewFromLocation(slug) : 'overview';
+    return `<strong>SERİLER</strong><div><a data-classification-key="all" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tümü</b><small>Tüm kategoriler</small></a>${Object.entries(series).map(([key, config]) => `<a data-classification-key="${escapeHTML(key)}" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(categoryById[config.category].label)}</small></a>`).join('')}</div>`;
   }
 
   function viewsFor(slug) {
@@ -205,15 +229,16 @@
 
   function shellHTML(slug) {
     const config = series[slug] || { label: 'Motor Sporları', accent: '#ef4557', discipline: 'Tüm seriler', mark: 'MS' };
+    const category = categoryById[config.category] || null;
     const detail = Boolean(series[slug]);
     return `<main class="xms-shell xms-center-shell" style="--xms-accent:${config.accent}">
       <section class="xms-center" data-xms-center>
         <header class="xms-center-identity">
           <span class="xms-center-mark" aria-hidden="true"><b>${escapeHTML(config.mark)}</b></span>
-          <div><small>XYZSKOR · MOTOR SPORLARI ${detail ? 'SERİ' : 'LİG'} MERKEZİ</small><h1>${escapeHTML(config.label)}</h1><p data-xms-center-meta>${detail ? `${escapeHTML(config.discipline)} · güncel sezon` : `${MOTORSPORT_TAGLINE} Formula, motosiklet, ralli, dayanıklılık ve stock car.`}</p></div>
+          <div><small>XYZSKOR · MOTOR SPORLARI ${detail ? 'SERİ' : 'LİG'} MERKEZİ</small><h1 data-classification-title>${escapeHTML(config.label)}</h1><p data-xms-center-meta>${detail ? `${escapeHTML(category.label)} · ${escapeHTML(config.classification)} · güncel sezon` : `${MOTORSPORT_TAGLINE} Formula, motosiklet, ralli, dayanıklılık ve stock car.`}</p></div>
           <span class="xms-center-data-state" data-xms-data-state>VERİ KAPSAMI HAZIRLANIYOR</span>
         </header>
-        ${detail ? `${classSwitchHTML(slug)}<nav class="xms-center-tabs" role="tablist" aria-label="${escapeHTML(config.label)} görünümü">${viewsFor(slug).map(([key, label], index) => `<button type="button" role="tab" id="xmsTab-${key}" aria-controls="xmsData" aria-selected="${index === 0}" tabindex="${index === 0 ? '0' : '-1'}" data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${escapeHTML(label)}</button>`).join('')}</nav><section id="xmsData" class="xms-center-stage" role="tabpanel" aria-labelledby="xmsTab-overview" aria-live="polite"></section>` : `<section id="xmsHubData" class="xms-center-stage" aria-live="polite">${hubLoadingHTML()}</section>`}
+        ${detail ? `<nav class="xms-center-tabs" role="tablist" aria-label="${escapeHTML(config.label)} görünümü">${viewsFor(slug).map(([key, label], index) => `<button type="button" role="tab" id="xmsTab-${key}" aria-controls="xmsData" aria-selected="${index === 0}" tabindex="${index === 0 ? '0' : '-1'}" data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${escapeHTML(label)}</button>`).join('')}</nav><section id="xmsData" class="xms-center-stage" role="tabpanel" aria-labelledby="xmsTab-overview" aria-live="polite"></section>` : `<section id="xmsHubData" class="xms-center-stage" aria-live="polite">${hubLoadingHTML()}</section>`}
       </section>
     </main>`;
   }
@@ -236,6 +261,10 @@
 
   function errorState(title, detail) {
     return `<div class="xms-center-error" role="alert"><small>SAĞLAYICI DURUMU</small><h2>${escapeHTML(title)}</h2><p>${escapeHTML(detail)}</p><button type="button" data-xms-retry>Yeniden dene</button></div>`;
+  }
+
+  function unknownSeriesState(slug) {
+    return `<div class="xms-center-error" role="alert"><small>SERİ ROTASI</small><h2>Motor sporları serisi bulunamadı.</h2><p>${escapeHTML(slug)} için doğrulanmış bir seri merkezi tanımlı değil. Başka bir serinin verisi bu adrese yerleştirilmedi.</p><a href="/motorsports/">Tüm serilere dön</a></div>`;
   }
 
   function eventRowsHTML(items, limit = 10) {
@@ -269,8 +298,12 @@
 
   function rankingGroupsHTML(groups, label) {
     if (!groups.length) return emptyState('Doğrulanmış sıralama henüz yok.', 'Puan veya pozisyon bulunmadığında katılımcılar sıralamaymış gibi gösterilmez.');
-    const controls = groups.length > 1 ? `<nav class="xms-ranking-classes" role="tablist" aria-label="Şampiyona sınıfı">${groups.map((group, index) => `<button type="button" role="tab" aria-selected="${index === 0}" data-xms-ranking-class="${index}" class="${index === 0 ? 'active' : ''}">${escapeHTML(group.label)}</button>`).join('')}</nav>` : '';
-    return `${controls}${groups.map((group, groupIndex) => `<div class="xms-ranking-group" data-xms-ranking-group="${groupIndex}" ${groupIndex ? 'hidden' : ''}><div class="xms-ranking-scroll" tabindex="0" role="region" aria-label="${escapeHTML(group.label)} sıralaması"><table class="xms-ranking-table"><caption>${escapeHTML(label)} · ${escapeHTML(group.label)} sıralaması</caption><thead><tr><th scope="col">#</th><th scope="col">PİLOT / EKİP</th><th scope="col">NO</th><th scope="col">PUAN</th></tr></thead><tbody>${group.rows.map(rankingRowHTML).join('')}</tbody></table></div></div>`).join('')}`;
+    const requestedClass = rankingClassFromLocation();
+    const requestedIndex = groups.findIndex((group) => group.id === requestedClass);
+    const activeIndex = requestedIndex >= 0 ? requestedIndex : 0;
+    const controls = groups.length > 1 ? `<nav class="xms-ranking-classes" role="tablist" aria-label="Sağlayıcının şampiyona sınıfları" data-sport-classification="championship-class">${groups.map((group, index) => `<button type="button" role="tab" id="xmsRankingClass-${index}" aria-controls="xmsRankingGroup-${index}" aria-selected="${index === activeIndex}" tabindex="${index === activeIndex ? '0' : '-1'}" data-xms-ranking-class="${index}" data-classification-key="${escapeHTML(group.id)}" class="${index === activeIndex ? 'active' : ''}">${escapeHTML(group.label)}</button>`).join('')}</nav>` : '';
+    const tabpanelAttributes = (groupIndex) => groups.length > 1 ? `role="tabpanel" aria-labelledby="xmsRankingClass-${groupIndex}"` : '';
+    return `${controls}${groups.map((group, groupIndex) => `<div id="xmsRankingGroup-${groupIndex}" class="xms-ranking-group" ${tabpanelAttributes(groupIndex)} data-xms-ranking-group="${groupIndex}" ${groupIndex !== activeIndex ? 'hidden' : ''}><div class="xms-ranking-scroll" tabindex="0" role="region" aria-label="${escapeHTML(group.label)} sıralaması"><table class="xms-ranking-table"><caption>${escapeHTML(label)} · ${escapeHTML(group.label)} sıralaması</caption><thead><tr><th scope="col">#</th><th scope="col">PİLOT / EKİP</th><th scope="col">NO</th><th scope="col">PUAN</th></tr></thead><tbody>${group.rows.map(rankingRowHTML).join('')}</tbody></table></div></div>`).join('')}`;
   }
 
   function participantCardsHTML(items, type) {
@@ -292,23 +325,44 @@
     return dates[0] ? new Intl.DateTimeFormat('tr-TR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Istanbul' }).format(dates[0]) : '';
   }
 
-  function bindRankingClasses(host) {
+  function bindRankingClasses(host, view) {
     const buttons = [...host.querySelectorAll('[data-xms-ranking-class]')];
-    buttons.forEach((button) => button.addEventListener('click', () => {
+    if (!buttons.length) {
+      if (rankingClassFromLocation()) updateRouteQuery(view, '', true);
+      return;
+    }
+    const activate = (button, focus = false, persist = true) => {
       const selected = button.dataset.xmsRankingClass;
       buttons.forEach((item) => {
         const active = item === button;
         item.classList.toggle('active', active);
         item.setAttribute('aria-selected', String(active));
+        item.tabIndex = active ? 0 : -1;
       });
       host.querySelectorAll('[data-xms-ranking-group]').forEach((group) => { group.hidden = group.dataset.xmsRankingGroup !== selected; });
-    }));
+      if (focus) button.focus();
+      if (persist) updateRouteQuery(view, button.dataset.classificationKey || '');
+    };
+    buttons.forEach((button, index) => {
+      button.addEventListener('click', () => activate(button));
+      button.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+        activate(buttons[nextIndex], true);
+      });
+    });
+    if (rankingClassFromLocation() && !buttons.some((button) => button.dataset.classificationKey === rankingClassFromLocation())) {
+      updateRouteQuery(view, '', true);
+    }
   }
 
   function updateIdentity(slug, season, payloads) {
     const meta = document.querySelector('[data-xms-center-meta]');
     const state = document.querySelector('[data-xms-data-state]');
-    if (meta && slug) meta.textContent = [series[slug].discipline, season ? `${season} sezonu` : 'güncel sezon'].join(' · ');
+    const config = series[slug];
+    const category = categoryById[config?.category];
+    if (meta && config) meta.textContent = [category?.label, config.classification, season ? `${season} sezonu` : 'güncel sezon'].filter(Boolean).join(' · ');
     if (!state) return;
     const snapshot = payloads.some((payload) => payload?.snapshot || payload?.stale || payload?.degraded);
     state.textContent = snapshot ? 'SON DOĞRULANMIŞ KAYIT' : 'GÜNCEL SAĞLAYICI VERİSİ';
@@ -360,7 +414,7 @@
         ]);
         if (!current()) return;
         host.innerHTML = overviewHTML(slug, payloads);
-        bindRankingClasses(host);
+        bindRankingClasses(host, view);
         return;
       }
       const resource = view === 'standings' ? rankingResource(slug) : resourceMap[view];
@@ -377,7 +431,7 @@
         host.innerHTML = `<section class="xms-center-panel xms-single-panel"><header><div><small>${view === 'results' ? 'TAMAMLANAN' : 'SEZON PROGRAMI'}</small><h2>${view === 'results' ? 'Yarış sonuçları' : 'Yarış takvimi'}</h2></div><span>${filtered.length} KAYIT</span></header>${eventRowsHTML(filtered, 60)}</section>`;
       } else if (view === 'standings') {
         host.innerHTML = `<section class="xms-center-panel xms-single-panel"><header><div><small>GÜNCEL SEZON</small><h2>Şampiyona sıralaması</h2></div></header>${rankingGroupsHTML(normalizeRanking(payload), series[slug].label)}</section>`;
-        bindRankingClasses(host);
+        bindRankingClasses(host, view);
       } else if (view === 'live') {
         host.innerHTML = payload.liveSupported && list.length
           ? `<section class="xms-center-panel xms-single-panel"><header><div><small>CANLI AKIŞ</small><h2>Timing</h2></div></header>${participantCardsHTML(list, 'CANLI')}</section>`
@@ -421,7 +475,7 @@
   }
 
   function hubCatalogHTML() {
-    return `<div class="xms-hub-catalog">${groups.map(([group, items]) => `<section><small>${escapeHTML(group)}</small>${items.map(([label, slug]) => `<a href="/motorsports/${slug}"><span aria-hidden="true">${escapeHTML(series[slug].mark)}</span><strong>${escapeHTML(label)}</strong><em>Merkezi aç</em></a>`).join('')}</section>`).join('')}</div>`;
+    return `<div class="xms-hub-catalog">${groups.map(([group, items]) => `<section><small>${escapeHTML(group)}</small>${items.map(([label, slug]) => `<a data-classification-key="${escapeHTML(slug)}" href="/motorsports/${slug}"><span aria-hidden="true">${escapeHTML(series[slug].mark)}</span><strong>${escapeHTML(label)}</strong><em>Merkezi aç</em></a>`).join('')}</section>`).join('')}</div>`;
   }
 
   async function loadHub() {
@@ -457,6 +511,8 @@
     const picker = document.createElement('nav');
     picker.className = 'xms-series-picker xms-center-series-picker';
     picker.setAttribute('aria-label', 'Motor sporları seri seçimi');
+    picker.setAttribute('data-sport-classification', 'series');
+    picker.style.setProperty('--xms-accent', series[slug]?.accent || '#ef4557');
     picker.innerHTML = seriesPickerHTML(slug);
     branchNav.after(picker);
     document.body.classList.add('motorsport-open');
@@ -469,11 +525,12 @@
       return;
     }
     if (!series[slug]) {
-      document.getElementById('xmsHubData')?.replaceChildren();
+      const host = document.getElementById('xmsHubData');
+      if (host) host.innerHTML = unknownSeriesState(slug);
       return;
     }
     const buttons = [...document.querySelectorAll('[data-xms-view]')];
-    const activate = (view, focus = false) => {
+    const activate = (view, focus = false, persist = true) => {
       const button = buttons.find((item) => item.dataset.xmsView === view);
       if (!button) return;
       buttons.forEach((item) => {
@@ -483,6 +540,7 @@
         item.tabIndex = active ? 0 : -1;
       });
       if (focus) button.focus();
+      if (persist) updateRouteQuery(view, rankingClassFromLocation());
       loadView(slug, view);
     };
     buttons.forEach((button, index) => {
@@ -494,7 +552,13 @@
         activate(buttons[nextIndex].dataset.xmsView, true);
       });
     });
-    activate('overview');
+    const requestedView = currentQuery().get('view');
+    const initialView = viewFromLocation(slug);
+    if (requestedView && requestedView !== initialView) updateRouteQuery(initialView, '', true);
+    activate(initialView, false, false);
+    window.addEventListener('popstate', () => {
+      if (isMotor() && parts()[1] === slug) activate(viewFromLocation(slug), false, false);
+    });
   }
 
   document.addEventListener('visibilitychange', () => {

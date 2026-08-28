@@ -17,9 +17,11 @@
   let activeSport = 'basketball';
   let activeView = 'home';
   let activeLeague = 'all';
+  let activeLeagueRoute = '';
   let hubRequestEpoch = 0;
   let basketballStandingsEpoch = 0;
   let pendingViewFocus = '';
+  let pendingLeagueFocus = '';
   let pendingBasketballHubFocus = false;
   let pendingVolleyballHubFocus = false;
   const MULTISPORT_PAYLOAD_TTL_MS = 15 * 60 * 1000;
@@ -46,6 +48,58 @@
   };
   const visual = (name, src, alt = name) => `<img src="${escapeHTML(src || visualFallback(name))}" data-fallback="${escapeHTML(visualFallback(name))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHTML(alt || '')}" loading="lazy">`;
   const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
+  const leagueSlug = (value) => String(value || '')
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'') || 'lig';
+
+  function leagueRouteKey(league){
+    if(!league) return '';
+    const parts=[leagueSlug(league.name)];
+    const id=String(league.id ?? '').trim();
+    const season=String(league.season ?? '').trim().replace(/[^a-zA-Z0-9-]+/g,'-').replace(/^-+|-+$/g,'');
+    if(id) parts.push(`id-${id.replace(/[^0-9a-zA-Z-]+/g,'-')}`);
+    if(season) parts.push(`sezon-${season}`);
+    return parts.join('--');
+  }
+
+  function parsedLeagueRoute(routeKey){
+    const parts=String(routeKey || '').split('--').filter(Boolean);
+    const slug=parts.find((part)=>!part.startsWith('id-')&&!part.startsWith('sezon-'))||'seçili-lig';
+    const idPart=parts.find((part)=>part.startsWith('id-'))||'';
+    const seasonPart=parts.find((part)=>part.startsWith('sezon-'))||'';
+    const name=slug.split('-').filter(Boolean).map((part)=>part.charAt(0).toLocaleUpperCase('tr-TR')+part.slice(1)).join(' ');
+    return {slug,id:idPart.slice(3),season:seasonPart.slice(6),name:name||'Seçili lig'};
+  }
+
+  function leagueForRoute(leagues, routeKey){
+    if(!routeKey) return null;
+    const exact=leagues.find((league)=>league.routeKey===routeKey);
+    if(exact) return exact;
+    const requested=parsedLeagueRoute(routeKey);
+    if(requested.id){
+      return leagues.find((league)=>String(league.id||'')===requested.id&&(!requested.season||String(league.season||'')===requested.season))||null;
+    }
+    return leagues.find((league)=>leagueSlug(league.name)===requested.slug)||null;
+  }
+
+  function unresolvedLeagueForRoute(routeKey){
+    const requested=parsedLeagueRoute(routeKey);
+    return {
+      key:`route:${routeKey}`,
+      routeKey,
+      name:requested.name,
+      id:requested.id,
+      season:requested.season,
+      logo:'',
+      country:'',
+      events:[],
+      unresolved:true,
+    };
+  }
   const scoreText = (score) => {
     if(score == null || score === '') return 'VS';
     if(typeof score !== 'object') return String(score);
@@ -55,16 +109,23 @@
     return score.display ?? score.text ?? score.value ?? 'VS';
   };
 
-  function hubPath(sport, view){
+  function hubPath(sport, view, routeKey = activeLeagueRoute){
     const suffix = viewSlug(view);
-    return `/${sportSlug(sport)}/${suffix ? `${suffix}/` : ''}`;
+    const leagueSegment=routeKey?`lig/${encodeURIComponent(routeKey)}/`:'';
+    return `/${sportSlug(sport)}/${leagueSegment}${suffix ? `${suffix}/` : ''}`;
   }
 
   function routeState(){
     const parts = location.pathname.split('/').filter(Boolean);
     const sport = ({basketbol:'basketball',voleybol:'volleyball'})[parts[0]];
-    const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
-    return sport ? {sport,view} : null;
+    const hasLeagueRoute=parts[1]==='lig'&&Boolean(parts[2]);
+    const viewPart=hasLeagueRoute?parts[3]:parts[1];
+    const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[viewPart] || 'home';
+    let leagueRoute='';
+    if(hasLeagueRoute){
+      try{leagueRoute=decodeURIComponent(parts[2]);}catch(_error){leagueRoute=parts[2];}
+    }
+    return sport ? {sport,view,leagueRoute} : null;
   }
 
   function abortBasketballStandings(exceptScope = ''){
@@ -80,6 +141,7 @@
   function closeHub(){
     hubRequestEpoch += 1;
     pendingViewFocus='';
+    pendingLeagueFocus='';
     pendingBasketballHubFocus=false;
     pendingVolleyballHubFocus=false;
     feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
@@ -153,6 +215,28 @@
     if(note) note.textContent = statusText || 'Günün programı hazırlanıyor';
   }
 
+  function syncLeagueIdentityMetadata(sport, league){
+    if(!league||!activeLeagueRoute) return;
+    const sportLabel=SPORT_LABELS[sport]||'Spor';
+    const title=`${league.name} · ${sportLabel} — XYZSKOR`;
+    const description=sport==='basketball'
+      ? `${league.name} basketbol ligi için doğrulanmış maç programı, sonuçlar ve sağlayıcı destekliyorsa puan durumu.`
+      : `${league.name} voleybol ligi için doğrulanmış günlük maç programı, sonuçlar ve takım kapsamı.`;
+    document.title=title;
+    const setContent=(selector,value)=>document.querySelector(selector)?.setAttribute('content',value);
+    setContent('meta[name="description"]',description);
+    setContent('meta[property="og:title"]',title);
+    setContent('meta[property="og:description"]',description);
+    setContent('meta[name="twitter:title"]',title);
+    setContent('meta[name="twitter:description"]',description);
+  }
+
+  function replaceLeagueRoute(routeKey){
+    const path=hubPath(activeSport,activeView,routeKey);
+    if(location.pathname!==path) history.replaceState({multisport:true,league:routeKey||'all'},'',path);
+    if(window.XYZBranchRouter?.syncMetadata) window.XYZBranchRouter.syncMetadata(location.pathname,location.search);
+  }
+
   function teamCardHTML(team){
     return `<article class="multi-team-card"><span>${visual(team.name, imageOf(team))}</span><strong>${escapeHTML(team.name || 'Takim')}</strong><small>Gunun programinda</small></article>`;
   }
@@ -216,6 +300,7 @@
         name,
         id,
         season,
+        routeKey:'',
         logo:item?.leagueLogo || '',
         country:item?.country || '',
         events:[],
@@ -227,7 +312,9 @@
       if(!league.country && item?.country) league.country=item.country;
       league.events.push(item);
     });
-    return [...leagues.values()];
+    const list=[...leagues.values()];
+    list.forEach((league)=>{league.routeKey=leagueRouteKey(league);});
+    return list;
   }
 
   function basketballSortEvents(items){
@@ -268,7 +355,7 @@
   }
 
   function basketballStandingsScope(league){
-    return league?.id && league?.season ? `${league.id}:${league.season}` : '';
+    return !league?.unresolved&&league?.id&&league?.season ? `${league.id}:${league.season}` : '';
   }
 
   function basketballStandingRowHTML(row){
@@ -307,30 +394,35 @@
     const season=league?.season||'Güncel sezon';
     const scope=basketballStandingsScope(league);
     const updated=lastUpdatedLabel(payload);
-    return `<section class="basketball-league-center" data-basketball-league-center data-basketball-standings-scope="${escapeHTML(scope)}">
+    const title=league?.name||(activeLeagueRoute?'Seçili basketbol ligi':'Tüm ligler');
+    const coverageMissing=Boolean(league?.unresolved);
+    const standingsMessage=coverageMissing
+      ? 'Seçili lig bugünkü sağlayıcı kapsamında doğrulanmadığı için puan tablosu istenmedi.'
+      : 'Ligleri karıştırmamak için toplu görünümde puan tablosu gösterilmez. Bir lig seçin.';
+    return `<section class="basketball-league-center" data-basketball-league-center data-basketball-standings-scope="${escapeHTML(scope)}" data-league-route="${escapeHTML(activeLeagueRoute)}">
       <header class="basketball-league-identity">
         <span class="basketball-league-logo">${league?visual(league.name,league.logo,''):'<b aria-hidden="true">B</b>'}</span>
-        <div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2>${escapeHTML(league?.name||'Basketbol')}</h2><p>${escapeHTML([league?.country,season].filter(Boolean).join(' · '))}</p></div>
-        <span class="basketball-data-state">${payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
+        <div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2 data-classification-title>${escapeHTML(title)}</h2><p>${escapeHTML(coverageMissing?'Bugünkü sağlayıcı programında bu lig için doğrulanmış karşılaşma yok.':[league?.country,league?.season||(!league?`${basketballLeagueDescriptors(payload?.sports?.basketball||[]).length} lig · Günlük program`:season)].filter(Boolean).join(' · '))}</p></div>
+        <span class="basketball-data-state">${coverageMissing?'DOĞRULANMIŞ BOŞ KAPSAM':payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
       </header>
       <div class="basketball-overview-layout">
         <section class="basketball-overview-panel basketball-standings-panel" aria-labelledby="basketballStandingsTitle">
           <header><div><small>GÜNCEL SEZON</small><h3 id="basketballStandingsTitle">Puan durumu</h3></div><span>${escapeHTML(season)}</span></header>
           <div class="basketball-standings-scroll" tabindex="0" role="region" aria-labelledby="basketballStandingsTitle">
-            <table class="basketball-standings-table" aria-busy="true">
-              <caption>${escapeHTML(league?.name||'Basketbol')} puan durumu</caption>
+            <table class="basketball-standings-table" aria-busy="${scope?'true':'false'}">
+              <caption>${escapeHTML(title)} puan durumu</caption>
               <thead><tr><th scope="col">#</th><th scope="col">TAKIM</th><th scope="col">O</th><th scope="col">G</th><th scope="col">M</th><th scope="col">%</th><th scope="col">AV</th></tr></thead>
-              <tbody>${basketballStandingsSkeletonHTML()}</tbody>
+              <tbody>${scope?basketballStandingsSkeletonHTML():basketballStandingsEmptyRow(standingsMessage,'empty')}</tbody>
             </table>
           </div>
-          <footer class="basketball-standings-status" role="status" aria-live="polite">${scope?'Resmî sıralama hazırlanıyor…':'Lig ve sezon kimliği program verisinden bekleniyor.'}</footer>
+          <footer class="basketball-standings-status" role="status" aria-live="polite">${scope?'Resmî sıralama hazırlanıyor…':standingsMessage}</footer>
         </section>
         <aside class="basketball-overview-panel basketball-fixtures-panel">
           <header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div><span>${items.length} maç</span></header>
           <div class="basketball-fixtures-body">${basketballScheduleHTML(items)}</div>
         </aside>
       </div>
-      <section class="basketball-overview-metrics" aria-label="Seçili lig özeti">
+      <section class="basketball-overview-metrics" aria-label="${league?'Seçili lig özeti':'Tüm ligler özeti'}">
         <article><span>GÜNLÜK PROGRAM</span><b>${items.length}</b><small>doğrulanmış maç</small></article>
         <article><span>CANLI</span><b class="is-live">${live}</b><small>devam eden</small></article>
         <article><span>TAMAMLANAN</span><b>${finished}</b><small>sonuçlanan</small></article>
@@ -342,8 +434,12 @@
           ${basketballFeaturedHTML(featured)}
         </article>
         <article class="basketball-source-note">
-          <small>VERİ KAPSAMI</small><h3>Şeffaf, lig bazlı görünüm</h3>
-          <p>Maç programı ve puan tablosu yalnız sağlayıcının seçili lig ile sezon için doğruladığı kayıtlardan oluşur.</p>
+          <small>VERİ KAPSAMI</small><h3>${league?'Şeffaf, lig bazlı görünüm':'Günlük toplu kapsam'}</h3>
+          <p>${coverageMissing
+            ? 'Sağlayıcı bu sınıflandırmayı bugünkü programında döndürmedi; maç, takım veya puan satırı üretilmedi.'
+            : league
+              ? 'Maç programı ve puan tablosu yalnız sağlayıcının seçili lig ile sezon için doğruladığı kayıtlardan oluşur.'
+              : 'Günlük program doğrulanmış liglerin maçlarını birlikte gösterir. Lig puan tabloları karıştırılmaz; bir lig seçilmeden sıralama gösterilmez.'}</p>
           <span>${escapeHTML(updated?'Son güncelleme: '+updated:'Güncelleme zamanı sağlayıcıdan bekleniyor')}</span>
         </article>
       </section>
@@ -352,7 +448,7 @@
 
   function basketballLoadingHTML(){
     return `<section class="basketball-league-center basketball-loading-shell" aria-busy="true">
-      <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2>Lig merkezi hazırlanıyor</h2><p>Günlük program ve sezon sıralaması</p></div></header>
+      <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2 data-classification-title>Lig merkezi hazırlanıyor</h2><p>Günlük program ve sezon sıralaması</p></div></header>
       <div class="basketball-overview-layout">
         <section class="basketball-overview-panel basketball-standings-panel"><header><div><small>GÜNCEL SEZON</small><h3>Puan durumu</h3></div></header><div class="basketball-standings-scroll"><table class="basketball-standings-table"><tbody>${basketballStandingsSkeletonHTML()}</tbody></table></div></section>
         <aside class="basketball-overview-panel basketball-fixtures-panel"><header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div></header><div class="basketball-fixture-skeleton">${Array.from({length:6},()=>'<i></i>').join('')}</div></aside>
@@ -363,7 +459,7 @@
 
   function basketballErrorHTML(){
     return `<section class="basketball-league-center">
-      <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2>Basketbol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
+      <header class="basketball-league-identity"><span class="basketball-league-logo"><b aria-hidden="true">B</b></span><div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2 data-classification-title>Basketbol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
       <div class="basketball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>Basketbol verisi şu anda alınamadı.</h3><p>Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve puan tablosu yeniden yüklenecek.</p><button type="button" data-basketball-hub-retry>Yeniden dene</button></div>
     </section>`;
   }
@@ -430,7 +526,11 @@
   async function hydrateBasketballStandings(root, league, force = false){
     const scope=basketballStandingsScope(league);
     if(!root||!scope){
-      renderBasketballStandingsUnavailable(root,'Lig ve sezon kimliği program verisinden bekleniyor.','empty',league);
+      abortBasketballStandings();
+      const message=league?.unresolved
+        ? 'Seçili lig bugünkü sağlayıcı kapsamında doğrulanmadığı için puan tablosu istenmedi.'
+        : 'Ligleri karıştırmamak için toplu görünümde puan tablosu gösterilmez. Bir lig seçin.';
+      renderBasketballStandingsUnavailable(root,message,'empty',league);
       return;
     }
     abortBasketballStandings(scope);
@@ -503,6 +603,7 @@
         key:name,
         name,
         id:id!==''?String(id):'',
+        routeKey:'',
         logo:item?.leagueLogo||'',
         country,
         season,
@@ -519,6 +620,7 @@
     list.forEach((league)=>nameCounts.set(league.name,(nameCounts.get(league.name)||0)+1));
     list.forEach((league)=>{
       if((nameCounts.get(league.name)||0)>1) league.key=`scope:${league.identity}`;
+      league.routeKey=leagueRouteKey(league);
     });
     return list;
   }
@@ -603,12 +705,15 @@
     const finished=items.filter(volleyballIsFinished).length;
     const scopeLabel=league?.name||'Tüm ligler';
     const updated=lastUpdatedLabel(payload);
-    const identityMeta=[league?.country,league?.season||'Güncel günlük program'].filter(Boolean).join(' · ');
-    return `<section class="volleyball-league-center" data-volleyball-league-center data-volleyball-scope="${escapeHTML(scopeLabel)}">
+    const coverageMissing=Boolean(league?.unresolved);
+    const identityMeta=coverageMissing
+      ? 'Bugünkü sağlayıcı programında bu lig için doğrulanmış karşılaşma yok.'
+      : [league?.country,league?.season||(!league?'Toplu günlük program':'Güncel günlük program')].filter(Boolean).join(' · ');
+    return `<section class="volleyball-league-center" data-volleyball-league-center data-volleyball-scope="${escapeHTML(scopeLabel)}" data-league-route="${escapeHTML(activeLeagueRoute)}">
       <header class="volleyball-league-identity">
         <span class="volleyball-league-logo">${league?.logo?visual(league.name,league.logo,''):'<b aria-hidden="true">V</b>'}</span>
-        <div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2>${escapeHTML(league?.name||'Voleybol')}</h2><p>${escapeHTML(identityMeta)}</p></div>
-        <span class="volleyball-data-state">${payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
+        <div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2 data-classification-title>${escapeHTML(scopeLabel)}</h2><p>${escapeHTML(identityMeta)}</p></div>
+        <span class="volleyball-data-state">${coverageMissing?'DOĞRULANMIŞ BOŞ KAPSAM':payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
       </header>
       <div class="volleyball-overview-layout">
         <section class="volleyball-overview-panel volleyball-program-panel" aria-labelledby="volleyballProgramTitle">
@@ -620,7 +725,7 @@
           <div class="volleyball-teams-body">${volleyballTeamPoolHTML(items,payload,scopeLabel)}</div>
         </aside>
       </div>
-      <section class="volleyball-overview-metrics" aria-label="Seçili lig özeti">
+      <section class="volleyball-overview-metrics" aria-label="${league?'Seçili lig özeti':'Tüm ligler özeti'}">
         <article><span>GÜNLÜK PROGRAM</span><b>${items.length}</b><small>doğrulanmış maç</small></article>
         <article><span>CANLI</span><b class="is-live">${live}</b><small>devam eden</small></article>
         <article><span>TAMAMLANAN</span><b>${finished}</b><small>sonuçlanan</small></article>
@@ -633,7 +738,7 @@
         </article>
         <article class="volleyball-source-note">
           <small>VERİ KAPSAMI</small><h3>Doğrulanmış günlük kapsam</h3>
-          <p>Bu görünüm puan tablosu üretmez; program, sonuç ve takım kapsamı yalnız API-Sports günlük karşılaşmalarından oluşur.</p>
+          <p>${coverageMissing?'Sağlayıcı bu sınıflandırmayı bugünkü programında döndürmedi; maç, takım veya sıralama satırı üretilmedi.':'Bu görünüm puan tablosu üretmez; program, sonuç ve takım kapsamı yalnız API-Sports günlük karşılaşmalarından oluşur.'}</p>
           <span>${escapeHTML(updated?'Son güncelleme: '+updated:'Güncelleme zamanı sağlayıcıdan bekleniyor')}</span>
         </article>
       </section>
@@ -644,7 +749,7 @@
     const fixtureSkeleton=Array.from({length:7},(_,index)=>`<i style="--volleyball-skeleton-index:${index}"></i>`).join('');
     const teamSkeleton=Array.from({length:8},(_,index)=>`<i style="--volleyball-skeleton-index:${index}"></i>`).join('');
     return `<section class="volleyball-league-center volleyball-loading-shell" aria-busy="true">
-      <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2>Lig merkezi hazırlanıyor</h2><p>Günlük program ve takım kapsamı</p></div></header>
+      <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2 data-classification-title>Lig merkezi hazırlanıyor</h2><p>Günlük program ve takım kapsamı</p></div></header>
       <div class="volleyball-overview-layout">
         <section class="volleyball-overview-panel volleyball-program-panel"><header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div></header><div class="volleyball-fixture-skeleton">${fixtureSkeleton}</div></section>
         <aside class="volleyball-overview-panel volleyball-teams-panel"><header><div><small>GÜNLÜK KAPSAM</small><h3>Programdaki takımlar</h3></div></header><div class="volleyball-team-skeleton">${teamSkeleton}</div></aside>
@@ -655,7 +760,7 @@
 
   function volleyballErrorHTML(){
     return `<section class="volleyball-league-center">
-      <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2>Voleybol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
+      <header class="volleyball-league-identity"><span class="volleyball-league-logo"><b aria-hidden="true">V</b></span><div><small>XYZSKOR · VOLEYBOL LİG MERKEZİ</small><h2 data-classification-title>Voleybol</h2><p>Veri bağlantısı yeniden kurulacak</p></div></header>
       <div class="volleyball-error-state" role="alert"><small>SAĞLAYICI DURUMU</small><h3>Voleybol verisi şu anda alınamadı.</h3><p>Bu doğrulanmış boş sonuç değil. Bağlantı düzeldiğinde günlük program ve takım kapsamı yeniden yüklenecek.</p><button type="button" data-volleyball-hub-retry>Yeniden dene</button></div>
     </section>`;
   }
@@ -702,60 +807,70 @@
     }
     const basketballLeagues=activeSport==='basketball'?basketballLeagueDescriptors(allItems):[];
     const volleyballLeagues=activeSport==='volleyball'?volleyballLeagueDescriptors(allItems):[];
-    const leagueNames = [...new Set([...(SPORT_LEAGUE_CATALOG[activeSport]||[]),...allItems.map(item => item.league || item.category).filter(Boolean)])];
-    if(activeSport==='basketball'&&activeLeague!=='all'&&!basketballLeagues.some((league)=>league.key===activeLeague)){
-      activeLeague=activeView==='home'&&basketballLeagues.length?basketballLeagues[0].key:'all';
+    const catalogLeagues=activeSport==='volleyball'?(SPORT_LEAGUE_CATALOG.volleyball||[])
+      .filter((name)=>!volleyballLeagues.some((league)=>league.name===name))
+      .map((name)=>({key:name,routeKey:leagueRouteKey({name}),name,id:'',season:'',logo:'',country:'',events:[],unresolved:true})):[];
+    const scopedLeagues=activeSport==='basketball'?basketballLeagues:[...volleyballLeagues,...catalogLeagues];
+    let selectedLeague=activeLeagueRoute?leagueForRoute(scopedLeagues,activeLeagueRoute):null;
+    if(!selectedLeague&&activeLeague!=='all') selectedLeague=scopedLeagues.find((league)=>league.key===activeLeague)||null;
+    if(!selectedLeague&&activeLeagueRoute) selectedLeague=unresolvedLeagueForRoute(activeLeagueRoute);
+    if(selectedLeague){
+      activeLeague=selectedLeague.key;
+      if(!selectedLeague.unresolved&&selectedLeague.routeKey!==activeLeagueRoute){
+        activeLeagueRoute=selectedLeague.routeKey;
+        replaceLeagueRoute(activeLeagueRoute);
+      }
+    }else{
+      activeLeague='all';
+      activeLeagueRoute='';
     }
-    if(activeSport==='basketball'&&activeView==='home'&&activeLeague==='all'&&basketballLeagues.length){
-      activeLeague=basketballLeagues[0].key;
-    }
-    if(activeSport==='volleyball'&&activeLeague!=='all'&&!volleyballLeagues.some((league)=>league.key===activeLeague)&&!leagueNames.includes(activeLeague)){
-      activeLeague=activeView==='home'&&volleyballLeagues.length?volleyballLeagues[0].key:'all';
-    }
-    if(activeSport==='volleyball'&&activeView==='home'&&activeLeague==='all'&&volleyballLeagues.length){
-      activeLeague=volleyballLeagues[0].key;
-    }
-    if((activeSport==='basketball'||activeSport==='volleyball')&&activeView==='home') viewNav.before(leagueStrip);
-    else viewNav.after(leagueStrip);
-    const basketballChoices=basketballLeagues.slice(0,14).map((league)=>{
-      const duplicate=basketballLeagues.some((candidate)=>candidate!==league&&candidate.name===league.name);
+
+    // Futboldaki lig sınıflandırması gibi bu ray her bölümde sekmelerden önce
+    // kalır. Linkler doğrudan açılabilir; istemci yalnız belge yenilenmesini
+    // önleyip aynı URL/durum sözleşmesini history üzerinde sürdürür.
+    viewNav.before(leagueStrip);
+    leagueStrip.hidden=false;
+    leagueStrip.dataset.sportClassification='leagues';
+    leagueStrip.setAttribute('aria-label',`${SPORT_LABELS[activeSport]||'Spor'} lig sınıflandırması`);
+    const choiceLeagues=[...scopedLeagues];
+    if(selectedLeague?.unresolved&&!choiceLeagues.some((league)=>league.routeKey===selectedLeague.routeKey)) choiceLeagues.push(selectedLeague);
+    const visibleLeagueChoices=choiceLeagues.slice(0,24);
+    if(selectedLeague&&!visibleLeagueChoices.some((league)=>league.routeKey===selectedLeague.routeKey)) visibleLeagueChoices.push(selectedLeague);
+    const leagueChoices=[{
+      key:'all',routeKey:'',name:'Tümü',accessibleLabel:`Tüm ${SPORT_LABELS[activeSport]||'spor'} ligleri`,events:allItems,
+    },...visibleLeagueChoices];
+    const choiceHTML=leagueChoices.map((league)=>{
+      const duplicate=league.routeKey&&choiceLeagues.some((candidate)=>candidate!==league&&candidate.name===league.name);
       const qualifier=league.country||league.season||league.id;
-      return [league.key,duplicate&&qualifier?`${league.name} · ${qualifier}`:league.name,[league.name,league.country,league.season].filter(Boolean).join(', ')];
-    });
-    const volleyballChoices=volleyballLeagues.slice(0,14).map((league)=>{
-      const duplicate=volleyballLeagues.some((candidate)=>candidate!==league&&candidate.name===league.name);
-      const qualifier=league.country||league.season||league.id;
-      return [league.key,duplicate&&qualifier?`${league.name} · ${qualifier}`:league.name,[league.name,league.country,league.season].filter(Boolean).join(', ')];
-    });
-    for(const name of (SPORT_LEAGUE_CATALOG.volleyball||[])){
-      if(!volleyballLeagues.some((league)=>league.name===name)) volleyballChoices.push([name,name,name]);
-    }
-    const leagueChoices=activeSport==='basketball'
-      ? (activeView==='home'?basketballChoices:[['all','Tümü','Tüm ligler'],...basketballChoices])
-      : activeSport==='volleyball'
-        ? (activeView==='home'?volleyballChoices:[['all','Tümü','Tüm ligler'],...volleyballChoices])
-        : [['all','Tümü','Tüm ligler'],...leagueNames.slice(0,14).map((name)=>[name,name,name])];
-    leagueStrip.hidden = !leagueChoices.length;
-    leagueStrip.innerHTML = leagueChoices.map(([key,label,accessibleLabel])=>`<button type="button" data-league="${escapeHTML(key)}" class="${key===activeLeague?'active':''}" aria-label="${escapeHTML(accessibleLabel)}" aria-pressed="${key===activeLeague?'true':'false'}">${escapeHTML(label)}</button>`).join('');
-    leagueStrip.querySelectorAll('[data-league]').forEach(button=>button.addEventListener('click',()=>{
-      activeLeague=button.dataset.league;
+      const label=duplicate&&qualifier?`${league.name} · ${qualifier}`:league.name;
+      const accessibleLabel=league.accessibleLabel||[league.name,league.country,league.season].filter(Boolean).join(', ');
+      const selected=league.routeKey===activeLeagueRoute;
+      const classificationKey=league.routeKey||'all';
+      return `<a href="${escapeHTML(hubPath(activeSport,activeView,league.routeKey))}" data-league="${escapeHTML(league.key)}" data-league-route="${escapeHTML(league.routeKey)}" data-classification-key="${escapeHTML(classificationKey)}" class="${selected?'active':''}" aria-label="${escapeHTML(accessibleLabel)}" ${selected?'aria-current="page"':''}>${escapeHTML(label)}</a>`;
+    }).join('');
+    leagueStrip.innerHTML=`<span class="multi-league-strip-label">LİGLER</span><div class="multi-league-strip-items">${choiceHTML}</div>`;
+    leagueStrip.querySelectorAll('[data-league]').forEach((link)=>link.addEventListener('click',(event)=>{
+      event.preventDefault();
+      activeLeague=link.dataset.league;
+      activeLeagueRoute=link.dataset.leagueRoute||'';
+      pendingLeagueFocus=link.dataset.classificationKey||'all';
+      const path=hubPath(activeSport,activeView,activeLeagueRoute);
+      if(location.pathname!==path) history.pushState({multisport:true,league:activeLeagueRoute||'all'},'',path);
+      if(window.XYZBranchRouter?.syncMetadata) window.XYZBranchRouter.syncMetadata(location.pathname,location.search);
       render(payload);
-      requestAnimationFrame(()=>[...document.querySelectorAll('#multiLeagueStrip [data-league]')]
-        .find((candidate)=>candidate.dataset.league===activeLeague)?.focus());
     }));
-    const selectedBasketballLeague=activeSport==='basketball'?basketballLeagues.find((item)=>item.key===activeLeague)||null:null;
-    const selectedVolleyballLeague=activeSport==='volleyball'
-      ? volleyballLeagues.find((item)=>item.key===activeLeague)||(activeLeague!=='all'?{key:activeLeague,name:activeLeague,logo:'',country:'',season:'',events:[]}:null)
-      : null;
-    const items = activeLeague === 'all'
-      ? allItems
-      : selectedBasketballLeague
-        ? selectedBasketballLeague.events
-        : selectedVolleyballLeague
-          ? selectedVolleyballLeague.events
-          : allItems.filter(item => (item.league || item.category) === activeLeague);
+    if(pendingLeagueFocus){
+      const focusKey=pendingLeagueFocus;
+      pendingLeagueFocus='';
+      requestAnimationFrame(()=>[...leagueStrip.querySelectorAll('[data-classification-key]')]
+        .find((candidate)=>candidate.dataset.classificationKey===focusKey)?.focus());
+    }
+    const selectedBasketballLeague=activeSport==='basketball'?selectedLeague:null;
+    const selectedVolleyballLeague=activeSport==='volleyball'?selectedLeague:null;
+    const items=selectedLeague?selectedLeague.events:allItems;
+    if(selectedLeague) syncLeagueIdentityMetadata(activeSport,selectedLeague);
     if(activeSport === 'basketball' && activeView === 'home'){
-      const league=selectedBasketballLeague||basketballLeagues[0]||null;
+      const league=selectedBasketballLeague||null;
       grid.innerHTML = basketballLeaguePortalHTML(items,league,payload);
       if(pendingBasketballHubFocus){
         const heading=grid.querySelector('.basketball-league-identity h2');
@@ -844,14 +959,29 @@
     return feedPromises.get(requestedSport);
   }
 
-  async function openHub(sport, view = 'home', updateUrl = true){
+  async function openHub(sport, view = 'home', updateUrl = true, requestedLeagueRoute){
     if(sport === 'mma'){
       location.assign('/ufc/');
       return;
     }
-    if(sport && sport !== activeSport) activeLeague = 'all';
+    const sportChanged=Boolean(sport&&sport!==activeSport);
+    if(sportChanged){
+      activeLeague='all';
+      activeLeagueRoute='';
+      pendingLeagueFocus='';
+    }
     activeSport = sport || activeSport;
     activeView = view;
+    if(requestedLeagueRoute!==undefined){
+      activeLeagueRoute=String(requestedLeagueRoute||'');
+      activeLeague='all';
+    }else if(!updateUrl){
+      const state=routeState();
+      if(state?.sport===activeSport){
+        activeLeagueRoute=String(state.leagueRoute||'');
+        activeLeague='all';
+      }
+    }
     const requestedSport = activeSport;
     const requestedView = activeView;
     if(requestedSport!=='basketball') pendingBasketballHubFocus=false;
@@ -864,7 +994,7 @@
       feedControllers.delete(scope);
       feedPromises.delete(scope);
     });
-    if(updateUrl && location.pathname !== hubPath(activeSport,activeView)) history.pushState({multisport:true},'',hubPath(activeSport,activeView));
+    if(updateUrl && location.pathname !== hubPath(activeSport,activeView,activeLeagueRoute)) history.pushState({multisport:true,league:activeLeagueRoute||'all'},'',hubPath(activeSport,activeView,activeLeagueRoute));
     if(window.XYZBranchRouter?.syncMetadata) window.XYZBranchRouter.syncMetadata(location.pathname,location.search);
     document.body.classList.add('multisport-open');
     updateBranchTicker([]);
@@ -972,8 +1102,8 @@
     bindProductRoute('tabBtnFootball','/','Futbol');
     bindProductRoute('tabBtnPredict','/predict/','Predict');
     const initial = routeState();
-    if(initial) openHub(initial.sport,initial.view,false);
-    window.addEventListener('popstate', () => { const state=routeState(); if(state) openHub(state.sport,state.view,false); else closeHub(); });
+    if(initial) openHub(initial.sport,initial.view,false,initial.leagueRoute);
+    window.addEventListener('popstate', () => { const state=routeState(); if(state) openHub(state.sport,state.view,false,state.leagueRoute); else closeHub(); });
 
     // Route-aware router entegrasyonu: basketbol ve voleybol yüzeyleri belge
     // yenilenmeden mount/unmount edilebilir. Router geçişte önce abort hook'u
@@ -982,6 +1112,7 @@
       window.XYZBranchRouter.registerAbortHook(() => {
         hubRequestEpoch += 1;
         pendingViewFocus='';
+        pendingLeagueFocus='';
         pendingBasketballHubFocus=false;
         pendingVolleyballHubFocus=false;
         feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });
@@ -997,12 +1128,16 @@
         mount:(context)=>{
           const parts = String(context?.pathname||location.pathname).split('/').filter(Boolean);
           const sport = ({basketbol:'basketball',voleybol:'volleyball'})[parts[0]];
-          const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[parts[1]] || 'home';
-          if(sport) openHub(sport,view,false);
+          const hasLeagueRoute=parts[1]==='lig'&&Boolean(parts[2]);
+          const view = ({maclar:'games',ligler:'leagues',takimlar:'teams',predict:'predict'})[hasLeagueRoute?parts[3]:parts[1]] || 'home';
+          let leagueRoute='';
+          if(hasLeagueRoute){try{leagueRoute=decodeURIComponent(parts[2]);}catch(_error){leagueRoute=parts[2];}}
+          if(sport) openHub(sport,view,false,leagueRoute);
         },
         unmount:()=>{
           hubRequestEpoch += 1;
           pendingViewFocus='';
+          pendingLeagueFocus='';
           pendingBasketballHubFocus=false;
           pendingVolleyballHubFocus=false;
           feedControllers.forEach((controller,scope)=>{ controller.abort(); feedPromises.delete(scope); });

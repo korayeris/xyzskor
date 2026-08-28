@@ -37,40 +37,67 @@
 }
 
 .multisport-hub[data-sport="volleyball"] .multi-league-strip {
-  gap: 4px;
+  gap: 12px;
   margin: 14px 0 0;
   padding: 0;
+  overflow: hidden;
   border: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.multisport-hub[data-sport="volleyball"] .multi-league-strip button {
+.multisport-hub[data-sport="volleyball"] .multi-league-strip-label {
+  flex: 0 0 auto;
+  color: var(--volleyball-accent);
+  font: 850 9px/1 var(--font-mono);
+  letter-spacing: .16em;
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip-items {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip-items::-webkit-scrollbar {
+  display: none;
+}
+
+.multisport-hub[data-sport="volleyball"] .multi-league-strip :is(button, a) {
+  display: inline-flex;
   min-width: 0;
   min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
   padding: 0 15px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: #94a5a1;
   text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
   transition: background-color .18s ease, color .18s ease, transform .18s ease;
 }
 
-.multisport-hub[data-sport="volleyball"] .multi-league-strip button:hover {
+.multisport-hub[data-sport="volleyball"] .multi-league-strip :is(button, a):hover {
   background: #172320;
   color: #fff;
   transform: translateY(-1px);
 }
 
-.multisport-hub[data-sport="volleyball"] .multi-league-strip button.active {
+.multisport-hub[data-sport="volleyball"] .multi-league-strip :is(button, a).active {
   border: 0;
   background: #17493e;
   color: #fff;
   box-shadow: none;
 }
 
-.multisport-hub[data-sport="volleyball"] .multi-league-strip button:focus-visible,
+.multisport-hub[data-sport="volleyball"] .multi-league-strip :is(button, a):focus-visible,
 .multisport-hub[data-sport="volleyball"] .multisport-view-nav button:focus-visible,
 .volleyball-error-state button:focus-visible {
   outline: 2px solid var(--volleyball-accent);
@@ -674,6 +701,10 @@
     padding-right: 4px;
   }
 
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip-label {
+    font-size: 8px;
+  }
+
   .multisport-hub[data-sport="volleyball"] .multisport-view-nav {
     gap: 15px;
   }
@@ -772,7 +803,7 @@
     background: #1b2a27;
   }
 
-  .multisport-hub[data-sport="volleyball"] .multi-league-strip button {
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip :is(button, a) {
     transition: none;
     transform: none;
   }

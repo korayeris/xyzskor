@@ -15,13 +15,24 @@ assert.match(source, /\.catch\(\(error\)\s*=>\s*\{[\s\S]{0,120}?snapshotPromise\
 assert.match(buildSource, /motorsports-snapshot\.json[\s\S]{0,500}?versionedSnapshotPath[\s\S]{0,300}?buildVersion/, 'Production snapshot URL must carry the content-derived build version.');
 
 assert.match(source, /xms-center-identity[\s\S]*MOTOR SPORLARI[\s\S]*xms-center-data-state/, 'Seri kimliği ve veri durumu korunmalı.');
-assert.match(source, /seriesPickerHTML[\s\S]*aria-current[\s\S]*xms-center-series-picker/, 'Seriler doğrudan seçilebilir pill bağlantıları sunmalı.');
+assert.match(source, /const categories = \[[\s\S]*single-seater[\s\S]*motorcycle[\s\S]*rally[\s\S]*endurance[\s\S]*stock-car/, 'Motor sporları gerçek yarış aileleriyle sınıflandırılmalı.');
+assert.match(source, /seriesPickerHTML[\s\S]*SERİLER[\s\S]*data-classification-key="all"[\s\S]*aria-current/, 'Seri rayı Tümü ve doğrudan seçilebilir gerçek seri bağlantıları sunmalı.');
+assert.match(source, /data-classification-title/, 'Seçili merkez başlığı ortak sınıflandırma hookunu taşımalı.');
+assert.match(source, /data-sport-classification',\s*'series'/, 'Seri rayı ortak sınıflandırma hookunu taşımalı.');
+assert.match(source, /seriesHref[\s\S]*view[\s\S]*updateRouteQuery[\s\S]*history\[replace \? 'replaceState' : 'pushState'\]/, 'Seri görünümü paylaşılabilir URL sorgusunda korunmalı.');
+assert.match(source, /function seriesHref\(slug, view[\s\S]*viewsFor\(slug\)\.some[\s\S]*targetView !== 'overview'/, 'Seri geçişi görünümü yalnız hedef seri destekliyorsa URL’ye taşımalı.');
+assert.match(source, /addEventListener\('popstate'[\s\S]*viewFromLocation/, 'Geri ve ileri navigasyonunda seçili görünüm URL ile eşitlenmeli.');
 assert.match(source, /role="tablist"[\s\S]*aria-selected[\s\S]*ArrowLeft[\s\S]*ArrowRight/, 'Görünüm sekmeleri klavye ile yönetilebilmeli.');
 assert.match(source, /overviewLoadingHTML[\s\S]*xms-center-layout[\s\S]*xms-center-skeleton/, 'İki kolonlu merkez yüklenirken shimmer göstermeli.');
 assert.match(source, /xms-center-metrics[\s\S]*SEZON PROGRAMI[\s\S]*YAKLAŞAN[\s\S]*TAMAMLANAN[\s\S]*SIRALAMA/, 'Özet metrikleri gerçek kapsamı ifade etmeli.');
 assert.match(source, /rankingGroupsHTML[\s\S]*xms-ranking-table[\s\S]*caption[\s\S]*scope="col"/, 'Sıralama semantik tablo olarak sunulmalı.');
+assert.match(source, /normalizeRanking[\s\S]*Array\.isArray\(item\?\.rows\)[\s\S]*data-sport-classification="championship-class"/, 'Alt şampiyona sınıfı rayı yalnız sağlayıcı grup satırlarından üretilmeli.');
+assert.match(source, /aria-controls="xmsRankingGroup-[\s\S]*tabindex=[\s\S]*data-xms-ranking-class[\s\S]*data-classification-key/, 'Sağlayıcı sınıf seçicileri ortak hook ve erişilebilir tab ilişkisi taşımalı.');
+assert.doesNotMatch(source, /function classSwitchHTML/, 'Statik veya sağlayıcıdan gelmeyen şampiyona sınıf rayı üretilmemeli.');
 assert.match(source, /Puan veya pozisyon bulunmadığında katılımcılar sıralamaymış gibi gösterilmez/, 'Eksik sıralama verisi dürüst boş durum göstermeli.');
 assert.match(source, /snapshotResource[\s\S]*degraded: true/, 'Dinamik sağlayıcı kesildiğinde yalnız gerçek snapshot kaydı kullanılmalı.');
+assert.match(source, /api\(slug, 'events'[\s\S]*api\(slug, rankingResource\(slug\)[\s\S]*api\(slug, 'teams'/, 'Özet takvim, sıralama ve takım kapsamını yalnız seçili seri slugı ile istemeli.');
+assert.match(source, /unknownSeriesState[\s\S]*Başka bir serinin verisi bu adrese yerleştirilmedi/, 'Bilinmeyen seri rotası başka seriden veri uydurmadan açıklanmalı.');
 assert.match(source, /href="\/ufc\/">UFC/, 'Yedek spor navigasyonunda UFC geçişi korunmalı.');
 assert.doesNotMatch(source, /data:image\/svg\+xml|<svg/i, 'Model üretimi inline SVG fallback kullanılmamalı.');
 assert.doesNotMatch(source, /Hypercar<\/button>|LMGT3<\/button>|puan:\s*\d|points:\s*\d/i, 'Arayüz sabit sıralama veya sahte sınıf verisi üretmemeli.');
@@ -29,6 +40,7 @@ assert.doesNotMatch(source, /Hypercar<\/button>|LMGT3<\/button>|puan:\s*\d|point
 assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.65fr\)\s*minmax\(330px,\s*\.85fr\)/, 'Masaüstü iki kolonlu lig merkezi yerleşimi korunmalı.');
 assert.match(css, /@keyframes xmsShimmer[\s\S]*xms-center-skeleton-row/, 'Soğuk yüklemede shimmer animasyonu bulunmalı.');
 assert.match(css, /animation-delay:\s*calc\(var\(--xms-row-index/, 'Gerçek satırlar kademeli yüklenmeli.');
+assert.match(css, /xms-center-series-picker\s*>\s*div[\s\S]*overflow-x:\s*auto[\s\S]*overscroll-behavior-inline:\s*contain/, 'Seri rayı dar ekran ve dokunmatik kullanımda yatay kaydırılabilmeli.');
 assert.match(css, /:focus-visible[\s\S]*outline:/, 'Klavye odağı görünür olmalı.');
 assert.match(css, /@media \(max-width:\s*980px\)[\s\S]*grid-template-columns:\s*1fr/, 'Dar ekranda iki kolon tek kolona düşmeli.');
 assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\s*none/, 'Hareket azaltma tercihi desteklenmeli.');
