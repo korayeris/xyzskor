@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [worker, ui, early, css, agenda, credits, index, build] = await Promise.all([
+const [worker, ui, early, css, agendaScript, agenda, credits, index, build] = await Promise.all([
   readFile(new URL('worker/index.js', root), 'utf8'),
   readFile(new URL('assets/js/ui.js', root), 'utf8'),
   readFile(new URL('assets/js/football-early.js', root), 'utf8'),
   readFile(new URL('assets/css/app-late.css', root), 'utf8'),
+  readFile(new URL('assets/js/sports-agenda.js', root), 'utf8'),
   readFile(new URL('assets/data/sports-agenda.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('assets/legal/sports-agenda-image-credits.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('index.html', root), 'utf8'),
@@ -31,7 +32,18 @@ for (const sport of ['basketball', 'volleyball', 'ufc', 'motorsports']) {
     await access(new URL(item.image.replace(/^\//, ''), root));
   }
 }
+for (const sport of ['basketball', 'volleyball']) {
+  const images = agenda.sports[sport].map((item) => item.image);
+  assert.equal(new Set(images).size, images.length, `${sport} gündem kartları aynı fotoğrafı tekrar kullanmamalı.`);
+}
+const creditedImages = new Set(credits.images.map((item) => item.file));
+for (const items of Object.values(agenda.sports)) {
+  for (const item of items) assert.ok(creditedImages.has(item.image), `${item.image} kalıcı lisans manifestinde kayıtlı olmalı.`);
+}
 assert.ok(Array.isArray(credits.images) && credits.images.length >= 5, 'Gündem görselleri kalıcı lisans manifestinde kayıtlı olmalı.');
+assert.match(agendaScript, /let refreshToken = 0[\s\S]*const token = \+\+refreshToken[\s\S]*token !== refreshToken/, 'Eşzamanlı gündem yenilemeleri yalnız son renderı yazabilmeli.');
+assert.match(agendaScript, /querySelectorAll\('\[data-sports-agenda\]'\)[\s\S]*existing\.length === 1[\s\S]*forEach\(\(item\) => item\.remove\(\)\)/, 'Branş başına en fazla tek gündem bölümü bırakılmalı.');
+assert.match(css, /\.sports-agenda-card\{[^}]*position:relative[^}]*min-height:360px[\s\S]*\.sports-agenda-photo\{[^}]*position:absolute[^}]*inset:0/, 'Gündem kartları bölünmüş küçük görsel yerine tam yüzey fotoğraf kullanmalı.');
 assert.match(index, /sports-agenda\.js/, 'Gündem katmanı üretim belgesinde yüklenmeli.');
 assert.match(build, /"sports-agenda\.js"/, 'Gündem katmanı fingerprint/minify kapsamına alınmalı.');
 

@@ -2,6 +2,7 @@
   const DATA_URL = '/assets/data/sports-agenda.json';
   let payloadPromise = null;
   let refreshQueued = false;
+  let refreshToken = 0;
 
   const escapeHTML = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -36,26 +37,27 @@
 
   async function refresh() {
     refreshQueued = false;
+    const token = ++refreshToken;
     const sport = activeSport();
-    const existing = document.querySelector('[data-sports-agenda]');
-    if (!sport) { existing?.remove(); return; }
+    const existing = [...document.querySelectorAll('[data-sports-agenda]')];
+    if (!sport) { existing.forEach((section) => section.remove()); return; }
     const target = mountTarget(sport);
-    if (!target) return;
-    if (existing?.dataset.sportsAgenda === sport && existing.previousElementSibling === target) return;
+    if (!target) { existing.forEach((section) => section.remove()); return; }
+    if (existing.length === 1 && existing[0].dataset.sportsAgenda === sport && existing[0].previousElementSibling === target) return;
     try {
       const payload = await loadPayload();
-      if (sport !== activeSport()) return;
+      if (token !== refreshToken || sport !== activeSport() || !target.isConnected) return;
       const items = Array.isArray(payload?.sports?.[sport]) ? payload.sports[sport] : [];
-      if (!items.length) { existing?.remove(); return; }
+      if (!items.length) { existing.forEach((section) => section.remove()); return; }
       const section = document.createElement('section');
       section.className = 'sports-agenda';
       section.dataset.sportsAgenda = sport;
       section.setAttribute('aria-labelledby', `sportsAgendaTitle-${sport}`);
       section.innerHTML = `<header><div><small>MANUEL EDİTORYAL SEÇKİ · ${escapeHTML(payload.checkedAt)}</small><h2 id="sportsAgendaTitle-${sport}">Branş gündemi</h2><p>Resmî kaynaklardan elle doğrulanan içerikler; görseller yerel ve lisans kayıtlıdır.</p></div><a href="/assets/legal/sports-agenda-image-credits.json">Görsel lisansları</a></header><div class="sports-agenda-grid">${items.map(cardHTML).join('')}</div>`;
-      existing?.remove();
+      document.querySelectorAll('[data-sports-agenda]').forEach((item) => item.remove());
       target.insertAdjacentElement('afterend', section);
     } catch (_error) {
-      existing?.remove();
+      if (token === refreshToken) document.querySelectorAll('[data-sports-agenda]').forEach((item) => item.remove());
     }
   }
 

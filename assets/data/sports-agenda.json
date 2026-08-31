@@ -20,10 +20,10 @@
         "summary": "Milli takım, gençler ve 3x3 organizasyonlarının tarihleri tek resmî takvimden kontrol edilebilir.",
         "sourceName": "FIBA 2026 takvim seçkisi",
         "sourceUrl": "https://www.fiba.basketball/en/news/top-15-dates-to-look-forward-to-in-2026",
-        "image": "/assets/images/sports/heroes/basketball-arena-free-v2.webp",
-        "imageAlt": "Basketbol salonu ve pota",
-        "credit": "Fotoğraf: JC Gellidon · Unsplash License",
-        "creditUrl": "https://unsplash.com/photos/photo-1504450758481-7338eba7524a"
+        "image": "/assets/images/sports/agenda/basketball-hoop-unsplash.webp",
+        "imageAlt": "Palmiye ağaçları önünde açık hava basketbol potası",
+        "credit": "Fotoğraf: Jayson Hinrichsen · Unsplash License",
+        "creditUrl": "https://unsplash.com/photos/basketball-hoop-in-a-basketball-court-t1JD8HiVew8"
       }
     ],
     "volleyball": [
@@ -44,10 +44,10 @@
         "summary": "Volleyball World sezon merkezinde final sonucu, maç programı ve turnuva arşivi birlikte yayımlandı.",
         "sourceName": "VNL 2026 resmî merkezi",
         "sourceUrl": "https://en.volleyballworld.com/volleyball/competitions/volleyball-nations-league/schedule/",
-        "image": "/assets/images/sports/heroes/volleyball-match-free-v2.jpg",
-        "imageAlt": "File önünde voleybol oyuncuları",
-        "credit": "Fotoğraf: Mattia Linari · Pexels License",
-        "creditUrl": "https://www.pexels.com/photo/35670138/"
+        "image": "/assets/images/sports/agenda/volleyball-match-unsplash.webp",
+        "imageAlt": "File üzerinde smaç vuran erkek voleybolcu",
+        "credit": "Fotoğraf: HorseRat · Unsplash License",
+        "creditUrl": "https://unsplash.com/photos/a-group-of-young-men-playing-a-game-of-volleyball-pnFdkCGSHGs"
       }
     ],
     "ufc": [

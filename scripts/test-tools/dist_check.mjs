@@ -407,15 +407,26 @@ async function smokeCanonicalRootToBasketball(context, viewportName, requestLog,
   );
   check(branchState.legacyStylesReady, `${scenario}: branch CSS is ready before the client surface is committed`, JSON.stringify(branchState));
   await page.waitForSelector('#multiLeagueStrip [data-league="scope:12:2026-2027"]', { timeout:12_000 });
+  await page.waitForFunction(() => (
+    document.querySelectorAll('[data-sports-agenda="basketball"]').length === 1
+    && document.querySelectorAll('[data-sports-agenda="basketball"] .sports-agenda-card img').length === 2
+  ), null, { timeout:12_000 });
   const aggregateState = await page.evaluate(() => ({
     title:document.querySelector('[data-classification-title]')?.textContent?.trim() || '',
     active:document.querySelector('#multiLeagueStrip [aria-current="page"]')?.dataset.classificationKey || '',
     rows:document.querySelectorAll('.basketball-standing-row').length,
     fixtures:document.querySelectorAll('.basketball-fixture-row').length,
+    agendaSections:document.querySelectorAll('[data-sports-agenda="basketball"]').length,
+    agendaImages:[...document.querySelectorAll('[data-sports-agenda="basketball"] .sports-agenda-card img')].map((image) => image.getAttribute('src')),
   }));
   check(
     aggregateState.title === 'Tüm ligler' && aggregateState.active === 'all' && aggregateState.rows === 0 && aggregateState.fixtures === 2,
     `${scenario}: basketball root is an honest aggregate classification without mixed standings`,
+    JSON.stringify(aggregateState),
+  );
+  check(
+    aggregateState.agendaSections === 1 && aggregateState.agendaImages.length === 2 && new Set(aggregateState.agendaImages).size === 2,
+    `${scenario}: basketball editorial agenda renders once with distinct photography`,
     JSON.stringify(aggregateState),
   );
   check(
