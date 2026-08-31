@@ -152,6 +152,7 @@ const clubProfileRefreshes = new Map();
 const footballSeasonRefreshPromises = new Map();
 let footballHomeRefreshPromise = null;
 let footballLiveRefreshPromise = null;
+let matchArchiveTrafficWarmPromise = null;
 const providerDemandRefreshPromises = new Map();
 const discoveredBasketballStandingScopes = new Map();
 const X_CLUBS = [
@@ -886,7 +887,8 @@ async function readLiveSnapshots(env, leagueKey) {
 }
 
 async function readMatchdaySnapshot(env, fixtureId) {
-  if (!supabaseServiceKey(env)) return null;
+  const archivePromise = readD1MatchArchive(env, fixtureId);
+  if (!supabaseServiceKey(env)) return archivePromise;
   try {
     const rows = await supabaseRest(
       env,
@@ -894,9 +896,14 @@ async function readMatchdaySnapshot(env, fixtureId) {
     );
     const row = Array.isArray(rows) ? rows[0] : null;
     const body = row?.payload?.matchday;
-    return body && typeof body === "object" ? { body, fetchedAt:row.fetched_at, providerUpdatedAt:row.provider_updated_at } : null;
+    const snapshot = body && typeof body === "object" ? { body, fetchedAt:row.fetched_at, providerUpdatedAt:row.provider_updated_at } : null;
+    const archive = await archivePromise;
+    if (matchArchiveReady(archive)) return archive;
+    if (!snapshot) return archive;
+    if (!archive) return snapshot;
+    return matchArchiveCompleteness(archive.body) > matchArchiveCompleteness(snapshot.body) ? archive : snapshot;
   } catch (_error) {
-    return null;
+    return archivePromise;
   }
 }
 
@@ -950,8 +957,62 @@ async function persistMatchdaySnapshot(env, fixtureId, body) {
   } catch (_error) { /* cache yazimi ana yaniti engellemez */ }
 }
 
+function matchArchiveDb(env) {
+  return env?.DB && typeof env.DB.prepare === "function" ? env.DB : null;
+}
+
+async function persistD1FixtureCatalog(env, leagueKey, matches) {
+  const db = matchArchiveDb(env);
+  if (!db || !SELECTED_LEAGUE_KEYS.has(String(leagueKey)) || !Array.isArray(matches) || !matches.length) return;
+  const now = new Date().toISOString();
+  const statements = matches.map((fixture) => {
+    const providerFixtureId = String(fixture?.provider_fixture_id || fixture?.id || "").replace(/^sportmonks:/, "");
+    if (!/^\d+$/.test(providerFixtureId)) return null;
+    const kickoff = fixture?.kickoff_utc || fixture?.kickoff || fixture?.starting_at || null;
+    const state = fixture?.status || (fixture?.result ? "bitti" : "scheduled");
+    return db.prepare(`INSERT INTO football_fixture_catalog
+      (provider_fixture_id, league_key, kickoff_utc, canonical_state, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(provider_fixture_id) DO UPDATE SET
+        league_key=excluded.league_key,
+        kickoff_utc=COALESCE(excluded.kickoff_utc, football_fixture_catalog.kickoff_utc),
+        canonical_state=COALESCE(excluded.canonical_state, football_fixture_catalog.canonical_state),
+        updated_at=excluded.updated_at`)
+      .bind(providerFixtureId, String(leagueKey), kickoff, state, now);
+  }).filter(Boolean);
+  try {
+    for (let index = 0; index < statements.length; index += 50) {
+      const batch = statements.slice(index, index + 50);
+      if (typeof db.batch === "function") await db.batch(batch);
+      else for (const statement of batch) await statement.run();
+    }
+  } catch (_error) { /* migration henüz uygulanmadıysa ana fikstür yanıtını engelleme */ }
+}
+
+async function readD1DueProviderFixtures(env, now = Date.now()) {
+  const db = matchArchiveDb(env);
+  if (!db) return [];
+  const from = new Date(now - 365 * 86400000).toISOString();
+  const until = new Date(now + 26 * 3600000).toISOString();
+  try {
+    const result = await db.prepare(`SELECT c.provider_fixture_id, c.league_key, c.kickoff_utc, c.canonical_state
+      FROM football_fixture_catalog AS c
+      LEFT JOIN football_match_archives AS a ON a.fixture_id = c.provider_fixture_id
+      WHERE c.kickoff_utc >= ? AND c.kickoff_utc <= ?
+        AND (a.fixture_id IS NULL OR a.is_final = 0 OR a.completeness_score < 60)
+      ORDER BY c.kickoff_utc DESC
+      LIMIT 120`).bind(from, until).all();
+    const rows = Array.isArray(result?.results) ? result.results : [];
+    return rows.filter((row) => SELECTED_LEAGUE_KEYS.has(String(row?.league_key || "")));
+  } catch (_error) {
+    return [];
+  }
+}
+
 async function persistSeasonFixtures(env, leagueKey, matches) {
-  if (!supabaseServiceKey(env) || !Array.isArray(matches) || !matches.length) return;
+  if (!Array.isArray(matches) || !matches.length) return;
+  await persistD1FixtureCatalog(env, leagueKey, matches);
+  if (!supabaseServiceKey(env)) return;
   const rows = matches.map((fixture) => {
     const providerFixtureId = String(fixture?.provider_fixture_id || fixture?.id || "").replace(/^sportmonks:/, "");
     if (!/^\d+$/.test(providerFixtureId)) return null;
@@ -980,14 +1041,16 @@ async function persistSeasonFixtures(env, leagueKey, matches) {
 }
 
 async function readDueProviderFixtures(env, now = Date.now()) {
-  if (!supabaseServiceKey(env)) return [];
-  const from = new Date(now - 4 * 3600000).toISOString();
+  const d1Rows = await readD1DueProviderFixtures(env, now);
+  if (!supabaseServiceKey(env)) return d1Rows;
+  const from = new Date(now - 35 * 86400000).toISOString();
   const until = new Date(now + 26 * 3600000).toISOString();
   try {
-    const rows = await supabaseRest(env, `provider_fixtures?sport=eq.football&kickoff_utc=gte.${encodeURIComponent(from)}&kickoff_utc=lte.${encodeURIComponent(until)}&order=kickoff_utc.asc&limit=80&select=provider_fixture_id,league_key,kickoff_utc,canonical_state`);
-    return Array.isArray(rows) ? rows.filter((row) => SELECTED_LEAGUE_KEYS.has(String(row?.league_key || ""))) : [];
+    const rows = await supabaseRest(env, `provider_fixtures?sport=eq.football&kickoff_utc=gte.${encodeURIComponent(from)}&kickoff_utc=lte.${encodeURIComponent(until)}&order=kickoff_utc.desc&limit=180&select=provider_fixture_id,league_key,kickoff_utc,canonical_state`);
+    const combined = [...d1Rows, ...(Array.isArray(rows) ? rows : [])];
+    return [...new Map(combined.filter((row) => SELECTED_LEAGUE_KEYS.has(String(row?.league_key || ""))).map((row) => [String(row.provider_fixture_id), row])).values()];
   } catch (_error) {
-    return [];
+    return d1Rows;
   }
 }
 
@@ -2777,7 +2840,13 @@ async function handleFootballSeason(request, env, context) {
   const cacheUrl = new URL(url); cacheUrl.search = `?league=${encodeURIComponent(league)}`;
   const cache = edgeCache(); const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey);
-  if (isUsableJsonCache(cached)) return cached;
+  if (isUsableJsonCache(cached)) {
+    const archiveSeed = cached.clone().json()
+      .then((payload) => seedAndWarmMatchArchive(env, league, payload?.matches))
+      .catch(() => undefined);
+    context.waitUntil(archiveSeed);
+    return cached;
+  }
   try {
     const result = await singleFlightFootballSeason(env, league, token);
     const payload = result.payload;
@@ -2786,7 +2855,7 @@ async function handleFootballSeason(request, env, context) {
       "X-Data-Stale": result.stale ? "true" : "false",
       "X-Data-Cache": result.source,
     });
-    if (result.source === "provider") context.waitUntil(persistSeasonFixtures(env, league, payload.matches));
+    context.waitUntil(seedAndWarmMatchArchive(env, league, payload.matches));
     writeEdgeCache(cache, cacheKey, response, context); return response;
   } catch (error) {
     const locked = error?.message === "provider_refresh_in_progress";
@@ -2939,6 +3008,144 @@ async function handleFootballHome(request, env, context) {
 
 const MATCHDAY_FINISHED_STATES = new Set(["bitti", "ft", "aet", "pen", "finished", "after penalties", "after extra time"]);
 
+function matchdayBodyIsFinal(body) {
+  return MATCHDAY_FINISHED_STATES.has(String(body?.fixture?.status || "").toLocaleLowerCase("tr-TR"));
+}
+
+function archiveArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function richerArchiveArray(previous, incoming) {
+  const before = archiveArray(previous);
+  const next = archiveArray(incoming);
+  return next.length >= before.length && next.length ? next : before;
+}
+
+function mergeMatchArchiveBody(previous, incoming) {
+  if (!previous || typeof previous !== "object") return incoming;
+  if (!incoming || typeof incoming !== "object") return previous;
+  const oldDetails = previous.details && typeof previous.details === "object" ? previous.details : {};
+  const nextDetails = incoming.details && typeof incoming.details === "object" ? incoming.details : {};
+  const arrayFields = ["lineups", "absences", "events", "statistics", "xg", "predictions", "formations", "periods", "teamContexts"];
+  const details = { ...oldDetails, ...nextDetails };
+  for (const field of arrayFields) details[field] = richerArchiveArray(oldDetails[field], nextDetails[field]);
+  for (const field of ["venue", "referee", "weather"]) details[field] = nextDetails[field] || oldDetails[field] || null;
+  const fixture = { ...(previous.fixture || {}), ...(incoming.fixture || {}) };
+  if (matchdayBodyIsFinal(previous) && !matchdayBodyIsFinal(incoming)) fixture.status = previous.fixture?.status;
+  return {
+    ...previous,
+    ...incoming,
+    fixture,
+    details,
+    archivedAt:previous.archivedAt || incoming.archivedAt || new Date().toISOString(),
+  };
+}
+
+function matchArchiveCompleteness(body) {
+  const details = body?.details || {};
+  let score = body?.fixture ? 10 : 0;
+  if (archiveArray(details.lineups).length >= 22) score += 30;
+  else if (archiveArray(details.lineups).length >= 11) score += 18;
+  if (archiveArray(details.formations).length >= 2) score += 10;
+  if (archiveArray(details.events).length) score += 20;
+  if (archiveArray(details.statistics).length) score += 20;
+  if (archiveArray(details.periods).length) score += 5;
+  if (details.venue || details.referee || details.weather) score += 5;
+  return Math.min(100, score);
+}
+
+function matchArchiveReady(snapshot) {
+  return Boolean(snapshot?.archive && snapshot?.final && Number(snapshot?.completeness) >= 60);
+}
+
+async function readD1MatchArchive(env, fixtureId) {
+  const db = matchArchiveDb(env);
+  if (!db || !/^\d+$/.test(String(fixtureId))) return null;
+  try {
+    const row = await db.prepare(`SELECT fixture_id, league_key, payload_json, completeness_score,
+      is_final, provider_updated_at, last_synced_at, finalized_at
+      FROM football_match_archives WHERE fixture_id = ? LIMIT 1`).bind(String(fixtureId)).first();
+    if (!row?.payload_json) return null;
+    const body = JSON.parse(row.payload_json);
+    if (!body?.fixture || !body?.details) return null;
+    return {
+      body,
+      fetchedAt:row.last_synced_at,
+      providerUpdatedAt:row.provider_updated_at,
+      archive:true,
+      final:Number(row.is_final) === 1,
+      completeness:Number(row.completeness_score) || 0,
+      finalizedAt:row.finalized_at || null,
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function persistD1MatchArchive(env, fixtureId, incomingBody) {
+  const db = matchArchiveDb(env);
+  if (!db || !/^\d+$/.test(String(fixtureId)) || !incomingBody?.fixture || !incomingBody?.details) return;
+  try {
+    const previous = await readD1MatchArchive(env, fixtureId);
+    const body = mergeMatchArchiveBody(previous?.body, { ...incomingBody, archivedAt:previous?.body?.archivedAt || new Date().toISOString() });
+    const details = body.details || {};
+    const final = matchdayBodyIsFinal(body);
+    const now = new Date().toISOString();
+    const leagueKey = String(body.league || body.fixture?.league_key || body.fixture?.leagueKey || "");
+    if (!SELECTED_LEAGUE_KEYS.has(leagueKey)) return;
+    const kickoff = body.fixture?.kickoff_utc || body.fixture?.kickoff || body.fixture?.starting_at || null;
+    await db.prepare(`INSERT INTO football_match_archives
+      (fixture_id, league_key, kickoff_utc, status, payload_json, lineups_count, events_count,
+       statistics_count, completeness_score, is_final, provider_updated_at, last_synced_at, finalized_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(fixture_id) DO UPDATE SET
+        league_key=excluded.league_key,
+        kickoff_utc=COALESCE(excluded.kickoff_utc, football_match_archives.kickoff_utc),
+        status=COALESCE(excluded.status, football_match_archives.status),
+        payload_json=excluded.payload_json,
+        lineups_count=excluded.lineups_count,
+        events_count=excluded.events_count,
+        statistics_count=excluded.statistics_count,
+        completeness_score=MAX(football_match_archives.completeness_score, excluded.completeness_score),
+        is_final=MAX(football_match_archives.is_final, excluded.is_final),
+        provider_updated_at=COALESCE(excluded.provider_updated_at, football_match_archives.provider_updated_at),
+        last_synced_at=excluded.last_synced_at,
+        finalized_at=COALESCE(football_match_archives.finalized_at, excluded.finalized_at)`)
+      .bind(
+        String(fixtureId), leagueKey, kickoff, String(body.fixture?.status || ""), JSON.stringify(body),
+        archiveArray(details.lineups).length, archiveArray(details.events).length,
+        archiveArray(details.statistics).length, matchArchiveCompleteness(body), final ? 1 : 0,
+        body.updatedAt || null, now, final ? (previous?.finalizedAt || now) : null
+      ).run();
+  } catch (_error) { /* arşiv yazımı kullanıcı yanıtını engellemez */ }
+}
+
+async function persistD1MatchResource(env, fixtureId, leagueKey, fixture, resourceDetails) {
+  if (!matchArchiveDb(env) || !SELECTED_LEAGUE_KEYS.has(String(leagueKey))) return;
+  const normalized = normalizeProviderFixture(
+    fixture,
+    fixture?.league || { id:fixture?.league_id },
+    fixture?.season_id,
+    fixture?.round_id
+  ) || {
+    id:`sportmonks:${fixtureId}`,
+    provider_fixture_id:String(fixtureId),
+    league_key:leagueKey,
+    kickoff_utc:fixture?.starting_at || null,
+    status:fixture?.state?.short_name || fixture?.state?.state || null,
+  };
+  normalized.league_key = leagueKey;
+  await persistD1MatchArchive(env, fixtureId, {
+    source:"Sportmonks Football API",
+    provider:"sportmonks",
+    league:leagueKey,
+    updatedAt:new Date().toISOString(),
+    fixture:normalized,
+    details:resourceDetails,
+  });
+}
+
 function matchdayRefreshSeconds(body, now = Date.now()) {
   const fixture = body?.fixture || {};
   const status = String(fixture.status || "").toLocaleLowerCase("tr-TR");
@@ -3016,6 +3223,10 @@ function matchdaySnapshotResponse(snapshot, { stale = false, reason = null } = {
   return {
     ...snapshot.body,
     snapshot:true,
+    archive:Boolean(snapshot?.archive),
+    archiveFinal:Boolean(snapshot?.final),
+    archiveCompleteness:Number(snapshot?.completeness) || matchArchiveCompleteness(snapshot?.body),
+    archivedAt:snapshot?.body?.archivedAt || snapshot?.finalizedAt || null,
     stale,
     staleAgeSeconds,
     degraded:stale || Boolean(snapshot.body?.degraded),
@@ -3029,6 +3240,7 @@ async function syncMatchdayFixture(env, fixtureId, { force = false } = {}) {
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token || !/^\d+$/.test(String(fixtureId))) return { outcome:"skipped" };
   const existing = await readMatchdaySnapshot(env, fixtureId);
+  if (!force && matchArchiveReady(existing)) return { outcome:"archived", snapshot:existing };
   if (!force && matchdaySnapshotIsFresh(existing)) return { outcome:"fresh", snapshot:existing };
   const scopeKey = `matchday:${fixtureId}`;
   if (await isCircuitOpen(env, "matchday", scopeKey)) return { outcome:"circuit_open", snapshot:existing };
@@ -3036,7 +3248,10 @@ async function syncMatchdayFixture(env, fixtureId, { force = false } = {}) {
   const startedAt = Date.now();
   try {
     const body = await fetchMatchdayProviderBody(fixtureId, token);
-    await persistMatchdaySnapshot(env, fixtureId, body);
+    await Promise.all([
+      persistMatchdaySnapshot(env, fixtureId, body),
+      persistD1MatchArchive(env, fixtureId, body),
+    ]);
     await recordSyncRun(env, { endpointClass:"matchday", scopeKey, startedAt, httpStatus:200, outcome:"ok" });
     return { outcome:"ok", body };
   } catch (error) {
@@ -3049,10 +3264,11 @@ async function warmDueMatchdays(env) {
   const due = await readDueProviderFixtures(env);
   let attempted = 0;
   for (const fixture of due) {
-    if (attempted >= 12) break;
+    if (attempted >= 4) break;
     const fixtureId = String(fixture?.provider_fixture_id || "");
     if (!/^\d+$/.test(fixtureId)) continue;
     const existing = await readMatchdaySnapshot(env, fixtureId);
+    if (matchArchiveReady(existing)) continue;
     if (matchdaySnapshotIsFresh(existing)) continue;
     attempted += 1;
     const result = await syncMatchdayFixture(env, fixtureId);
@@ -3060,7 +3276,29 @@ async function warmDueMatchdays(env) {
   }
 }
 
+async function seedAndWarmMatchArchive(env, leagueKey, matches) {
+  await persistSeasonFixtures(env, leagueKey, matches);
+  if (!matchArchiveDb(env)) return;
+  if (matchArchiveTrafficWarmPromise) return matchArchiveTrafficWarmPromise;
+  const promise = warmDueMatchdays(env);
+  matchArchiveTrafficWarmPromise = promise;
+  try {
+    await promise;
+  } finally {
+    if (matchArchiveTrafficWarmPromise === promise) matchArchiveTrafficWarmPromise = null;
+  }
+}
+
 async function fixtureCatalogIsFresh(env, leagueKey, now = Date.now()) {
+  const db = matchArchiveDb(env);
+  if (db) {
+    try {
+      const cutoff = new Date(now - 6 * 3600000).toISOString();
+      const row = await db.prepare(`SELECT provider_fixture_id FROM football_fixture_catalog
+        WHERE league_key = ? AND updated_at >= ? LIMIT 1`).bind(String(leagueKey), cutoff).first();
+      if (row?.provider_fixture_id) return true;
+    } catch (_error) { /* Supabase kataloğu varsa aşağıda denenir */ }
+  }
   if (!supabaseServiceKey(env)) return false;
   try {
     const cutoff = new Date(now - 6 * 3600000).toISOString();
@@ -3109,7 +3347,7 @@ async function handleFootballMatchday(request, env, context) {
   if (isUsableJsonCache(cached)) return cached;
 
   const persisted = await readMatchdaySnapshot(env, fixtureId);
-  if (matchdaySnapshotIsFresh(persisted)) {
+  if (matchArchiveReady(persisted) || matchdaySnapshotIsFresh(persisted)) {
     const body = matchdaySnapshotResponse(persisted);
     const response = jsonResponse(body, 200, { "Cache-Control":matchdayCacheHeader(body), "X-Data-Stale":"false" });
     writeEdgeCache(cache, cacheKey, response, context);
@@ -3456,7 +3694,9 @@ async function handleFootballFixture(request, env) {
     const leagueKey = selectedLeagueKeyForProviderLeagueId(row?.league_id || row?.league?.id);
     const fixture = normalizeProviderFixture(row, row?.league || { id:row?.league_id }, row?.season_id, row?.round_id);
     if (fixture && leagueKey) fixture.league_key = leagueKey;
-    return jsonResponse({ source:"sportmonks-football-api-v3", id:`sportmonks:${id}`, updatedAt:new Date().toISOString(), fixture:fixture || null, details:normalizeSportmonksFixtureDetails(row), coverage:{ includes:result.includes.split(";") }, degraded:result.degraded }, 200, { "Cache-Control":SEASON_CACHE });
+    const details = normalizeSportmonksFixtureDetails(row);
+    if (fixture && leagueKey) await persistD1MatchResource(env, id, leagueKey, row, details);
+    return jsonResponse({ source:"sportmonks-football-api-v3", id:`sportmonks:${id}`, updatedAt:new Date().toISOString(), fixture:fixture || null, details, coverage:{ includes:result.includes.split(";") }, degraded:result.degraded }, 200, { "Cache-Control":SEASON_CACHE });
   } catch (error) {
     return jsonResponse({ error:error?.status===403?"sportmonks_plan_restricted":"sportmonks_fixture_unavailable" }, error?.status===403?403:502, { "Cache-Control":"no-store", "Retry-After":"60" });
   }
@@ -3547,6 +3787,7 @@ async function handleFootballMatchEvents(request, env, fixtureId) {
     }
     // Kalici event dedup: best-effort, yaniti bloklamaz.
     persistLiveEvents(env, `sportmonks:${fixtureId}`, leagueKey, events).catch(() => {});
+    await persistD1MatchResource(env, fixtureId, leagueKey, fixture, { events });
     return jsonResponse({ provider: "sportmonks", league: leagueKey, fixtureId: `sportmonks:${fixtureId}`, updatedAt: new Date().toISOString(), events }, 200, { "Cache-Control": MATCH_EVENTS_CACHE, ETag: etag });
   } catch (error) {
     return jsonResponse({ error: error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable" }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "30" });
@@ -3569,6 +3810,7 @@ async function handleFootballMatchDetails(request, env, fixtureId) {
     const details = normalizeSportmonksFixtureDetails(fixture);
     delete details.events; // olaylar ayri uctan (/events) sunulur, burada tekrar edilmez
     delete details.statistics; // istatistikler ayri uctan (/statistics) sunulur
+    await persistD1MatchResource(env, fixtureId, leagueKey, fixture, details);
     return jsonResponse({ provider: "sportmonks", league: leagueKey, fixtureId: `sportmonks:${fixtureId}`, updatedAt: new Date().toISOString(), details }, 200, { "Cache-Control": MATCH_DETAILS_CACHE });
   } catch (error) {
     return jsonResponse({ error: error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable" }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "60" });
@@ -3587,6 +3829,7 @@ async function handleFootballMatchStatistics(request, env, fixtureId) {
     const stateCode = String(fixture?.state?.short_name || fixture?.state?.state || "").toUpperCase();
     const isLive = ["1H", "2H", "ET", "P", "INT", "LIVE", "HT", "BT"].includes(stateCode);
     const { statistics } = normalizeSportmonksFixtureDetails(fixture);
+    await persistD1MatchResource(env, fixtureId, leagueKey, fixture, { statistics });
     return jsonResponse({ provider: "sportmonks", league: leagueKey, fixtureId: `sportmonks:${fixtureId}`, updatedAt: new Date().toISOString(), statistics }, 200, { "Cache-Control": isLive ? MATCH_STATISTICS_LIVE_CACHE : MATCH_STATISTICS_IDLE_CACHE });
   } catch (error) {
     return jsonResponse({ error: error?.status === 403 ? "sportmonks_plan_restricted" : "sportmonks_upstream_unavailable" }, error?.status === 403 ? 403 : 502, { "Cache-Control": "no-store", "Retry-After": "60" });

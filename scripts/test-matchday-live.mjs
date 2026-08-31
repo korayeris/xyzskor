@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 
-async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {}, fixtureFallback = null, matchdayFailures = 0, sessionToken = '', authSessionPromise = null }) {
+async function runScenario({ pathname = '/super-lig', search = '', matches = [], seasonResponses = null, detailFixture = {}, detailDetails = {}, matchdayMeta = {}, fixtureFallback = null, matchdayFailures = 0, sessionToken = '', authSessionPromise = null }) {
   const requests = [];
   const listeners = new Map();
   const timers = [];
@@ -46,7 +46,7 @@ async function runScenario({ pathname = '/super-lig', search = '', matches = [],
       if (String(url).includes('/api/football/matchday?')) {
         matchdayRequest += 1;
         if (matchdayRequest <= matchdayFailures) return { ok:false, status:503, json:async () => ({ error:'sync_in_progress' }) };
-        return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:detailDetails }) };
+        return { ok:true, json:async () => ({ updatedAt:new Date().toISOString(), fixture:detailFixture, details:detailDetails, ...matchdayMeta }) };
       }
       if (String(url).includes('/season?')) {
         const available = seasonResponses || [matches];
@@ -106,6 +106,15 @@ assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-s
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /matchday-team-logo[\s\S]*matchday-event-player[\s\S]*matchday-player-photo/, 'Takım ve oyuncu görselleri kadro sunumunda kullanılmalı.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /Yanlış diziliş yerine resmî ilk 11 listeleniyor/, 'Eksik saha koordinatı uydurma diziliş üretmemeli.');
 assert.match(detailedRun.elements.get('matchdayLiveRoot').innerHTML, /BEKLENEN GOL[\s\S]*41,5%/, 'xG ve maç sonucu olasılığı görselleştirilmeli.');
+
+const archivedRun = await runScenario({
+  search:'?fixture=10001',
+  detailFixture:{ id:'sportmonks:10001', ev:'Arşiv Ev', konuk:'Arşiv Konuk', status:'bitti', score:{home:2,away:1} },
+  detailDetails:{ lineups:Array.from({length:22},(_,index)=>({team:index<11?'Arşiv Ev':'Arşiv Konuk',player_name:`Oyuncu ${index+1}`,type_id:11})), events:[{minute:52,type:'Goal',player:'Golcü'}], statistics:[{label:'Şut',location:'home',value:12}] },
+  matchdayMeta:{ archive:true, archiveFinal:true, archiveCompleteness:84 }
+});
+assert.equal(archivedRun.elements.get('matchdaySync').textContent,'Maç arşivi · kapsam %84','Geçmiş maçın kalıcı arşiv kaynağı kullanıcıya açıkça gösterilmeli.');
+assert.equal(archivedRun.elements.get('matchdayIntro').textContent,'Maç tamamlandı · Maç sonrası kalıcı olarak saklanan doğrulanmış veri');
 
 const staleLiveRun = await runScenario({ search:'?fixture=10003', detailFixture:{ ...live, kickoff:iso(-18000000), minute:90, score:{home:1, away:1} } });
 assert.equal(staleLiveRun.requests.length, 1, 'Explicit single-league fixture must make exactly one initial matchday request.');

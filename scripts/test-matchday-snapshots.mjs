@@ -113,3 +113,82 @@ const baseSupabase = (url, init, snapshot) => {
 }
 
 console.log('Generic matchday snapshot checks passed.');
+
+// Sites D1 arşivi Supabase service-role olmadan da bitmiş maçın zengin
+// ayrıntılarını kalıcı tutar ve sonraki açılışta sağlayıcıya gitmeden sunar.
+class FakeArchiveDb {
+  constructor() { this.archives = new Map(); }
+  prepare(sql) {
+    const db = this;
+    return {
+      bind(...values) {
+        return {
+          async first() {
+            if (/FROM football_match_archives/i.test(sql)) return db.archives.get(String(values[0])) || null;
+            return null;
+          },
+          async all() { return { results:[] }; },
+          async run() {
+            if (/INSERT INTO football_match_archives/i.test(sql)) {
+              db.archives.set(String(values[0]), {
+                fixture_id:String(values[0]), league_key:values[1], kickoff_utc:values[2], status:values[3],
+                payload_json:values[4], lineups_count:values[5], events_count:values[6], statistics_count:values[7],
+                completeness_score:values[8], is_final:values[9], provider_updated_at:values[10],
+                last_synced_at:values[11], finalized_at:values[12],
+              });
+            }
+            return { success:true };
+          },
+        };
+      },
+    };
+  }
+}
+
+{
+  const db = new FakeArchiveDb();
+  const archiveEnv = {
+    SPORTMONKS_API_TOKEN:'sportmonks-test',
+    DB:db,
+    ASSETS:{ fetch:async () => new Response('not-used') },
+  };
+  const finalFixture = {
+    ...providerFixture,
+    state:{short_name:'FT'},
+    starting_at:new Date(now - 3 * 3600000).toISOString(),
+    scores:[{participant_id:88,description:'CURRENT',score:{goals:2}},{participant_id:99,description:'CURRENT',score:{goals:1}}],
+    lineups:Array.from({length:22},(_,index)=>({participant_id:index<11?88:99,type_id:11,formation_field:(index%11)+1,jersey_number:index+1,player:{id:index+1,display_name:`Oyuncu ${index+1}`}})),
+    events:[{id:71,participant_id:88,player_id:7,player_name:'Golcü',minute:52,type:{name:'Goal'}},{id:72,participant_id:99,player_id:19,player_name:'Giren',related_player_name:'Çıkan',minute:68,type:{name:'Substitution'}}],
+    statistics:[{participant_id:88,type:{name:'Shots Total'},data:{value:12}},{participant_id:99,type:{name:'Shots Total'},data:{value:7}}],
+    formations:[{participant_id:88,formation:'4-2-3-1'},{participant_id:99,formation:'4-3-3'}],
+    periods:[{type_id:1,minutes:45},{type_id:2,minutes:45}],
+  };
+  let providerCalls = 0;
+  scenario = (url) => {
+    if (url.hostname === 'api.sportmonks.com') { providerCalls += 1; return json({data:finalFixture}); }
+    return null;
+  };
+  const first = await worker.fetch(new Request(`https://archive.test/api/football/matchday?fixture=${fixtureId}`), archiveEnv, ctx);
+  assert.equal(first.status, 200);
+  const firstBody = await first.json();
+  assert.equal(firstBody.details.lineups.length,22);
+  const stored = db.archives.get(fixtureId);
+  assert.equal(stored.is_final,1,'Biten maç D1 arşivinde final olarak kilitlenmeli.');
+  assert.equal(stored.events_count,2,'Gol/kart/değişiklik olayları arşivlenmeli.');
+  assert.equal(stored.statistics_count,2,'Maç istatistikleri arşivlenmeli.');
+
+  scenario = (url) => {
+    if (url.hostname === 'api.sportmonks.com') { providerCalls += 1; return json({message:'should not be called'},500); }
+    return null;
+  };
+  const second = await worker.fetch(new Request(`https://archive.test/api/football/matchday?fixture=${fixtureId}`), archiveEnv, ctx);
+  const secondBody = await second.json();
+  assert.equal(second.status,200);
+  assert.equal(secondBody.archive,true,'Geçmiş maç kalıcı arşivden sunulmalı.');
+  assert.equal(secondBody.archiveFinal,true);
+  assert.equal(secondBody.details.lineups.length,22);
+  assert.equal(secondBody.details.events.length,2);
+  assert.equal(providerCalls,1,'Final arşiv varken sağlayıcı tekrar çağrılmamalı.');
+}
+
+console.log('Durable D1 match archive checks passed.');

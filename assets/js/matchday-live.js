@@ -334,9 +334,9 @@
     const title = document.getElementById("matchdayTitle");
     const intro = title?.nextElementSibling;
     const eyebrow = title?.previousElementSibling;
-    if (eyebrow) eyebrow.textContent = isLiveFixture(f) ? "LİGİN CANLI MAÇI" : "LİGİN SIRADAKİ MAÇI";
+    if (eyebrow) eyebrow.textContent = payload.archiveFinal ? "KALICI MAÇ ARŞİVİ" : isLiveFixture(f) ? "LİGİN CANLI MAÇI" : "LİGİN SIRADAKİ MAÇI";
     if (title) title.textContent = `${homeName} - ${awayName}`;
-    if (intro) intro.textContent = `${fixtureTimeLabel(f)} · Sportmonks tarafından doğrulanan maç verisi`;
+    if (intro) intro.textContent = `${fixtureTimeLabel(f)} · ${payload.archive ? "Maç sonrası kalıcı olarak saklanan doğrulanmış veri" : "Sportmonks tarafından doğrulanan maç verisi"}`;
     const homeLineup = lineups.filter((item) => String(item.team || "").toLowerCase().includes(homeName.toLowerCase().split(" ")[0]));
     const awayLineup = lineups.filter((item) => !homeLineup.includes(item));
     const homeFormationRow = formations.find((item)=>String(item?.location || "").toLowerCase()==="home") || formations.find((item)=>String(item?.participant_id || "")===String(f?.home_team_id || f?.home?.id || "")) || formations[0];
@@ -344,7 +344,9 @@
     const homeFormation = homeFormationRow?.formation || homeFormationRow?.name || "";
     const awayFormation = awayFormationRow?.formation || awayFormationRow?.name || "";
     const homeScore = f.score?.home, awayScore = f.score?.away, hasScore = homeScore != null && awayScore != null;
-    sync.textContent = `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
+    sync.textContent = payload.archive
+      ? `Maç arşivi · kapsam %${Math.max(0, Math.min(100, Number(payload.archiveCompleteness) || 0))}`
+      : `${payload.degraded ? "Kısıtlı kapsam" : "Sportmonks canlı veri"} · ${new Date(payload.updatedAt || Date.now()).toLocaleTimeString("tr-TR")}`;
     const detailMode = Boolean(new URLSearchParams(location.search).get("fixture")) && params.get("view") !== "home";
     if (!detailMode) {
       root.innerHTML = renderOverview(f,predictions,homeName,awayName,homeScore,awayScore,hasScore);

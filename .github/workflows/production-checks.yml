@@ -48,6 +48,7 @@ jobs:
           npm run qa:multisport-recovery
           npm run qa:league-contract
           npm run qa:matchday
+          npm run qa:matchday:snapshots
           npm run qa:live-architecture
           npm run qa:live-quota
           npm run qa:hardening

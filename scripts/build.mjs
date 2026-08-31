@@ -351,6 +351,7 @@ for (const cssFile of ["football-hub.css", "app.css", "app-late.css", "volleybal
 
 await cp(resolve(root, "worker", "index.js"), resolve(dist, "server", "index.js"));
 await cp(resolve(root, ".openai", "hosting.json"), resolve(dist, ".openai", "hosting.json"));
+await cp(resolve(root, "drizzle"), resolve(dist, ".openai", "drizzle"), { recursive:true });
 await cp(resolve(root, "site.webmanifest"), resolve(dist, "client", "site.webmanifest"));
 
 // Sites, mevcut olmayan yol isteklerini ana sayfaya yönlendirir. Bu yüzden
