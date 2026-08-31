@@ -66,6 +66,7 @@ assert.doesNotMatch(dataSource, /supabase-js@2(?:[/'"])/, 'Tarayıcı Supabase S
 assert.match(dataSource, /supabase-js@2\.112\.4[\s\S]*integrity:'sha384-[A-Za-z0-9+/=]+'[\s\S]*crossOrigin='anonymous'/, 'Tarayıcı Supabase SDK kaynakları exact sürüm, SRI ve CORS ile sabitlenmeli.');
 assert.match(footballHubCss, /\.sport-branch-nav-compact[\s\S]*\.chat-launcher[\s\S]*\.mini-goal-game\s*\{\s*display:none[\s\S]*\.agenda-match/i, 'Canonical football CSS must own navigation, ticker and safe widget geometry without app-late.css.');
 assert.match(footballHubCss, /body\s*>\s*\.account-overlay[\s\S]*body\s*>\s*\.mc-overlay[\s\S]*z-index\s*:\s*300\s*!important/i, 'Canonical overlays must stay above the sticky football header before legacy styles load.');
+assert.match(footballHubCss, /\.scoreboard-match-row::before\s*\{[^}]*display:none[^}]*content:none/i, 'Maç kartlarının başındaki dekoratif durum noktaları görünmemeli.');
 const html = [documentHtml, footballHubCss, appCss, appSource].join('\n');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
 const coreMigration = await readFile(new URL('../supabase/migrations/20260802180000_platform_core.sql', import.meta.url), 'utf8');

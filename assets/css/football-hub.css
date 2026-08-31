@@ -402,7 +402,7 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .scoreboard-league-head button,
 .scoreboard-league-head .scoreboard-early-action { color:#72dcb9; }
 .scoreboard-match-row { position:relative; display:block; min-height:62px; margin:5px 0; overflow:hidden; border:0; border-radius:11px; background:#14191e; transition:background-color .18s ease,transform .18s ease,opacity .18s ease; }
-.scoreboard-match-row::before { position:absolute; top:50%; left:8px; width:4px; height:4px; border-radius:50%; background:#5e6972; content:""; transform:translateY(-50%); }
+.scoreboard-match-row::before { display:none; content:none; }
 .scoreboard-match-row:hover { background:#1a2026; transform:translateY(-1px); }
 .scoreboard-match-row.live,
 .scoreboard-match-row.upcoming,
