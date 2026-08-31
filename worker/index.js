@@ -2063,7 +2063,9 @@ async function handleFootballTransfers(request, env, context) {
   const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
   const leagueIds = SELECTED_LEAGUE_IDS_BY_KEY[league] || SELECTED_LEAGUE_IDS_BY_KEY["super-lig"];
   const leagueIdSet = new Set(leagueIds.map((id) => String(id)));
-  const confirmedPath = "/transfers/latest?include=player;fromTeam;toTeam;type;position;detailedPosition&per_page=50";
+  const transferEnd = new Date().toISOString().slice(0,10);
+  const transferStart = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+  const confirmedPath = `/transfers/between/${transferStart}/${transferEnd}?include=player;fromTeam;toTeam;type;position;detailedPosition&order=desc&per_page=50`;
   const rumoursPath = `/transfer-rumours?include=player;fromTeam;toTeam;type;position;detailedPosition&per_page=50`;
   const [confirmedResult, rumourResult] = await Promise.allSettled([
     sportmonksRequest(confirmedPath, token),

@@ -119,7 +119,7 @@ async function main() {
   {
     const { payload } = await call('/api/football/transfers?league=super-lig', (u) => {
       if (u.hostname !== 'api.sportmonks.com') return null;
-      if (u.pathname === '/v3/football/transfers/latest') {
+      if (/^\/v3\/football\/transfers\/between\/\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(u.pathname)) {
         return json({ data: [
           { id: 1, league_id: 600, player: { display_name: 'Yerli Oyuncu' }, fromTeam: { name: 'Kasimpasa' }, toTeam: { name: 'Galatasaray' } },
           { id: 2, league_id: 384, player: { display_name: 'Yabanci Oyuncu' }, fromTeam: { name: 'Milan' }, toTeam: { name: 'Inter' } },

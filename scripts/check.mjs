@@ -326,7 +326,7 @@ assert.match(liveFunctionSource('buildFootballPath'), /safeLeague==='all' \? '\/
 assert.match(functionSource('footballHomeMatchState'), /normalizeClientFootballStatus[\s\S]*status==='live'[\s\S]*status==='finished'/, 'Ana maç vitrini normalize edilmiş canlı ve bitmiş durumlarını kullanmalı.');
 assert.match(dataSource, /payload\.league!==leagueKey/, 'Sportmonks sezon cevabı istenen lig anahtarıyla doğrulanmalı.');
 assert.match(dataSource, /const scopedSuperLig = isStrictSuperLigScope\(\)/, 'Süper Lig Supabase fallback verisi diğer liglere ve tüm ligler kapsamına taşınmamalı.');
-assert.match(workerSource, /\/transfers\/latest\?include=/, 'Transfer akışı Sportmonks latest ucundan alınmalı.');
+assert.match(workerSource, /\/transfers\/between\/\$\{transferStart\}\/\$\{transferEnd\}\?include=/, 'Transfer akışı Sportmonks doğrulanmış son 31 günlük tarih aralığından alınmalı.');
 assert.match(functionSource('renderClubSocial'), /loadXClubPosts\(\)/, 'Dört resmî kulüp akışı ara ekran olmadan otomatik yüklenmeli.');
 assert.match(functionSource('scrollClubSocial'), /getBoundingClientRect\(\)\.width[\s\S]*scrollBy/, 'Büyük X kartları bir kart genişliğinde yatay kaydırılabilmeli.');
 assert.match(html, /aria-label="Kulüp akışını sağa kaydır"/, 'X akışında görünür ve erişilebilir yatay kaydırma kontrolü bulunmalı.');
