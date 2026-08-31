@@ -807,6 +807,7 @@ function renderTransferCenter(){
   const allRecords=leagueTransferRecords(activeTransferCenterTab);
   const records=activeTransferClub==='all'?allRecords:allRecords.filter(item=>item.to===activeTransferClub || item.from===activeTransferClub);
   const descriptions={confirmed:'Kulüp veya kayıt kaynağında tamamlanmış olarak yer alan işlemler.',talks:'Yetkili açıklamasına dayanan, henüz sonuçlanmamış süreçler.',rumours:'Resmî olmayan iddialar. Her kayıt kaynak ve doğrulama durumu ile birlikte gösterilir.'};
+  const tabLabels={confirmed:'gerçekleşen işlem',talks:'görüşme',rumours:'söylenti'};
   const label=competitionLabelBySlug(activeFootballLeague);
   summary.innerHTML=`<strong>${records.length} kayıt · ${activeTransferClub==='all'?label:escapeHTML(activeTransferClub)}</strong><span>${descriptions[activeTransferCenterTab]}</span>`;
   const feedState=leagueTransferCache.get(activeFootballLeague);
@@ -819,7 +820,7 @@ function renderTransferCenter(){
     ${item.sourceUrl&&item.sourceUrl!=='#'
       ? `<a class="transfer-record-source" href="${escapeHTML(item.sourceUrl)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHTML(item.source)} ↗</a>`
       : `<span class="transfer-record-source is-unlinked">Kaynak: ${escapeHTML(item.source||'Doğrulanmadı')}</span>`}
-  </article>`).join('')}<div class="transfer-signal-shell" data-transfer-signals></div>`:`<div class="league-scoped-empty transfer-provider-empty"><span>${escapeHTML(label)}</span><strong>${feedState?.errors?.length?'Transfer verisi yetki/plan kontrolü istiyor':'Transfer veri alanı hazır'}</strong><p>${feedState?.errors?.length?'Sportmonks bu endpoint için boş veya kısıtlı yanıt verdi. Canlı X sinyalleri altta çalışmaya devam ediyor.':'Bu lig için Sportmonks transfer/rumour bağlantısı açıldığında oyuncu fotoğrafı, kulüp rotası, ücret ve kaynak etiketi burada aynı tabloda yayınlanacak. Kaynak gelmeden isim uydurulmuyor.'}</p></div><div class="transfer-signal-shell" data-transfer-signals></div>`;
+  </article>`).join('')}<div class="transfer-signal-shell" data-transfer-signals></div>`:`<div class="league-scoped-empty transfer-provider-empty"><span>${escapeHTML(label)} · ${escapeHTML(tabLabels[activeTransferCenterTab])}</span><strong>${escapeHTML(label)} için doğrulanmış kayıt bulunamadı</strong><p>${feedState?.errors?.length?'Sağlayıcı bu kapsamda kullanılabilir kayıt döndürmedi. Kaynaklı X paylaşımları aşağıda ayrı bir akışta gösteriliyor.':'Yeni kayıt geldiğinde oyuncu, kulüp rotası, bedel, durum ve kaynak bağlantısı burada yayınlanacak.'}</p></div><div class="transfer-signal-shell" data-transfer-signals></div>`;
   document.querySelectorAll('.transfer-center-tab').forEach(tab=>{ const active=tab.dataset.transferView===activeTransferCenterTab; tab.classList.toggle('active',active); tab.setAttribute('aria-selected',active?'true':'false'); });
   renderTransferSignals(area.querySelector('[data-transfer-signals]'));
 }
@@ -2314,7 +2315,7 @@ function renderFootballLeagueOverview(){
     delete root.dataset.fullLeagueHydrated;
     delete root.dataset.leagueOverviewRefreshPending;
     root.dataset.leagueOverviewMounting=leagueKey;
-    root.innerHTML=`<header class="league-overview-hero"><div class="league-overview-identity"><span class="league-overview-logo">${logo?`<img src="${escapeHTML(logo)}" alt="${escapeHTML(label)} logosu" loading="eager" referrerpolicy="no-referrer">`:'⚽'}</span><div><small>XYZSKOR · LİG MERKEZİ</small><h1>${escapeHTML(label)}</h1><p>${escapeHTML(country)} · ${escapeHTML(seasonLabel)} sezonu</p></div></div><div class="league-overview-switch" aria-label="Lig değiştir">${SELECTED_COMPETITIONS.filter(item=>item.key!=='all').map(item=>`<button class="${item.key===leagueKey?'active':''}" ${item.key===leagueKey?'aria-current="page"':''} type="button" data-league-switch="${item.key}" onclick="selectFootballLeague('${item.key}')">${escapeHTML(item.short)}</button>`).join('')}<button type="button" data-league-switch="all" onclick="selectFootballLeague('all')">Tüm ligler</button></div></header>`;
+    root.innerHTML=`<header class="league-overview-hero"><div class="league-overview-identity"><span class="league-overview-logo">${logo?`<img src="${escapeHTML(logo)}" alt="${escapeHTML(label)} logosu" loading="eager" referrerpolicy="no-referrer">`:'⚽'}</span><div><h1>${escapeHTML(label)}</h1><p>${escapeHTML(country)} · ${escapeHTML(seasonLabel)} sezonu</p></div></div><div class="league-overview-switch" aria-label="Lig değiştir">${SELECTED_COMPETITIONS.filter(item=>item.key!=='all').map(item=>`<button class="${item.key===leagueKey?'active':''}" ${item.key===leagueKey?'aria-current="page"':''} type="button" data-league-switch="${item.key}" onclick="selectFootballLeague('${item.key}')">${escapeHTML(item.short)}</button>`).join('')}<button type="button" data-league-switch="all" onclick="selectFootballLeague('all')">Tüm ligler</button></div></header>`;
   }
   bindLeagueOverviewDOM(root,leagueKey);
   const hydrationSequence=++leagueOverviewHydrationSequence;

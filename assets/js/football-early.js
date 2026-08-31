@@ -333,7 +333,7 @@
     var identity = node("div", "league-overview-identity");
     var logo = node("span", "league-overview-logo", "⚽");
     var identityCopy = node("div");
-    identityCopy.append(node("small", "", "XYZSKOR · LİG MERKEZİ"), node("h1", "", label(leagueKey)), node("p", "", country(leagueKey) + " · " + seasonLabel + " sezonu"));
+    identityCopy.append(node("h1", "", label(leagueKey)), node("p", "", country(leagueKey) + " · " + seasonLabel + " sezonu"));
     identity.append(logo, identityCopy);
     var leagueSwitch = node("div", "league-overview-switch");
     leagueSwitch.setAttribute("aria-label", "Lig değiştir");

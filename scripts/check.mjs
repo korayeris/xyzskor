@@ -72,6 +72,9 @@ assert.match(appSource, /function filterFootballHomeMatches[\s\S]*row\.hidden=hi
 assert.match(appSource, /function setDetailMode\(active\)[\s\S]*classList\.toggle\("matchday-detail-open", active\)[\s\S]*renderTicker\(\)/, 'Maç detayı açılıp kapanırken üst durum şeridi yenilenmeli.');
 assert.match(appSource, /function renderTicker\(\)[\s\S]*matchday-detail-open[\s\S]*MAÇ MERKEZİ[\s\S]*if\(!MATCHES\.length\)/, 'Doğrudan maç detayı fikstür boş mesajı yerine maç merkezi bağlamını göstermeli.');
 const html = [documentHtml, footballHubCss, appCss, appSource].join('\n');
+assert.doesNotMatch(`${documentHtmlRaw}\n${appSource}`, /XYZSKOR · LİG MERKEZİ/, 'Tekrarlayan XYZSKOR · LİG MERKEZİ kaş etiketi lig yüzeylerinden kaldırılmalı.');
+assert.match(appCss, /v110 · Transfer merkezi[\s\S]*@media\(max-width:1024px\)[\s\S]*#footballTransfersView \.transfer-center-workspace\s*\{[\s\S]*grid-template-columns:minmax\(0,1fr\)/, 'Transfer merkezi tablet genişliğinde tek okuma şeridine geçmeli.');
+assert.match(appSource, /tabLabels=\{confirmed:'gerçekleşen işlem',talks:'görüşme',rumours:'söylenti'\}[\s\S]*için doğrulanmış kayıt bulunamadı/, 'Transfer boş durumu aktif sekmeyi ve doğrulanmış kayıt durumunu açıkça söylemeli.');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
 const coreMigration = await readFile(new URL('../supabase/migrations/20260802180000_platform_core.sql', import.meta.url), 'utf8');
 const leaderboardMigration = await readFile(new URL('../supabase/migrations/20260802181000_server_leaderboard.sql', import.meta.url), 'utf8');

@@ -3813,3 +3813,215 @@ html{ scroll-behavior:smooth; }
   .historic-standing-row:hover,
   .standing-compact-row:hover{ transform:none; }
 }
+
+/* v110 · Transfer merkezi: geniş ekranda dengeli, tablet ve mobilde tek okuma şeridi. */
+#footballTransfersView .transfer-center-workspace{
+  grid-template-columns:minmax(190px,220px) minmax(0,1fr);
+  gap:clamp(14px,2vw,24px);
+}
+#footballTransfersView .transfer-filter-panel{
+  overflow:hidden;
+  border:0;
+  border-radius:16px;
+  background:#1b1f25;
+  box-shadow:0 18px 44px rgba(0,0,0,.18);
+}
+#footballTransfersView .transfer-filter-panel h2,
+#footballTransfersView .transfer-filter-group{
+  border:0;
+}
+#footballTransfersView .transfer-filter-panel h2{
+  padding:18px;
+  background:#22272e;
+  font-size:15px;
+}
+#footballTransfersView .transfer-filter-group{
+  padding:15px 16px;
+}
+#footballTransfersView .transfer-filter-static,
+#footballTransfersView .transfer-filter-group select{
+  border-radius:9px;
+  background-color:#15191e;
+}
+#footballTransfersView .transfer-filter-reset{
+  border-radius:9px;
+}
+#footballTransfersView .transfer-center-tabs{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+  padding:6px;
+  border:0;
+  border-radius:14px;
+  background:#15191e;
+}
+#footballTransfersView .transfer-center-tab{
+  width:100%;
+  min-width:0;
+  min-height:46px;
+  padding:0 10px;
+  border:0;
+  border-radius:10px;
+  font-size:9px;
+  white-space:normal;
+}
+#footballTransfersView .transfer-center-tab.active{
+  background:#ef4552;
+  color:#fff;
+  box-shadow:none;
+}
+#footballTransfersView .transfer-center-summary{
+  display:grid;
+  grid-template-columns:minmax(140px,.55fr) minmax(0,1.45fr);
+  gap:10px 18px;
+  margin-top:8px;
+  padding:14px 16px;
+  border:0;
+  border-radius:12px;
+  background:#1b1f25;
+}
+#footballTransfersView .transfer-center-summary strong{
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+#footballTransfersView .transfer-center-summary span{
+  line-height:1.55;
+}
+#footballTransfersView .transfer-center-list{
+  margin-top:8px;
+  border:0;
+  background:transparent;
+}
+#footballTransfersView .transfer-provider-empty{
+  min-height:0;
+  place-content:start;
+  justify-items:start;
+  gap:8px;
+  padding:24px;
+  border:0;
+  border-radius:16px;
+  background:linear-gradient(135deg,#20252c,#181c21);
+  text-align:left;
+}
+#footballTransfersView .transfer-provider-empty strong{
+  font-size:18px;
+}
+#footballTransfersView .transfer-provider-empty p{
+  max-width:620px;
+  font-size:11px;
+}
+#footballTransfersView .transfer-signal-shell{
+  margin-top:12px;
+  overflow:hidden;
+  border:0;
+  border-radius:16px;
+  background:#171b20;
+}
+#footballTransfersView .transfer-signal-head{
+  border:0;
+  padding:14px 16px;
+  background:#20252b;
+}
+#footballTransfersView .transfer-signal-card,
+#footballTransfersView .transfer-signal-card.is-pinned{
+  min-height:0;
+  padding:16px;
+  border-radius:14px;
+}
+#footballTransfersView .transfer-signal-card:not(.has-media){
+  grid-template-rows:auto auto auto;
+}
+#footballTransfersView .transfer-signal-card:not(.has-media) .transfer-signal-card-body>p{
+  padding:11px 12px;
+  border-radius:10px;
+}
+
+@media(max-width:1024px){
+  #footballTransfersView .transfer-center-workspace{
+    grid-template-columns:minmax(0,1fr);
+  }
+  #footballTransfersView .transfer-filter-panel{
+    position:static;
+    display:grid;
+    grid-template-columns:auto minmax(150px,1fr) minmax(170px,1fr) auto;
+    align-items:stretch;
+  }
+  #footballTransfersView .transfer-filter-panel h2{
+    display:flex;
+    align-items:center;
+  }
+  #footballTransfersView .transfer-filter-group{
+    align-content:center;
+    padding:12px;
+  }
+  #footballTransfersView .transfer-filter-group:nth-of-type(3),
+  #footballTransfersView .transfer-filter-group:nth-of-type(4){
+    display:none;
+  }
+  #footballTransfersView .transfer-filter-reset{
+    width:auto;
+    min-width:120px;
+    margin:12px;
+    padding:0 14px;
+  }
+  #footballTransfersView .transfer-center-main{
+    overflow:visible;
+  }
+}
+
+@media(max-width:620px){
+  #footballTransfersView .transfer-center-workspace{
+    gap:10px;
+  }
+  #footballTransfersView .transfer-filter-panel{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    border-radius:13px;
+  }
+  #footballTransfersView .transfer-filter-panel h2,
+  #footballTransfersView .transfer-filter-reset{
+    grid-column:1/-1;
+  }
+  #footballTransfersView .transfer-filter-panel h2{
+    min-height:44px;
+    padding:12px 14px;
+  }
+  #footballTransfersView .transfer-filter-group{
+    min-width:0;
+    padding:10px;
+  }
+  #footballTransfersView .transfer-filter-group>small{
+    display:none;
+  }
+  #footballTransfersView .transfer-filter-reset{
+    min-height:44px;
+    margin:0 10px 10px;
+  }
+  #footballTransfersView .transfer-center-tabs{
+    gap:4px;
+    padding:4px;
+    border-radius:12px;
+  }
+  #footballTransfersView .transfer-center-tab{
+    min-height:44px;
+    padding:0 5px;
+    font-size:7.5px;
+  }
+  #footballTransfersView .transfer-center-summary{
+    grid-template-columns:1fr;
+    padding:13px 14px;
+  }
+  #footballTransfersView .transfer-provider-empty{
+    padding:20px 16px;
+    border-radius:13px;
+  }
+  #footballTransfersView .transfer-provider-empty strong{
+    font-size:16px;
+  }
+  #footballTransfersView .transfer-signal-head{
+    display:grid;
+    justify-content:start;
+  }
+  #footballTransfersView .transfer-signal-stream{
+    padding:8px;
+  }
+}

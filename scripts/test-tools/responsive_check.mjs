@@ -26,6 +26,7 @@ const ALL_VIEWPORTS = [
   { name: '390-iphone-14', width: 390, height: 844 },
   { name: '430-mobil-genis', width: 430, height: 932 },
   { name: '768-tablet', width: 768, height: 1024 },
+  { name: '820-tablet-genis', width: 820, height: 1024 },
   { name: '1440-masaustu', width: 1440, height: 900 },
 ];
 const ALL_ROUTES = [
@@ -37,6 +38,7 @@ const ALL_ROUTES = [
   { name: 'la-liga-overview', path: '/la-liga' },
   { name: 'bundesliga-overview', path: '/bundesliga' },
   { name: 'serie-a-overview', path: '/serie-a' },
+  { name: 'la-liga-transfer-rumours', path: '/la-liga/transfers/rumours' },
   { name: 'super-lig-maclar', path: '/super-lig/matches' },
   { name: 'predict', path: '/predict' },
   { name: 'basketbol', path: '/basketbol/' },
@@ -343,6 +345,26 @@ async function main() {
           multisportText: document.getElementById('multiSportGrid')?.innerText || '',
           multisportMetricsText: document.querySelector('.basketball-overview-metrics')?.innerText || document.getElementById('multiSportMetrics')?.innerText || '',
           branchCenterText: document.querySelector('#ufcxContent, [data-xms-center]')?.innerText || '',
+          transferLayout: (()=>{
+            const view=document.getElementById('footballTransfersView');
+            const workspace=view?.querySelector('.transfer-center-workspace');
+            const filter=view?.querySelector('.transfer-filter-panel');
+            const main=view?.querySelector('.transfer-center-main');
+            const tabs=[...(view?.querySelectorAll('.transfer-center-tab')||[])];
+            const empty=view?.querySelector('.transfer-provider-empty');
+            if(!view||!workspace||!filter||!main||view.hidden) return null;
+            const filterRect=filter.getBoundingClientRect();
+            const mainRect=main.getBoundingClientRect();
+            const tabWidths=tabs.map(tab=>Math.round(tab.getBoundingClientRect().width));
+            return {
+              stacked:mainRect.top>=filterRect.bottom-1,
+              filterWidth:Math.round(filterRect.width),
+              mainWidth:Math.round(mainRect.width),
+              tabWidthSpread:tabWidths.length?Math.max(...tabWidths)-Math.min(...tabWidths):999,
+              emptyHeight:empty?Math.round(empty.getBoundingClientRect().height):0,
+              oldEyebrow:(document.body.innerText||'').includes('XYZSKOR · LİG MERKEZİ'),
+            };
+          })(),
           canonicalRuntime: {
             hubReady: document.getElementById('xyzFootballHubStyle')?.media === 'all',
             legacyStylesPresent: Boolean(document.getElementById('xyzLegacyStylesheet')),
@@ -382,8 +404,18 @@ async function main() {
         ok(metrics.canonicalRuntime.footballRootRoute, `${tag}: marka koku futbol ana rota sinifini tasiyor`);
         ok(!metrics.canonicalRuntime.removedGeneralHomePresent, `${tag}: kaldirilan genel kart ana sayfasi DOM veya route sinifi olarak yok`);
       }
-      if(route.name === 'anasayfa' || FOOTBALL_OVERVIEW_ROUTES.has(route.name) || ['super-lig-maclar','predict'].includes(route.name)){
+      if(route.name === 'anasayfa' || FOOTBALL_OVERVIEW_ROUTES.has(route.name) || ['super-lig-maclar','la-liga-transfer-rumours','predict'].includes(route.name)){
         ok(requestedApiPaths.every((path)=>!path.startsWith('/api/sports/')&&!path.startsWith('/api/ufc/')&&!path.startsWith('/api/motorsports')), `${tag}: futbol/Predict akisi diger spor API ailelerine dokunmuyor`, requestedApiPaths.join(' | '));
+      }
+      if(route.name === 'la-liga-transfer-rumours'){
+        ok(Boolean(metrics.transferLayout), `${tag}: transfer merkezi görünür`);
+        ok(!metrics.transferLayout?.oldEyebrow, `${tag}: tekrarlayan lig merkezi kaş etiketi yok`);
+        ok((metrics.transferLayout?.tabWidthSpread??999)<=2, `${tag}: transfer sekmeleri eşit genişlikte`, JSON.stringify(metrics.transferLayout));
+        ok((metrics.transferLayout?.emptyHeight??999)<220, `${tag}: boş sağlayıcı durumu ekranı gereksiz uzatmıyor`, JSON.stringify(metrics.transferLayout));
+        if(viewport.width<=1024){
+          ok(Boolean(metrics.transferLayout?.stacked), `${tag}: tablet ve mobilde filtre ana içeriği sıkıştırmıyor`, JSON.stringify(metrics.transferLayout));
+          ok((metrics.transferLayout?.mainWidth??0)>viewport.width*.75, `${tag}: transfer ana içeriği ekran genişliğini kullanıyor`, JSON.stringify(metrics.transferLayout));
+        }
       }
       if(MODE==='withdata'&&route.name==='anasayfa'){
         const rootFootballPaths=requestedApiPaths.filter((path)=>path.startsWith('/api/football/'));
