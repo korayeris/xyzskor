@@ -154,11 +154,9 @@ function mockFor(url) {
     const sport = new URL(url).searchParams.get('sport');
     if(sport === 'basketball') return [{ source:'mock', date:iso.slice(0,10), sports:{ basketball:[
       { id:'basket-1', sport:'basketball', league:'Basketbol Süper Ligi', leagueId:12, season:'2026-2027', country:'Türkiye', status:'scheduled', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
-      { id:'kirli-football', sport:'football', league:'Süper Lig', status:'finished', first:{name:'Galatasaray'}, second:{name:'Trabzonspor'} },
     ] } }, 200];
     if(sport === 'volleyball') return [{ source:'mock', date:iso.slice(0,10), sports:{ volleyball:[
       { id:'volley-1', sport:'volleyball', league:'Sultanlar Ligi', status:'scheduled', first:{name:'Eczacıbaşı'}, second:{name:'VakıfBank'} },
-      { id:'kirli-basket', sport:'basketball', league:'Basketbol Süper Ligi', status:'finished', first:{name:'Anadolu Efes'}, second:{name:'Fenerbahçe Beko'} },
     ] } }, 200];
     return [{ error:'invalid_sport' },400];
   }

@@ -4032,3 +4032,102 @@ body.multisport-open{background:#080d11;}
   .basketball-fixture-team strong{font-size:9px;}
   .basketball-fixture-state>small{font-size:7px;}
 }
+
+/* Mobil branş kabuğu: kesilen raylar yerine tek, tutarlı bir hizalama sistemi. */
+@media(max-width:680px){
+  body>.sport-branch-nav-compact{
+    position:relative;
+    top:auto;
+    min-height:0;
+    padding:8px 10px!important;
+  }
+  body>.sport-branch-nav-compact>.sport-branch-main{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+    gap:5px!important;
+    padding:0!important;
+    overflow:visible!important;
+    -webkit-mask-image:none!important;
+    mask-image:none!important;
+  }
+  body>.sport-branch-nav-compact .sport-branch-button{
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    height:44px;
+    padding:0 5px!important;
+    overflow:hidden;
+    font-size:9px;
+    text-overflow:ellipsis;
+  }
+  body.multisport-open>.live-ticker{margin-top:0;}
+
+  .multisport-hub[data-sport="basketball"],
+  .multisport-hub[data-sport="volleyball"]{
+    width:100%;
+    padding:10px 14px 64px;
+  }
+  .multisport-hub[data-sport="basketball"] .multisport-hero,
+  .multisport-hub[data-sport="volleyball"] .multisport-hero{
+    width:100%;
+    margin:0;
+    box-sizing:border-box;
+  }
+  .multisport-hub[data-sport="basketball"] .multi-league-strip,
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip{
+    display:grid!important;
+    grid-template-columns:1fr;
+    gap:5px;
+    width:100%;
+    margin:12px 0 4px;
+    padding:0;
+    overflow:visible;
+  }
+  .multisport-hub[data-sport="basketball"] .multi-league-strip-items,
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip-items{
+    width:100%;
+    padding-bottom:2px;
+    overflow-x:auto;
+    scroll-padding-inline:2px;
+  }
+  .multisport-hub[data-sport="basketball"] .multisport-view-nav,
+  .multisport-hub[data-sport="volleyball"] .multisport-view-nav{
+    display:grid!important;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    width:100%;
+    gap:0;
+    margin:6px 0 10px;
+    padding:0;
+    overflow:visible;
+  }
+  .multisport-hub[data-sport="basketball"] .multisport-view-nav button,
+  .multisport-hub[data-sport="volleyball"] .multisport-view-nav button{
+    width:100%;
+    min-width:0;
+    min-height:48px;
+    padding:0 2px!important;
+    overflow:hidden;
+    font-size:9px;
+    text-overflow:ellipsis;
+  }
+  .basketball-league-identity,
+  .volleyball-league-identity{
+    min-height:0;
+    gap:0;
+    padding:18px 2px 20px;
+  }
+  .basketball-league-identity>div,
+  .volleyball-league-identity>div{width:100%;}
+  body.multisport-open .side-chat-bubble{display:none;}
+}
+
+@media(max-width:360px){
+  .multisport-hub[data-sport="basketball"] .multisport-hero,
+  .multisport-hub[data-sport="volleyball"] .multisport-hero{
+    min-height:152px!important;
+    padding:22px 18px!important;
+  }
+  .multisport-hub[data-sport="basketball"] .multisport-hero>b,
+  .multisport-hub[data-sport="volleyball"] .multisport-hero>b{display:none;}
+}

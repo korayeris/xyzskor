@@ -833,3 +833,26 @@
   .multisport-hub[data-sport="volleyball"] .multisport-hero { min-height: 190px !important; padding: 26px 22px !important; background-position: 58% center !important; }
   .multisport-hub[data-sport="volleyball"] .multisport-hero::before { display: none; }
 }
+
+/* app-late mobil kabuğundan sonra yüklenen ürün katmanında hizayı yeniden bozma. */
+.multisport-hub[data-sport="volleyball"] .volleyball-league-logo{display:none;}
+
+@media (max-width: 680px) {
+  .multisport-hub[data-sport="volleyball"]{width:100%;padding:10px 14px 64px;}
+  .multisport-hub[data-sport="volleyball"] .multisport-hero{
+    width:100%;min-height:152px!important;margin:0;padding:22px 18px!important;box-sizing:border-box;
+  }
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip{
+    display:grid!important;grid-template-columns:1fr;gap:5px;width:100%;margin:12px 0 4px;padding:0;overflow:visible;
+  }
+  .multisport-hub[data-sport="volleyball"] .multi-league-strip-items{width:100%;padding-bottom:2px;overflow-x:auto;}
+  .multisport-hub[data-sport="volleyball"] .multisport-view-nav{
+    display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;gap:0;margin:6px 0 10px;padding:0;overflow:visible;
+  }
+  .multisport-hub[data-sport="volleyball"] .multisport-view-nav button{
+    width:100%;min-width:0;min-height:48px;padding:0 2px;overflow:hidden;font-size:9px;text-overflow:ellipsis;
+  }
+  .multisport-hub[data-sport="volleyball"] .volleyball-league-identity{min-height:0;gap:0;padding:18px 2px 20px;}
+  .multisport-hub[data-sport="volleyball"] .volleyball-league-identity>div{width:100%;}
+  .multisport-hub[data-sport="volleyball"] .multisport-hero>b{display:none;}
+}
