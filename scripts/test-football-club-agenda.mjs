@@ -42,6 +42,7 @@ for (const items of Object.values(agenda.sports)) {
 }
 assert.ok(Array.isArray(credits.images) && credits.images.length >= 5, 'Gündem görselleri kalıcı lisans manifestinde kayıtlı olmalı.');
 assert.match(agendaScript, /let refreshToken = 0[\s\S]*const token = \+\+refreshToken[\s\S]*token !== refreshToken/, 'Eşzamanlı gündem yenilemeleri yalnız son renderı yazabilmeli.');
+assert.match(agendaScript, /document\.currentScript[\s\S]*sports-agenda\.json\?v=\$\{encodeURIComponent\(scriptVersion\)\}/, 'Gündem verisi her üretim sürümünde eski tarayıcı önbelleğini aşmalı.');
 assert.match(agendaScript, /querySelectorAll\('\[data-sports-agenda\]'\)[\s\S]*existing\.length === 1[\s\S]*forEach\(\(item\) => item\.remove\(\)\)/, 'Branş başına en fazla tek gündem bölümü bırakılmalı.');
 assert.match(css, /\.sports-agenda-card\{[^}]*position:relative[^}]*min-height:360px[\s\S]*\.sports-agenda-photo\{[^}]*position:absolute[^}]*inset:0/, 'Gündem kartları bölünmüş küçük görsel yerine tam yüzey fotoğraf kullanmalı.');
 assert.match(index, /sports-agenda\.js/, 'Gündem katmanı üretim belgesinde yüklenmeli.');

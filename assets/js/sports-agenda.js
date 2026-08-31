@@ -1,5 +1,9 @@
 (() => {
-  const DATA_URL = '/assets/data/sports-agenda.json';
+  const scriptVersion = (() => {
+    try { return new URL(document.currentScript?.src || '', location.href).searchParams.get('v') || '1'; }
+    catch (_error) { return '1'; }
+  })();
+  const DATA_URL = `/assets/data/sports-agenda.json?v=${encodeURIComponent(scriptVersion)}`;
   let payloadPromise = null;
   let refreshQueued = false;
   let refreshToken = 0;
