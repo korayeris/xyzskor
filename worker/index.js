@@ -2893,8 +2893,8 @@ function compactFootballHomePayload(bundles) {
     const live = (match) => /canl|live|inplay|in_play|devre|half[ -]?time|\bht\b/i.test(String(match?.status || ""));
     const liveRows = rows.filter((match) => live(match) && !unavailable(match));
     const todays = rows.filter((match) => footballHomeDayKey(match.kickoff) === today && !unavailable(match) && (finished(match) || live(match) || Date.parse(match.kickoff) >= now));
-    const upcoming = rows.filter((match) => !unavailable(match) && !finished(match) && Date.parse(match.kickoff) >= now).slice(0, 3);
-    const recent = rows.filter((match) => Date.parse(match.kickoff) < now && finished(match)).slice(-5).reverse();
+    const upcoming = rows.filter((match) => !unavailable(match) && !finished(match) && Date.parse(match.kickoff) >= now).slice(0, 5);
+    const recent = rows.filter((match) => Date.parse(match.kickoff) < now && finished(match)).slice(-10).reverse();
     const selected = [...new Map([...liveRows, ...todays, ...upcoming, ...recent].map((match) => [String(match.id || match.match_id), match])).values()]
       .sort((left, right) => {
         const leftLive = live(left), rightLive = live(right);
@@ -3865,6 +3865,45 @@ function fixtureLineupForTeam(fixture, teamId) {
     }).filter((player) => player.name);
 }
 
+function fixtureBenchForTeam(fixture, teamId) {
+  const starters = new Set(fixtureLineupForTeam(fixture, teamId).map((player) => String(player.id || player.name)));
+  return relationRows(fixture?.lineups)
+    .filter((row) => String(row?.team_id || row?.participant_id) === String(teamId))
+    .filter((row) => !starters.has(String(row?.player_id || row?.player?.id || row?.player_name || row?.player?.display_name || row?.player?.name)))
+    .slice(0, 15)
+    .map((row) => {
+      const player = row.player || {};
+      const position = row.position || row.detailedposition || row.detailedPosition || {};
+      return {
+        id: row.player_id || player.id || null,
+        name: row.player_name || player.display_name || player.common_name || player.name || null,
+        image: player.image_path || null,
+        number: row.jersey_number ?? null,
+        position: position.name || position.code || null,
+      };
+    }).filter((player) => player.name);
+}
+
+function fixtureAbsencesForTeam(fixture, teamId) {
+  return relationRows(fixture?.sidelined)
+    .filter((row) => String(row?.participant_id || row?.team_id) === String(teamId))
+    .slice(0, 20)
+    .map((row) => {
+      const player = row.player || {};
+      const rawStatus = row?.type?.name || row?.type?.code || row?.type || row?.category || row?.reason || "Kadroda yok";
+      const status = /suspend|ban|card|ceza/i.test(String(rawStatus)) ? "suspended" : /injur|sakat/i.test(String(rawStatus)) ? "injured" : "unavailable";
+      return {
+        id: row.player_id || player.id || null,
+        name: row.player_name || player.display_name || player.common_name || player.name || null,
+        image: player.image_path || null,
+        reason: row.reason || row.description || row.category || null,
+        status,
+        statusLabel: typeof rawStatus === "string" ? rawStatus : "Kadroda yok",
+        source: "Sportmonks",
+      };
+    }).filter((player) => player.name);
+}
+
 function fixtureFormationForTeam(fixture, teamId) {
   const row = relationRows(fixture?.formations).find((formation) => String(formation?.participant_id || formation?.team_id) === String(teamId));
   return row?.formation || row?.name || null;
@@ -3879,7 +3918,7 @@ function isoDateOffset(days) {
 async function latestAvailableLineup(teamId, token) {
   const windows = [[-99, 0], [-199, -100], [-299, -200], [-399, -300]];
   for (const [startOffset, endOffset] of windows) {
-    const params = new URLSearchParams({ include: "lineups.player;lineups.position;formations", order: "desc", per_page: "25" });
+    const params = new URLSearchParams({ include: "lineups.player;lineups.position;formations;sidelined.player", order: "desc", per_page: "25" });
     const path = `/fixtures/between/${isoDateOffset(startOffset)}/${isoDateOffset(endOffset)}/${encodeURIComponent(teamId)}?${params}`;
     let payload;
     try { payload = await sportmonksRequest(path, token); } catch (error) {
@@ -3891,12 +3930,14 @@ async function latestAvailableLineup(teamId, token) {
       const lineup = fixtureLineupForTeam(fixture, teamId);
       if (lineup.length >= 11) return {
         lineup,
+        bench: fixtureBenchForTeam(fixture, teamId),
+        absences: fixtureAbsencesForTeam(fixture, teamId),
         formation: fixtureFormationForTeam(fixture, teamId),
         fixture: { id: fixture.id || null, name: fixture.name || null, startingAt: fixture.starting_at || null },
       };
     }
   }
-  return { lineup: [], formation: null, fixture: null };
+  return { lineup: [], bench: [], absences: [], formation: null, fixture: null };
 }
 
 async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = null, requestedSeasonId = null, requestedTeamImage = null) {
@@ -3939,7 +3980,7 @@ async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = nul
       if ([401, 429].includes(error?.status)) throw error;
     }
   }
-  let lastMatch = { lineup: [], formation: null, fixture: null };
+  let lastMatch = { lineup: [], bench: [], absences: [], formation: null, fixture: null };
   try { lastMatch = await latestAvailableLineup(team.id, token); } catch (error) {
     if ([401, 429].includes(error?.status)) throw error;
   }
@@ -3953,6 +3994,8 @@ async function fetchSportmonksClubProfile(teamName, token, requestedTeamId = nul
     coach: normalizeSportmonksCoach(team),
     squad,
     lineup: lastMatch.lineup,
+    bench: lastMatch.bench,
+    absences: lastMatch.absences,
     formation: lastMatch.formation,
     lineupFixture: lastMatch.fixture,
   };

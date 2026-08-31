@@ -470,10 +470,10 @@ function clubLineupHTML(data,state){
     return `<div class="club-data-state"><span class="club-data-mark">11</span><strong>İsim uydurulmuyor</strong><p>${escapeHTML(message)}</p></div>`;
   }
   const pitch=clubPitchHTML(lineup,data?.formation);
-  return `${pitch}<div class="club-lineup-list">${lineup.map((player,index)=>{
+  return `${pitch}<details class="club-starting-drawer"><summary>İlk 11 oyuncu listesi <span>${escapeHTML(data?.formation||'Diziliş')}</span></summary><div class="club-lineup-list">${lineup.map((player,index)=>{
     const photo=safeExternalURL(player.image);
     return `<article class="club-lineup-player"><span class="club-lineup-order">${String(index+1).padStart(2,'0')}</span><span class="club-player-photo">${photo?`<img src="${escapeHTML(photo)}" alt="${escapeHTML(player.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><span><strong>${escapeHTML(player.name||'Oyuncu')}</strong><small>${player.number?`${escapeHTML(player.number)} · `:''}${escapeHTML(player.position||'Pozisyon')}</small></span></article>`;
-  }).join('')}</div>`;
+  }).join('')}</div></details>`;
 }
 function clubSlug(team){
   return String(team||'').toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -490,6 +490,20 @@ function clubSquadHTML(data){
   const squad=Array.isArray(data?.squad)?data.squad:[];
   if(!squad.length) return '';
   return `<details class="club-squad-drawer"><summary>Güncel kadronun tamamı <span>${squad.length} oyuncu</span></summary><div class="club-squad-grid">${squad.map(player=>{ const photo=safeExternalURL(player.image); return `<span><span class="club-squad-photo">${photo?`<img src="${escapeHTML(photo)}" alt="${escapeHTML(player.name||'Oyuncu')}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><b>${escapeHTML(player.number||'—')}</b><span class="club-squad-name">${escapeHTML(player.name||'Oyuncu')}<small>${escapeHTML(player.position||'')}</small></span></span>`; }).join('')}</div></details>`;
+}
+function clubAvailabilityPlayerHTML(player){
+  const photo=safeExternalURL(player?.image);
+  const status=player?.status==='suspended'?'Cezalı':player?.status==='injured'?'Sakat':'Kadroda yok';
+  return `<article class="club-availability-player"><span class="club-player-photo">${photo?`<img src="${escapeHTML(photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:escapeHTML(String(player?.name||'?').slice(0,2).toLocaleUpperCase('tr-TR'))}</span><span><strong>${escapeHTML(player?.name||'Oyuncu')}</strong><small>${escapeHTML(player?.number?`${player.number} · ${player.position||status}`:player?.position||status)}</small></span>${player?.reason||player?.statusLabel?`<em>${escapeHTML(player.reason||player.statusLabel)}</em>`:''}</article>`;
+}
+function clubAvailabilityHTML(data,state){
+  if(state==='loading') return `<aside class="club-availability" aria-busy="true"><header><span>MAÇ KADROSU</span><h3>Yedekler ve eksikler</h3></header><p class="club-availability-note">Resmî maç kadrosu kontrol ediliyor.</p></aside>`;
+  const bench=Array.isArray(data?.bench)?data.bench:[];
+  const absences=Array.isArray(data?.absences)?data.absences:[];
+  const suspended=absences.filter(player=>player?.status==='suspended');
+  const unavailable=absences.filter(player=>player?.status!=='suspended');
+  const group=(title,items,empty)=>`<section><header><h4>${escapeHTML(title)}</h4><span>${items.length}</span></header>${items.length?`<div>${items.map(clubAvailabilityPlayerHTML).join('')}</div>`:`<p>${escapeHTML(empty)}</p>`}</section>`;
+  return `<aside class="club-availability"><header><span>SON RESMÎ MAÇ</span><h3>Yedekler ve eksikler</h3><p>Yalnız sağlayıcının yayımladığı maç kadrosu ve uygunluk kayıtları.</p></header>${group('Yedek kulübesi',bench,'Bu maç için yedek listesi yayımlanmadı.')}${group('Cezalılar',suspended,'Bu maç için cezalı oyuncu kaydı yayımlanmadı.')}${group('Sakat / uygun değil',unavailable,'Bu maç için sakat veya uygun değil kaydı yayımlanmadı.')}</aside>`;
 }
 function renderClubProfile(team,data,state='ready'){
   const panel=document.getElementById('clubProfilePanel'); const club=clubRecord(team); if(!panel||!club) return;
@@ -509,7 +523,7 @@ function renderClubProfile(team,data,state='ready'){
     <div class="club-profile-metrics"><article><span>Kadro değeri</span><strong>${escapeHTML(club.marketValue||'—')}</strong>${marketLink}</article><article><span>Kadro genişliği</span><strong>${escapeHTML(data?.squad?.length||club.squadSize||'—')}</strong><small>oyuncu</small></article><article><span>Yaş ortalaması</span><strong>${escapeHTML(club.averageAge||'—')}</strong><small>sezon kadrosu</small></article><article><span>Stadyum kapasitesi</span><strong>${escapeHTML(club.capacity)}</strong><small>seyirci</small></article></div>
     <div class="club-profile-main"><article class="club-stadium-feature"><div class="club-feature-title"><div><span>STADYUM VE ULAŞIM</span><h3>${escapeHTML(venue)}</h3><p>${escapeHTML(club.city)}</p></div><a href="${escapeHTML(clubDirectionsURL(club))}" target="_blank" rel="noopener noreferrer">Yol tarifi al ↗</a></div><iframe src="${escapeHTML(clubMapEmbedURL(club))}" title="${escapeHTML(venue)} haritası" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></article>
       <article class="club-coach-feature"><div class="club-coach-photo"><span class="club-coach-portrait">${coachPhoto?`<img src="${escapeHTML(coachPhoto)}" alt="${escapeHTML(coach.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<b aria-hidden="true">${escapeHTML(String(coach.name||'Teknik Direktör').split(/\s+/).slice(0,2).map(part=>part[0]).join('').toLocaleUpperCase('tr-TR'))}</b></span></div><div class="club-coach-copy"><span>TEKNİK DİREKTÖR</span><h3>${escapeHTML(coach.name||'Bilgi bekleniyor')}</h3><p>${escapeHTML(clubCoachBio(coach,club.display||club.team))}</p><dl><div><dt>Ülke</dt><dd>${escapeHTML(coach.nationality||'—')}</dd></div><div><dt>Görev</dt><dd>${escapeHTML(coach.tenure||'—')}</dd></div><div><dt>Sözleşme</dt><dd>${escapeHTML(coach.contract||'—')}</dd></div></dl>${coachLink}</div></article></div>
-    <article class="club-lineup-feature"><header><div><span>SON RESMÎ MAÇ</span><h3>Güncel ilk 11</h3><p>${escapeHTML(lineupMeta)}</p></div>${data?.formation?`<strong>${escapeHTML(data.formation)}</strong>`:''}</header>${clubLineupHTML(data,state)}${clubSquadHTML(data)}</article>`;
+    <article class="club-lineup-feature"><header><div><span>SON RESMÎ MAÇ</span><h3>Saha yerleşimi ve maç kadrosu</h3><p>${escapeHTML(lineupMeta)}</p></div>${data?.formation?`<strong>${escapeHTML(data.formation)}</strong>`:''}</header><div class="club-match-squad-layout"><div>${clubLineupHTML(data,state)}</div>${clubAvailabilityHTML(data,state)}</div>${clubSquadHTML(data)}</article>`;
 }
 async function loadClubProfile(team){
   const cacheId=`${activeFootballLeague}:${team}`;
@@ -1916,11 +1930,11 @@ function filterFootballHomeMatches(filter,button){
   const root=document.getElementById('footballScoreboardHome'); if(!root) return;
   activeFootballHomeFilter=['all','live','finished','upcoming'].includes(filter)?filter:'all';
   if(!button) button=root.querySelector(`[data-scoreboard-filter="${activeFootballHomeFilter}"]`);
-  root.querySelectorAll('.scoreboard-filters button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});
-  root.querySelectorAll('.scoreboard-match-row').forEach(row=>{ row.hidden=filter!=='all'&&!row.classList.contains(filter); });
+  root.querySelectorAll('.scoreboard-filters button').forEach(item=>{const active=item.dataset.scoreboardFilter===activeFootballHomeFilter;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));const key=item.dataset.scoreboardFilter;const count=key==='all'?root.querySelectorAll('.scoreboard-match-row').length:root.querySelectorAll(`.scoreboard-match-row.${key}`).length;item.setAttribute('aria-label',`${item.textContent.trim()} · ${count} maç`);});
+  root.querySelectorAll('.scoreboard-match-row').forEach(row=>{ row.hidden=activeFootballHomeFilter!=='all'&&!row.classList.contains(activeFootballHomeFilter); });
   root.querySelectorAll('.scoreboard-league-group').forEach(group=>{ group.hidden=![...group.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden); });
   const empty=root.querySelector('#scoreboardFilterEmpty');
-  if(empty) empty.hidden=[...root.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);
+  if(empty){const labels={live:'Şu anda canlı maç yok.',finished:'Geçmiş maç kaydı bulunamadı.',upcoming:'Yaklaşan maç henüz açıklanmadı.',all:'Yayınlanmış maç bulunmuyor.'};empty.textContent=labels[activeFootballHomeFilter];empty.hidden=[...root.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);}
 }
 function footballHomeLiveSpotlight(match){
   if(!match || footballHomeMatchState(match).key!=='live') return '';

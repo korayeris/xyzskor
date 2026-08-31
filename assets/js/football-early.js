@@ -121,6 +121,11 @@
           filters.querySelectorAll("button").forEach(function (item) { var active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
           main.querySelectorAll(".scoreboard-match-row").forEach(function (row) { row.hidden = entry[0] !== "all" && !row.classList.contains(entry[0]); });
           main.querySelectorAll(".scoreboard-league-group").forEach(function (group) { group.hidden = !Array.from(group.querySelectorAll(".scoreboard-match-row")).some(function (row) { return !row.hidden; }); });
+          var any = Array.from(main.querySelectorAll(".scoreboard-match-row")).some(function (row) { return !row.hidden; });
+          var empty = main.querySelector("#scoreboardFilterEmpty");
+          if (!empty) { empty = node("p", "scoreboard-empty scoreboard-filter-empty"); empty.id = "scoreboardFilterEmpty"; main.append(empty); }
+          empty.textContent = ({ live:"Şu anda canlı maç yok.", finished:"Geçmiş maç kaydı bulunamadı.", upcoming:"Yaklaşan maç henüz açıklanmadı.", all:"Yayınlanmış maç bulunmuyor." })[entry[0]];
+          empty.hidden = any;
         });
         filters.append(button);
       });
@@ -203,6 +208,10 @@
       if (nextLeague < leagues.length) setTimeout(appendLeagueBatch, 0);
       else setTimeout(function () {
         if (!stillCurrent()) return;
+        var empty = node("p", "scoreboard-empty scoreboard-filter-empty", "Yayınlanmış maç bulunmuyor.");
+        empty.id = "scoreboardFilterEmpty";
+        empty.hidden = payload.matches.length > 0;
+        main.append(empty);
         populateFeature();
         root.dataset.earlyHydrated = "true";
         delete root.dataset.earlyRendering;

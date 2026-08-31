@@ -4131,3 +4131,59 @@ body.multisport-open{background:#080d11;}
   .multisport-hub[data-sport="basketball"] .multisport-hero>b,
   .multisport-hub[data-sport="volleyball"] .multisport-hero>b{display:none;}
 }
+
+/* Club match squad: compact tactical board plus verified bench/absence panels. */
+.club-match-squad-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:18px;align-items:start;margin-top:20px}
+.club-match-squad-layout .club-pitch{width:100%;max-width:none;aspect-ratio:16/10;margin:0;border:1px solid rgba(255,255,255,.62);border-radius:14px;background:linear-gradient(90deg,rgba(255,255,255,.035) 50%,transparent 50%),repeating-linear-gradient(0deg,#176b43 0,#176b43 12.5%,#1b754a 12.5%,#1b754a 25%)}
+.club-match-squad-layout .club-pitch-lines{width:15%}
+.club-match-squad-layout .club-pitch-lines:before{bottom:calc(50% + 126%)}
+.club-match-squad-layout .club-pitch-lines:after{top:calc(50% + 126%)}
+.club-match-squad-layout .club-pitch-player{width:78px}
+.club-match-squad-layout .club-pitch-photo{width:42px;height:42px}
+.club-match-squad-layout .club-pitch-player>b{top:29px;right:10px}
+.club-match-squad-layout .club-pitch-player>small{max-width:76px;font-size:7px}
+.club-starting-drawer{margin-top:10px;border:1px solid #343b45;border-radius:12px;background:#1d2329}
+.club-starting-drawer>summary{display:flex;align-items:center;justify-content:space-between;min-height:46px;padding:0 14px;color:#edf1f4;font-size:10px;font-weight:800;cursor:pointer}
+.club-starting-drawer>summary span{color:#8e9aa4;font:700 8px/1 var(--font-mono)}
+.club-starting-drawer .club-lineup-list{grid-template-columns:repeat(2,minmax(0,1fr));margin:0;border-width:1px 0 0}
+.club-availability{overflow:hidden;border:1px solid #343b45;border-radius:14px;background:#1d2329}
+.club-availability>header{padding:17px 18px;border-bottom:1px solid #343b45;background:#20272e}
+.club-availability>header>span{color:#7e91ff;font:800 8px/1 var(--font-mono);letter-spacing:.12em}
+.club-availability>header h3{margin:8px 0 0;color:#fff;font:760 20px/1 var(--font-display)}
+.club-availability>header p,.club-availability-note{margin:8px 0 0;color:#8b98a2;font-size:9px;line-height:1.5}
+.club-availability>section+section{border-top:1px solid #343b45}
+.club-availability>section>header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px}
+.club-availability>section h4{margin:0;color:#dfe4e8;font-size:10px}
+.club-availability>section>header span{display:grid;place-items:center;min-width:24px;height:24px;border-radius:999px;background:#29323a;color:#b8c3cb;font:800 8px/1 var(--font-mono)}
+.club-availability>section>p{margin:0;padding:0 14px 15px;color:#77838d;font-size:9px;line-height:1.5}
+.club-availability-player{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:60px;padding:8px 12px;border-top:1px solid #2b333a}
+.club-availability-player:first-child{border-top:0}
+.club-availability-player strong{display:block;overflow:hidden;color:#f1f4f6;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.club-availability-player small{display:block;margin-top:4px;color:#84909a;font-size:7px}
+.club-availability-player em{max-width:110px;padding:5px 7px;border-radius:999px;background:#33252a;color:#ff9dac;font:750 7px/1 var(--font-mono);text-align:right}
+@media(max-width:1000px){.club-match-squad-layout{grid-template-columns:1fr}.club-match-squad-layout .club-pitch{max-width:760px;margin-inline:auto}}
+@media(max-width:620px){.club-match-squad-layout{gap:12px}.club-match-squad-layout .club-pitch{aspect-ratio:4/3}.club-match-squad-layout .club-pitch-player{width:58px}.club-match-squad-layout .club-pitch-photo{width:34px;height:34px;border-width:2px}.club-match-squad-layout .club-pitch-player>b{top:24px;right:4px}.club-match-squad-layout .club-pitch-player>small{max-width:58px;font-size:6px}.club-starting-drawer .club-lineup-list{grid-template-columns:1fr}.club-availability-player{grid-template-columns:38px minmax(0,1fr)}.club-availability-player em{grid-column:2;justify-self:start;max-width:100%;margin-top:-4px}}
+
+/* Source-backed editorial cards shared by non-football branches. */
+.sports-agenda{width:min(1180px,calc(100% - 32px));margin:28px auto 52px;color:#eef2f4}
+.sports-agenda>header{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:14px}
+.sports-agenda>header small{color:#67d8b1;font:800 8px/1 var(--font-mono);letter-spacing:.13em}
+.sports-agenda>header h2{margin:9px 0 0;color:#fff;font:780 clamp(24px,3vw,36px)/1 var(--font-display);letter-spacing:-.04em}
+.sports-agenda>header p{margin:8px 0 0;color:#8e9aa4;font-size:10px}
+.sports-agenda>header>a{flex:0 0 auto;color:#8fe3c4;font:750 9px/1 var(--font-mono);text-decoration:none}
+.sports-agenda-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.sports-agenda-card{display:grid;grid-template-columns:minmax(180px,.85fr) minmax(0,1.15fr);min-height:230px;overflow:hidden;border-radius:16px;background:#151b20;box-shadow:inset 0 0 0 1px #2c353c}
+.sports-agenda-photo{position:relative;display:block;min-height:230px;overflow:hidden;background:#0d1216}
+.sports-agenda-photo:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(7,11,14,.82))}
+.sports-agenda-photo img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
+.sports-agenda-photo:hover img{transform:scale(1.035)}
+.sports-agenda-photo>span{position:absolute;z-index:1;left:14px;right:14px;bottom:13px;color:#fff;font:800 8px/1.25 var(--font-mono);letter-spacing:.08em}
+.sports-agenda-card>div{display:flex;min-width:0;flex-direction:column;padding:20px}
+.sports-agenda-card h3{margin:0;color:#fff;font:760 20px/1.08 var(--font-display);letter-spacing:-.025em}
+.sports-agenda-card p{margin:11px 0 18px;color:#a0abb3;font-size:10px;line-height:1.65}
+.sports-agenda-card footer{display:grid;gap:7px;margin-top:auto}
+.sports-agenda-card footer a{width:max-content;max-width:100%;overflow:hidden;color:#75dcb8;font-size:8px;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}
+.sports-agenda-card footer a+ a{color:#78868f}
+@media(prefers-reduced-motion:reduce){.sports-agenda-photo img{transition:none}.sports-agenda-photo:hover img{transform:none}}
+@media(max-width:900px){.sports-agenda-grid{grid-template-columns:1fr}.sports-agenda-card{grid-template-columns:minmax(180px,.7fr) minmax(0,1.3fr)}}
+@media(max-width:620px){.sports-agenda{width:calc(100% - 24px);margin-block:22px 38px}.sports-agenda>header{align-items:start;flex-direction:column;gap:12px}.sports-agenda-card{grid-template-columns:1fr;min-height:0}.sports-agenda-photo{min-height:190px}.sports-agenda-card>div{padding:17px}.sports-agenda-card h3{font-size:19px}}

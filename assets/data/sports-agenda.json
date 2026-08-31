@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "checkedAt": "2026-08-31",
+  "sports": {
+    "basketball": [
+      {
+        "eyebrow": "FIBA · EYLÜL 2026",
+        "title": "Kadınlar Dünya Kupası Berlin'de başlıyor",
+        "summary": "FIBA'nın resmî takviminde turnuva 4–13 Eylül 2026 tarihleri arasında Berlin'de yer alıyor.",
+        "sourceName": "FIBA resmî etkinlik takvimi",
+        "sourceUrl": "https://www.fiba.basketball/en/events/",
+        "image": "/assets/images/sports/heroes/basketball-arena-free-v2.webp",
+        "imageAlt": "Işıkları açık boş bir basketbol salonu",
+        "credit": "Fotoğraf: JC Gellidon · Unsplash License",
+        "creditUrl": "https://unsplash.com/photos/photo-1504450758481-7338eba7524a"
+      },
+      {
+        "eyebrow": "FIBA · TAKVİM REHBERİ",
+        "title": "2026 basketbol ajandasının resmî merkezi",
+        "summary": "Milli takım, gençler ve 3x3 organizasyonlarının tarihleri tek resmî takvimden kontrol edilebilir.",
+        "sourceName": "FIBA 2026 takvim seçkisi",
+        "sourceUrl": "https://www.fiba.basketball/en/news/top-15-dates-to-look-forward-to-in-2026",
+        "image": "/assets/images/sports/heroes/basketball-arena-free-v2.webp",
+        "imageAlt": "Basketbol salonu ve pota",
+        "credit": "Fotoğraf: JC Gellidon · Unsplash License",
+        "creditUrl": "https://unsplash.com/photos/photo-1504450758481-7338eba7524a"
+      }
+    ],
+    "volleyball": [
+      {
+        "eyebrow": "VOLLEYBALL WORLD · VNL 2026",
+        "title": "VNL 2026 sezon merkezi ve sonuç arşivi",
+        "summary": "3 Haziran–2 Ağustos takviminin programı ve tamamlanan maçları resmî VNL merkezinde yer alıyor.",
+        "sourceName": "Volleyball World",
+        "sourceUrl": "https://en.volleyballworld.com/volleyball/competitions/volleyball-nations-league",
+        "image": "/assets/images/sports/heroes/volleyball-match-free-v2.jpg",
+        "imageAlt": "Salon voleybolu karşılaşması",
+        "credit": "Fotoğraf: Mattia Linari · Pexels License",
+        "creditUrl": "https://www.pexels.com/photo/35670138/"
+      },
+      {
+        "eyebrow": "VNL · RESMÎ SONUÇ",
+        "title": "Polonya, beş setlik finalle erkekler VNL şampiyonu",
+        "summary": "Volleyball World sezon merkezinde final sonucu, maç programı ve turnuva arşivi birlikte yayımlandı.",
+        "sourceName": "VNL 2026 resmî merkezi",
+        "sourceUrl": "https://en.volleyballworld.com/volleyball/competitions/volleyball-nations-league/schedule/",
+        "image": "/assets/images/sports/heroes/volleyball-match-free-v2.jpg",
+        "imageAlt": "File önünde voleybol oyuncuları",
+        "credit": "Fotoğraf: Mattia Linari · Pexels License",
+        "creditUrl": "https://www.pexels.com/photo/35670138/"
+      }
+    ],
+    "ufc": [
+      {
+        "eyebrow": "UFC · 5 EYLÜL 2026",
+        "title": "Paris kartı: Hooker vs Parnasse",
+        "summary": "UFC'nin resmî etkinlik merkezinde Accor Arena'daki Paris kartı, başlangıç saatleri ve dövüş programıyla listeleniyor.",
+        "sourceName": "UFC resmî etkinlik merkezi",
+        "sourceUrl": "https://www.ufc.com/events",
+        "image": "/assets/images/sports/agenda/ufc-octagon-cc.webp",
+        "imageAlt": "Bir karma dövüş sanatları organizasyonundaki octagon",
+        "credit": "Fotoğraf: GMC-MMA · CC BY-SA 4.0",
+        "creditUrl": "https://commons.wikimedia.org/wiki/File:GMC_Octagon.jpg"
+      },
+      {
+        "eyebrow": "UFC · ETKİNLİK ARŞİVİ",
+        "title": "Canlı, yaklaşan ve geçmiş kartlar tek kaynakta",
+        "summary": "Resmî UFC sayfası yaklaşan kartların yanında tamamlanan etkinlikleri ve tekrar bağlantılarını da yayımlıyor.",
+        "sourceName": "UFC Events",
+        "sourceUrl": "https://www.ufc.com/events",
+        "image": "/assets/images/sports/agenda/ufc-octagon-cc.webp",
+        "imageAlt": "Boş bir MMA kafesi ve arena ışıkları",
+        "credit": "Fotoğraf: GMC-MMA · CC BY-SA 4.0",
+        "creditUrl": "https://commons.wikimedia.org/wiki/File:GMC_Octagon.jpg"
+      }
+    ],
+    "motorsports": [
+      {
+        "eyebrow": "FIA · 4–6 EYLÜL 2026",
+        "title": "Formula 1'in sıradaki durağı Monza",
+        "summary": "FIA'nın güncellenmiş 2026 takviminde İtalya Grand Prix'si 4–6 Eylül tarihleri arasında yer alıyor.",
+        "sourceName": "FIA 2026 resmî takvimi",
+        "sourceUrl": "https://www.fia.com/news/2026-fia-sporting-calendars-approved-world-motor-sport-council",
+        "image": "/assets/images/motorsports/legal/formula-1-cc.webp",
+        "imageAlt": "Formula 1 araçları yarış pistinde",
+        "credit": "Fotoğraf: Steffen Prößdorf · CC BY-SA 4.0",
+        "creditUrl": "https://commons.wikimedia.org/wiki/File:2024-08-25_Motorsport,_Formel_1,_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3912_by_Stepro.jpg"
+      },
+      {
+        "eyebrow": "FIA · 6 EYLÜL 2026",
+        "title": "WEC, Lone Star Le Mans için Austin'de",
+        "summary": "FIA Dünya Dayanıklılık Şampiyonası'nın 2026 takviminde Austin yarışı 6 Eylül'de koşulacak.",
+        "sourceName": "FIA 2026 spor takvimleri",
+        "sourceUrl": "https://www.fia.com/news/2026-fia-sporting-calendars-approved-world-motor-sport-council",
+        "image": "/assets/images/motorsports/legal/endurance-cc.webp",
+        "imageAlt": "Gece aydınlatılmış dayanıklılık yarışı pit alanı",
+        "credit": "Fotoğraf: Nic Redhead · CC BY-SA 2.0",
+        "creditUrl": "https://commons.wikimedia.org/wiki/File:Le_Mans_pit_lane_at_night.jpg"
+      }
+    ]
+  }
+}
