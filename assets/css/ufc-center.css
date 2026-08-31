@@ -163,6 +163,9 @@ a.ufc-center-rank-row:hover{background:rgba(239,66,91,.07)}
 .ufc-center-athlete{display:grid;grid-template-columns:140px minmax(0,1fr);min-height:205px;align-items:end;gap:18px;overflow:hidden;padding:18px 28px 0;border-radius:18px;background:radial-gradient(circle at 15% 0,rgba(221,51,74,.24),transparent 44%),#11171b}
 .ufc-center-athlete>img{width:140px;height:190px;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 12px 15px rgba(0,0,0,.45))}
 .ufc-center-athlete>div{display:grid;align-self:center;gap:7px}
+.ufc-center-profile-back{display:inline-flex;width:max-content;max-width:100%;min-height:44px;align-items:center;margin-bottom:3px;color:#aab4ba;font:800 9px/1.25 var(--font-mono,monospace);letter-spacing:.04em;text-decoration:none}
+.ufc-center-profile-back:hover{color:#fff}
+.ufc-center-profile-back:focus-visible{outline:2px solid #ef536b;outline-offset:4px;border-radius:3px}
 .ufc-center-athlete h2{margin:0;font-size:clamp(28px,4vw,48px);letter-spacing:-.04em}
 .ufc-center-athlete b{color:#d8dfe2;font:850 14px/1.2 var(--font-mono,monospace)}
 .ufc-center-tabs{display:flex;gap:5px;margin:18px 0;padding:5px;border:0;border-radius:999px;background:#11171b}

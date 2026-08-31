@@ -5,7 +5,14 @@
 
   const routeParts = location.pathname.split('/').filter(Boolean);
   const routeName = routeParts[1] || 'home';
-  const routeId = routeParts[2] || '';
+  // Sites yalnız önceden üretilmiş belge rotalarını doğrudan sunuyor. Dinamik
+  // dövüşçü slug'ını path segmentine koymak, barındırma katmanında uygulama
+  // çalışmadan önce `/` yönlendirmesine düşüyordu. Profil kimliğini mevcut
+  // `/ufc/fighters/` belgesinin query alanında taşıyarak hem tıklama hem yenileme
+  // aynı gerçek profil yüzeyini güvenle açar. Eski/self-hosted derin path biçimi
+  // geriye dönük uyumluluk için okunmaya devam eder.
+  const routeQuery = new URLSearchParams(location.search);
+  const routeId = routeParts[2] || (routeName === 'fighters' ? routeQuery.get('fighter') : '') || '';
   const navItems = [
     ['home', '/ufc/', 'Merkez'],
     ['live', '/ufc/live/', 'Canlı'],
@@ -156,6 +163,11 @@
     return `${url.pathname}${url.search}${url.hash}`;
   };
   const pathSegment = (input) => encodeURIComponent(String(input ?? '').trim());
+  const fighterProfilePath = (slug) => {
+    const url = new URL('/ufc/fighters/', location.origin);
+    url.searchParams.set('fighter', String(slug ?? '').trim());
+    return scopedPath(`${url.pathname}${url.search}`);
+  };
   const fetchUfc = async (path, signal) => {
     const response = await fetch(`/api/ufc/${path}`, {
       cache: 'no-store',
@@ -367,7 +379,7 @@
     const name = fighterName(fighter);
     const slug = fighter.slug ?? fighter.fighterSlug;
     const tag = slug ? 'a' : 'div';
-    const link = slug ? ` href="${escapeHTML(scopedPath(`/ufc/fighters/${pathSegment(slug)}/`))}"` : '';
+    const link = slug ? ` href="${escapeHTML(fighterProfilePath(slug))}" data-ufc-fighter-profile` : '';
     return `<${tag} class="ufc-center-rank-row${champion ? ' is-champion' : ''}"${link} style="--ufc-row-index:${index}">
       <b>${champion ? 'C' : escapeHTML(value(fighter.rank ?? fighter.rankText, index + 1))}</b>
       ${imageHTML(fighter, `${name} profil görseli`)}
@@ -428,7 +440,7 @@
     const name = fighterName(fighter);
     const slug = fighter.slug ?? fighter.fighterSlug ?? fighter.id;
     const tag = slug ? 'a' : 'article';
-    return `<${tag} class="ufc-center-fighter-card"${slug ? ` href="${escapeHTML(scopedPath(`/ufc/fighters/${pathSegment(slug)}/`))}"` : ''}>
+    return `<${tag} class="ufc-center-fighter-card"${slug ? ` href="${escapeHTML(fighterProfilePath(slug))}" data-ufc-fighter-profile` : ''}>
       ${imageHTML(fighter, `${name} profil görseli`)}
       <span><strong>${escapeHTML(name)}</strong><small>${escapeHTML(value(fighter.division ?? fighter.weightClass, 'Siklet açıklanmadı'))}</small><em>${escapeHTML(recordText(fighter) || 'Kayıt açıklanmadı')}</em></span>
     </${tag}>`;
@@ -703,7 +715,7 @@
       ${identityHTML({ title: name, description: [value(fighter.nickname), value(fighter.division ?? fighter.weightClass)].filter(Boolean).join(' · ') || 'UFC sporcu profili', meta: 'CitoAPI · doğrulanmış sporcu profili' })}
       <section class="ufc-center-athlete">
         ${imageHTML(fighter, `${name} profil görseli`)}
-        <div><small>${escapeHTML(value(fighter.division ?? fighter.weightClass, 'Siklet açıklanmadı'))}</small><h2>${escapeHTML(name)}</h2><b>${escapeHTML(recordText(fighter) || 'Kariyer kaydı açıklanmadı')}</b></div>
+        <div><a class="ufc-center-profile-back" href="${escapeHTML(scopedPath('/ufc/fighters/'))}">← Dövüşçü listesine dön</a><small>${escapeHTML(value(fighter.division ?? fighter.weightClass, 'Siklet açıklanmadı'))}</small><h2>${escapeHTML(name)}</h2><b>${escapeHTML(recordText(fighter) || 'Kariyer kaydı açıklanmadı')}</b></div>
       </section>
       ${metricCardsHTML([
         ['GALİBİYET', currentDivision.key === 'all' ? wins : '—', currentDivision.key === 'all' ? 'kariyer kaydı' : 'sıklet ayrımı sağlanmadı', 'is-live'],

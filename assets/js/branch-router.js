@@ -137,8 +137,15 @@
       canonical = new URL(routePath || "/", location.origin);
       canonical.hash = "";
       canonical.search = "";
-      var fixture = new URLSearchParams(routeSearch || "").get("fixture");
+      var routeParams = new URLSearchParams(routeSearch || "");
+      var fixture = routeParams.get("fixture");
       if (fixture) canonical.searchParams.set("fixture", fixture);
+      // UFC sporcu profilleri Sites'ın mevcut statik `/ufc/fighters/` belgesi
+      // üzerinde query ile adreslenir. Profil canonical'ında slug'ı kaybetme.
+      var fighter = routeParams.get("fighter");
+      if (/^\/ufc\/fighters\/?$/.test(routePath || "") && /^[a-z0-9-]+$/i.test(fighter || "")) {
+        canonical.searchParams.set("fighter", fighter);
+      }
     } catch (_) {
       canonical = { href: location.origin + "/" };
     }

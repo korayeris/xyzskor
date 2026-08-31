@@ -28,6 +28,22 @@ const bouts = [
   { id:'bout-1', cardPosition:'Main Card 1', cardSection:'Main Card', weightClass:'Bantamweight', status:'confirmed', fighters:[{ ...fighters[1], corner:'red' }, { ...fighters[0], corner:'blue' }] },
   { id:'bout-2', cardPosition:'Main Card 2', cardSection:'Main Card', weightClass:"Women's Strawweight", status:'confirmed', fighters:[{ fighterName:'Denise Gomes', corner:'red' }, { fighterName:'Yan Xiaonan', corner:'blue' }] },
 ];
+const fighterProfile = {
+  ...fighters[2], nickname:'No Mercy', country:'Russia', age:33,
+  heightInches:'67.5', weightLbs:'135', reachInches:'67', stance:'Switch',
+  fightingStyle:'Boxer', recordWins:20, recordLosses:5, recordDraws:0,
+};
+const fighterStats = {
+  fighterSlug:'petr-yan', strikingAccuracy:'0.55', sigStrikeDefense:'0.60',
+  takedownAccuracy:'0.46', sigStrikesLandedPerMin:'5.16',
+  sigStrikesAbsorbedPerMin:'4.24', takedownAvgPer15Min:'1.70',
+  submissionAvgPer15Min:'0.11',
+};
+const fighterFights = [{
+  id:'petr-fight-1', fighterSlug:'petr-yan', fighterName:'Petr Yan', outcome:'win',
+  opponent:{ slug:'merab-dvalishvili', name:'Merab Dvalishvili' },
+  eventName:'UFC 323', eventDate:'2025-12-06',
+}];
 
 const wrapped = (route, data) => ({ source:'citoapi', route, updatedAt:now, data:{ success:true, data } });
 const apiBody = (url) => {
@@ -36,6 +52,9 @@ const apiBody = (url) => {
   if (parsed.pathname === '/api/ufc/events/ufc-fight-night-test') return wrapped('events/ufc-fight-night-test', { ...event, bouts });
   if (parsed.pathname === '/api/ufc/rankings') return wrapped('rankings', rankings);
   if (parsed.pathname === '/api/ufc/fighters') return wrapped('fighters', fighters);
+  if (parsed.pathname === '/api/ufc/fighters/petr-yan') return wrapped('fighters/petr-yan', fighterProfile);
+  if (parsed.pathname === '/api/ufc/fighters/petr-yan/stats') return wrapped('fighters/petr-yan/stats', fighterStats);
+  if (parsed.pathname === '/api/ufc/fighters/petr-yan/fights') return wrapped('fighters/petr-yan/fights', fighterFights);
   return { error:'not_mocked' };
 };
 
@@ -138,6 +157,33 @@ try {
   assert.equal(desktop.footballChromeHidden, true, 'UFC dalında futbol maç merkezi ve skor şeritleri görünmemeli.');
   assert.ok(apiRequests.length >= 4 && apiRequests.every((path) => path.startsWith('/api/ufc/')), 'UFC merkezi yalnız UFC API ailesini çağırmalı.');
   assert.deepEqual(pageErrors, [], 'UFC merkezinde sayfa hatası oluşmamalı.');
+
+  const firstFighterLink = page.locator('a.ufc-center-rank-row[data-ufc-fighter-profile]').first();
+  assert.equal(await firstFighterLink.getAttribute('href'), '/ufc/fighters/?fighter=petr-yan', 'Sporcu bağlantısı Sites tarafından sunulan kalıcı profil belgesini kullanmalı.');
+  await firstFighterLink.click();
+  await page.waitForURL((url) => url.pathname === '/ufc/fighters/' && url.searchParams.get('fighter') === 'petr-yan');
+  await page.waitForSelector('.ufc-center[data-state="ready"] .ufc-center-athlete');
+  assert.equal(await page.locator('#ufcxContent h1').innerText(), 'Petr Yan', 'Sıralamadaki dövüşçü tıklanınca gerçek sporcu profili açılmalı.');
+  assert.equal(await page.locator('.ufc-center-athlete h2').innerText(), 'Petr Yan', 'Profil kimliği sporcu adını korumalı.');
+  assert.match(await page.locator('.ufc-center-athlete').innerText(), /20-5-0/, 'Profil doğrulanmış kariyer kaydını göstermeli.');
+  assert.equal(await page.locator('.ufc-center-profile-back').getAttribute('href'), '/ufc/fighters/', 'Profil geri bağlantısı UFC dövüşçü dizinine dönmeli.');
+  assert.equal(apiRequests.filter((path) => path === '/api/ufc/fighters/petr-yan').length, 1, 'Profil ana verisi yalnız bir kez istenmeli.');
+  assert.equal(apiRequests.filter((path) => path === '/api/ufc/fighters/petr-yan/stats').length, 1, 'Profil istatistikleri yalnız bir kez istenmeli.');
+  assert.equal(apiRequests.filter((path) => path === '/api/ufc/fighters/petr-yan/fights').length, 1, 'Profil dövüş geçmişi yalnız bir kez istenmeli.');
+  await page.locator('[data-ufc-tab="stats"]').click();
+  assert.equal(await page.locator('#ufcFighterStats').isVisible(), true, 'Profil istatistik sekmesi erişilebilir ve görünür olmalı.');
+  await page.setViewportSize({ width:390, height:844 });
+  const mobileProfile = await page.evaluate(() => ({
+    overflow:document.querySelector('.ufc-center-shell').scrollWidth - document.querySelector('.ufc-center-shell').clientWidth,
+    backTarget:document.querySelector('.ufc-center-profile-back').getBoundingClientRect().height,
+  }));
+  assert.ok(mobileProfile.overflow <= 1, `Mobil sporcu profili yatay taşmamalı (${mobileProfile.overflow}px).`);
+  assert.ok(mobileProfile.backTarget >= 44, 'Mobil profil geri bağlantısı en az 44px dokunma hedefi olmalı.');
+  await page.setViewportSize({ width:1440, height:900 });
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === '/ufc/' && !url.searchParams.has('fighter'));
+  await page.waitForSelector('.ufc-center[data-state="ready"]');
+  assert.equal(await page.locator('#ufcxContent h1').innerText(), 'UFC', 'Tarayıcı geri işlemi profil yerine UFC merkezine dönmeli; futbol ana sayfasına düşmemeli.');
 
   const select = page.locator('[data-ufc-division-select]');
   await select.focus();
