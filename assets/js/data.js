@@ -959,7 +959,7 @@ function fetchProviderSeasonBundle(leagueKey, options={}){
 }
 
 const FOOTBALL_HOME_LEAGUES=['super-lig','premier-league','la-liga','bundesliga','serie-a'];
-const FOOTBALL_HOME_CACHE_KEY='xyzskor:football-home:v3';
+const FOOTBALL_HOME_CACHE_KEY='xyzskor:football-home:v4';
 const FOOTBALL_HOME_CACHE_MS=10*60*1000;
 let footballHomeNetworkRequest=null;
 function compactFootballHomeBundle(bundles){
@@ -979,14 +979,22 @@ function compactFootballHomeBundle(bundles){
       .filter(match=>Number.isFinite(Date.parse(match.kickoff)))
       .sort((a,b)=>Date.parse(a.kickoff)-Date.parse(b.kickoff));
     const isVerifiedFinished=match=>Boolean(match?.result)||footballStatusIsFinished(match)||resultIds.has(String(match?.id||match?.match_id||''));
+    const liveRows=rows.filter(match=>footballStatusIsLive(match)&&!footballStatusIsUnavailable(match));
     const todays=rows.filter(match=>{
       if(new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(match.kickoff))!==today) return false;
       if(footballStatusIsUnavailable(match)) return false;
       return isVerifiedFinished(match)||footballStatusIsLive(match)||Date.parse(match.kickoff)>=now;
     });
     const upcoming=rows.filter(match=>!footballStatusIsUnavailable(match)&&!isVerifiedFinished(match)&&Date.parse(match.kickoff)>=now).slice(0,3);
-    const recent=rows.filter(match=>Date.parse(match.kickoff)<now&&isVerifiedFinished(match)).slice(-2);
-    const selected=todays.length ? todays : (upcoming.length ? upcoming : recent);
+    const recent=rows.filter(match=>Date.parse(match.kickoff)<now&&isVerifiedFinished(match)).slice(-5).reverse();
+    const selected=[...new Map([...liveRows,...todays,...upcoming,...recent].map(match=>[String(match.id||match.match_id),match])).values()]
+      .sort((left,right)=>{
+        const leftLive=footballStatusIsLive(left),rightLive=footballStatusIsLive(right);
+        if(leftLive!==rightLive) return Number(rightLive)-Number(leftLive);
+        const leftFinished=isVerifiedFinished(left),rightFinished=isVerifiedFinished(right);
+        if(leftFinished!==rightFinished) return Number(leftFinished)-Number(rightFinished);
+        return leftFinished?Date.parse(right.kickoff)-Date.parse(left.kickoff):Date.parse(left.kickoff)-Date.parse(right.kickoff);
+      });
     selected.forEach(match=>selectedResultIds.add(String(match?.id||match?.match_id||'')));
     matches.push(...selected);
   });

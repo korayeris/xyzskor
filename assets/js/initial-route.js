@@ -30,7 +30,7 @@
     if (!requestedFixture && isFootballRoot && typeof fetch === "function") {
       var homeFresh = false;
       try {
-        var cachedRecord = JSON.parse(localStorage.getItem("xyzskor:football-home:v3") || "null");
+        var cachedRecord = JSON.parse(localStorage.getItem("xyzskor:football-home:v4") || "null");
         window.__XYZ_EARLY_HOME_CACHE__ = cachedRecord && cachedRecord.payload ? cachedRecord.payload : null;
         homeFresh = Boolean(cachedRecord && cachedRecord.savedAt && Date.now() - cachedRecord.savedAt < 10 * 60 * 1000 && cachedRecord.payload);
       } catch (_) { window.__XYZ_EARLY_HOME_CACHE__ = null; }

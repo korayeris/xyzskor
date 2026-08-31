@@ -2891,10 +2891,20 @@ function compactFootballHomePayload(bundles) {
     const unavailable = (match) => /iptal|cancel|ertelen|postpon|suspend|delay/i.test(String(match?.status || ""));
     const finished = (match) => Boolean(match?.result) || /bitti|finished|\bft\b|aet|pen/i.test(String(match?.status || "")) || resultIds.has(String(match?.id || match?.match_id || ""));
     const live = (match) => /canl|live|inplay|in_play|devre|half[ -]?time|\bht\b/i.test(String(match?.status || ""));
+    const liveRows = rows.filter((match) => live(match) && !unavailable(match));
     const todays = rows.filter((match) => footballHomeDayKey(match.kickoff) === today && !unavailable(match) && (finished(match) || live(match) || Date.parse(match.kickoff) >= now));
     const upcoming = rows.filter((match) => !unavailable(match) && !finished(match) && Date.parse(match.kickoff) >= now).slice(0, 3);
-    const recent = rows.filter((match) => Date.parse(match.kickoff) < now && finished(match)).slice(-2);
-    const selected = todays.length ? todays : (upcoming.length ? upcoming : recent);
+    const recent = rows.filter((match) => Date.parse(match.kickoff) < now && finished(match)).slice(-5).reverse();
+    const selected = [...new Map([...liveRows, ...todays, ...upcoming, ...recent].map((match) => [String(match.id || match.match_id), match])).values()]
+      .sort((left, right) => {
+        const leftLive = live(left), rightLive = live(right);
+        if (leftLive !== rightLive) return rightLive - leftLive;
+        const leftFinished = finished(left), rightFinished = finished(right);
+        if (leftFinished !== rightFinished) return leftFinished - rightFinished;
+        return leftFinished
+          ? Date.parse(right.kickoff) - Date.parse(left.kickoff)
+          : Date.parse(left.kickoff) - Date.parse(right.kickoff);
+      });
     for (const match of selected) selectedResultIds.add(String(match?.id || match?.match_id || ""));
     matches.push(...selected);
   }
@@ -2926,7 +2936,7 @@ function validSharedFootballHomePayload(payload) {
 }
 
 async function resolveFootballHomeBundle(url, env, context) {
-  const scope = "worker:football-home:v1";
+  const scope = "worker:football-home:v2";
   const lockKey = `provider:${scope}`;
   let shared = await readProviderSharedCache(env, scope);
   if (validSharedFootballHomePayload(shared?.payload) && providerSharedCacheFresh(shared)) {
@@ -2984,7 +2994,7 @@ async function handleFootballHome(request, env, context) {
   const token = env.SPORTMONKS_API_TOKEN || env.SPORTMONKS_TOKEN;
   if (!token) return jsonResponse({ error:"sportmonks_not_configured", provider:"sportmonks" }, 503, { "Cache-Control":"no-store" });
   const url = new URL(request.url);
-  const cacheUrl = new URL("/api/football/home", url.origin);
+  const cacheUrl = new URL("/api/football/home-cache-v2", url.origin);
   const cache = edgeCache();
   const cacheKey = new Request(cacheUrl.toString(), { method:"GET" });
   const cached = await readEdgeCache(cache, cacheKey);

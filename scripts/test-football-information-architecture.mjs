@@ -9,6 +9,7 @@ const liveSource = await readFile(new URL('../assets/js/live.js', import.meta.ur
 const matchdaySource = await readFile(new URL('../assets/js/matchday-live.js', import.meta.url), 'utf8');
 const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const buildSource = await readFile(new URL('./build.mjs', import.meta.url), 'utf8');
+const workerSource = await readFile(new URL('../worker/index.js', import.meta.url), 'utf8');
 
 function sourceBetween(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -152,6 +153,8 @@ const bundles = [
     league: 'super-lig',
     standings: [],
     matches: [
+      { id: 'live-now', kickoff: '2026-08-24T08:30:00.000Z', status: 'live', minute: 31, ev: 'Canlı Ev', konuk: 'Canlı Konuk' },
+      { id: 'super-upcoming', kickoff: '2026-08-25T10:00:00.000Z', status: 'scheduled', ev: 'Yaklaşan Ev', konuk: 'Yaklaşan Konuk' },
       { id: 'past-without-status', kickoff: '2026-08-23T12:00:00.000Z', ev: 'Eski Ev', konuk: 'Eski Konuk' },
       { id: 'today-past-without-status', kickoff: '2026-08-24T08:00:00.000Z', ev: 'Bugün Eski Ev', konuk: 'Bugün Eski Konuk' },
       { id: 'zero-draw', kickoff: '2026-08-22T12:00:00.000Z', ev: 'Sıfır Ev', konuk: 'Sıfır Konuk' },
@@ -181,7 +184,12 @@ assert.ok(!compactIds.includes('today-past-without-status'), 'Bugün başlamış
 assert.ok(!compactIds.includes('cancelled-future'), 'İptal edilmiş gelecek maç upcoming sayılmamalı.');
 assert.ok(!compactIds.includes('postponed-future'), 'Ertelenmiş gelecek maç upcoming sayılmamalı.');
 assert.ok(compactIds.includes('tomorrow'), 'Yarın oynanacak doğrulanmış fikstür kompakt bundle içinde korunmalı.');
+assert.ok(compactIds.includes('super-upcoming'), 'Aynı ligde yaklaşan maç varken geçmiş sonuç arşivden düşmemeli.');
 assert.ok(compactIds.includes('zero-draw'), 'Ayrı sonuç kaydıyla doğrulanan geçmiş 0-0 maç recent içinde korunmalı.');
+assert.equal(compactIds[0], 'live-now', 'Doğrulanmış canlı maç tüm ligler paketinde ilk sırada olmalı.');
+assert.ok(compactIds.indexOf('super-upcoming') < compactIds.indexOf('zero-draw'), 'Lig sırası canlı, yaklaşan ve geçmiş şeklinde olmalı.');
+assert.match(workerSource, /const liveRows = rows\.filter[\s\S]*\.\.\.liveRows, \.\.\.todays, \.\.\.upcoming, \.\.\.recent[\s\S]*rightLive - leftLive/, 'Edge ana sayfa paketi de canlıyı öne alıp geçmiş sonuçları yaklaşanlarla birlikte taşımalı.');
+assert.match(uiSource, /function footballHomeDisplayOrder[\s\S]*const priority=\{live:0,upcoming:1,finished:2,unavailable:3\}/, 'Tam arayüz canlı maçları lig satırlarında da ilk sıraya koymalı.');
 const zeroResult = Array.from(compact.results).find((result) => result.match_id === 'zero-draw');
 assert.ok(zeroResult, 'Seçilen 0-0 maçın sonuç kaydı bundle içinde taşınmalı.');
 assert.equal(zeroResult.home, 0, '0-0 sonucun ev sahibi sıfırı falsy kabul edilip kaybolmamalı.');

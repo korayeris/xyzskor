@@ -40,7 +40,7 @@ async function initialRequests(pathname, search = '', { homeCache = null, season
     URLSearchParams,
     AbortController,
     location: { pathname, search },
-    localStorage: { getItem: (key) => key === 'xyzskor:football-home:v3' && homeCache ? JSON.stringify(homeCache) : null },
+    localStorage: { getItem: (key) => key === 'xyzskor:football-home:v4' && homeCache ? JSON.stringify(homeCache) : null },
     sessionStorage: { getItem: (key) => seasonCache && key === `xyzskor:provider-season:${seasonCache.payload?.league}` ? JSON.stringify(seasonCache) : null },
     document: {
       title: '',
@@ -442,7 +442,7 @@ console.log('\n=== Stale root SWR ownership and abort ===');
     footballHomeNetworkRequest: null,
     footballCriticalRequest: null,
     footballDataLoadSequence: 0,
-    FOOTBALL_HOME_CACHE_KEY: 'xyzskor:football-home:v3',
+    FOOTBALL_HOME_CACHE_KEY: 'xyzskor:football-home:v4',
     FOOTBALL_HOME_CACHE_MS: 10 * 60 * 1000,
     DATA_ERRORS: {},
     document: { hidden:false, body:{ dataset:{} } },

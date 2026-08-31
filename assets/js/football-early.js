@@ -108,11 +108,11 @@
     var main = shell.querySelector(".scoreboard-fixtures") || node("main", "scoreboard-fixtures");
     function renderHeader() {
       var header = node("header");
-      var title = node("div", "", "Bugün ve yaklaşan maçlar");
+      var title = node("div", "", "Canlı, yaklaşan ve geçmiş maçlar");
       title.prepend(node("span", "scoreboard-live-dot"));
       header.append(title, node("span", "", new Date().toLocaleDateString("tr-TR", { weekday:"long", day:"numeric", month:"long" })));
       var filters = node("div", "scoreboard-filters");
-      [["all","Tümü"],["live","Canlı"],["finished","Biten"],["upcoming","Yaklaşan"]].forEach(function (entry, index) {
+      [["all","Tümü"],["live","Canlı"],["finished","Geçmiş"],["upcoming","Yaklaşan"]].forEach(function (entry, index) {
         var button = node("button", index ? "" : "active", entry[1]);
         button.type = "button";
         button.dataset.scoreboardFilter = entry[0];
@@ -135,7 +135,14 @@
       bindEarlyLeagueButton(all, key);
       heading.append(all);
       group.append(heading);
-      var matches = payload.matches.filter(function (match) { return match && match.league_key === key; });
+      var matches = payload.matches.filter(function (match) { return match && match.league_key === key; }).sort(function (left, right) {
+        var leftState = state(left), rightState = state(right);
+        var priority = { live:0, upcoming:1, finished:2, unavailable:3 };
+        var stateOrder = (priority[leftState.key] == null ? 9 : priority[leftState.key]) - (priority[rightState.key] == null ? 9 : priority[rightState.key]);
+        if (stateOrder) return stateOrder;
+        var leftKickoff = Date.parse(left.kickoff) || 0, rightKickoff = Date.parse(right.kickoff) || 0;
+        return leftState.key === "finished" ? rightKickoff - leftKickoff : leftKickoff - rightKickoff;
+      });
       if (!matches.length) group.append(node("p", "scoreboard-empty", payload.availability && payload.availability[key] === false ? "Lig verisi şu anda alınamadı." : "Program henüz açıklanmadı."));
       matches.forEach(function (match) {
         var matchState = state(match);

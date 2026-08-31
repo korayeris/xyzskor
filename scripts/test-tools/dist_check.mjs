@@ -496,7 +496,7 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   // Bir onceki smoke ayni BrowserContext icinde root payload'ini localStorage'a
   // yazabilir. Bu senaryo cold-root istek kardinalitesini olctugu icin cache'i
   // belge scriptlerinden once deterministik olarak temizler.
-  await page.addInitScript(() => localStorage.removeItem('xyzskor:football-home:v3'));
+  await page.addInitScript(() => localStorage.removeItem('xyzskor:football-home:v4'));
   watchErrors(page, scenario, runtimeErrors);
   const requestStart = requestLog.length;
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
