@@ -1206,7 +1206,7 @@ function matchHubScopedRows(){
   if(activeMatchHubFilter==='today') return rows.filter(match=>matchDayKey(match.kickoff)===matchDayKey(Date.now())).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
   if(activeMatchHubFilter==='upcoming') return upcoming;
   if(activeMatchHubFilter==='results') return completed;
-  return [...live,...upcoming,...completed,...pending];
+  return [...live,...upcoming];
 }
 function matchHubDateLabel(value){
   const date=new Date(value); if(Number.isNaN(date.getTime())) return 'Tarih doğrulanıyor';
@@ -1940,11 +1940,11 @@ function filterFootballHomeMatches(filter,button){
   const root=document.getElementById('footballScoreboardHome'); if(!root) return;
   activeFootballHomeFilter=['all','live','finished','upcoming'].includes(filter)?filter:'all';
   if(!button) button=root.querySelector(`[data-scoreboard-filter="${activeFootballHomeFilter}"]`);
-  root.querySelectorAll('.scoreboard-filters button').forEach(item=>{const active=item.dataset.scoreboardFilter===activeFootballHomeFilter;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));const key=item.dataset.scoreboardFilter;const count=key==='all'?root.querySelectorAll('.scoreboard-match-row').length:root.querySelectorAll(`.scoreboard-match-row.${key}`).length;item.setAttribute('aria-label',`${item.textContent.trim()} · ${count} maç`);});
-  root.querySelectorAll('.scoreboard-match-row').forEach(row=>{ const hidden=activeFootballHomeFilter!=='all'&&!row.classList.contains(activeFootballHomeFilter);row.hidden=hidden;row.style.display=hidden?'none':''; });
+  root.querySelectorAll('.scoreboard-filters button').forEach(item=>{const active=item.dataset.scoreboardFilter===activeFootballHomeFilter;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));const key=item.dataset.scoreboardFilter;const count=key==='all'?root.querySelectorAll('.scoreboard-match-row:not(.finished)').length:root.querySelectorAll(`.scoreboard-match-row.${key}`).length;item.setAttribute('aria-label',`${item.textContent.trim()} · ${count} maç`);});
+  root.querySelectorAll('.scoreboard-match-row').forEach(row=>{ const visible=activeFootballHomeFilter==='all'?!row.classList.contains('finished'):row.classList.contains(activeFootballHomeFilter);const hidden=!visible;row.hidden=hidden;row.style.display=hidden?'none':''; });
   root.querySelectorAll('.scoreboard-league-group').forEach(group=>{ const hidden=![...group.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);group.hidden=hidden;group.style.display=hidden?'none':''; });
   const empty=root.querySelector('#scoreboardFilterEmpty');
-  if(empty){const labels={live:'Şu anda canlı maç yok.',finished:'Geçmiş maç kaydı bulunamadı.',upcoming:'Yaklaşan maç henüz açıklanmadı.',all:'Yayınlanmış maç bulunmuyor.'};empty.textContent=labels[activeFootballHomeFilter];empty.hidden=[...root.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);}
+  if(empty){const labels={live:'Şu anda canlı maç yok.',finished:'Geçmiş maç kaydı bulunamadı.',upcoming:'Yaklaşan maç henüz açıklanmadı.',all:'Canlı veya yaklaşan maç bulunmuyor.'};empty.textContent=labels[activeFootballHomeFilter];empty.hidden=[...root.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);}
 }
 function footballHomeLiveSpotlight(match){
   if(!match || footballHomeMatchState(match).key!=='live') return '';
@@ -2022,6 +2022,7 @@ function syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableL
       target.setAttribute('aria-labelledby',`scoreboard-league-${group.key}`);
       target.dataset.scoreboardLeague=group.key;
       target.innerHTML=footballHomeLeagueGroupContent(group);
+      filterFootballHomeMatches(activeFootballHomeFilter);
     }
     nextLeague+=1;
     if(nextLeague<grouped.length){ setTimeout(upgradeLeague,0); return; }
@@ -2057,13 +2058,13 @@ function renderFootballScoreboardHome(){
   const grouped=leagueKeys.map(key=>({key,label:competitionLabelBySlug(key),available:FOOTBALL_HOME_AVAILABILITY?.[key]!==false,matches:footballHomeDisplayOrder(MATCHES.filter(match=>(match.league_key||competitionSlug(competitionName(match)))===key))}));
   const eligibleFeatured=MATCHES.filter(match=>footballHomeMatchState(match).key!=='unavailable');
   const liveSpotlight=eligibleFeatured.find(match=>footballHomeMatchState(match).key==='live') || null;
-  const featured=liveSpotlight || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='upcoming') || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='finished') || null;
+  const featured=liveSpotlight || eligibleFeatured.find(match=>footballHomeMatchState(match).key==='upcoming') || null;
   const featuredState=featured?footballHomeMatchState(featured):null;
   const tableLeague=featured?.league_key&&leagueKeys.includes(featured.league_key)?featured.league_key:'super-lig';
   if(!liveSpotlight&&syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableLeague})) return;
   root.innerHTML=`${footballHomeLiveSpotlight(liveSpotlight)}<div class="scoreboard-shell">
     <aside class="scoreboard-leagues"><div class="scoreboard-kicker">FUTBOL</div><h1>Ligler</h1><p>Bir lig seç ve tüm ayrıntılara geç.</p><nav>${grouped.map(group=>`<button type="button" onclick="selectFootballLeague('${group.key}')" aria-label="${escapeHTML(group.label)} lig merkezini aç"><span>${escapeHTML(group.label)}</span><b>→</b></button>`).join('')}</nav></aside>
-    <main class="scoreboard-fixtures"><header><div><span class="scoreboard-live-dot"></span> Canlı, yaklaşan ve geçmiş maçlar</div><span>${new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'})}</span></header>
+    <main class="scoreboard-fixtures"><header><div><span class="scoreboard-live-dot"></span> Canlı ve yaklaşan maçlar</div><span>${new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'})}</span></header>
       <div class="scoreboard-filters"><button data-scoreboard-filter="all" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('all',this)">Tümü</button><button data-scoreboard-filter="live" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('live',this)">Canlı</button><button data-scoreboard-filter="finished" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('finished',this)">Geçmiş</button><button data-scoreboard-filter="upcoming" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('upcoming',this)">Yaklaşan</button></div>
       ${grouped.map(group=>{const headingId=`scoreboard-league-${group.key}`;return `<section class="scoreboard-league-group" data-scoreboard-league="${escapeHTML(group.key)}" aria-labelledby="${headingId}">${footballHomeLeagueGroupContent(group)}</section>`;}).join('')}<p class="scoreboard-empty scoreboard-filter-empty" id="scoreboardFilterEmpty" hidden>Bu filtrede maç bulunmuyor.</p>
     </main>

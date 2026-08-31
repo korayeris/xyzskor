@@ -108,7 +108,7 @@
     var main = shell.querySelector(".scoreboard-fixtures") || node("main", "scoreboard-fixtures");
     function renderHeader() {
       var header = node("header");
-      var title = node("div", "", "Canlı, yaklaşan ve geçmiş maçlar");
+      var title = node("div", "", "Canlı ve yaklaşan maçlar");
       title.prepend(node("span", "scoreboard-live-dot"));
       header.append(title, node("span", "", new Date().toLocaleDateString("tr-TR", { weekday:"long", day:"numeric", month:"long" })));
       var filters = node("div", "scoreboard-filters");
@@ -119,12 +119,19 @@
         button.setAttribute("aria-pressed", index ? "false" : "true");
         button.addEventListener("click", function () {
           filters.querySelectorAll("button").forEach(function (item) { var active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
-          main.querySelectorAll(".scoreboard-match-row").forEach(function (row) { row.hidden = entry[0] !== "all" && !row.classList.contains(entry[0]); });
-          main.querySelectorAll(".scoreboard-league-group").forEach(function (group) { group.hidden = !Array.from(group.querySelectorAll(".scoreboard-match-row")).some(function (row) { return !row.hidden; }); });
+          main.querySelectorAll(".scoreboard-match-row").forEach(function (row) {
+            var visible = entry[0] === "all" ? !row.classList.contains("finished") : row.classList.contains(entry[0]);
+            row.hidden = !visible;
+            row.style.display = visible ? "" : "none";
+          });
+          main.querySelectorAll(".scoreboard-league-group").forEach(function (group) {
+            group.hidden = !Array.from(group.querySelectorAll(".scoreboard-match-row")).some(function (row) { return !row.hidden; });
+            group.style.display = group.hidden ? "none" : "";
+          });
           var any = Array.from(main.querySelectorAll(".scoreboard-match-row")).some(function (row) { return !row.hidden; });
           var empty = main.querySelector("#scoreboardFilterEmpty");
           if (!empty) { empty = node("p", "scoreboard-empty scoreboard-filter-empty"); empty.id = "scoreboardFilterEmpty"; main.append(empty); }
-          empty.textContent = ({ live:"Şu anda canlı maç yok.", finished:"Geçmiş maç kaydı bulunamadı.", upcoming:"Yaklaşan maç henüz açıklanmadı.", all:"Yayınlanmış maç bulunmuyor." })[entry[0]];
+          empty.textContent = ({ live:"Şu anda canlı maç yok.", finished:"Geçmiş maç kaydı bulunamadı.", upcoming:"Yaklaşan maç henüz açıklanmadı.", all:"Canlı veya yaklaşan maç bulunmuyor." })[entry[0]];
           empty.hidden = any;
         });
         filters.append(button);
@@ -141,7 +148,7 @@
       heading.append(all);
       group.append(heading);
       var matches = payload.matches.filter(function (match) { return match && match.league_key === key; }).sort(function (left, right) {
-        var leftState = state(left), rightState = state(right);
+        var leftState = state(left, resultFor(payload, left)), rightState = state(right, resultFor(payload, right));
         var priority = { live:0, upcoming:1, finished:2, unavailable:3 };
         var stateOrder = (priority[leftState.key] == null ? 9 : priority[leftState.key]) - (priority[rightState.key] == null ? 9 : priority[rightState.key]);
         if (stateOrder) return stateOrder;
@@ -150,8 +157,10 @@
       });
       if (!matches.length) group.append(node("p", "scoreboard-empty", payload.availability && payload.availability[key] === false ? "Lig verisi şu anda alınamadı." : "Program henüz açıklanmadı."));
       matches.forEach(function (match) {
-        var matchState = state(match);
+        var matchState = state(match, resultFor(payload, match));
         var row = node("article", "scoreboard-match-row " + matchState.key);
+        row.hidden = matchState.key === "finished";
+        if (row.hidden) row.style.display = "none";
         row.dataset.homeFixture = String(match.id || "");
         var center = node("a", "scoreboard-match-main");
         center.href = "/?fixture=" + encodeURIComponent(String(match.id || ""));
@@ -174,16 +183,18 @@
         row.append(center, action);
         group.append(row);
       });
+      group.hidden = matches.length > 0 && matches.every(function (match) { return state(match, resultFor(payload, match)).key === "finished"; });
+      if (group.hidden) group.style.display = "none";
       return group;
     }
 
     var feature = shell.querySelector(".scoreboard-feature") || node("aside", "scoreboard-feature");
     function populateFeature() {
       feature.replaceChildren();
-      var featured = payload.matches.find(function (match) { return state(match).key === "live"; }) || payload.matches.find(function (match) { return state(match).key === "upcoming"; }) || payload.matches[0];
+      var featured = payload.matches.find(function (match) { return state(match, resultFor(payload, match)).key === "live"; }) || payload.matches.find(function (match) { return state(match, resultFor(payload, match)).key === "upcoming"; }) || null;
       feature.append(node("div", "scoreboard-kicker", featured ? "ÖNE ÇIKAN MAÇ" : "FUTBOL"), node("h2", "", featured ? (featured.ev || "") + "\n" + (featured.konuk || "") : "Program hazırlanıyor"));
       if (featured) {
-        var featuredState = state(featured);
+        var featuredState = state(featured, resultFor(payload, featured));
         feature.append(node("div", "scoreboard-feature-score", featuredState.score === "—" ? featuredState.label : featuredState.score));
         var open = node("a", "scoreboard-open", featuredState.key === "live" ? "Canlı maç merkezine git →" : "Maç merkezi ve Predict →");
         open.href = "/?fixture=" + encodeURIComponent(String(featured.id || ""));
@@ -208,9 +219,9 @@
       if (nextLeague < leagues.length) setTimeout(appendLeagueBatch, 0);
       else setTimeout(function () {
         if (!stillCurrent()) return;
-        var empty = node("p", "scoreboard-empty scoreboard-filter-empty", "Yayınlanmış maç bulunmuyor.");
+        var empty = node("p", "scoreboard-empty scoreboard-filter-empty", "Canlı veya yaklaşan maç bulunmuyor.");
         empty.id = "scoreboardFilterEmpty";
-        empty.hidden = payload.matches.length > 0;
+        empty.hidden = payload.matches.some(function (match) { return state(match, resultFor(payload, match)).key !== "finished"; });
         main.append(empty);
         populateFeature();
         root.dataset.earlyHydrated = "true";

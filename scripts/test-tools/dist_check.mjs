@@ -558,6 +558,8 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
       fullReady: document.getElementById('footballScoreboardHome')?.dataset.fullHomeHydrated === 'true',
       groups: document.querySelectorAll('#footballScoreboardHome .scoreboard-league-group').length,
       matches: document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row').length,
+      visibleDefaultMatches: [...document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row')].filter((row)=>getComputedStyle(row).display!=='none').length,
+      defaultShowsFinished: [...document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row.finished')].some((row)=>getComputedStyle(row).display!=='none'),
       legacyPredictDom: Boolean(document.getElementById('page-league')),
       matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
       viewportGrid: getComputedStyle(document.body, '::before').backgroundImage,
@@ -569,6 +571,7 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   });
   const homeRequests = requestLog.slice(requestStart).filter((item) => item.url === '/api/football/home');
   check(state.rootRoute && state.groups === 5 && state.matches >= 5, `${scenario}: early/canonical football shell ready`, JSON.stringify(state));
+  check(state.visibleDefaultMatches === 10 && !state.defaultShowsFinished, `${scenario}: Tümü görünümü geçmiş maçları göstermiyor`, JSON.stringify(state));
   check(homeRequests.length === 1, `${scenario}: canonical aggregate request observed exactly once`, `requests=${homeRequests.length}`);
   check(state.groups === 5, `${scenario}: aggregate home contains five league groups`, `groups=${state.groups}`);
   check(!state.legacyPredictDom, `${scenario}: lean root omits same-DOM Predict surface`);
@@ -597,6 +600,11 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   check(pastFilter.visibleRows === 5 && pastFilter.onlyFinished && pastFilter.predictionCards === 0 && pastFilter.hiddenUpcoming === 10, `${scenario}: past filter shows only completed matches`, JSON.stringify(pastFilter));
   check(pastFilter.visibleGroups === 5 && pastFilter.identifiedGroups === 5, `${scenario}: past results remain visibly separated by league`, JSON.stringify(pastFilter));
   await page.click('[data-scoreboard-filter="all"]');
+  const allAfterPast=await page.evaluate(()=>({
+    visible:[...document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row')].filter((row)=>getComputedStyle(row).display!=='none').length,
+    finishedVisible:[...document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row.finished')].filter((row)=>getComputedStyle(row).display!=='none').length,
+  }));
+  check(allAfterPast.visible===10&&allAfterPast.finishedVisible===0, `${scenario}: Geçmiş sekmesinden Tümü'ne dönüş tamamlanan maçları yeniden açmıyor`, JSON.stringify(allAfterPast));
 
   await page.waitForSelector('#accountBtn', { state: 'visible', timeout: 8_000 });
   await page.click('#accountBtn');
