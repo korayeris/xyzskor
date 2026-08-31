@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const [source, css, snapshotText, buildSource] = await Promise.all([
+const [source, css, snapshotText, buildSource, photoCreditsText] = await Promise.all([
   readFile(new URL('assets/js/motorsports.js', root), 'utf8'),
   readFile(new URL('assets/css/motorsports-center.css', root), 'utf8'),
   readFile(new URL('assets/data/motorsports-snapshot.json', root), 'utf8'),
   readFile(new URL('scripts/build.mjs', root), 'utf8'),
+  readFile(new URL('assets/legal/motorsports-image-credits.json', root), 'utf8'),
 ]);
 const snapshot = JSON.parse(snapshotText.replace(/^\uFEFF/, ''));
+const photoCredits = JSON.parse(photoCreditsText);
 
 assert.match(source, /motorsports-snapshot\.json',\s*\{\s*cache:\s*'no-cache'\s*\}/, 'Snapshot freshness must be revalidated in each browser session.');
 assert.match(source, /\.catch\(\(error\)\s*=>\s*\{[\s\S]{0,120}?snapshotPromise\s*=\s*null;[\s\S]{0,80}?throw error;/, 'A failed snapshot request must not lock out later retries.');
@@ -17,7 +19,11 @@ assert.match(buildSource, /motorsports-snapshot\.json[\s\S]{0,500}?versionedSnap
 assert.match(source, /xms-center-identity[\s\S]*MOTOR SPORLARI[\s\S]*xms-center-data-state/, 'Seri kimliği ve veri durumu korunmalı.');
 assert.match(source, /const categories = \[[\s\S]*single-seater[\s\S]*motorcycle[\s\S]*rally[\s\S]*endurance[\s\S]*stock-car/, 'Motor sporları gerçek yarış aileleriyle sınıflandırılmalı.');
 assert.match(source, /seriesPickerHTML[\s\S]*SERİLER[\s\S]*data-classification-key="all"[\s\S]*aria-current/, 'Seri rayı Tümü ve doğrudan seçilebilir gerçek seri bağlantıları sunmalı.');
-assert.match(source, /data-mark="◉"[\s\S]*data-mark="\$\{escapeHTML\(config\.mark\)\}"[\s\S]*--series-accent/, 'Her seri gerçek kimliğini büyük yayın işareti ve kendi renk koduyla göstermeli.');
+assert.match(source, /data-mark="\$\{escapeHTML\(config\.mark\)\}"[\s\S]*--series-accent:\$\{escapeHTML\(config\.accent\)\}/, 'Her seri gerçek kimliğini ve kendi renk kodunu taşımalı.');
+assert.match(source, /data-mark="◉"[\s\S]*data-classification-key="all"|data-classification-key="all"[\s\S]*data-mark="◉"/, 'Tüm seriler kartı ayrı bir yayın işareti taşımalı.');
+assert.match(source, /motorsportPhotos[\s\S]*formula-1-cc\.webp[\s\S]*formula-e-cc\.webp[\s\S]*indycar-cc\.webp[\s\S]*motogp-cc\.webp[\s\S]*rally-cc\.webp[\s\S]*endurance-cc\.webp[\s\S]*stock-car-cc\.webp/, 'Seri atlası yalnız yerel, lisans kaydı bulunan gerçek yarış fotoğraflarını kullanmalı.');
+assert.match(source, /noopener noreferrer license[\s\S]*xms-photo-credits[\s\S]*motorsports-image-credits\.json/, 'Fotoğrafçı, lisans ve kalıcı lisans kaydı kullanıcıya görünür olmalı.');
+assert.match(source, /--xms-hero-photo[\s\S]*xms-identity-photo-credit[\s\S]*Fotoğraf:/, 'Seçili seri üst alanı gerçek fotoğraf ve görünür atıf taşımalı.');
 assert.match(source, /pickerMeta:\s*'Grand Prix · hibrit'[\s\S]*pickerMeta:\s*'Elektrik · şehir pisti'[\s\S]*pickerMeta:\s*'Toprak · asfalt · kar'[\s\S]*pickerMeta:\s*'24 saat klasiği'/, 'Seri kartları birbirini tekrar etmeyen, disipline özgü kısa açıklamalar taşımalı.');
 assert.match(source, /data-classification-title/, 'Seçili merkez başlığı ortak sınıflandırma hookunu taşımalı.');
 assert.match(source, /data-sport-classification',\s*'series'/, 'Seri rayı ortak sınıflandırma hookunu taşımalı.');
@@ -43,12 +49,23 @@ assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.65fr\)\s*minmax\(330
 assert.match(css, /@keyframes xmsShimmer[\s\S]*xms-center-skeleton-row/, 'Soğuk yüklemede shimmer animasyonu bulunmalı.');
 assert.match(css, /animation-delay:\s*calc\(var\(--xms-row-index/, 'Gerçek satırlar kademeli yüklenmeli.');
 assert.match(css, /xms-center-series-picker\s*>\s*div[\s\S]*overflow-x:\s*auto[\s\S]*overscroll-behavior-inline:\s*contain/, 'Seri rayı dar ekran ve dokunmatik kullanımda yatay kaydırılabilmeli.');
-assert.match(css, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)[\s\S]*content:\s*attr\(data-mark\)[\s\S]*border-top:\s*3px solid var\(--series-accent\)/, 'Masaüstü seri atlası büyük, renk kodlu ve görsel olarak ayırt edilebilir kartlar kullanmalı.');
+assert.match(css, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)[\s\S]*content:\s*attr\(data-mark\)[\s\S]*var\(--series-photo\)\s+center\s*\/\s*cover/, 'Masaüstü seri atlası büyük, renk kodlu ve gerçek fotoğraflı kartlar kullanmalı.');
+assert.match(css, /xms-center-identity[\s\S]*var\(--xms-hero-photo\)[\s\S]*cover no-repeat/, 'Seri kimliği fotoğrafı okunaklı katmanla kaplamalı.');
 assert.match(css, /xms-center-mark\.is-wheel[\s\S]*border-radius:\s*50%[\s\S]*conic-gradient/, 'Motor sporları genel kimliği MS harfi yerine kodla çizilmiş teker simgesi kullanmalı.');
 assert.match(css, /:focus-visible[\s\S]*outline:/, 'Klavye odağı görünür olmalı.');
 assert.match(css, /@media \(max-width:\s*980px\)[\s\S]*grid-template-columns:\s*1fr/, 'Dar ekranda iki kolon tek kolona düşmeli.');
 assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\s*none/, 'Hareket azaltma tercihi desteklenmeli.');
 assert.match(css, /@media \(forced-colors:\s*active\)/, 'Zorunlu renkler erişilebilirliği desteklenmeli.');
+assert.doesNotMatch(`${source}\n${css}`, /motorsport-cinematic-v1|formula-hero-v1|motogp-hero-v1/, 'Motor sporları merkezi yapay görünümlü eski kolajları kullanmamalı.');
+
+assert.equal(photoCredits.assets.length, 7, 'Yedi özgün fotoğraf türevinin lisans kaydı bulunmalı.');
+assert.match(photoCredits.modifications, /cropped to 1280x720[\s\S]*WebP/i, 'Görsel uyarlamaları lisans kaydında açıklanmalı.');
+for (const photo of photoCredits.assets) {
+  assert.match(photo.source_url, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/, `${photo.file}: kaynak birincil Commons dosya sayfası olmalı.`);
+  assert.match(photo.license, /^CC BY(?:-SA)? (?:2\.0|4\.0)$/, `${photo.file}: açık Creative Commons lisansı tanımlı olmalı.`);
+  assert.match(photo.license_url, /^https:\/\/creativecommons\.org\/licenses\//, `${photo.file}: lisans bağlantısı bulunmalı.`);
+  await access(new URL(photo.file.replace(/^\//, ''), root));
+}
 
 const snapshotRows = (sport, resource) => {
   const payload = snapshot.sports?.[sport]?.[resource];

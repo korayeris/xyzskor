@@ -1,0 +1,14 @@
+{
+  "scope": "XYZSKOR motorsports editorial photography",
+  "notice": "The licenses below apply to the photographic derivatives only. Series and event names remain the property of their respective owners.",
+  "modifications": "Images were cropped to 1280x720, resized and converted to WebP for web delivery.",
+  "assets": [
+    { "file": "/assets/images/motorsports/legal/formula-1-cc.webp", "title": "2024 Dutch Grand Prix", "creator": "Steffen Proessdorf", "source_url": "https://commons.wikimedia.org/wiki/File:2024-08-25_Motorsport,_Formel_1,_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3912_by_Stepro.jpg", "license": "CC BY-SA 4.0", "license_url": "https://creativecommons.org/licenses/by-sa/4.0/" },
+    { "file": "/assets/images/motorsports/legal/formula-e-cc.webp", "title": "2024 Tokyo e-Prix race start", "creator": "Morio", "source_url": "https://commons.wikimedia.org/wiki/File:2024_Tokyo_e-Prix_race_start_1.jpg", "license": "CC BY-SA 4.0", "license_url": "https://creativecommons.org/licenses/by-sa/4.0/" },
+    { "file": "/assets/images/motorsports/legal/indycar-cc.webp", "title": "2024 Milwaukee Mile race start", "creator": "Michael Barera", "source_url": "https://commons.wikimedia.org/wiki/File:2024_Hy-Vee_Milwaukee_Mile_250s_158_(first_race--start).jpg", "license": "CC BY-SA 4.0", "license_url": "https://creativecommons.org/licenses/by-sa/4.0/" },
+    { "file": "/assets/images/motorsports/legal/motogp-cc.webp", "title": "2024 Malaysian Grand Prix", "creator": "Liauzh", "source_url": "https://commons.wikimedia.org/wiki/File:MotoGP_2024_Malaysian_Grand_Prix_-_Gresini_Racing_-_Marc_M%C3%A1rquez.jpg", "license": "CC BY-SA 4.0", "license_url": "https://creativecommons.org/licenses/by-sa/4.0/" },
+    { "file": "/assets/images/motorsports/legal/rally-cc.webp", "title": "2023 Bohemia Rally", "creator": "Miloslav Rejha", "source_url": "https://commons.wikimedia.org/wiki/File:2023_Bohemia_Rally_Mlad%C3%A1_Boleslav_-_Dohnal.jpg", "license": "CC BY 4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/" },
+    { "file": "/assets/images/motorsports/legal/endurance-cc.webp", "title": "Le Mans pit lane at night", "creator": "Nic Redhead", "source_url": "https://commons.wikimedia.org/wiki/File:Le_Mans_pit_lane_at_night.jpg", "license": "CC BY-SA 2.0", "license_url": "https://creativecommons.org/licenses/by-sa/2.0/" },
+    { "file": "/assets/images/motorsports/legal/stock-car-cc.webp", "title": "2025 American Speedfest race start", "creator": "BWard 1997", "source_url": "https://commons.wikimedia.org/wiki/File:NASCAR_Euro_Series_Open_Race_Start_-_2025_American_Speedfest.jpg", "license": "CC BY 4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/" }
+  ]
+}

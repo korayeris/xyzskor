@@ -7,16 +7,25 @@
     { id: 'stock-car', label: 'Stock car', menuLabel: 'STOCK CAR', kind: 'Seri', series: ['nascar'] },
   ];
   const series = {
-    'formula-1': { label: 'Formula 1', accent: '#ef4557', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', pickerMeta: 'Grand Prix · hibrit', mark: 'F1' },
-    'formula-e': { label: 'Formula E', accent: '#42b7ff', discipline: 'Elektrik', category: 'single-seater', classification: 'Elektrikli şampiyona serisi', pickerMeta: 'Elektrik · şehir pisti', mark: 'FE' },
-    indycar: { label: 'IndyCar', accent: '#229bdd', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', pickerMeta: 'Oval · yol pisti', mark: 'INDY' },
-    motogp: { label: 'MotoGP', accent: '#ff793d', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Premier sınıf', pickerMeta: 'Prototip motosiklet', mark: 'GP' },
-    moto2: { label: 'Moto2', accent: '#ef914a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Orta sınıf', pickerMeta: '765 cc · ara sınıf', mark: 'M2' },
-    moto3: { label: 'Moto3', accent: '#efb04a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Hafif sınıf', pickerMeta: '250 cc · gelişim', mark: 'M3' },
-    wrc: { label: 'WRC', accent: '#6bd690', discipline: 'Ralli', category: 'rally', classification: 'Dünya ralli serisi', pickerMeta: 'Toprak · asfalt · kar', mark: 'WRC' },
-    wec: { label: 'WEC', accent: '#947cff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık serisi', pickerMeta: '6–24 saat yarış', mark: 'WEC' },
-    'le-mans': { label: 'Le Mans', accent: '#a58bff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık yarışı', pickerMeta: '24 saat klasiği', mark: 'LM' },
-    nascar: { label: 'NASCAR Cup Series', accent: '#e9c94f', discipline: 'Stock car', category: 'stock-car', classification: 'Cup serisi', pickerMeta: 'Stok otomobil · oval', mark: 'NASCAR' },
+    'formula-1': { label: 'Formula 1', accent: '#ef4557', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', pickerMeta: 'Grand Prix · hibrit', mark: 'F1', photo: 'formula-1' },
+    'formula-e': { label: 'Formula E', accent: '#42b7ff', discipline: 'Elektrik', category: 'single-seater', classification: 'Elektrikli şampiyona serisi', pickerMeta: 'Elektrik · şehir pisti', mark: 'FE', photo: 'formula-e' },
+    indycar: { label: 'IndyCar', accent: '#229bdd', discipline: 'Formula', category: 'single-seater', classification: 'Şampiyona serisi', pickerMeta: 'Oval · yol pisti', mark: 'INDY', photo: 'indycar' },
+    motogp: { label: 'MotoGP', accent: '#ff793d', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Premier sınıf', pickerMeta: 'Prototip motosiklet', mark: 'GP', photo: 'motogp' },
+    moto2: { label: 'Moto2', accent: '#ef914a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Orta sınıf', pickerMeta: '765 cc · ara sınıf', mark: 'M2', photo: 'motogp' },
+    moto3: { label: 'Moto3', accent: '#efb04a', discipline: 'Motosiklet', category: 'motorcycle', classification: 'Hafif sınıf', pickerMeta: '250 cc · gelişim', mark: 'M3', photo: 'motogp' },
+    wrc: { label: 'WRC', accent: '#6bd690', discipline: 'Ralli', category: 'rally', classification: 'Dünya ralli serisi', pickerMeta: 'Toprak · asfalt · kar', mark: 'WRC', photo: 'rally' },
+    wec: { label: 'WEC', accent: '#947cff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık serisi', pickerMeta: '6–24 saat yarış', mark: 'WEC', photo: 'endurance' },
+    'le-mans': { label: 'Le Mans', accent: '#a58bff', discipline: 'Dayanıklılık', category: 'endurance', classification: 'Dayanıklılık yarışı', pickerMeta: '24 saat klasiği', mark: 'LM', photo: 'endurance' },
+    nascar: { label: 'NASCAR Cup Series', accent: '#e9c94f', discipline: 'Stock car', category: 'stock-car', classification: 'Cup serisi', pickerMeta: 'Stok otomobil · oval', mark: 'NASCAR', photo: 'stock-car' },
+  };
+  const motorsportPhotos = {
+    'formula-1': { file: '/assets/images/motorsports/legal/formula-1-cc.webp', creator: 'Steffen Prößdorf', source: 'https://commons.wikimedia.org/wiki/File:2024-08-25_Motorsport,_Formel_1,_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3912_by_Stepro.jpg', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' },
+    'formula-e': { file: '/assets/images/motorsports/legal/formula-e-cc.webp', creator: 'Morio', source: 'https://commons.wikimedia.org/wiki/File:2024_Tokyo_e-Prix_race_start_1.jpg', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' },
+    indycar: { file: '/assets/images/motorsports/legal/indycar-cc.webp', creator: 'Michael Barera', source: 'https://commons.wikimedia.org/wiki/File:2024_Hy-Vee_Milwaukee_Mile_250s_158_(first_race--start).jpg', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' },
+    motogp: { file: '/assets/images/motorsports/legal/motogp-cc.webp', creator: 'Liauzh', source: 'https://commons.wikimedia.org/wiki/File:MotoGP_2024_Malaysian_Grand_Prix_-_Gresini_Racing_-_Marc_M%C3%A1rquez.jpg', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' },
+    rally: { file: '/assets/images/motorsports/legal/rally-cc.webp', creator: 'Miloslav Rejha', source: 'https://commons.wikimedia.org/wiki/File:2023_Bohemia_Rally_Mlad%C3%A1_Boleslav_-_Dohnal.jpg', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' },
+    endurance: { file: '/assets/images/motorsports/legal/endurance-cc.webp', creator: 'Nic Redhead', source: 'https://commons.wikimedia.org/wiki/File:Le_Mans_pit_lane_at_night.jpg', license: 'CC BY-SA 2.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/2.0/' },
+    'stock-car': { file: '/assets/images/motorsports/legal/stock-car-cc.webp', creator: 'BWard 1997', source: 'https://commons.wikimedia.org/wiki/File:NASCAR_Euro_Series_Open_Race_Start_-_2025_American_Speedfest.jpg', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' },
   };
   const groups = categories.map((category) => [category.menuLabel, category.series.map((slug) => [series[slug].label, slug])]);
   const categoryById = Object.fromEntries(categories.map((category) => [category.id, category]));
@@ -220,7 +229,13 @@
 
   function seriesPickerHTML(slug) {
     const selectedView = slug ? viewFromLocation(slug) : 'overview';
-    return `<header><div><strong>SERİLER</strong><span>Şampiyonayı seç, tüm veri kapsamını aç</span></div><em>10 MERKEZ</em></header><div><a data-classification-key="all" data-mark="◉" data-category="all" style="--series-accent:#f3f6f7" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tüm seriler</b><small>Takvim · sıralama · pilot</small></a>${Object.entries(series).map(([key, config]) => `<a data-classification-key="${escapeHTML(key)}" data-mark="${escapeHTML(config.mark)}" data-category="${escapeHTML(config.category)}" style="--series-accent:${escapeHTML(config.accent)}" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(config.pickerMeta)}</small></a>`).join('')}</div>`;
+    const hubPhoto = motorsportPhotos['formula-1'];
+    const cards = Object.entries(series).map(([key, config]) => {
+      const photo = motorsportPhotos[config.photo];
+      return `<a data-classification-key="${escapeHTML(key)}" data-mark="${escapeHTML(config.mark)}" data-category="${escapeHTML(config.category)}" style="--series-accent:${escapeHTML(config.accent)};--series-photo:url('${escapeHTML(photo.file)}')" class="${key === slug ? 'active' : ''}" href="${seriesHref(key, selectedView)}" ${key === slug ? 'aria-current="page"' : ''}><b>${escapeHTML(config.label)}</b><small>${escapeHTML(config.pickerMeta)}</small></a>`;
+    }).join('');
+    const credits = Object.values(motorsportPhotos).map((photo) => `<span><a href="${escapeHTML(photo.source)}" target="_blank" rel="noopener noreferrer">${escapeHTML(photo.creator)}</a> · <a href="${escapeHTML(photo.licenseUrl)}" target="_blank" rel="noopener noreferrer license">${escapeHTML(photo.license)}</a></span>`).join('');
+    return `<header><div><strong>SERİLER</strong><span>Gerçek yarış fotoğraflarıyla şampiyonanı seç</span></div><em>10 MERKEZ</em></header><div><a data-classification-key="all" data-mark="◉" data-category="all" style="--series-accent:#f3f6f7;--series-photo:url('${escapeHTML(hubPhoto.file)}')" class="${!slug ? 'active' : ''}" href="/motorsports/" ${!slug ? 'aria-current="page"' : ''}><b>Tüm seriler</b><small>Takvim · sıralama · pilot</small></a>${cards}</div><footer class="xms-photo-credits"><strong>GÖRSEL KAYNAKLARI</strong><span>${credits}</span><a class="xms-photo-license" href="/assets/legal/motorsports-image-credits.json">Lisans kaydı</a></footer>`;
   }
 
   function viewsFor(slug) {
@@ -231,12 +246,14 @@
     const config = series[slug] || { label: 'Motor Sporları', accent: '#ef4557', discipline: 'Tüm seriler', mark: 'MS' };
     const category = categoryById[config.category] || null;
     const detail = Boolean(series[slug]);
-    return `<main class="xms-shell xms-center-shell" style="--xms-accent:${config.accent}">
+    const photo = motorsportPhotos[config.photo || 'formula-1'];
+    return `<main class="xms-shell xms-center-shell" style="--xms-accent:${config.accent};--xms-hero-photo:url('${escapeHTML(photo.file)}')">
       <section class="xms-center" data-xms-center>
         <header class="xms-center-identity">
           <span class="xms-center-mark ${detail ? '' : 'is-wheel'}" aria-hidden="true"><b>${escapeHTML(config.mark)}</b></span>
           <div><small>XYZSKOR · MOTOR SPORLARI ${detail ? 'SERİ' : 'LİG'} MERKEZİ</small><h1 data-classification-title>${escapeHTML(config.label)}</h1><p data-xms-center-meta>${detail ? `${escapeHTML(category.label)} · ${escapeHTML(config.classification)} · güncel sezon` : `${MOTORSPORT_TAGLINE} Formula, motosiklet, ralli, dayanıklılık ve stock car.`}</p></div>
           <span class="xms-center-data-state" data-xms-data-state>VERİ KAPSAMI HAZIRLANIYOR</span>
+          <a class="xms-identity-photo-credit" href="${escapeHTML(photo.source)}" target="_blank" rel="noopener noreferrer">Fotoğraf: ${escapeHTML(photo.creator)} · ${escapeHTML(photo.license)}</a>
         </header>
         ${detail ? `<nav class="xms-center-tabs" role="tablist" aria-label="${escapeHTML(config.label)} görünümü">${viewsFor(slug).map(([key, label], index) => `<button type="button" role="tab" id="xmsTab-${key}" aria-controls="xmsData" aria-selected="${index === 0}" tabindex="${index === 0 ? '0' : '-1'}" data-xms-view="${key}" class="${index === 0 ? 'active' : ''}">${escapeHTML(label)}</button>`).join('')}</nav><section id="xmsData" class="xms-center-stage" role="tabpanel" aria-labelledby="xmsTab-overview" aria-live="polite"></section>` : `<section id="xmsHubData" class="xms-center-stage" aria-live="polite">${hubLoadingHTML()}</section>`}
       </section>

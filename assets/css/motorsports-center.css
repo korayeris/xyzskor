@@ -69,7 +69,7 @@ body.motorsport-open > .xms-primary:not(.xms-fallback-primary) {
   display: none;
 }
 
-.xms-center-series-picker a {
+.xms-center-series-picker > div > a {
   display: inline-grid !important;
   min-height: 50px !important;
   flex: 0 0 auto !important;
@@ -88,36 +88,36 @@ body.motorsport-open > .xms-primary:not(.xms-fallback-primary) {
   transition: color .18s ease, background-color .18s ease, transform .18s ease !important;
 }
 
-.xms-center-series-picker a > b,
-.xms-center-series-picker a > small {
+.xms-center-series-picker > div > a > b,
+.xms-center-series-picker > div > a > small {
   max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.xms-center-series-picker a > b {
+.xms-center-series-picker > div > a > b {
   color: inherit;
   font: inherit;
 }
 
-.xms-center-series-picker a > small {
+.xms-center-series-picker > div > a > small {
   color: #66747d;
   font: 700 7px/1 var(--font-mono, monospace);
   letter-spacing: .05em;
 }
 
-.xms-center-series-picker a.active > small {
+.xms-center-series-picker > div > a.active > small {
   color: color-mix(in srgb, var(--xms-accent, #ef4557) 55%, #fff);
 }
 
-.xms-center-series-picker a:hover {
+.xms-center-series-picker > div > a:hover {
   background: #1a2227 !important;
   color: #fff !important;
   transform: translateY(-1px);
 }
 
-.xms-center-series-picker a.active {
+.xms-center-series-picker > div > a.active {
   background: color-mix(in srgb, var(--xms-accent, #ef4557) 28%, #1a2025) !important;
   color: #fff !important;
   box-shadow: none !important;
@@ -141,11 +141,19 @@ body.motorsport-open .xms-center-shell {
 }
 
 .xms-center-identity {
+  position: relative;
+  isolation: isolate;
   display: flex;
-  min-height: 108px;
+  min-height: 210px;
   align-items: center;
   gap: 16px;
-  padding: 18px 4px 22px;
+  overflow: hidden;
+  padding: 34px 30px 48px;
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, #080c0ff2 0%, #080c0fdb 42%, #080c0f6b 70%, #080c0f1c 100%),
+    var(--xms-hero-photo) center 48% / cover no-repeat;
+  box-shadow: inset 0 0 0 1px #ffffff12, 0 24px 58px #0005;
 }
 
 .xms-center-mark {
@@ -210,6 +218,21 @@ body.motorsport-open .xms-center-shell {
 .xms-center-data-state.is-snapshot {
   background: #30291d;
   color: #e9bd75;
+}
+
+.xms-identity-photo-credit {
+  position: absolute;
+  right: 16px;
+  bottom: 13px;
+  color: #d8dfe3;
+  font: 700 8px/1.25 var(--font-mono, monospace);
+  text-decoration-color: #ffffff55;
+  text-underline-offset: 3px;
+}
+
+.xms-identity-photo-credit:hover,
+.xms-identity-photo-credit:focus-visible {
+  color: #fff;
 }
 
 .xms-center-tabs {
@@ -947,7 +970,7 @@ body.motorsport-open .xms-center-shell {
     margin: 2px 3px 7px !important;
   }
 
-  .xms-center-series-picker a {
+  .xms-center-series-picker > div > a {
     min-height: 44px !important;
     padding: 0 12px !important;
     font-size: 9px !important;
@@ -959,9 +982,13 @@ body.motorsport-open .xms-center-shell {
   }
 
   .xms-center-identity {
-    min-height: 94px;
-    align-items: flex-start;
-    padding: 14px 2px 17px;
+    min-height: 174px;
+    align-items: center;
+    padding: 24px 18px 42px;
+    border-radius: 14px;
+    background:
+      linear-gradient(90deg, #080c0ff2 0%, #080c0fd4 56%, #080c0f52 100%),
+      var(--xms-hero-photo) 58% center / cover no-repeat;
   }
 
   .xms-center-mark {
@@ -972,6 +999,16 @@ body.motorsport-open .xms-center-shell {
 
   .xms-center-data-state {
     display: none;
+  }
+
+  .xms-identity-photo-credit {
+    right: 12px;
+    bottom: 11px;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .xms-center-tabs {
@@ -1074,7 +1111,7 @@ body.motorsport-open .xms-center-shell {
 
 @media (forced-colors: active) {
   .xms-center-mark,
-  .xms-center-series-picker a.active,
+  .xms-center-series-picker > div > a.active,
   .xms-center-tabs button.active,
   .xms-ranking-classes button.active,
   .xms-center-error button {
@@ -1086,7 +1123,7 @@ body.motorsport-open .xms-center-shell {
   }
 }
 
-/* Editorial series atlas: readable broadcast graphics without synthetic photography. */
+/* Editorial series atlas: locally hosted, openly licensed real race photography. */
 .xms-center-series-picker {
   display: grid !important;
   width: min(1180px, calc(100% - 24px)) !important;
@@ -1117,56 +1154,103 @@ body.motorsport-open .xms-center-shell {
   overflow: visible !important;
 }
 
-.xms-center-series-picker a {
+.xms-center-series-picker > div > a {
   position: relative;
   isolation: isolate;
   display: grid !important;
   min-width: 0 !important;
-  min-height: 116px !important;
+  min-height: 152px !important;
   align-content: end !important;
   justify-content: stretch !important;
   gap: 5px !important;
   overflow: hidden;
-  padding: 48px 13px 13px !important;
+  padding: 76px 13px 14px !important;
   border-radius: 12px !important;
-  background: linear-gradient(145deg, #171e23, #0d1216) !important;
+  background: #0d1216 !important;
   color: #91a0a9 !important;
   white-space: normal !important;
   box-shadow: inset 0 0 0 1px #ffffff0a !important;
   transition: transform .18s ease, background-color .18s ease, box-shadow .18s ease !important;
 }
 
-.xms-center-series-picker a::before {
+.xms-center-series-picker > div > a::before {
   content: attr(data-mark);
   position: absolute;
   z-index: -1;
-  top: 10px;
+  top: 12px;
   right: 10px;
-  color: color-mix(in srgb, var(--series-accent) 72%, white);
-  font: 950 clamp(22px, 2.3vw, 34px)/1 var(--font-display);
+  color: #fff;
+  font: 950 clamp(18px, 2vw, 29px)/1 var(--font-display);
   letter-spacing: -.07em;
-  opacity: .92;
+  opacity: .94;
+  text-shadow: 0 2px 12px #000;
 }
 
-.xms-center-series-picker a::after {
+.xms-center-series-picker > div > a::after {
   content: "";
   position: absolute;
   z-index: -2;
   inset: 0;
   border-top: 3px solid var(--series-accent);
   background:
-    linear-gradient(115deg, transparent 0 61%, color-mix(in srgb, var(--series-accent) 14%, transparent) 61% 64%, transparent 64%),
-    repeating-linear-gradient(135deg, #ffffff05 0 1px, transparent 1px 12px);
+    linear-gradient(180deg, #05090d24 0%, #070b0f70 42%, #0b1015f5 83%, #0b1015 100%),
+    var(--series-photo) center / cover no-repeat;
+  filter: saturate(.9) contrast(1.04);
+  transition: transform .24s ease, filter .24s ease;
 }
 
-.xms-center-series-picker a > b,
-.xms-center-series-picker a > small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.xms-center-series-picker a > b { color: #f5f7f8 !important; font: 850 13px/1.05 var(--font-display) !important; letter-spacing: -.015em; }
-.xms-center-series-picker a > small { color: #75838c !important; font: 700 8px/1.1 var(--font-mono) !important; letter-spacing: .04em; text-transform: uppercase; }
-.xms-center-series-picker a.active > small { color: color-mix(in srgb, var(--series-accent) 62%, white) !important; }
-.xms-center-series-picker a:hover { transform: translateY(-3px); background: #182127 !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--series-accent) 30%, transparent), 0 14px 30px #0007 !important; }
-.xms-center-series-picker a.active { background: color-mix(in srgb, var(--series-accent) 17%, #12181c) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--series-accent) 54%, transparent), 0 16px 34px #0008 !important; }
-.xms-center-series-picker a:first-child { grid-column: span 2; }
+.xms-center-series-picker > div > a > b,
+.xms-center-series-picker > div > a > small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xms-center-series-picker > div > a > b { color: #f5f7f8 !important; font: 850 13px/1.05 var(--font-display) !important; letter-spacing: -.015em; }
+.xms-center-series-picker > div > a > small { color: #75838c !important; font: 700 8px/1.1 var(--font-mono) !important; letter-spacing: .04em; text-transform: uppercase; }
+.xms-center-series-picker > div > a.active > small { color: color-mix(in srgb, var(--series-accent) 62%, white) !important; }
+.xms-center-series-picker > div > a:hover { transform: translateY(-3px); background: #182127 !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--series-accent) 30%, transparent), 0 14px 30px #0007 !important; }
+.xms-center-series-picker > div > a:hover::after { transform: scale(1.035); filter: saturate(1.08) contrast(1.05); }
+.xms-center-series-picker > div > a.active { background: color-mix(in srgb, var(--series-accent) 17%, #12181c) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--series-accent) 54%, transparent), 0 16px 34px #0008 !important; }
+.xms-center-series-picker > div > a:first-child { grid-column: span 2; }
+
+.xms-photo-credits {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px 12px;
+  padding: 2px 2px 0;
+  color: #68757d;
+  font: 700 8px/1.55 var(--font-mono, monospace);
+}
+
+.xms-photo-credits > strong {
+  flex: 0 0 auto;
+  color: #9aa5ab;
+  letter-spacing: .1em;
+}
+
+.xms-photo-credits > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+}
+
+.xms-photo-credits a {
+  display: inline;
+  width: auto;
+  min-height: 0;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #7f8c94;
+  box-shadow: none;
+  text-decoration-color: #56636b;
+  text-underline-offset: 3px;
+  transition: color .18s ease;
+}
+
+.xms-photo-credits a:hover,
+.xms-photo-credits a:focus-visible { color: #dfe5e8; }
+.xms-photo-license { flex: 0 0 auto; }
 
 @media (max-width: 980px) {
   .xms-center-series-picker > div { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -1179,11 +1263,14 @@ body.motorsport-open .xms-center-shell {
   .xms-center-series-picker > header em { display: none; }
   .xms-center-series-picker > div { display: flex !important; gap: 8px !important; overflow-x: auto !important; padding: 2px 2px 9px !important; scroll-snap-type: x proximity; scrollbar-width: none; }
   .xms-center-series-picker > div::-webkit-scrollbar { display: none; }
-  .xms-center-series-picker a { width: 148px; min-height: 108px !important; flex: 0 0 148px !important; padding: 45px 12px 12px !important; scroll-snap-align: start; }
+  .xms-center-series-picker > div > a { width: 172px; min-height: 132px !important; flex: 0 0 172px !important; padding: 64px 12px 12px !important; scroll-snap-align: start; }
+  .xms-photo-credits { display: grid; gap: 5px; }
+  .xms-photo-credits > span { display: none; }
+  .xms-photo-license { justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xms-center-series-picker a { transition: none !important; }
+  .xms-center-series-picker > div > a { transition: none !important; }
 }
 
 /* The all-series identity is a tyre, not a placeholder abbreviation. */
