@@ -3984,3 +3984,51 @@ body.multisport-open{background:#080d11;}
   .multisport-hub[data-sport="basketball"],.multisport-hub[data-sport="volleyball"]{width:100%!important;padding-inline:16px!important;}
   .football-live-module .live-shell{padding:12px;}
 }
+
+/* Basketbol veri yüzeyi: boş tabloyu değil maçı öne çıkaran yayın düzeni. */
+.multisport-hub[data-sport="basketball"] .multisport-hero{
+  min-height:164px!important;padding:26px 30px!important;border-radius:16px;
+  background-position:center 58%!important;
+}
+.multisport-hub[data-sport="basketball"] .multisport-hero::before{height:58%;top:21%;opacity:.55;}
+.multisport-hub[data-sport="basketball"] .multisport-hero h1{font-size:clamp(34px,4vw,48px);}
+.basketball-league-identity{min-height:92px;padding-block:16px 20px;}
+.basketball-league-center.is-aggregate .basketball-standings-panel{display:none;}
+.basketball-league-center.is-aggregate .basketball-overview-layout{grid-template-columns:1fr;gap:0;margin-top:2px;}
+.basketball-league-center.is-aggregate .basketball-fixtures-panel>header{min-height:58px;}
+.basketball-league-center.is-aggregate .basketball-fixtures-body{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;background:transparent;border-radius:0;
+}
+.basketball-league-center.is-aggregate .basketball-fixture-row{
+  min-height:76px;padding:10px 14px;border-radius:13px;background:#10161a;
+  grid-template-columns:82px minmax(100px,1fr) 54px minmax(100px,1fr);
+}
+.basketball-league-center.is-aggregate .basketball-fixture-row:nth-child(even){background:#10161a;}
+.basketball-league-center.is-aggregate .basketball-fixture-row.is-live{background:linear-gradient(105deg,rgba(44,211,157,.15),#10161a 42%);}
+.basketball-fixture-state{display:grid;min-width:0;gap:5px;}
+.basketball-fixture-state>b{color:inherit;font:850 9px/1 var(--font-mono);}
+.basketball-fixture-state>small{overflow:hidden;color:#61707a;font:650 8px/1.25 var(--font-mono);text-overflow:ellipsis;white-space:nowrap;}
+.basketball-team-mark{position:relative;display:grid;width:30px;height:30px;flex:0 0 30px;place-items:center;}
+.basketball-team-mark img{z-index:1;width:100%;height:100%;object-fit:contain;background:transparent!important;filter:saturate(.84) contrast(.96);}
+.basketball-team-monogram{display:grid;width:28px;height:28px;place-items:center;border-radius:50%;background:#1d262c;color:#b9c4ca;font:850 8px/1 var(--font-mono);letter-spacing:-.04em;}
+.basketball-standing-team>.basketball-team-mark{width:30px;height:30px;flex-basis:30px;}
+.basketball-feature-match .basketball-team-mark{width:60px;height:60px;}
+.basketball-feature-match .basketball-team-monogram{width:58px;height:58px;font-size:13px;background:#1a2329;}
+.basketball-overview-metrics{gap:10px;margin:20px 0;}
+.basketball-overview-metrics article{min-height:88px;border-radius:13px;background:#10161a;}
+.basketball-lower{gap:18px;}
+.basketball-feature,.basketball-source-note{border-radius:14px;background:#10161a;}
+
+@media(max-width:900px){
+  .basketball-league-center.is-aggregate .basketball-fixtures-body{grid-template-columns:1fr;}
+}
+@media(max-width:640px){
+  .multisport-hub[data-sport="basketball"] .multisport-hero{min-height:142px!important;padding:26px 22px!important;}
+  .basketball-league-center.is-aggregate .basketball-fixture-row,.basketball-fixture-row{
+    grid-template-columns:58px minmax(72px,1fr) 42px minmax(72px,1fr);min-height:68px;padding:8px;
+  }
+  .basketball-team-mark{width:25px;height:25px;flex-basis:25px;}
+  .basketball-team-monogram{width:24px;height:24px;font-size:7px;}
+  .basketball-fixture-team strong{font-size:9px;}
+  .basketball-fixture-state>small{font-size:7px;}
+}

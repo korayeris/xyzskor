@@ -337,6 +337,11 @@
     return '';
   };
   const visual = (name, src, alt = name) => `<img src="${escapeHTML(src || visualFallback(name))}" data-fallback="${escapeHTML(visualFallback(name))}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="${escapeHTML(alt || '')}" loading="lazy">`;
+  const basketballVisual = (name, src) => {
+    const initials=String(name||'Takım').split(/\s+/).filter(Boolean).slice(0,2).map((part)=>part[0]).join('').toLocaleUpperCase('tr-TR');
+    const image=src ? `<img src="${escapeHTML(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true;this.nextElementSibling.hidden=false">` : '';
+    return `<span class="basketball-team-mark">${image}<span class="basketball-team-monogram"${src?' hidden':''} aria-hidden="true">${escapeHTML(initials||'B')}</span></span>`;
+  };
   const viewSlug = (view) => ({games:'maclar',leagues:'ligler',teams:'takimlar',predict:'predict'}[view] || '');
   const leagueSlug = (value) => String(value || '')
     .toLocaleLowerCase('tr-TR')
@@ -699,10 +704,10 @@
       const first=item.first||item.home||{},second=item.second||item.away||{};
       const live=basketballIsLive(item),finished=basketballIsFinished(item);
       return `<article class="basketball-fixture-row ${item?.archived?'is-archived':live?'is-live':finished?'is-finished':'is-upcoming'}">
-        <span class="basketball-fixture-state">${escapeHTML(basketballStatusLabel(item))}</span>
-        <span class="basketball-fixture-team home"><strong>${escapeHTML(first.name||'TBA')}</strong>${visual(first.name,imageOf(first),'')}</span>
+        <span class="basketball-fixture-state"><b>${escapeHTML(basketballStatusLabel(item))}</b><small>${escapeHTML(item?.league||'Basketbol')}</small></span>
+        <span class="basketball-fixture-team home"><strong>${escapeHTML(first.name||'TBA')}</strong>${basketballVisual(first.name,imageOf(first))}</span>
         <b>${escapeHTML(scoreText(item.score))}</b>
-        <span class="basketball-fixture-team away">${visual(second.name,imageOf(second),'')}<strong>${escapeHTML(second.name||'TBA')}</strong></span>
+        <span class="basketball-fixture-team away">${basketballVisual(second.name,imageOf(second))}<strong>${escapeHTML(second.name||'TBA')}</strong></span>
       </article>`;
     }).join('');
   }
@@ -724,7 +729,7 @@
     const team=row?.team||{};
     return `<tr class="basketball-standing-row">
       <td class="rank">${escapeHTML(row?.position||'—')}</td>
-      <th scope="row"><span class="basketball-standing-team">${visual(team.name,imageOf(team),'')}<span><strong>${escapeHTML(team.name||'Takım')}</strong>${row?.group?`<small>${escapeHTML(row.group)}</small>`:''}</span></span></th>
+      <th scope="row"><span class="basketball-standing-team">${basketballVisual(team.name,imageOf(team))}<span><strong>${escapeHTML(team.name||'Takım')}</strong>${row?.group?`<small>${escapeHTML(row.group)}</small>`:''}</span></span></th>
       <td>${escapeHTML(row?.played??0)}</td>
       <td>${escapeHTML(row?.won??0)}</td>
       <td>${escapeHTML(row?.lost??0)}</td>
@@ -737,9 +742,9 @@
     if(!featured) return '<div class="basketball-panel-empty">Günün vitrini için doğrulanmış karşılaşma bekleniyor.</div>';
     const first=featured.first||featured.home||{},second=featured.second||featured.away||{};
     return `<div class="basketball-feature-match">
-      <figure>${visual(first.name,imageOf(first),'')}<figcaption>${escapeHTML(first.name||'TBA')}</figcaption></figure>
+      <figure>${basketballVisual(first.name,imageOf(first))}<figcaption>${escapeHTML(first.name||'TBA')}</figcaption></figure>
       <div><small>${escapeHTML(basketballStatusLabel(featured))}</small><strong>${escapeHTML(scoreText(featured.score))}</strong><span>${escapeHTML(featured.time||featured.feedDate||'')}</span></div>
-      <figure>${visual(second.name,imageOf(second),'')}<figcaption>${escapeHTML(second.name||'TBA')}</figcaption></figure>
+      <figure>${basketballVisual(second.name,imageOf(second))}<figcaption>${escapeHTML(second.name||'TBA')}</figcaption></figure>
     </div>`;
   }
 
@@ -758,9 +763,9 @@
     const standingsMessage=coverageMissing
       ? 'Seçili lig bugünkü sağlayıcı kapsamında doğrulanmadığı için puan tablosu istenmedi.'
       : 'Ligleri karıştırmamak için toplu görünümde puan tablosu gösterilmez. Bir lig seçin.';
-    return `<section class="basketball-league-center" data-basketball-league-center data-basketball-standings-scope="${escapeHTML(scope)}" data-league-route="${escapeHTML(activeLeagueRoute)}">
+    return `<section class="basketball-league-center${league?'':' is-aggregate'}" data-basketball-league-center data-basketball-standings-scope="${escapeHTML(scope)}" data-league-route="${escapeHTML(activeLeagueRoute)}">
       <header class="basketball-league-identity">
-        <span class="basketball-league-logo">${league?visual(league.name,league.logo,''):'<b aria-hidden="true">B</b>'}</span>
+        ${league?`<span class="basketball-league-logo">${basketballVisual(league.name,league.logo)}</span>`:''}
         <div><small>XYZSKOR · BASKETBOL LİG MERKEZİ</small><h2 data-classification-title>${escapeHTML(title)}</h2><p>${escapeHTML(coverageMissing?'Bugünkü sağlayıcı programında bu lig için doğrulanmış karşılaşma yok.':[league?.country,league?.season||(!league?`${basketballLeagueDescriptors(payload?.sports?.basketball||[]).length} lig · Günlük program`:season)].filter(Boolean).join(' · '))}</p></div>
         <span class="basketball-data-state">${coverageMissing?'DOĞRULANMIŞ BOŞ KAPSAM':payload?.degraded||payload?.stale?'SON DOĞRULANMIŞ VERİ':'GÜNLÜK CANLI PROGRAM'}</span>
       </header>
@@ -776,7 +781,7 @@
           </div>
           <footer class="basketball-standings-status" role="status" aria-live="polite">${scope?'Resmî sıralama hazırlanıyor…':standingsMessage}</footer>
         </section>
-        <aside class="basketball-overview-panel basketball-fixtures-panel">
+        <aside class="basketball-overview-panel basketball-fixtures-panel${league?'':' is-wide'}">
           <header><div><small>MAÇ AKIŞI</small><h3>Sonuçlar ve fikstür</h3></div><span>${items.length} maç</span></header>
           <div class="basketball-fixtures-body">${basketballScheduleHTML(items)}</div>
         </aside>

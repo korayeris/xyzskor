@@ -192,6 +192,10 @@ try{
   assert.match(await page.locator('.basketball-source-note').innerText(),/Günlük toplu kapsam[\s\S]*Lig puan tabloları karıştırılmaz[\s\S]*bir lig seçilmeden sıralama gösterilmez/i,'Toplu veri notu günlük aggregate kapsamı ve standings sınırını dürüstçe açıklamalı.');
   assert.equal(await page.locator('.basketball-standing-row').count(),0,'Toplu görünüm farklı ligleri tek puan tablosunda karıştırmamalı.');
   assert.equal(await page.locator('.basketball-fixture-row').count(),6,'Toplu görünüm yalnız doğrulanmış günlük maçları aggregate edebilmeli.');
+  assert.equal(await page.locator('.basketball-league-center.is-aggregate').count(),1,'Toplu görünüm ayrı yayın düzeniyle işaretlenmeli.');
+  assert.equal(await page.locator('.basketball-standings-panel').isVisible(),false,'Lig seçilmeden boş puan tablosu ekran alanını işgal etmemeli.');
+  assert.equal(await page.locator('.basketball-fixture-row img[src^="data:image"]').count(),0,'Basketbol maç kartları sentetik SVG görsel üretmemeli.');
+  assert.ok(await page.locator('.basketball-fixture-row .basketball-team-monogram').count()>=2,'Gerçek logosu olmayan takımlar sade tipografik monogramla gösterilmeli.');
   assert.equal(requested.filter((path)=>path.startsWith('/api/sports/basketball/standings')).length,standingsBeforeAll,'Tümü görünümü ligleri karıştıran yeni standings isteği açmamalı.');
   await page.goBack();
   await page.waitForFunction(()=>document.querySelector('[data-basketball-league-center]')?.dataset.basketballStandingsScope==='112:2026');
