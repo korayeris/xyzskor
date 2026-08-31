@@ -101,7 +101,7 @@ const FOOTBALL_LEADERS_TTL_SECONDS = 2700;
 const FOOTBALL_LEADERS_STALE_SECONDS = 86400;
 const FOOTBALL_WEEKLY_TTL_SECONDS = 21600;
 const FOOTBALL_WEEKLY_STALE_SECONDS = 604800;
-const XYZ_PERFORMANCE_ALGORITHM_VERSION = "v1";
+const XYZ_PERFORMANCE_ALGORITHM_VERSION = "v2";
 
 // ===================== CANLI SKOR MİMARİSİ (bkz. docs/LIVE-SCORE-HANDOFF-2026-08-22.md) =====================
 // Yalnızca /api/football/live (5sn poll edilen uç) tarafından kullanılır.
@@ -2038,6 +2038,8 @@ function normalizeSportmonksTransfer(row, kind) {
     date: textValue(row?.date, row?.updated_at, row?.created_at),
     source,
     sourceUrl: row?.source_url || row?.url || row?.source?.url || null,
+    fromTeamId:String(row?.fromTeam?.id || row?.fromteam?.id || row?.from_team?.id || row?.from?.id || "") || null,
+    toTeamId:String(row?.toTeam?.id || row?.toteam?.id || row?.to_team?.id || row?.to?.id || "") || null,
     // Lig izolasyonu icin ham satirdaki lig kimligi normalize edilen kayitta korunur;
     // aksi halde transferLeagueId daima null doner ve lig filtresi olu kalir.
     provider_league_id: transferLeagueId(row) ? String(transferLeagueId(row)) : null,
@@ -2053,8 +2055,9 @@ async function handleFootballTransfers(request, env, context) {
   if (!league) return jsonResponse({ error:"invalid_league" }, 400, { "Cache-Control":"no-store" });
   const teamNames = (url.searchParams.get("teams") || "").split("|").map((name) => name.trim()).filter(Boolean);
   const teamSet = new Set(teamNames.map((name) => normalizedFootballName(name)));
+  const teamIdSet = new Set((url.searchParams.get("teamIds") || "").split("|").map((id)=>id.trim()).filter((id)=>/^\d+$/.test(id)));
   const cacheUrl = new URL(url);
-  cacheUrl.search = `?league=${encodeURIComponent(league)}&teams=${encodeURIComponent(teamNames.slice(0, 80).join("|"))}`;
+  cacheUrl.search = `?league=${encodeURIComponent(league)}&teams=${encodeURIComponent(teamNames.slice(0, 80).join("|"))}&teamIds=${encodeURIComponent([...teamIdSet].slice(0,80).join("|"))}`;
   const cache = edgeCache();
   const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
   const cached = await readEdgeCache(cache, cacheKey); if (cached) return cached;
@@ -2077,7 +2080,8 @@ async function handleFootballTransfers(request, env, context) {
     // Takım listesi henüz yüklenmediyse lig kimliği olmayan global transferleri
     // kabul etme. Aksi halde yeni lige ilk geçişte başka ülkelerin kayıtları
     // cache'e girip o ligde görünür kalıyordu.
-    if (!teamSet.size) return Boolean(rowLeagueId && leagueIdSet.has(String(rowLeagueId)));
+    if(teamIdSet.has(String(row.fromTeamId||""))||teamIdSet.has(String(row.toTeamId||""))) return true;
+    if (!teamSet.size&&!teamIdSet.size) return Boolean(rowLeagueId && leagueIdSet.has(String(rowLeagueId)));
     return teamSet.has(normalizedFootballName(row.from)) || teamSet.has(normalizedFootballName(row.to));
   };
   const payload = {
@@ -2085,6 +2089,7 @@ async function handleFootballTransfers(request, env, context) {
     league,
     leagueIds,
     scopeTeams: teamNames,
+    scopeTeamIds:[...teamIdSet],
     updatedAt: new Date().toISOString(),
     confirmed: confirmed.filter(inScope).slice(0, 24),
     rumours: rumours.filter(inScope).slice(0, 24),
@@ -2220,14 +2225,14 @@ function normalizeSportmonksFixtureDetails(fixture) {
     const player = row?.player || {};
     const team = teamById.get(String(row?.team_id || row?.participant_id)) || {};
     const position = row?.position || row?.detailedposition || row?.detailedPosition || {};
-    return { team:team.name || null, team_id:row?.team_id || row?.participant_id || null, player_id:row?.player_id || player.id || null, player_name:row?.player_name || player.display_name || player.common_name || player.name || null, player_image:player.image_path || row?.image_path || null, number:row?.jersey_number ?? null, position:position.name || position.code || null, formation_field:row?.formation_field || null, formation_position:row?.formation_position ?? null, is_official:true, is_captain:Boolean(row?.captain), is_keeper:/goal|keeper|kaleci/i.test(position.name || position.code || ""), type_id:row?.type_id ?? null };
+    return { team:team.name || null, team_id:row?.team_id || row?.participant_id || null, player_id:row?.player_id || player.id || null, player_name:row?.player_name || player.display_name || player.common_name || player.name || null, player_image:player.image_path || row?.image_path || null, number:row?.jersey_number ?? null, position:position.name || position.code || null, formation_field:row?.formation_field || null, formation_position:row?.formation_position ?? null, minutes:lineupMinutes(row), is_official:true, is_captain:Boolean(row?.captain), is_keeper:/goal|keeper|kaleci/i.test(position.name || position.code || ""), type_id:row?.type_id ?? null };
   }).filter((row) => row.team && row.player_name);
   const absences = relationRows(fixture?.sidelined).map((row) => {
     const player = row?.player || {};
     const team = teamById.get(String(row?.participant_id || row?.team_id)) || {};
     return { team:team.name || null, player_name:player.display_name || player.common_name || player.name || row?.player_name || null, reason:row?.reason || row?.description || row?.category || null, availability_status:row?.type?.name || row?.type || "other", verification_status:"provider", source:"Sportmonks" };
   }).filter((row) => row.team && row.player_name);
-  const events = relationRows(fixture?.events).map((row) => ({ id:row?.id || null, minute:row?.minute ?? row?.sort_order ?? null, participant_id:row?.participant_id || null, team:teamById.get(String(row?.participant_id))?.name || null, player:row?.player_name || row?.player?.display_name || row?.player?.name || null, player_image:row?.player?.image_path || null, relatedPlayer:row?.related_player_name || row?.relatedplayer?.display_name || null, type_id:row?.type_id ?? null, type:row?.type?.name || row?.type?.code || row?.type || row?.addition || "Olay", result:row?.result || null })).filter((row) => row.team || row.player);
+  const events = relationRows(fixture?.events).map((row) => ({ id:row?.id || null, minute:row?.minute ?? row?.sort_order ?? null, participant_id:row?.participant_id || null, player_id:row?.player_id || row?.player?.id || null, related_player_id:row?.related_player_id || row?.relatedplayer?.id || null, team:teamById.get(String(row?.participant_id))?.name || null, player:row?.player_name || row?.player?.display_name || row?.player?.name || null, player_image:row?.player?.image_path || null, relatedPlayer:row?.related_player_name || row?.relatedplayer?.display_name || null, type_id:row?.type_id ?? null, type:row?.type?.name || row?.type?.code || row?.type || row?.addition || "Olay", addition:row?.addition || null, result:row?.result || null })).filter((row) => row.team || row.player);
   const statistics = relationRows(fixture?.statistics).map((row) => { const location=String(row?.location || teamById.get(String(row?.participant_id))?.meta?.location || "").toLowerCase(); const team=teamById.get(String(row?.participant_id)) || (location === "home" ? participants.find((item)=>item?.meta?.location === "home") : location === "away" ? participants.find((item)=>item?.meta?.location === "away") : null); return { team:team?.name || null, participant_id:row?.participant_id || team?.id || null, location:location || null, type_id:row?.type_id ?? null, label:row?.type?.name || row?.type?.code || row?.name || null, value:row?.data?.value ?? row?.value ?? null }; }).filter((row) => row.label && row.value !== null);
   const xg = relationRows(fixture?.xgfixture || fixture?.xGFixture || fixture?.expected).map((row) => ({ participant_id:row?.participant_id || null, location:row?.location || teamById.get(String(row?.participant_id))?.meta?.location || null, value:Number(row?.data?.value ?? row?.value) })).filter((row) => Number.isFinite(row.value));
   const predictions = relationRows(fixture?.predictions).map((row) => ({ type_id:row?.type_id ?? null, predictions:row?.predictions || row?.data || null })).filter((row) => row.predictions);
@@ -2734,21 +2739,44 @@ function chooseWeeklyXI(players) {
   return best;
 }
 
+function weeklyLineupPosition(row, fixture, lineupRows) {
+  const declared = row?.detailedposition?.name || row?.detailedPosition?.name || row?.position?.name || row?.position || "";
+  const declaredGroup = playerPositionGroup(declared, row?.is_keeper || row?.isKeeper);
+  if (declaredGroup !== "unknown") return declaredGroup;
+  const teamId = String(row?.team_id || row?.participant_id || "");
+  const starters = relationRows(lineupRows)
+    .filter((item) => String(item?.team_id || item?.participant_id || "") === teamId && (Number(item?.type_id) === 11 || item?.formation_field != null))
+    .sort((left, right) => Number(left?.formation_field ?? left?.formation_position ?? 99) - Number(right?.formation_field ?? right?.formation_position ?? 99));
+  const index = starters.indexOf(row);
+  if (index < 0) return "unknown";
+  if (index === 0) return "goalkeeper";
+  const formationRow = relationRows(fixture?.formations).find((item) => String(item?.participant_id || item?.team_id || "") === teamId);
+  const bands = String(formationRow?.formation || "").split("-").map(Number).filter((value) => Number.isInteger(value) && value > 0);
+  if (bands.reduce((sum, value) => sum + value, 0) !== 10) return index <= 4 ? "defender" : index <= 8 ? "midfielder" : "forward";
+  if (index <= bands[0]) return "defender";
+  if (index <= bands.slice(0, -1).reduce((sum, value) => sum + value, 0)) return "midfielder";
+  return "forward";
+}
+
 function selectWeeklyRound(matches) {
   const rows = (Array.isArray(matches) ? matches : []).filter((match) => Number.isFinite(Number(match?.hafta)));
   const unavailable = (match) => /postpon|ertelen|cancel|iptal|abandon|askıya/i.test(String(match?.status || ""));
   const finished = (match) => !unavailable(match) && (Boolean(match?.result) || /bitti|finished|\bft\b|aet|pen/i.test(String(match?.status || "")));
-  const candidateRound = rows.filter(finished).reduce((max, match) => Math.max(max, Number(match.hafta) || 0), 0);
-  if (!candidateRound) return { roundId:0, matches:[], complete:false };
-  const roundMatches = rows.filter((match) => Number(match.hafta) === candidateRound);
-  return { roundId:candidateRound, matches:roundMatches, complete:roundMatches.length > 0 && roundMatches.every(finished) };
+  const roundIds=[...new Set(rows.map((match)=>Number(match.hafta)))].sort((left,right)=>right-left);
+  for(const roundId of roundIds){
+    const roundMatches=rows.filter((match)=>Number(match.hafta)===roundId);
+    if(roundMatches.length&&roundMatches.every(finished)) return {roundId,matches:roundMatches,complete:true};
+  }
+  const candidateRound=roundIds.find((roundId)=>rows.some((match)=>Number(match.hafta)===roundId&&finished(match)))||0;
+  return {roundId:candidateRound,matches:rows.filter((match)=>Number(match.hafta)===candidateRound),complete:false};
 }
 
 function scoreWeeklyFixture(fixture) {
   const participants=relationRows(fixture?.participants);
   const scoreByTeam=new Map(participants.map(team=>[String(team.id),sportmonksScore(fixture?.scores,team.id)]));
   const eventRows=[...new Map(relationRows(fixture?.events).map((event,index)=>[String(event?.id ?? `${event?.type_id}:${event?.player_id}:${event?.minute}:${index}`),event])).values()];
-  return relationRows(fixture?.lineups).map(row=>{
+  const lineupRows=relationRows(fixture?.lineups);
+  return lineupRows.map(row=>{
     const player=row?.player || {};
     const playerId=String(row?.player_id || player?.id || "");
     const teamId=String(row?.team_id || row?.participant_id || "");
@@ -2771,9 +2799,39 @@ function scoreWeeklyFixture(fixture) {
       events.redCard=0;
     }
     const result=Number.isFinite(ownScore)&&Number.isFinite(opponentScore)?(ownScore>opponentScore?"win":ownScore===opponentScore?"draw":"loss"):null;
-    const calculated=calculateXYZPerformanceScore({position:row?.detailedposition?.name || row?.position?.name, isKeeper:/goal|keeper/i.test(String(row?.detailedposition?.name||row?.position?.name||"")), minutes:lineupMinutes(row), events, teamResult:result, cleanSheet:Number(opponentScore)===0});
+    const inferredPosition=weeklyLineupPosition(row,fixture,lineupRows);
+    const calculated=calculateXYZPerformanceScore({position:inferredPosition, isKeeper:inferredPosition==="goalkeeper", minutes:lineupMinutes(row), events, teamResult:result, cleanSheet:Number(opponentScore)===0});
     return { playerId,playerName:row?.player_name||player?.display_name||player?.common_name||player?.name||`Oyuncu ${playerId}`,playerImage:player?.image_path||null,teamId,teamName:team?.name||null,teamImage:team?.image_path||null,...calculated,events,contributions:(events.goal||0)+(events.assist||0),fixtureId:String(fixture.id) };
   }).filter(player=>player.playerId&&player.minutes>0);
+}
+
+function weeklyFixtureFromArchive(archive) {
+  const body=archive?.body, fixture=body?.fixture, details=body?.details;
+  if(!fixture||!details) return null;
+  const homeId=fixture.home_team_id||fixture.home_provider_id||"home";
+  const awayId=fixture.away_team_id||fixture.away_provider_id||"away";
+  const lineups=relationRows(details.lineups).map(row=>({
+    player_id:row.player_id,player_name:row.player_name,team_id:row.team_id,type_id:row.type_id,
+    formation_field:row.formation_field,formation_position:row.formation_position,minutes_played:row.minutes,
+    player:{id:row.player_id,display_name:row.player_name,image_path:row.player_image},
+    position:{name:row.position},is_keeper:row.is_keeper
+  }));
+  const events=relationRows(details.events).map(row=>({
+    id:row.id,minute:row.minute,participant_id:row.participant_id,player_id:row.player_id,
+    related_player_id:row.related_player_id,type:row.type,addition:row.addition
+  }));
+  const result=fixture.result||{};
+  return {
+    id:String(fixture.provider_fixture_id||String(fixture.id||"").replace(/^sportmonks:/,"")),
+    participants:[
+      {id:homeId,name:fixture.ev||fixture.home_name||"Ev sahibi",image_path:fixture.home_logo,meta:{location:"home"}},
+      {id:awayId,name:fixture.konuk||fixture.away_name||"Deplasman",image_path:fixture.away_logo,meta:{location:"away"}}
+    ],
+    scores:[
+      {participant_id:homeId,description:"CURRENT",score:{goals:result.home}},
+      {participant_id:awayId,description:"CURRENT",score:{goals:result.away}}
+    ],lineups,events,formations:relationRows(details.formations)
+  };
 }
 
 async function persistWeeklyAwards(env,payload) {
@@ -2786,8 +2844,16 @@ async function persistWeeklyAwards(env,payload) {
 async function fetchWeeklyAwardsPayload(env,league,seasonBundle,token) {
   const selectedRound=selectWeeklyRound(seasonBundle.matches||[]),roundId=selectedRound.roundId,roundMatches=selectedRound.matches;
   if(!roundId||!roundMatches.length||!selectedRound.complete) return {league,leagueId:String(SELECTED_LEAGUE_IDS_BY_KEY[league][0]),seasonId:String(seasonBundle.seasonId),roundId:roundId?String(roundId):null,status:"provisional",algorithmVersion:XYZ_PERFORMANCE_ALGORITHM_VERSION,star:null,teamOfWeek:null,playerScores:[],fixtureIds:[],sourceUpdatedAt:seasonBundle.updatedAt||null,computedAt:new Date().toISOString(),reason:selectedRound.complete?"no_completed_round":"round_incomplete"};
-  const fixtureResults=await Promise.allSettled(roundMatches.map(match=>sportmonksFixtureRequest(`/fixtures/${encodeURIComponent(footballProviderFixtureId(match.id))}`,token)));
-  const fixtures=fixtureResults.filter(result=>result.status==="fulfilled").map(result=>relationRows(result.value.payload?.data)[0]).filter(Boolean);
+  const fixtureResults=await Promise.allSettled(roundMatches.map(async match=>{
+    const fixtureId=footballProviderFixtureId(match.id);
+    const archived=weeklyFixtureFromArchive(await readD1MatchArchive(env,fixtureId));
+    if(archived?.lineups?.length) return {fixture:archived,source:"archive"};
+    const response=await sportmonksFixtureRequest(`/fixtures/${encodeURIComponent(fixtureId)}`,token);
+    const fixture=relationRows(response.payload?.data)[0];
+    if(fixture) await persistD1MatchResource(env,fixtureId,league,fixture,normalizeSportmonksFixtureDetails(fixture));
+    return {fixture,source:"provider"};
+  }));
+  const fixtures=fixtureResults.filter(result=>result.status==="fulfilled").map(result=>result.value?.fixture).filter(Boolean);
   const scores=fixtures.flatMap(scoreWeeklyFixture);
   const aggregated=[...new Map(scores.map(score=>[score.playerId,[]])).entries()].map(([playerId])=>{
     const rows=scores.filter(score=>score.playerId===playerId),minutes=rows.reduce((sum,row)=>sum+row.minutes,0);
@@ -2795,7 +2861,7 @@ async function fetchWeeklyAwardsPayload(env,league,seasonBundle,token) {
     return base;
   }).sort((a,b)=>b.score-a.score||b.contributions-a.contributions||b.minutes-a.minutes||a.playerId.localeCompare(b.playerId));
   const status=fixtures.length===roundMatches.length?"published":"provisional";
-  const teamOfWeek=status==="published"?chooseWeeklyXI(aggregated):null;
+  const teamOfWeek=chooseWeeklyXI(aggregated);
   const payload={league,leagueId:String(SELECTED_LEAGUE_IDS_BY_KEY[league][0]),seasonId:String(seasonBundle.seasonId),roundId:String(roundId),status:status==="published"&&teamOfWeek?"published":"provisional",algorithmVersion:XYZ_PERFORMANCE_ALGORITHM_VERSION,star:aggregated[0]||null,teamOfWeek,playerScores:aggregated,fixtureIds:fixtures.map(row=>String(row.id)),source:"sportmonks-data-xyzskor-calculation",sourceUpdatedAt:seasonBundle.updatedAt||new Date().toISOString(),computedAt:new Date().toISOString(),isStale:false};
   if(payload.status==="published") await persistWeeklyAwards(env,payload).catch(()=>{});
   return payload;

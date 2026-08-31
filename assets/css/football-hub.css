@@ -488,6 +488,7 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .football-leader-list .player-photo,.weekly-star-person>span,.football-weekly-pitch article>span { display:grid; overflow:hidden; place-items:center; border-radius:50%; background:#1b2228; }
 .football-leader-list .player-photo { width:36px; height:36px; }
 .football-leader-list img,.weekly-star-person img,.football-weekly-pitch img { width:100%; height:100%; object-fit:cover; }
+.weekly-player-fallback { display:grid; width:100%; height:100%; place-items:center; border-radius:inherit; background:linear-gradient(145deg,#25313a,#131a20); color:#72e1bc; font:900 11px/1 var(--mono); font-style:normal; letter-spacing:.04em; }
 .football-leader-list li>span:nth-child(3) { display:grid; gap:3px; }
 .football-leader-list strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .football-leader-list small { color:#87949d; }
@@ -956,3 +957,11 @@ body .agenda-track { scrollbar-gutter:auto !important; }
   .weekly-challenge-status { background-color:#171d22 !important; }
   .instagram-feed-grid { background-color:#17191e !important; }
 }
+
+.league-overview-stories article.has-visual { display:grid; grid-template-columns:52px minmax(0,1fr); align-items:center; gap:12px; }
+.league-story-visual { display:grid; width:52px; height:52px; place-items:center; overflow:hidden; border-radius:14px; background:#182127; }
+.league-story-visual img { width:40px; height:40px; object-fit:contain; }
+.league-overview-transfer-list article { grid-template-columns:38px minmax(0,1fr) auto; align-items:center; gap:10px; }
+.league-overview-transfer-list .transfer-player-photo { width:38px; height:38px; }
+.league-overview-transfer-list article>div { display:grid; min-width:0; gap:3px; }
+.league-overview-transfer-list article small { overflow:hidden; color:#66737c; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }

@@ -71,7 +71,7 @@ assert.equal(calls.filter(path=>path.startsWith('/v3/football/topscorers/seasons
 calls=[];
 const weekly=await get('/api/football/weekly-awards?league=super-lig');
 assert.equal(weekly.response.status,200);
-assert.equal(weekly.payload.algorithmVersion,'v1');
+assert.equal(weekly.payload.algorithmVersion,'v2');
 assert.equal(weekly.payload.status,'published');
 assert.equal(weekly.payload.teamOfWeek.formation,'4-3-3');
 assert.equal(weekly.payload.teamOfWeek.players.length,11);
@@ -135,6 +135,7 @@ assert.equal(chooseWeeklyXI(pool(0,5,5,5)),null,'a team without a goalkeeper mus
 assert.equal(chooseWeeklyXI(pool(1,2,7,7)),null,'an invalid position pool must not invent players');
 
 assert.equal(selectWeeklyRound([{hafta:4,status:'finished',result:{home:1,away:0}},{hafta:4,status:'scheduled'}]).complete,false);
+assert.equal(selectWeeklyRound([{hafta:3,status:'finished',result:{home:1,away:0}},{hafta:3,status:'finished',result:{home:0,away:0}},{hafta:4,status:'finished',result:{home:2,away:1}},{hafta:4,status:'scheduled'}]).roundId,3,'current partial round must fall back to the latest fully completed round');
 assert.equal(selectWeeklyRound([{hafta:4,status:'finished',result:{home:1,away:0}},{hafta:4,status:'postponed',result:{home:0,away:0}}]).complete,false);
 assert.equal(selectWeeklyRound([{hafta:4,status:'finished',result:{home:1,away:0}},{hafta:4,status:'finished',result:{home:0,away:0}}]).complete,true);
 

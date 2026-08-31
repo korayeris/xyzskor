@@ -676,6 +676,14 @@ function leagueTeamNamesForKey(leagueKey){
   if(teamSet.size) return [...teamSet];
   return [];
 }
+function leagueTeamIdsForKey(leagueKey){
+  if(!leagueKey||leagueKey==='all') return [];
+  const ids=new Set();
+  const add=(value)=>{if(/^\d+$/.test(String(value||'')))ids.add(String(value));};
+  STANDINGS.filter(row=>competitionSlug(row.competition||row.league||row.tournament||row.source)===leagueKey).forEach(row=>add(row.provider_team_id));
+  MATCHES.filter(match=>competitionSlug(competitionName(match))===leagueKey).forEach(match=>{add(match.home_team_id);add(match.away_team_id);});
+  return [...ids];
+}
 function transferPlayerPhotoHTML(item){
   const initials=item.name.split(/\s+/).slice(0,2).map(part=>part[0]).join('');
   const photo=safeExternalURL(item.photo||TRANSFER_PLAYER_PHOTOS[item.name]);
@@ -728,9 +736,10 @@ function requestLeagueTransferFeed(leagueKey){
   if(leagueTransferCache.has(leagueKey)) return Promise.resolve(true);
   if(leagueTransferRequests.has(leagueKey)) return leagueTransferRequests.get(leagueKey);
   const teams=leagueTeamNamesForKey(leagueKey).slice(0,80).join('|');
+  const teamIds=leagueTeamIdsForKey(leagueKey).slice(0,80).join('|');
   const controller=typeof AbortController!=='undefined'?new AbortController():null;
   if(controller) leagueTransferControllers.set(leagueKey,controller);
-  const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal})
+  const request=fetch(`/api/football/transfers?league=${encodeURIComponent(leagueKey)}&teams=${encodeURIComponent(teams)}&teamIds=${encodeURIComponent(teamIds)}`,{headers:{Accept:'application/json'},cache:'no-store',signal:controller?.signal})
     .then(async response=>{
       const payload=await response.json().catch(()=>({}));
       if(!response.ok || payload?.league!==leagueKey) throw new Error(payload?.error||'transfer_feed_scope_mismatch');
@@ -1299,8 +1308,8 @@ function leagueEditorialBaseEntries(){
       source:summary.championNote||'Resmî sezon kaydı',
       label:'Sezon özeti',
       time:'',
-      image:null,
-      imageType:'none',
+      image:safeExternalURL(TEAM_CRESTS[summary.champion])||null,
+      imageType:'logo',
       sourceUrl:summary.sourceLinks?.[0]?.url || null,
       routeTarget:'standings'
     });
@@ -1315,8 +1324,8 @@ function leagueEditorialBaseEntries(){
       source:'Lig tablosu',
       label:'Tablo',
       time:'',
-      image:null,
-      imageType:'none',
+      image:safeExternalURL(first.team_logo||TEAM_CRESTS[first.team])||null,
+      imageType:'logo',
       routeTarget:'standings'
     });
   }
@@ -1328,8 +1337,8 @@ function leagueEditorialBaseEntries(){
       source:match.competition||label,
       label:index===0?'Maç takvimi':'Fikstür',
       time:match.kickoff||'',
-      image:null,
-      imageType:'none',
+      image:safeExternalURL(match.home_logo||TEAM_CRESTS[match.ev])||safeExternalURL(match.away_logo||TEAM_CRESTS[match.konuk])||null,
+      imageType:'logo',
       matchId:match.id,
       routeTarget:'matches'
     });
@@ -1342,8 +1351,8 @@ function leagueEditorialBaseEntries(){
       source:item.source||`${label} transfer kaydı`,
       label:'Transfer',
       time:'',
-      image:TRANSFER_PLAYER_PHOTOS[item.name]||null,
-      imageType:(TRANSFER_PLAYER_PHOTOS[item.name]?'portrait':'none'),
+      image:item.photo||TRANSFER_PLAYER_PHOTOS[item.name]||null,
+      imageType:(item.photo||TRANSFER_PLAYER_PHOTOS[item.name]?'portrait':'none'),
       sourceUrl:item.sourceUrl||null,
       routeTarget:'transfers'
     });
@@ -2102,7 +2111,13 @@ function leagueOverviewMetricCards(rows){
 function leagueOverviewLowerHTML(){
   const stories=leagueEditorialBaseEntries().slice(0,4);
   const transfers=leagueTransferRecords('confirmed').slice(0,4);
-  return `<section class="league-overview-panel"><header><div><small>LİG GÜNDEMİ</small><h2>Öne çıkanlar</h2></div><button type="button" onclick="openFootballSection('news')">Tüm haberler →</button></header><div class="league-overview-stories">${stories.length?stories.map(story=>`<article><span>${escapeHTML(story.label||'Gündem')}</span><h3>${escapeHTML(story.title)}</h3><p>${escapeHTML(story.text||'')}</p></article>`).join(''):footballEmpty('Gündem hazırlanıyor','Bu lig için doğrulanmış yeni kayıt geldiğinde burada görünecek.')}</div></section><aside class="league-overview-panel"><header><div><small>TRANSFER MERKEZİ</small><h2>Son işlemler</h2></div><button type="button" onclick="openFootballSection('transfers')">Tüm transferler →</button></header><div class="league-overview-transfer-list">${transfers.length?transfers.map(item=>`<article><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</span><b>${escapeHTML(item.fee||item.status||'')}</b></article>`).join(''):footballEmpty('Transfer kaydı bekleniyor','Sportmonks bu lig için doğrulanmış kayıt yayınladığında alan dolar.')}</div></aside>`;
+  const label=competitionLabelBySlug(activeFootballLeague);
+  const storyRows=stories.map(story=>{
+    const image=safeExternalURL(story.image);
+    return `<article class="${image?'has-visual':''}">${image?`<span class="league-story-visual"><img src="${escapeHTML(image)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`:''}<div><span>${escapeHTML(story.label||'Gündem')}</span><h3>${escapeHTML(story.title)}</h3><p>${escapeHTML(story.text||'')}</p></div></article>`;
+  }).join('');
+  const transferRows=transfers.map(item=>`<article>${transferPlayerPhotoHTML(item)}<div><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.from)} → ${escapeHTML(item.to)}</span><small>${escapeHTML(item.source||'Sportmonks')}</small></div><b>${escapeHTML(item.fee||item.status||'')}</b></article>`).join('');
+  return `<section class="league-overview-panel"><header><div><small>LİG GÜNDEMİ</small><h2>${escapeHTML(label)} gündemi</h2></div><button type="button" onclick="openFootballSection('news')">Tüm gündem →</button></header><div class="league-overview-stories">${storyRows||footballEmpty('Gündem hazırlanıyor','Bu lig için doğrulanmış fikstür, tablo veya resmî kayıt geldiğinde burada görünecek.')}</div></section><aside class="league-overview-panel"><header><div><small>TRANSFER MERKEZİ</small><h2>${escapeHTML(label)} işlemleri</h2></div><button type="button" onclick="openFootballSection('transfers')">Tüm transferler →</button></header><div class="league-overview-transfer-list">${transferRows||footballEmpty('Transfer kaydı bekleniyor','Sportmonks bu lig için doğrulanmış kayıt yayınladığında alan dolar.')}</div></aside>`;
 }
 function bindLeagueOverviewDOM(root,leagueKey){
   const tablists=[...root.querySelectorAll(':scope > .league-overview-tabs')];
@@ -2170,34 +2185,27 @@ function verifiedWeeklyPlayerImage(value){
 function weeklyPlayerVisual(player){
   const playerSrc=verifiedWeeklyPlayerImage(player?.playerImage);
   if(playerSrc) return `<img src="${escapeHTML(playerSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
-  return '';
+  const initials=String(player?.playerName||'Oyuncu').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toLocaleUpperCase('tr-TR');
+  return `<i class="weekly-player-fallback" aria-hidden="true">${escapeHTML(initials||'O')}</i>`;
 }
-// Lider listeleri yalnız resmî Sportmonks oyuncu fotoğrafı doğrulanmış
-// oyuncuları gösterir (uydurma/rastgele yüz kullanılmaz). Bu filtre gösterilen
-// ilk beşi ham istatistik ilk beşinden ayırabilir; bu durum kullanıcıdan
-// saklanmaz ve listenin başında açıkça etiketlenir.
+// Oyuncu fotoğrafı yalnız doğrulanmış Sportmonks dosyasından gelir. Fotoğraf
+// eksikliği sportif sıralamayı değiştirmez; görsel yerde güvenli baş harfler
+// kullanılır ve kapsam kullanıcıya açıkça belirtilir.
 function footballLeaderPhotoNoticeHTML(rawRows,picturedRows){
   const raw=Array.isArray(rawRows)?rawRows:[];
-  const pictured=Array.isArray(picturedRows)?picturedRows:[];
-  const shown=pictured.slice(0,5);
-  const rawTop=raw.slice(0,5);
-  const skipped=raw.length-pictured.length;
-  // Ham ilk beş ile gösterilen ilk beş aynı mı?
-  const identical=shown.length===rawTop.length&&shown.every((row,index)=>row?.playerId
-    ? row.playerId===rawTop[index]?.playerId
-    : row?.playerName===rawTop[index]?.playerName);
-  const detail=skipped>0
-    ? `Resmî fotoğrafı yayınlanmamış ${skipped} oyuncu listede gösterilmiyor; sıralama ham istatistik sıralamasından farklı olabilir.`
-    : 'Tüm sıralama resmî fotoğrafı doğrulanmış oyuncularla eksiksiz gösteriliyor.';
-  return `<p class="football-leader-photo-notice${identical&&!skipped?' is-complete':''}">`
-    + `<b>Fotoğraflı oyuncular</b>`
+  const missing=raw.filter(row=>!verifiedWeeklyPlayerImage(row?.playerImage)).length;
+  const detail=missing>0
+    ? `${missing} oyuncunun resmî fotoğrafı yayınlanmadığı için baş harfleri gösteriliyor; istatistik sıralaması aynen korunuyor.`
+    : 'Gösterilen oyuncuların resmî fotoğrafları doğrulandı.';
+  return `<p class="football-leader-photo-notice${missing?'':' is-complete'}">`
+    + `<b>Görsel kapsamı</b>`
     + `<span>${escapeHTML(detail)}</span>`
     + `</p>`;
 }
 function footballLeaderListHTML(rows,label){
   const rawRows=Array.isArray(rows)?rows:[];
-  const picturedRows=rawRows.filter(row=>verifiedWeeklyPlayerImage(row?.playerImage));
-  if(!picturedRows.length) return `<p class="football-weekly-empty">${escapeHTML(label)} için resmî oyuncu görselleri henüz yayınlanmadı.</p>`;
+  const picturedRows=rawRows;
+  if(!picturedRows.length) return `<p class="football-weekly-empty">${escapeHTML(label)} için doğrulanmış oyuncu verisi henüz yayınlanmadı.</p>`;
   const cardTone=/sarı/i.test(label)?'yellow':/kırmızı/i.test(label)?'red':'';
   return footballLeaderPhotoNoticeHTML(rawRows,picturedRows)
     + `<ol class="football-leader-list">${picturedRows.slice(0,5).map((row,index)=>`<li><span class="rank">${index+1}</span><span class="player-photo">${weeklyPlayerVisual(row)}</span><span><strong>${escapeHTML(row.playerName)}</strong><small>${escapeHTML(row.teamName||'Takım bilgisi bekleniyor')}</small></span><b class="${cardTone?'card-total':''}">${cardTone?`<i class="leader-card-icon ${cardTone}" aria-hidden="true"></i>`:''}${escapeHTML(row.total)}</b></li>`).join('')}</ol>`;
@@ -2212,12 +2220,12 @@ function footballTeamOfWeekHTML(team,playerPool=FOOTBALL_WEEKLY_FEATURES?.awards
   const formationSlots={"4-3-3":{goalkeeper:1,defender:4,midfielder:3,forward:3},"4-4-2":{goalkeeper:1,defender:4,midfielder:4,forward:2},"3-4-3":{goalkeeper:1,defender:3,midfielder:4,forward:3}};
   const slots=formationSlots[team.formation]||formationSlots["4-4-2"];
   const candidates=[...team.players,...(Array.isArray(playerPool)?playerPool:[])]
-    .filter(player=>player?.playerId&&verifiedWeeklyPlayerImage(player.playerImage))
+    .filter(player=>player?.playerId)
     .sort((a,b)=>Number(b.score)-Number(a.score)||Number(b.contributions||0)-Number(a.contributions||0)||Number(b.minutes||0)-Number(a.minutes||0));
   const used=new Set();
   const rows=Object.entries(slots).flatMap(([position,count])=>candidates.filter(player=>player.position===position&&!used.has(String(player.playerId))).slice(0,count).map(player=>{used.add(String(player.playerId));return player;}))
     .sort((a,b)=>(order[a.position]??9)-(order[b.position]??9)||b.score-a.score);
-  if(rows.length!==11) return '<p class="football-weekly-empty">Resmî oyuncu fotoğraflarıyla doğrulanmış 11 henüz tamamlanmadı.</p>';
+  if(rows.length!==11) return '<p class="football-weekly-empty">Pozisyonu ve oynama süresi doğrulanmış 11 henüz tamamlanmadı.</p>';
   const average=(rows.reduce((sum,player)=>sum+Number(player.score||0),0)/rows.length).toFixed(1);
   const clubs=new Set(rows.map(player=>player.teamId||player.teamName).filter(Boolean)).size;
   const top=[...rows].sort((a,b)=>Number(b.score)-Number(a.score))[0];
@@ -2228,13 +2236,13 @@ function footballTeamOfWeekHTML(team,playerPool=FOOTBALL_WEEKLY_FEATURES?.awards
   const uniqueRaw=new Set(rawPool.map(player=>String(player.playerId))).size;
   const uniquePictured=new Set(candidates.map(player=>String(player.playerId))).size;
   const withoutPhoto=Math.max(0,uniqueRaw-uniquePictured);
-  const photoNotice=`<p class="football-leader-photo-notice"><b>Fotoğraflı oyuncular</b><span>${escapeHTML(withoutPhoto>0
-    ? `Resmî fotoğrafı yayınlanmamış ${withoutPhoto} aday 11'e alınmadı; her pozisyon aynı pozisyondaki fotoğraflı en yüksek puanlı adayla tamamlandı. Sportif sıralama ham puan sıralamasından farklı olabilir.`
-    : 'Tüm adayların resmî fotoğrafı doğrulandı; 11 ham puan sıralamasıyla birebir örtüşüyor.')}</span></p>`;
+  const photoNotice=`<p class="football-leader-photo-notice"><b>Görsel kapsamı</b><span>${escapeHTML(withoutPhoto>0
+    ? `${withoutPhoto} oyuncunun resmî fotoğrafı yayınlanmadığı için ad baş harfleri gösteriliyor; sportif seçim fotoğraf kapsamından etkilenmiyor.`
+    : 'Tüm seçili oyuncuların resmî fotoğrafı doğrulandı.')}</span></p>`;
   return `<div class="football-weekly-team-layout">${pitch}<aside class="football-weekly-team-summary"><small>XYZSKOR 11</small><h3>${escapeHTML(team.formation)}</h3><dl><div><dt>Ortalama puan</dt><dd>${escapeHTML(average)}</dd></div><div><dt>Temsil edilen kulüp</dt><dd>${escapeHTML(clubs)}</dd></div><div><dt>En yüksek puan</dt><dd>${escapeHTML(Number(top?.score||0).toFixed(1))}</dd></div></dl>${top?`<div class="weekly-team-mvp"><span>${weeklyPlayerVisual(top)}</span><p><small>11'İN LİDERİ</small><strong>${escapeHTML(top.playerName)}</strong><em>${escapeHTML(top.teamName||'')}</em></p></div>`:''}${photoNotice}</aside></div>`;
 }
 function footballWeeklyCategoryPlayers(players){
-  const rows=Array.isArray(players)?players.filter(player=>player&&Number.isFinite(Number(player.score))&&verifiedWeeklyPlayerImage(player.playerImage)):[];
+  const rows=Array.isArray(players)?players.filter(player=>player&&Number.isFinite(Number(player.score))):[];
   const sorted=input=>[...input].sort((a,b)=>Number(b.score)-Number(a.score)||Number(b.contributions||0)-Number(a.contributions||0)||Number(b.minutes||0)-Number(a.minutes||0)||String(a.playerId||'').localeCompare(String(b.playerId||'')));
   const best=filter=>sorted(rows.filter(filter))[0]||null;
   const byEvent=kind=>[...rows].sort((a,b)=>Number(b.events?.[kind]||0)-Number(a.events?.[kind]||0)||Number(b.score)-Number(a.score)||String(a.playerId||'').localeCompare(String(b.playerId||'')))[0]||null;
@@ -2258,7 +2266,7 @@ function renderFootballWeeklyFeatures(){
   if(state.league!==activeFootballLeague||state.status==='idle'||state.status==='loading'){root.innerHTML='<p class="football-weekly-status">Liderler ve haftalık performanslar hazırlanıyor…</p>';root.setAttribute('aria-busy','true');return;}
   root.setAttribute('aria-busy','false');
   if(state.status==='error'){root.innerHTML='<p class="football-weekly-status is-error">Sağlayıcı verisi şu anda doğrulanamadı. Bu durum “veri yok” olarak gösterilmedi; son doğrulanmış kayıt geldiğinde alan yenilenecek.</p>';return;}
-  const leaders=state.leaders||{},awards=state.awards||{},star=verifiedWeeklyPlayerImage(awards.star?.playerImage)?awards.star:(awards.playerScores||[]).find(player=>verifiedWeeklyPlayerImage(player?.playerImage))||null;
+  const leaders=state.leaders||{},awards=state.awards||{},star=awards.star||(awards.playerScores||[])[0]||null;
   const stateBadge={ready:'Güncel',stale:'Son doğrulanmış veri',degraded:'Sağlayıcı geçici hatası · doğrulanmış veri', 'verified-empty':'Doğrulanmış boş sonuç'}[state.status]||'';
   root.innerHTML=`<div class="football-weekly-head"><div><small>XYZSKOR VERİ LABORATUVARI</small><h2>Sezon liderleri ve haftanın oyuncuları</h2><p>Sportmonks verilerinden XYZSkor tarafından hesaplandı · ${escapeHTML(awards.algorithmVersion||'v1')}</p></div>${stateBadge?`<span class="weekly-data-state">${escapeHTML(stateBadge)}</span>`:''}</div><div class="football-leader-tabs" role="tablist" aria-label="Liderlik türü"><button class="active" type="button" role="tab" aria-selected="true" data-leader-tab="goals">Gol</button><button type="button" role="tab" aria-selected="false" data-leader-tab="assists">Asist</button><button type="button" role="tab" aria-selected="false" data-leader-tab="yellowCards">Sarı kart</button><button type="button" role="tab" aria-selected="false" data-leader-tab="redCards">Kırmızı kart</button></div><div class="football-weekly-grid"><section class="football-leaders-pane" data-leader-pane>${footballLeaderListHTML(leaders.goals,'Gol liderliği')}</section><section class="football-weekly-star"><small>TUR ${escapeHTML(awards.roundId||'—')} · HAFTANIN YILDIZI</small>${star?`<div class="weekly-star-person"><span>${verifiedWeeklyPlayerImage(star.playerImage)?`<img src="${escapeHTML(verifiedWeeklyPlayerImage(star.playerImage))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'👤'}</span><div><h3>${escapeHTML(star.playerName)}</h3><p>${escapeHTML(star.teamName||'')} · ${escapeHTML(star.position||'')}</p></div><b>${escapeHTML(Number(star.score).toFixed(1))}</b></div><details><summary>Puan nasıl oluştu?</summary><div class="weekly-score-breakdown">${footballScoreBreakdownHTML(star.breakdown)}</div><p>Hazır sağlayıcı rating'i kullanılmaz. Puan; süre, gol, asist, maç sonucu, gol yememe ve kart olaylarından deterministik hesaplanır.</p></details>`:'<p class="football-weekly-empty">Tamamlanmış turun doğrulanmış oyuncu verisi bekleniyor.</p>'}</section></div><section class="football-weekly-categories"><header><div><small>TUR ${escapeHTML(awards.roundId||'—')} · KATEGORİ ÖDÜLLERİ</small><h2>Haftanın oyuncuları</h2></div></header>${footballWeeklyCategoriesHTML(awards.playerScores)}</section><section class="football-team-week"><header><div><small>${escapeHTML(awards.teamOfWeek?.formation||'GEÇERLİ 11 BEKLENİYOR')}</small><h2>Haftanın takımı</h2></div><a href="/legal/data-sources.html">Metodoloji ve kaynak</a></header>${footballTeamOfWeekHTML(awards.teamOfWeek)}</section>`;
   root.querySelectorAll('[data-leader-tab]').forEach(button=>button.addEventListener('click',()=>{root.querySelectorAll('[data-leader-tab]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});const metric=button.dataset.leaderTab,label={goals:'Gol liderliği',assists:'Asist liderliği',yellowCards:'Sarı kart liderliği',redCards:'Kırmızı kart liderliği'}[metric];const pane=root.querySelector('[data-leader-pane]');if(pane)pane.innerHTML=footballLeaderListHTML(leaders[metric],label);}));

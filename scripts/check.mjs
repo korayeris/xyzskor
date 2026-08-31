@@ -119,7 +119,7 @@ for (const routedClientFile of ['branch-router.js']) {
 }
 assert.doesNotMatch(clientJsFingerprintList, /general-home\.js/, 'Kaldirilan genel kart modulu production parmak izine girmemeli.');
 assert.match(workerSource, /handleFootballLeaders[\s\S]*handleFootballWeeklyAwards/, 'Haftalık futbol API uçları worker tarafında bulunmalı.');
-assert.match(workerSource, /XYZ_PERFORMANCE_ALGORITHM_VERSION\s*=\s*"v1"/, 'XYZ performans algoritması sürümlenmeli.');
+assert.match(workerSource, /XYZ_PERFORMANCE_ALGORITHM_VERSION\s*=\s*"v2"/, 'XYZ performans algoritması sürümlenmeli.');
 assert.match(dataSource, /loadFootballWeeklyFeatures[\s\S]*football\/leaders[\s\S]*football\/weekly-awards/, 'Haftalık modül yalnız kendi iki kapsam ucunu kullanmalı.');
 assert.match(appSource, /IntersectionObserver[\s\S]*footballWeeklyFeatures/, 'Haftalık modül viewport yakınında lazy yüklenmeli.');
 assert.match(weeklyMigration, /unique \(league_id, season_id, round_id, player_id, algorithm_version\)/i, 'Haftalık oyuncu skorları idempotent anahtarla korunmalı.');
@@ -351,13 +351,14 @@ assert.match(appSource, /function xSourceLicenceNoteHTML\(\)[\s\S]*icerik-ve-kay
 assert.match(appSource, /xEmptyFeedHTML\(clubs,label,code\)\+xSourceLicenceNoteHTML\(\)/, 'Kaynak/lisans notu hata durumunda da gösterilmeli.');
 assert.match(appSource, /item\.sourceUrl&&item\.sourceUrl!=='#'[\s\S]{0,400}transfer-record-source is-unlinked/, 'Transfer kaydı doğrulanmamış kaynak icin `#` hedefli ölü bağlantı yerine düz metin kaynak göstermeli.');
 
-// P1.3/P1.4 fotoğraf kapsamı şeffaflığı: resmî fotoğrafı olmayan gerçek lider
-// atlanabildiği için sıralamanın fotoğrafla filtrelendiği açıkça etiketlenmeli.
+// Fotoğraf kapsamı şeffaflığı: resmî fotoğrafı olmayan gerçek lider atlanmaz;
+// güvenli baş harflerle gösterilir ve sıralamanın korunduğu açıkça belirtilir.
 assert.match(appSource, /function footballLeaderPhotoNoticeHTML\(/, 'Lider listeleri fotoğraf kapsamı etiketi üretmeli.');
-assert.match(liveFunctionSource('footballLeaderPhotoNoticeHTML'), /Fotoğraflı oyuncular/, 'Fotoğraf kapsamı etiketi kullanıcıya açık metinle sunulmalı.');
-assert.match(liveFunctionSource('footballLeaderPhotoNoticeHTML'), /ham istatistik sıralamasından farklı olabilir/, 'Etiket, sıralamanın ham istatistikten sapabileceğini açıkça söylemeli.');
-assert.match(liveFunctionSource('footballLeaderListHTML'), /footballLeaderPhotoNoticeHTML\(rawRows,picturedRows\)/, 'Lider listesi etiketi ham ve fotoğraflı satır sayılarıyla hesaplamalı.');
-assert.match(liveFunctionSource('footballTeamOfWeekHTML'), /Fotoğraflı oyuncular[\s\S]*11'e alınmadı/, 'Haftanın 11\'i fotoğraf kapsamı nedeniyle değişen sıralamayı açıkça bildirmeli.');
+assert.match(liveFunctionSource('footballLeaderPhotoNoticeHTML'), /Görsel kapsamı/, 'Fotoğraf kapsamı etiketi kullanıcıya sunulmalı.');
+assert.match(liveFunctionSource('footballLeaderPhotoNoticeHTML'), /istatistik sıralaması aynen korunuyor/, 'Eksik fotoğraf istatistik sıralamasını değiştirmemeli.');
+assert.doesNotMatch(liveFunctionSource('footballLeaderListHTML'), /filter\(row=>verifiedWeeklyPlayerImage/, 'Lider listesi eksik fotoğraf yüzünden gerçek oyuncuyu atlamamalı.');
+assert.match(liveFunctionSource('footballLeaderListHTML'), /footballLeaderPhotoNoticeHTML\(rawRows,picturedRows\)/, 'Lider listesi görsel kapsamı etiketini üretmeli.');
+assert.match(liveFunctionSource('footballTeamOfWeekHTML'), /Görsel kapsamı[\s\S]*sportif seçim fotoğraf kapsamından etkilenmiyor/, 'Haftanın 11\'i eksik fotoğraf yüzünden sportif sıralamayı değiştirmemeli.');
 assert.match(footballHubCss, /football-leader-photo-notice/, 'Fotoğraf kapsamı etiketi için stil tanımlanmalı.');
 assert.match(appCss, /club-social-card\.has-media \.club-social-copy\{height:82px;min-height:82px/, 'Masaüstü X kartlarında medya başlangıç çizgisi eşitlenmeli.');
 assert.match(appCss, /club-social-media\.items-3\{grid-template-columns:minmax\(0,1\.28fr\) minmax\(0,\.72fr\)/, 'Üç görselli X gönderisi dengeli bir ana görsel kompozisyonu kullanmalı.');
