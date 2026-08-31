@@ -137,6 +137,13 @@ function seasonPayload(league = 'super-lig') {
       ev: scope.teams[2], konuk: scope.teams[3], home_name: scope.teams[2], away_name: scope.teams[3],
       kickoff: new Date(now + 86_400_000).toISOString(), status: 'scheduled', verified: true,
     },
+    {
+      id: `sportmonks:${scope.id}03`, provider_fixture_id: `${scope.id}03`,
+      league_key: league, provider_league_id: scope.id, competition: scope.label,
+      ev: scope.teams[0], konuk: scope.teams[2], home_name: scope.teams[0], away_name: scope.teams[2],
+      kickoff: new Date(now - 86_400_000).toISOString(), status: 'finished', verified: true,
+      result: { home: 2, away: 1 },
+    },
   ];
   const standings = scope.teams.map((team, index) => ({
     team, played: 4, won: Math.max(0, 4 - index), drawn: index ? 1 : 0, lost: index,
@@ -561,6 +568,25 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
   check(state.title === 'Futbol · 5 Lig — XYZSKOR' && /Süper Lig/.test(state.description), `${scenario}: football root metadata is current`, JSON.stringify(state));
   check(fragments.marker && fragments.missing.length === 0, `${scenario}: canonical fragments restored`, fragments.missing.join(', '));
 
+  await page.click('[data-scoreboard-filter="finished"]');
+  const pastFilter = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#footballScoreboardHome .scoreboard-match-row')];
+    const groups = [...document.querySelectorAll('#footballScoreboardHome .scoreboard-league-group')];
+    const visibleRows = rows.filter((row) => getComputedStyle(row).display !== 'none');
+    const visibleGroups = groups.filter((group) => getComputedStyle(group).display !== 'none');
+    return {
+      visibleRows: visibleRows.length,
+      onlyFinished: visibleRows.every((row) => row.classList.contains('finished')),
+      predictionCards: visibleRows.filter((row) => row.querySelector('.scoreboard-predict:not(.is-detail)')).length,
+      hiddenUpcoming: rows.filter((row) => row.classList.contains('upcoming') && getComputedStyle(row).display === 'none').length,
+      visibleGroups: visibleGroups.length,
+      identifiedGroups: visibleGroups.filter((group) => group.dataset.scoreboardLeague && group.querySelector('.scoreboard-league-head h2') && group.querySelector('.scoreboard-league-head small')).length,
+    };
+  });
+  check(pastFilter.visibleRows === 5 && pastFilter.onlyFinished && pastFilter.predictionCards === 0 && pastFilter.hiddenUpcoming === 10, `${scenario}: past filter shows only completed matches`, JSON.stringify(pastFilter));
+  check(pastFilter.visibleGroups === 5 && pastFilter.identifiedGroups === 5, `${scenario}: past results remain visibly separated by league`, JSON.stringify(pastFilter));
+  await page.click('[data-scoreboard-filter="all"]');
+
   await page.waitForSelector('#accountBtn', { state: 'visible', timeout: 8_000 });
   await page.click('#accountBtn');
   await page.waitForFunction(() => document.getElementById('accountOverlay')?.classList.contains('show'));
@@ -628,11 +654,11 @@ async function smokeRoot(context, viewportName, requestLog, runtimeErrors) {
 }
 
 async function smokeLeague(context, viewportName, requestLog, runtimeErrors) {
-  const scenario = `${viewportName} /super-lig`;
+  const scenario = `${viewportName} /premier-league`;
   const page = await context.newPage();
   watchErrors(page, scenario, runtimeErrors);
   const requestStart = requestLog.length;
-  await page.goto(`${BASE}/super-lig`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/premier-league`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => (
     document.querySelectorAll('#footballLeagueOverview [data-league-overview-team]').length > 0
     && document.querySelectorAll('#footballLeagueOverview [data-league-overview-match]').length > 0
@@ -687,6 +713,7 @@ async function smokeLeague(context, viewportName, requestLog, runtimeErrors) {
       mode: document.body.classList.contains('football-league-overview-mode'),
       league: document.body.dataset.footballLeague || document.body.dataset.footballLeagueLoading || '',
       heading: document.querySelector('#footballLeagueOverview h1')?.textContent?.trim() || '',
+      aggregateHidden: getComputedStyle(document.getElementById('footballScoreboardHome')).display === 'none',
       tableRows: document.querySelectorAll('#footballLeagueOverview [data-league-overview-team]').length,
       fixtures: document.querySelectorAll('#footballLeagueOverview [data-league-overview-match]').length,
       matchdayCommand: Boolean(document.getElementById('matchdayCommand')),
@@ -700,6 +727,7 @@ async function smokeLeague(context, viewportName, requestLog, runtimeErrors) {
     };
   });
   check(state.mode && state.tableRows > 0 && state.fixtures > 0, `${scenario}: populated league shell`, JSON.stringify(state));
+  check(state.league === 'premier-league' && /Premier League/.test(state.heading) && state.aggregateHidden, `${scenario}: league detail is isolated from the aggregate scoreboard`, JSON.stringify(state));
   check(!state.matchdayCommand, `${scenario}: fixture-less league omits matchday command`);
   check(
     Object.values(state.structuralHairlines).every((item) => item.exists && item.hidden),
@@ -731,8 +759,10 @@ async function smokeExplicitFixture(context, viewportName, requestLog, runtimeEr
     command: Boolean(document.getElementById('matchdayCommand')),
     liveRoot: Boolean(document.getElementById('matchdayLiveRoot')),
     title: document.getElementById('matchdayTitle')?.textContent?.trim() || '',
+    ticker: document.getElementById('liveTicker')?.textContent?.replace(/\s+/g, ' ').trim() || '',
   }));
   check(state.command && state.liveRoot, `${scenario}: matchday fragment command exists`, JSON.stringify(state));
+  check(/MAÇ MERKEZİ/.test(state.ticker) && !/Henüz fikstür eklenmedi/.test(state.ticker), `${scenario}: detail ticker describes the match center`, state.ticker);
   const matchdayRequests = requestLog.slice(requestStart).filter((item) => item.url.startsWith('/api/football/matchday'));
   check(matchdayRequests.some((item) => item.url.includes('fixture=60001')), `${scenario}: fixture-scoped matchday request issued`, matchdayRequests.map((item) => item.url).join(', '));
   await page.close();

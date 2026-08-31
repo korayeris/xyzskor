@@ -56,6 +56,7 @@
     document.body.classList.toggle("matchday-detail-open", active);
     command.hidden = false;
     backButton.hidden = !active;
+    if (typeof renderTicker === "function") renderTicker();
     if (!active) clearTimeout(timer);
   }
   function matchdayDemandActive(){

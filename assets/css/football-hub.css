@@ -396,12 +396,16 @@ body.football-league-overview-mode #page-story { background:radial-gradient(circ
 .scoreboard-filters button { min-height:40px; padding:0 12px; border:0; border-radius:9px; background:transparent; color:#94a0a8; font-size:10px; font-weight:800; transition:background-color .18s ease,color .18s ease; }
 .scoreboard-filters button:hover { background:#1a2127; color:#fff; }
 .scoreboard-filters button.active { background:#f15d72; color:#fff; box-shadow:0 7px 18px #f15d722b; }
-.scoreboard-league-group { margin:0 0 22px; border:0; }
-.scoreboard-league-head { min-height:38px; padding:0 8px 6px; border-radius:0; background:transparent; }
-.scoreboard-league-head h2 { font-size:13px; letter-spacing:.01em; }
+.scoreboard-league-group { margin:0 0 18px; padding:14px; border:0; border-radius:16px; background:linear-gradient(145deg,#10171c,#0d1216); }
+.scoreboard-league-head { min-height:52px; align-items:flex-end; gap:14px; padding:0 2px 10px; border-radius:0; background:transparent; }
+.scoreboard-league-head>div { display:grid; min-width:0; gap:3px; }
+.scoreboard-league-head>div>span { overflow:hidden; color:#ef7082; font:900 8px/1.2 var(--mono); letter-spacing:.12em; text-overflow:ellipsis; white-space:nowrap; }
+.scoreboard-league-head h2 { margin:0; font-size:16px; letter-spacing:.01em; }
+.scoreboard-league-head small { color:#76838c; font-size:9px; font-weight:700; }
 .scoreboard-league-head button,
-.scoreboard-league-head .scoreboard-early-action { color:#72dcb9; }
+.scoreboard-league-head .scoreboard-early-action { flex:0 0 auto; color:#72dcb9; text-align:right; }
 .scoreboard-match-row { position:relative; display:block; min-height:62px; margin:5px 0; overflow:hidden; border:0; border-radius:11px; background:#14191e; transition:background-color .18s ease,transform .18s ease,opacity .18s ease; }
+.scoreboard-match-row[hidden],.scoreboard-league-group[hidden] { display:none!important; }
 .scoreboard-match-row::before { display:none; content:none; }
 .scoreboard-match-row:hover { background:#1a2026; transform:translateY(-1px); }
 .scoreboard-match-row.live,
@@ -613,6 +617,11 @@ body > .live-ticker { border:0 !important; background:#0b0e11 !important; }
   .scoreboard-fixtures > header { padding:10px 2px; }
   .scoreboard-filters { grid-template-columns:repeat(4,minmax(0,1fr)); width:100%; margin-bottom:16px; padding:4px; }
   .scoreboard-filters button { min-width:0; min-height:44px; padding:0 4px; }
+  .scoreboard-league-group { margin-bottom:14px; padding:10px 8px; border-radius:13px; }
+  .scoreboard-league-head { min-height:50px; gap:8px; padding:0 4px 8px; }
+  .scoreboard-league-head h2 { font-size:15px; }
+  .scoreboard-league-head button,
+  .scoreboard-league-head .scoreboard-early-action { max-width:104px; padding-inline:4px; font-size:9px; line-height:1.25; }
   .scoreboard-match-row { margin:4px 0; border-radius:9px; }
   .scoreboard-predict { gap:4px; padding:0 6px 8px 12px; }
   .scoreboard-pick-choice { min-height:46px; gap:4px; padding:5px 4px; }

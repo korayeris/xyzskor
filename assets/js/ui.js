@@ -1940,8 +1940,8 @@ function filterFootballHomeMatches(filter,button){
   activeFootballHomeFilter=['all','live','finished','upcoming'].includes(filter)?filter:'all';
   if(!button) button=root.querySelector(`[data-scoreboard-filter="${activeFootballHomeFilter}"]`);
   root.querySelectorAll('.scoreboard-filters button').forEach(item=>{const active=item.dataset.scoreboardFilter===activeFootballHomeFilter;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));const key=item.dataset.scoreboardFilter;const count=key==='all'?root.querySelectorAll('.scoreboard-match-row').length:root.querySelectorAll(`.scoreboard-match-row.${key}`).length;item.setAttribute('aria-label',`${item.textContent.trim()} · ${count} maç`);});
-  root.querySelectorAll('.scoreboard-match-row').forEach(row=>{ row.hidden=activeFootballHomeFilter!=='all'&&!row.classList.contains(activeFootballHomeFilter); });
-  root.querySelectorAll('.scoreboard-league-group').forEach(group=>{ group.hidden=![...group.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden); });
+  root.querySelectorAll('.scoreboard-match-row').forEach(row=>{ const hidden=activeFootballHomeFilter!=='all'&&!row.classList.contains(activeFootballHomeFilter);row.hidden=hidden;row.style.display=hidden?'none':''; });
+  root.querySelectorAll('.scoreboard-league-group').forEach(group=>{ const hidden=![...group.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);group.hidden=hidden;group.style.display=hidden?'none':''; });
   const empty=root.querySelector('#scoreboardFilterEmpty');
   if(empty){const labels={live:'Şu anda canlı maç yok.',finished:'Geçmiş maç kaydı bulunamadı.',upcoming:'Yaklaşan maç henüz açıklanmadı.',all:'Yayınlanmış maç bulunmuyor.'};empty.textContent=labels[activeFootballHomeFilter];empty.hidden=[...root.querySelectorAll('.scoreboard-match-row')].some(row=>!row.hidden);}
 }
@@ -1965,7 +1965,9 @@ function footballHomeMiniStandings(leagueKey){
 }
 function footballHomeLeagueGroupContent(group){
   const headingId=`scoreboard-league-${group.key}`;
-  return `<div class="scoreboard-league-head"><h2 id="${headingId}">${escapeHTML(group.label)}</h2><button type="button" onclick="selectFootballLeague('${group.key}')">Tümünü gör →</button></div>${group.matches.length?group.matches.map(footballHomeMatchRow).join(''):`<p class="scoreboard-empty">${group.available?'Yaklaşan program henüz açıklanmadı.':'Lig verisi şu anda alınamadı; diğer ligler çalışmaya devam ediyor.'}</p>`}`;
+  const finished=group.matches.filter(match=>footballHomeMatchState(match).key==='finished').length;
+  const country=leagueOverviewCountry(group.key);
+  return `<div class="scoreboard-league-head"><div><span>${escapeHTML(country)} · ${escapeHTML(group.key.toLocaleUpperCase('tr-TR'))}</span><h2 id="${headingId}">${escapeHTML(group.label)}</h2><small>${escapeHTML(group.matches.length)} kayıt · ${escapeHTML(finished)} tamamlanan</small></div><button type="button" onclick="selectFootballLeague('${group.key}')">Lig merkezi →</button></div>${group.matches.length?group.matches.map(footballHomeMatchRow).join(''):`<p class="scoreboard-empty">${group.available?'Yaklaşan program henüz açıklanmadı.':'Lig verisi şu anda alınamadı; diğer ligler çalışmaya devam ediyor.'}</p>`}`;
 }
 function footballHomeFeatureContent(featured,featuredState,tableLeague){
   return `${featured?`<div class="scoreboard-kicker">ÖNE ÇIKAN MAÇ</div><h2>${escapeHTML(featured.ev)}<br>${escapeHTML(featured.konuk)}</h2><div class="scoreboard-feature-score"><span>${crestHTML(featured.ev,'lg')}</span><strong>${escapeHTML(featuredState.score||featuredState.label)}</strong><span>${crestHTML(featured.konuk,'lg')}</span></div>${featuredState.key==='upcoming'?`<p>Kim kazanır?</p><div class="scoreboard-picks" aria-label="Maç sonucu tahmini"><button onclick="openFootballPredict('${escapeHTML(String(featured.id))}','1')">1</button><button onclick="openFootballPredict('${escapeHTML(String(featured.id))}','X')">X</button><button onclick="openFootballPredict('${escapeHTML(String(featured.id))}','2')">2</button></div><button class="scoreboard-open" onclick="openFootballPredict('${escapeHTML(String(featured.id))}')">Maç merkezi ve Predict →</button>`:`<p>${featuredState.key==='live'?'Maç şu anda oynanıyor.':'Karşılaşma tamamlandı.'}</p><button class="scoreboard-open" onclick="openMatchCenter('${escapeHTML(String(featured.id))}')">${featuredState.key==='live'?'Canlı maç merkezine git':'Maç detayını aç'} →</button>`}`:'<h2>Program hazırlanıyor</h2><p>Lig verileri yenilendiğinde burada görünecek.</p>'}<section class="scoreboard-mini-standings"><header><div><span>PUAN DURUMU</span><strong>${escapeHTML(competitionLabelBySlug(tableLeague))}</strong></div><button type="button" onclick="selectFootballLeague('${tableLeague}')">Tam tablo →</button></header>${footballHomeMiniStandings(tableLeague)}</section>`;
@@ -2017,6 +2019,7 @@ function syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableL
     const group=grouped[nextLeague], target=existingGroups[nextLeague];
     if(group&&target){
       target.setAttribute('aria-labelledby',`scoreboard-league-${group.key}`);
+      target.dataset.scoreboardLeague=group.key;
       target.innerHTML=footballHomeLeagueGroupContent(group);
     }
     nextLeague+=1;
@@ -2033,6 +2036,11 @@ function syncEarlyFootballScoreboard(root,{grouped,featured,featuredState,tableL
 }
 function renderFootballScoreboardHome(){
   const root=document.getElementById('footballScoreboardHome'); if(!root) return;
+  if(activeFootballLeague!=='all'){
+    root.hidden=true;
+    document.body.classList.remove('football-aggregate-home','football-root-route');
+    return;
+  }
   const focusedFixture=document.activeElement?.closest?.('[data-home-fixture]')?.dataset?.homeFixture||null;
   const focusedPick=document.activeElement?.dataset?.scoreboardPick||'';
   const focusedAction=document.activeElement?.closest?.('.scoreboard-predict')?'predict':'main';
@@ -2056,7 +2064,7 @@ function renderFootballScoreboardHome(){
     <aside class="scoreboard-leagues"><div class="scoreboard-kicker">FUTBOL</div><h1>Ligler</h1><p>Bir lig seç ve tüm ayrıntılara geç.</p><nav>${grouped.map(group=>`<button type="button" onclick="selectFootballLeague('${group.key}')" aria-label="${escapeHTML(group.label)} lig merkezini aç"><span>${escapeHTML(group.label)}</span><b>→</b></button>`).join('')}</nav></aside>
     <main class="scoreboard-fixtures"><header><div><span class="scoreboard-live-dot"></span> Canlı, yaklaşan ve geçmiş maçlar</div><span>${new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'})}</span></header>
       <div class="scoreboard-filters"><button data-scoreboard-filter="all" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('all',this)">Tümü</button><button data-scoreboard-filter="live" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('live',this)">Canlı</button><button data-scoreboard-filter="finished" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('finished',this)">Geçmiş</button><button data-scoreboard-filter="upcoming" type="button" aria-pressed="false" onclick="filterFootballHomeMatches('upcoming',this)">Yaklaşan</button></div>
-      ${grouped.map(group=>{const headingId=`scoreboard-league-${group.key}`;return `<section class="scoreboard-league-group" aria-labelledby="${headingId}"><div class="scoreboard-league-head"><h2 id="${headingId}">${escapeHTML(group.label)}</h2><button type="button" onclick="selectFootballLeague('${group.key}')">Tümünü gör →</button></div>${group.matches.length?group.matches.map(footballHomeMatchRow).join(''):`<p class="scoreboard-empty">${group.available?'Yaklaşan program henüz açıklanmadı.':'Lig verisi şu anda alınamadı; diğer ligler çalışmaya devam ediyor.'}</p>`}</section>`;}).join('')}<p class="scoreboard-empty scoreboard-filter-empty" id="scoreboardFilterEmpty" hidden>Bu filtrede maç bulunmuyor.</p>
+      ${grouped.map(group=>{const headingId=`scoreboard-league-${group.key}`;return `<section class="scoreboard-league-group" data-scoreboard-league="${escapeHTML(group.key)}" aria-labelledby="${headingId}">${footballHomeLeagueGroupContent(group)}</section>`;}).join('')}<p class="scoreboard-empty scoreboard-filter-empty" id="scoreboardFilterEmpty" hidden>Bu filtrede maç bulunmuyor.</p>
     </main>
     <aside class="scoreboard-feature">${featured?`<div class="scoreboard-kicker">ÖNE ÇIKAN MAÇ</div><h2>${escapeHTML(featured.ev)}<br>${escapeHTML(featured.konuk)}</h2><div class="scoreboard-feature-score"><span>${crestHTML(featured.ev,'lg')}</span><strong>${escapeHTML(featuredState.score||featuredState.label)}</strong><span>${crestHTML(featured.konuk,'lg')}</span></div>${featuredState.key==='upcoming'?`<p>Kim kazanır?</p><div class="scoreboard-picks" aria-label="Maç sonucu tahmini"><button onclick="openFootballPredict('${escapeHTML(String(featured.id))}','1')">1</button><button onclick="openFootballPredict('${escapeHTML(String(featured.id))}','X')">X</button><button onclick="openFootballPredict('${escapeHTML(String(featured.id))}','2')">2</button></div><button class="scoreboard-open" onclick="openFootballPredict('${escapeHTML(String(featured.id))}')">Maç merkezi ve Predict →</button>`:`<p>${featuredState.key==='live'?'Maç şu anda oynanıyor.':'Karşılaşma tamamlandı.'}</p><button class="scoreboard-open" onclick="openMatchCenter('${escapeHTML(String(featured.id))}')">${featuredState.key==='live'?'Canlı maç merkezine git':'Maç detayını aç'} →</button>`}`:'<h2>Program hazırlanıyor</h2><p>Lig verileri yenilendiğinde burada görünecek.</p>'}<section class="scoreboard-mini-standings"><header><div><span>PUAN DURUMU</span><strong>${escapeHTML(competitionLabelBySlug(tableLeague))}</strong></div><button type="button" onclick="selectFootballLeague('${tableLeague}')">Tam tablo →</button></header>${footballHomeMiniStandings(tableLeague)}</section></aside>
   </div>`;

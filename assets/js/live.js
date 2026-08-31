@@ -307,6 +307,10 @@ function updateTickerCountdown(m){
 }
 function renderTicker(){
   const el = document.getElementById('liveTicker');
+  if(document.body.classList.contains('matchday-detail-open')){
+    el.innerHTML='<span class="ticker-label">MAÇ MERKEZİ</span><span class="ticker-match">Kadrolar, cezalılar, olaylar ve maç istatistikleri</span>';
+    return;
+  }
   const loadingLeague=document.body.dataset.footballLeagueLoading;
   if(loadingLeague){ const label=competitionLabelBySlug(loadingLeague); el.innerHTML=`<span class="ticker-dot"></span><span class="ticker-label">${escapeHTML(label)}</span><span class="ticker-match">Fikstür yükleniyor</span>`; return; }
   if(lastLoadError || DATA_ERRORS.matches){ el.innerHTML = `<span class="ticker-dot" style="background:var(--danger);"></span><span class="ticker-label" style="color:var(--danger);">HATA</span><span class="ticker-match">Fikstür verileri şu anda alınamıyor</span>`; return; }

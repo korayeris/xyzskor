@@ -67,6 +67,10 @@ assert.match(dataSource, /supabase-js@2\.112\.4[\s\S]*integrity:'sha384-[A-Za-z0
 assert.match(footballHubCss, /\.sport-branch-nav-compact[\s\S]*\.chat-launcher[\s\S]*\.mini-goal-game\s*\{\s*display:none[\s\S]*\.agenda-match/i, 'Canonical football CSS must own navigation, ticker and safe widget geometry without app-late.css.');
 assert.match(footballHubCss, /body\s*>\s*\.account-overlay[\s\S]*body\s*>\s*\.mc-overlay[\s\S]*z-index\s*:\s*300\s*!important/i, 'Canonical overlays must stay above the sticky football header before legacy styles load.');
 assert.match(footballHubCss, /\.scoreboard-match-row::before\s*\{[^}]*display:none[^}]*content:none/i, 'Maç kartlarının başındaki dekoratif durum noktaları görünmemeli.');
+assert.match(footballHubCss, /\.scoreboard-match-row\[hidden\],\.scoreboard-league-group\[hidden\]\s*\{[^}]*display:none\s*!important/i, 'Maç filtresinin gizlediği satır ve lig grupları son CSS katmanında yeniden görünmemeli.');
+assert.match(appSource, /function filterFootballHomeMatches[\s\S]*row\.hidden=hidden;row\.style\.display=hidden\?'none':''[\s\S]*group\.hidden=hidden;group\.style\.display=hidden\?'none':''/, 'Geçmiş/canlı/yaklaşan filtresi computed display durumunu deterministik yönetmeli.');
+assert.match(appSource, /function setDetailMode\(active\)[\s\S]*classList\.toggle\("matchday-detail-open", active\)[\s\S]*renderTicker\(\)/, 'Maç detayı açılıp kapanırken üst durum şeridi yenilenmeli.');
+assert.match(appSource, /function renderTicker\(\)[\s\S]*matchday-detail-open[\s\S]*MAÇ MERKEZİ[\s\S]*if\(!MATCHES\.length\)/, 'Doğrudan maç detayı fikstür boş mesajı yerine maç merkezi bağlamını göstermeli.');
 const html = [documentHtml, footballHubCss, appCss, appSource].join('\n');
 const liveFunction = await readFile(new URL('../supabase/functions/football-live/index.ts', import.meta.url), 'utf8');
 const coreMigration = await readFile(new URL('../supabase/migrations/20260802180000_platform_core.sql', import.meta.url), 'utf8');
