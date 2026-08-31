@@ -21,7 +21,8 @@ assert.match(source, /const categories = \[[\s\S]*single-seater[\s\S]*motorcycle
 assert.match(source, /seriesPickerHTML[\s\S]*SERİLER[\s\S]*data-classification-key="all"[\s\S]*aria-current/, 'Seri rayı Tümü ve doğrudan seçilebilir gerçek seri bağlantıları sunmalı.');
 assert.match(source, /data-mark="\$\{escapeHTML\(config\.mark\)\}"[\s\S]*--series-accent:\$\{escapeHTML\(config\.accent\)\}/, 'Her seri gerçek kimliğini ve kendi renk kodunu taşımalı.');
 assert.match(source, /data-mark="◉"[\s\S]*data-classification-key="all"|data-classification-key="all"[\s\S]*data-mark="◉"/, 'Tüm seriler kartı ayrı bir yayın işareti taşımalı.');
-assert.match(source, /motorsportPhotos[\s\S]*formula-1-cc\.webp[\s\S]*formula-e-cc\.webp[\s\S]*indycar-cc\.webp[\s\S]*motogp-cc\.webp[\s\S]*rally-cc\.webp[\s\S]*endurance-cc\.webp[\s\S]*stock-car-cc\.webp/, 'Seri atlası yalnız yerel, lisans kaydı bulunan gerçek yarış fotoğraflarını kullanmalı.');
+assert.match(source, /motorsportPhotos[\s\S]*formula-1-cc\.webp[\s\S]*formula-e-cc\.webp[\s\S]*indycar-cc\.webp[\s\S]*motogp-cc\.webp[\s\S]*moto2-cc\.webp[\s\S]*moto3-cc\.webp[\s\S]*rally-cc\.webp[\s\S]*endurance-cc\.webp[\s\S]*stock-car-cc\.webp/, 'Seri atlası yalnız yerel, lisans kaydı bulunan gerçek yarış fotoğraflarını kullanmalı.');
+assert.match(source, /moto2:[^\n]*photo:\s*'moto2'[\s\S]*moto3:[^\n]*photo:\s*'moto3'/, 'MotoGP, Moto2 ve Moto3 birbirinden bağımsız fotoğraf anahtarları kullanmalı.');
 assert.match(source, /noopener noreferrer license[\s\S]*xms-photo-credits[\s\S]*motorsports-image-credits\.json/, 'Fotoğrafçı, lisans ve kalıcı lisans kaydı kullanıcıya görünür olmalı.');
 assert.match(source, /--xms-hero-photo[\s\S]*xms-identity-photo-credit[\s\S]*Fotoğraf:/, 'Seçili seri üst alanı gerçek fotoğraf ve görünür atıf taşımalı.');
 assert.match(source, /pickerMeta:\s*'Grand Prix · hibrit'[\s\S]*pickerMeta:\s*'Elektrik · şehir pisti'[\s\S]*pickerMeta:\s*'Toprak · asfalt · kar'[\s\S]*pickerMeta:\s*'24 saat klasiği'/, 'Seri kartları birbirini tekrar etmeyen, disipline özgü kısa açıklamalar taşımalı.');
@@ -58,7 +59,7 @@ assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation:\
 assert.match(css, /@media \(forced-colors:\s*active\)/, 'Zorunlu renkler erişilebilirliği desteklenmeli.');
 assert.doesNotMatch(`${source}\n${css}`, /motorsport-cinematic-v1|formula-hero-v1|motogp-hero-v1/, 'Motor sporları merkezi yapay görünümlü eski kolajları kullanmamalı.');
 
-assert.equal(photoCredits.assets.length, 7, 'Yedi özgün fotoğraf türevinin lisans kaydı bulunmalı.');
+assert.equal(photoCredits.assets.length, 9, 'Dokuz özgün fotoğraf türevinin lisans kaydı bulunmalı.');
 assert.match(photoCredits.modifications, /cropped to 1280x720[\s\S]*WebP/i, 'Görsel uyarlamaları lisans kaydında açıklanmalı.');
 for (const photo of photoCredits.assets) {
   assert.match(photo.source_url, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/, `${photo.file}: kaynak birincil Commons dosya sayfası olmalı.`);
