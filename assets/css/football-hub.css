@@ -35,6 +35,15 @@ body.football-root-route #page-live,
 body.football-aggregate-home #page-live,
 body.football-league-overview-mode #page-live { display:none !important; }
 
+/* `?fixture=` is a full match-detail document, not the aggregate football
+   landing. Keep the landing chrome hidden, but let the archived/live match
+   center itself win over the route-level compact-home rule above. */
+body.matchday-detail-open.football-root-route #matchdayCommand,
+body.matchday-detail-open.football-aggregate-home #matchdayCommand,
+body.matchday-detail-open.football-league-overview-mode #matchdayCommand {
+  display:block !important;
+}
+
 .football-scoreboard-home,
 .football-league-overview { box-sizing:border-box; min-width:0; }
 .football-scoreboard-home { display:none; width:100%; max-width:1180px; margin:18px auto 48px; }

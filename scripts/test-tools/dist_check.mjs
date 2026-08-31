@@ -769,10 +769,16 @@ async function smokeExplicitFixture(context, viewportName, requestLog, runtimeEr
   const state = await page.evaluate(() => ({
     command: Boolean(document.getElementById('matchdayCommand')),
     liveRoot: Boolean(document.getElementById('matchdayLiveRoot')),
+    commandDisplay: getComputedStyle(document.getElementById('matchdayCommand')).display,
+    commandHeight: document.getElementById('matchdayCommand')?.getBoundingClientRect().height || 0,
+    scoreboard: Boolean(document.querySelector('#matchdayLiveRoot .matchday-scoreboard')),
+    jumpLinks: document.querySelectorAll('#matchdayLiveRoot .matchday-jump a').length,
     title: document.getElementById('matchdayTitle')?.textContent?.trim() || '',
     ticker: document.getElementById('liveTicker')?.textContent?.replace(/\s+/g, ' ').trim() || '',
   }));
   check(state.command && state.liveRoot, `${scenario}: matchday fragment command exists`, JSON.stringify(state));
+  check(state.commandDisplay !== 'none' && state.commandHeight > 200, `${scenario}: matchday detail is visibly rendered`, JSON.stringify(state));
+  check(state.scoreboard && state.jumpLinks === 3, `${scenario}: score, events, statistics and lineup navigation render`, JSON.stringify(state));
   check(/MAÇ MERKEZİ/.test(state.ticker) && !/Henüz fikstür eklenmedi/.test(state.ticker), `${scenario}: detail ticker describes the match center`, state.ticker);
   const matchdayRequests = requestLog.slice(requestStart).filter((item) => item.url.startsWith('/api/football/matchday'));
   check(matchdayRequests.some((item) => item.url.includes('fixture=60001')), `${scenario}: fixture-scoped matchday request issued`, matchdayRequests.map((item) => item.url).join(', '));
